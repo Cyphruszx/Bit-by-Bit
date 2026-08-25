@@ -5,6 +5,7 @@ import { demoBudgets, demoGoals, useMoneyFlow } from "@/components/money-flow-pr
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud, formatSignedAud } from "@/lib/format";
+import { tagsOf } from "@/lib/money-flow/tags";
 
 export function DashboardView() {
   const { flow, hasUploads, transactions, usingDemo } = useMoneyFlow();
@@ -63,7 +64,7 @@ export function DashboardView() {
           </div>
         </article>
         <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
-          <h2 className="text-lg font-bold">{hasUploads ? "Spending from documents" : "Spending vs budgets"}</h2>
+          <h2 className="text-lg font-bold">{hasUploads ? "Spending by tag" : "Spending vs budgets"}</h2>
           <div className="mt-5 space-y-5">
             {(hasUploads ? flow.categories.slice(0, 4) : demoBudgets.map((budget) => ({ name: budget.name, amount: budget.spent, share: Math.round((budget.spent / budget.limit) * 100) }))).map(
               (item) => (
@@ -92,7 +93,7 @@ export function DashboardView() {
               <div>
                 <p className="font-semibold">{txn.merchant}</p>
                 <p className="mt-1 text-sm text-[#77857f]">
-                  {txn.category} · {txn.date}
+                  {tagsOf(txn).join(" · ")} · {txn.date}
                 </p>
               </div>
               <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>

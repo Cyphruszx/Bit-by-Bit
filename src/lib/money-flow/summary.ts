@@ -1,5 +1,6 @@
 import { formatAud } from "@/lib/format";
 import { roundMoney } from "@/lib/money-flow/parse-values";
+import { tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
@@ -21,8 +22,9 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const expenseByCategory = new Map<string, number>();
   for (const txn of transactions) {
     if (txn.type === "transfer" || txn.type === "income" || txn.amount >= 0) continue;
-    const current = expenseByCategory.get(txn.category) ?? 0;
-    expenseByCategory.set(txn.category, roundMoney(current + Math.abs(txn.amount)));
+    const primary = tagsOf(txn)[0];
+    const current = expenseByCategory.get(primary) ?? 0;
+    expenseByCategory.set(primary, roundMoney(current + Math.abs(txn.amount)));
   }
   const categories = [...expenseByCategory.entries()]
     .map(([name, amount]) => ({

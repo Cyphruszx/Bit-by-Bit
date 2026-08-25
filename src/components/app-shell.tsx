@@ -6,7 +6,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { hasUploads } = useMoneyFlow();
+  const { hasUploads, usingDemo } = useMoneyFlow();
 
   return (
     <main className="min-h-screen bg-[#f6f8f7] text-[#17211e]">
@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AppNav />
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-[#edf4dc] px-3 py-1 text-sm font-medium text-[#355a3f]">
-              {hasUploads ? "Interpreted from files" : "Demo data"}
+              {hasUploads ? "Interpreted from files" : usingDemo ? "Demo data" : "Edited in this browser"}
             </span>
             <Link href="/upload" className="rounded-full bg-[#d5f06c] px-4 py-2 text-sm font-bold text-[#173b31]">
               Upload

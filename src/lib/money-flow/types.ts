@@ -25,6 +25,7 @@ export type InterpretedTransaction = {
   type: TransactionType;
   sourceFile: string;
   confidence: number;
+  tags?: string[];
 };
 
 export type FileInterpretation = {
