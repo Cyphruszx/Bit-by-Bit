@@ -74,14 +74,17 @@ function getSnapshot() {
 }
 
 function writeStore(result: InterpretationResult) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ files: result.files, transactions: result.transactions }));
-  cachedRaw = null;
+  const raw = JSON.stringify({ files: result.files, transactions: result.transactions });
+  localStorage.setItem(STORAGE_KEY, raw);
+  cachedRaw = raw;
+  cachedSnapshot = { files: result.files, transactions: result.transactions };
   listeners.forEach((listener) => listener());
 }
 
 function clearStore() {
   localStorage.removeItem(STORAGE_KEY);
   cachedRaw = null;
+  cachedSnapshot = empty;
   listeners.forEach((listener) => listener());
 }
 
