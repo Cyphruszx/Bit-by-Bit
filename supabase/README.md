@@ -1,4 +1,4 @@
-# Supabase database setup
+# BitbyBit Supabase database setup
 
 Checkpoint 2 supplies the database migration only; it does not create a hosted Supabase project on your behalf.
 

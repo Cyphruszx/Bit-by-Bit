@@ -1,4 +1,4 @@
--- ClearLedger: foundational multi-tenant financial schema.
+-- BitbyBit: foundational multi-tenant financial schema.
 -- Run with the Supabase CLI or paste into the Supabase SQL editor.
 
 create extension if not exists pgcrypto;
