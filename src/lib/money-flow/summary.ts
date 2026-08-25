@@ -20,7 +20,7 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const net = roundMoney(income - spending);
   const expenseByCategory = new Map<string, number>();
   for (const txn of transactions) {
-    if (txn.amount >= 0 && txn.type !== "expense") continue;
+    if (txn.type === "transfer" || txn.type === "income" || txn.amount >= 0) continue;
     const current = expenseByCategory.get(txn.category) ?? 0;
     expenseByCategory.set(txn.category, roundMoney(current + Math.abs(txn.amount)));
   }

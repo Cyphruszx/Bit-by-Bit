@@ -156,6 +156,10 @@ describe("money flow summary", () => {
     assert.equal(summary.spending, 80);
     assert.equal(summary.transfers, 400);
     assert.equal(summary.net, 1920);
+    assert.deepEqual(
+      summary.categories.map((category) => category.name),
+      ["Groceries"],
+    );
   });
 });
 
