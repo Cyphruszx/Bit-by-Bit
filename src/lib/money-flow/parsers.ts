@@ -1,0 +1,202 @@
+import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
+import { detectFileKind } from "@/lib/money-flow/detect";
+import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
+import { transactionsFromText } from "@/lib/money-flow/text-lines";
+import type { InterpretedTransaction } from "@/lib/money-flow/types";
+
+export async function parseDocument(
+  filename: string,
+  mime: string,
+  bytes: Uint8Array,
+): Promise<{ transactions: InterpretedTransaction[]; notes: string[] }> {
+  const kind = detectFileKind(filename, mime, bytes);
+  const notes: string[] = [];
+
+  if (kind === "csv") {
+    return { transactions: transactionsFromTable(rowsFromCsv(decodeText(bytes)), filename), notes };
+  }
+  if (kind === "json") {
+    return { transactions: parseJson(decodeText(bytes), filename), notes };
+  }
+  if (kind === "ofx") {
+    return { transactions: parseOfx(decodeText(bytes), filename), notes };
+  }
+  if (kind === "qif") {
+    return { transactions: parseQif(decodeText(bytes), filename), notes };
+  }
+  if (kind === "html") {
+    const html = decodeText(bytes);
+    const tableRows = tablesFromHtml(html);
+    const fromTables = tableRows.flatMap((rows) => transactionsFromTable(rows, filename));
+    if (fromTables.length > 0) return { transactions: fromTables, notes };
+    return { transactions: transactionsFromText(stripTags(html), filename), notes };
+  }
+  if (kind === "text") {
+    const text = decodeText(bytes);
+    const asTable = transactionsFromTable(rowsFromCsv(text), filename);
+    if (asTable.length >= 2) return { transactions: asTable, notes };
+    return { transactions: transactionsFromText(text, filename), notes };
+  }
+  if (kind === "xlsx") {
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.read(bytes, { type: "array", cellDates: true });
+    const transactions = workbook.SheetNames.flatMap((name) => {
+      const sheet = workbook.Sheets[name];
+      const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, { header: 1, raw: true, defval: "" });
+      return transactionsFromTable(rows, `${filename} · ${name}`);
+    });
+    return { transactions, notes: workbook.SheetNames.length > 1 ? [`Read ${workbook.SheetNames.length} sheets`] : notes };
+  }
+  if (kind === "pdf") {
+    const { extractText } = await import("unpdf");
+    const extracted = await extractText(bytes, { mergePages: true });
+    const text = extracted.text.trim();
+    if (!text) {
+      notes.push("This PDF looks scanned. BitbyBit will try OCR next if you upload a photo of the page.");
+      return { transactions: [], notes };
+    }
+    const asTable = transactionsFromTable(rowsFromCsv(text), filename);
+    const asLines = transactionsFromText(text, filename);
+    return { transactions: asTable.length >= asLines.length ? asTable : asLines, notes };
+  }
+  if (kind === "docx") {
+    const mammoth = await import("mammoth");
+    const result = await mammoth.extractRawText({ buffer: Buffer.from(bytes) });
+    const asTable = transactionsFromTable(rowsFromCsv(result.value), filename);
+    const asLines = transactionsFromText(result.value, filename);
+    return { transactions: asTable.length >= asLines.length ? asTable : asLines, notes };
+  }
+  if (kind === "image") {
+    try {
+      const Tesseract = await import("tesseract.js");
+      const recognized = await Tesseract.recognize(Buffer.from(bytes), "eng");
+      const text = recognized.data.text.trim();
+      if (!text) {
+        return { transactions: [], notes: ["OCR did not find readable text on this image."] };
+      }
+      notes.push("Read with on-device OCR. Check a couple of amounts before you rely on them.");
+      return { transactions: transactionsFromText(text, filename), notes };
+    } catch (error) {
+      return {
+        transactions: [],
+        notes: [`Could not OCR this image: ${error instanceof Error ? error.message : "unknown error"}`],
+      };
+    }
+  }
+
+  const fallback = decodeText(bytes);
+  return { transactions: transactionsFromText(fallback, filename), notes };
+}
+
+function parseJson(text: string, sourceFile: string): InterpretedTransaction[] {
+  const parsed: unknown = JSON.parse(text);
+  const records = flattenJsonRecords(parsed);
+  if (records.length === 0) return [];
+  const headers = Array.from(new Set(records.flatMap((record) => Object.keys(record))));
+  const rows = [headers, ...records.map((record) => headers.map((header) => record[header] ?? ""))];
+  return transactionsFromTable(rows, sourceFile);
+}
+
+function flattenJsonRecords(value: unknown): Array<Record<string, string | number | null>> {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => flattenJsonRecords(item));
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.transactions)) return flattenJsonRecords(record.transactions);
+    if (Array.isArray(record.data)) return flattenJsonRecords(record.data);
+    if (Array.isArray(record.rows)) return flattenJsonRecords(record.rows);
+    const flattened: Record<string, string | number | null> = {};
+    for (const [key, nested] of Object.entries(record)) {
+      flattened[key] = nested == null || typeof nested === "object" ? JSON.stringify(nested) : (nested as string | number);
+    }
+    return [flattened];
+  }
+  return [];
+}
+
+function parseOfx(text: string, sourceFile: string): InterpretedTransaction[] {
+  const blocks = text.split(/<STMTTRN>/i).slice(1);
+  return blocks.flatMap((block, index) => {
+    const amount = parseAmount(ofxField(block, "TRNAMT"));
+    const posted = ofxField(block, "DTPOSTED");
+    const dateIso = parseDate(posted) ?? parseDate(posted.slice(0, 8));
+    const name = ofxField(block, "NAME") || ofxField(block, "MEMO") || ofxField(block, "PAYEE");
+    if (amount == null || !dateIso || !name) return [];
+    const category = categorize(name);
+    const type = inferType(`${name} ${ofxField(block, "TRNTYPE")}`, amount, category);
+    return [
+      {
+        id: `${sourceFile}-ofx-${index}`,
+        merchant: tidyMerchant(name),
+        category,
+        date: formatDisplayDate(dateIso),
+        dateIso,
+        amount: type === "income" || type === "refund" ? Math.abs(amount) : amount,
+        type,
+        sourceFile,
+        confidence: 0.95,
+      } satisfies InterpretedTransaction,
+    ];
+  });
+}
+
+function ofxField(block: string, tag: string): string {
+  const xml = block.match(new RegExp(`<${tag}>([^<]+)`, "i"));
+  if (xml) return xml[1].trim();
+  const sgml = block.match(new RegExp(`<${tag}>([^\\n<]+)`, "i"));
+  return sgml ? sgml[1].trim() : "";
+}
+
+function parseQif(text: string, sourceFile: string): InterpretedTransaction[] {
+  const records = text.split("^").map((chunk) => chunk.trim()).filter(Boolean);
+  return records.flatMap((record, index) => {
+    const dateIso = parseDate(fieldLine(record, "D"));
+    const amount = parseAmount(fieldLine(record, "T") || fieldLine(record, "U"));
+    const name = fieldLine(record, "P") || fieldLine(record, "M") || fieldLine(record, "N");
+    if (amount == null || !dateIso || !name) return [];
+    const category = categorize(`${name} ${fieldLine(record, "L")}`);
+    const type = inferType(name, amount, category);
+    return [
+      {
+        id: `${sourceFile}-qif-${index}`,
+        merchant: tidyMerchant(name),
+        category,
+        date: formatDisplayDate(dateIso),
+        dateIso,
+        amount: type === "income" || type === "refund" ? Math.abs(amount) : amount,
+        type,
+        sourceFile,
+        confidence: 0.9,
+      } satisfies InterpretedTransaction,
+    ];
+  });
+}
+
+function fieldLine(record: string, code: string): string {
+  const line = record.split(/\r?\n/).find((entry) => entry.startsWith(code));
+  return line ? line.slice(1).trim() : "";
+}
+
+function tablesFromHtml(html: string): string[][][] {
+  const tables = html.match(/<table[\s\S]*?<\/table>/gi) ?? [];
+  return tables.map((table) => {
+    const rows = table.match(/<tr[\s\S]*?<\/tr>/gi) ?? [];
+    return rows.map((row) => {
+      const cells = row.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) ?? [];
+      return cells.map((cell) => stripTags(cell).trim());
+    });
+  });
+}
+
+function stripTags(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|h\d)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+\n/g, "\n")
+    .trim();
+}

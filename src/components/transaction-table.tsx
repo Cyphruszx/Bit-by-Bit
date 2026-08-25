@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { categories, transactions } from "@/lib/demo-data";
 import { formatSignedAud } from "@/lib/format";
+import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
-export function TransactionTable() {
+export function TransactionTable({ transactions }: { transactions: InterpretedTransaction[] }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
+  const categories = ["All", ...Array.from(new Set(transactions.map((txn) => txn.category)))];
 
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -15,10 +16,11 @@ export function TransactionTable() {
       const matchesQuery =
         needle.length === 0 ||
         txn.merchant.toLowerCase().includes(needle) ||
-        txn.category.toLowerCase().includes(needle);
+        txn.category.toLowerCase().includes(needle) ||
+        txn.sourceFile.toLowerCase().includes(needle);
       return matchesCategory && matchesQuery;
     });
-  }, [category, query]);
+  }, [category, query, transactions]);
 
   return (
     <div>
@@ -27,7 +29,7 @@ export function TransactionTable() {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search merchants"
+          placeholder="Search merchants or files"
           className="w-full rounded-full border border-[#dce4df] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#173b31] sm:max-w-xs"
         />
         <select
@@ -54,9 +56,7 @@ export function TransactionTable() {
                   {txn.category} · {txn.date}
                 </p>
               </div>
-              <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>
-                {formatSignedAud(txn.amount)}
-              </p>
+              <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>
             </div>
           ))
         )}

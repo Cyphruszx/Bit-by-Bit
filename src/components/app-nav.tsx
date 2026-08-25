@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
+  ["Upload", "/upload"],
   ["Dashboard", "/dashboard"],
   ["Transactions", "/transactions"],
   ["Goals", "/goals"],

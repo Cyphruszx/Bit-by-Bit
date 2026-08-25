@@ -1,4 +1,4 @@
 export const siteName = "BitbyBit";
-export const siteTagline = "Reach your finance goals, bit by bit.";
+export const siteTagline = "Upload any statement. See the money flow.";
 export const siteDescription =
-  "BitbyBit turns everyday spending into a clear path toward the things you are saving for.";
+  "BitbyBit reads bank files, PDFs, spreadsheets, photos of documents, and more, then turns them into a clear picture of money in and money out.";
