@@ -4,7 +4,7 @@ import { siteDescription, siteName } from "@/lib/brand";
 
 const features = [
   ["Almost any document", "CSV, Excel, PDF, OFX, QIF, Word, HTML, JSON, photos of receipts, and plain text."],
-  ["Interpreted money flow", "See money in, money out, and the categories that actually moved."],
+  ["Interpreted money flow", "See money in, money out, and the tags that actually moved."],
   ["Built for real files", "Drop a bank export or a photographed statement into one place."],
   ["Made for Australia", "Dates, dollars, and merchants parsed with local statements in mind."],
 ];
@@ -51,7 +51,7 @@ export default function Home() {
             </div>
             <div className="rounded-2xl bg-white/10 p-4">
               <p className="text-xs text-[#b9cdc4]">Money out</p>
-              <p className="mt-1 font-bold">Spending by category</p>
+              <p className="mt-1 font-bold">Spending by tag</p>
             </div>
           </div>
         </div>

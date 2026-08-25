@@ -16,7 +16,7 @@ export function TransactionsView() {
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Transactions</h1>
       <p className="mt-2 max-w-2xl text-[#60716a]">
         {usingDemo
-          ? "Track money in and out on sample activity, or upload documents to interpret your own. Tags replace categories — change them on a transaction or rename them everywhere."
+          ? "Track money in and out on sample activity, or upload documents to interpret your own. Add or change tags on a transaction, or rename a tag everywhere."
           : hasUploads
             ? "Money in and out from your uploaded documents. Change tags on a transaction, or rename a tag across the whole list."
             : "Sample activity with your tag edits, saved in this browser."}

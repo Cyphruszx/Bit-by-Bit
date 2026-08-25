@@ -77,7 +77,7 @@ function insights(
   const topOut = transactions.filter((txn) => txn.amount < 0).sort((a, b) => a.amount - b.amount)[0];
   if (topIn) lines.push(`Money came in mainly from ${topIn.merchant} (${formatAud(topIn.amount)}).`);
   if (summary.categories[0]) {
-    lines.push(`The largest outflow category is ${summary.categories[0].name} (${formatAud(summary.categories[0].amount)}).`);
+    lines.push(`The largest outflow tag is ${summary.categories[0].name} (${formatAud(summary.categories[0].amount)}).`);
   } else if (topOut) {
     lines.push(`The largest payment was ${topOut.merchant} (${formatAud(Math.abs(topOut.amount))}).`);
   }
