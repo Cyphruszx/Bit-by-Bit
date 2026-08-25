@@ -8,6 +8,8 @@ import type { FileInterpretation, InterpretationResult, InterpretedTransaction, 
 const STORAGE_KEY = "bitbybit.interpreted-v1";
 const empty = { files: [] as FileInterpretation[], transactions: [] as InterpretedTransaction[] };
 const listeners = new Set<() => void>();
+let cachedRaw: string | null = null;
+let cachedSnapshot = empty;
 
 type MoneyFlowState = {
   files: FileInterpretation[];
@@ -22,7 +24,7 @@ type MoneyFlowState = {
 const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
 
 export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
-  const stored = useSyncExternalStore(subscribe, readStore, () => empty);
+  const stored = useSyncExternalStore(subscribe, getSnapshot, () => empty);
 
   const value = useMemo<MoneyFlowState>(() => {
     const hasUploads = stored.transactions.length > 0;
@@ -53,24 +55,33 @@ function subscribe(onChange: () => void) {
   return () => listeners.delete(onChange);
 }
 
-function readStore() {
+function getSnapshot() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return empty;
+    if (raw === cachedRaw) return cachedSnapshot;
+    cachedRaw = raw;
+    if (!raw) {
+      cachedSnapshot = empty;
+      return empty;
+    }
     const parsed = JSON.parse(raw) as { files?: FileInterpretation[]; transactions?: InterpretedTransaction[] };
-    return { files: parsed.files ?? [], transactions: parsed.transactions ?? [] };
+    cachedSnapshot = { files: parsed.files ?? [], transactions: parsed.transactions ?? [] };
+    return cachedSnapshot;
   } catch {
+    cachedSnapshot = empty;
     return empty;
   }
 }
 
 function writeStore(result: InterpretationResult) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ files: result.files, transactions: result.transactions }));
+  cachedRaw = null;
   listeners.forEach((listener) => listener());
 }
 
 function clearStore() {
   localStorage.removeItem(STORAGE_KEY);
+  cachedRaw = null;
   listeners.forEach((listener) => listener());
 }
 
