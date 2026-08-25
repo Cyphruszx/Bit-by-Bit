@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { detectFileKind } from "./detect";
@@ -112,6 +112,72 @@ PSalary Acme
   it("sniffs file kinds from names and bytes", () => {
     assert.equal(detectFileKind("photo.PNG", "image/png", new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), "image");
     assert.equal(detectFileKind("notes.txt", "text/plain", new TextEncoder().encode("hello")), "text");
+  });
+});
+
+const uploadedUpPdf = "/home/ubuntu/.cursor/projects/workspace/uploads/statement-2026-07_a358.pdf";
+
+describe("Up Bank statement backend", () => {
+  it("interprets an Up-style statement layout, including page-broken amounts", async () => {
+    const text = `July 2026 Statement
+Up is a brand of Bendigo and Adelaide Bank Limited
+Closing Balance $50.94
+Friday, 31st Jul
+1:32pm Woolworths
+Wagga Wagga, NSW WOOLWORTHS 12091, WAGGA WAGGA Purchase
+Zap Card **0434 $10.50 $50.94
+1:21pm Osko Payment Received
+JANE CITIZEN Osko Payment Received +
+$300.00 $325.51
+1:13am Soul Origin
+Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
+12:47pm Transfer from Tax +$75.00 $76.26
+`;
+    const result = await interpretDocuments([file("up-statement.txt", "text/plain", text)]);
+    assert.equal(result.files[0].processingStatus, "completed");
+    assert.deepEqual(result.files[0].notes, ["Read as an Up / Bendigo bank statement."]);
+    assert.equal(result.transactions.length, 4);
+    assert.equal(result.transactions.find((txn) => txn.merchant === "Woolworths")?.amount, -10.5);
+    assert.equal(result.transactions.find((txn) => txn.merchant === "Osko Payment Received")?.amount, 300);
+    assert.equal(result.transactions.find((txn) => txn.merchant === "Soul Origin")?.type, "refund");
+    assert.equal(result.transactions.find((txn) => txn.merchant === "Transfer From Tax")?.type, "transfer");
+    assert.equal(result.flow.spending, 10.5);
+    assert.equal(result.flow.refunds, 7.9);
+    assert.equal(result.flow.transfers, 75);
+    assert.equal(result.flow.income, 307.9);
+  });
+
+  it("interprets the uploaded July 2026 Up PDF through interpretDocuments", { skip: !existsSync(uploadedUpPdf) }, async () => {
+    const bytes = new Uint8Array(readFileSync(uploadedUpPdf));
+    const result = await interpretDocuments([{ filename: "statement-2026-07.pdf", mime: "application/pdf", bytes }]);
+    const fileResult = result.files[0];
+    assert.equal(fileResult.processingStatus, "completed");
+    assert.equal(fileResult.kind, "pdf");
+    assert.ok(fileResult.notes.includes("Read as an Up / Bendigo bank statement."));
+    assert.equal(result.flow.spending, 5619.59);
+    assert.ok(Math.abs(result.flow.income - 5418.24) < 0.05, `income ${result.flow.income}`);
+    assert.ok(result.transactions.length >= 120, `txn count ${result.transactions.length}`);
+    assert.match(result.flow.periodLabel, /1 Jul.*31 Jul/);
+    assert.ok(
+      result.transactions.some((txn) => txn.merchant === "Woolworths" && txn.amount === -10.5 && txn.dateIso === "2026-07-31"),
+    );
+    assert.ok(result.transactions.some((txn) => txn.merchant === "Osko Payment Received" && txn.amount === 1000));
+    assert.ok(result.transactions.some((txn) => txn.merchant === "Zambrero"));
+    assert.ok(result.transactions.some((txn) => txn.merchant === "Soul Origin" && txn.type === "refund"));
+  });
+
+  it("runs the server action against the uploaded Up PDF", { skip: !existsSync(uploadedUpPdf) }, async () => {
+    const { interpretUploadedDocuments } = await import("../../app/actions/interpret-documents");
+    const bytes = readFileSync(uploadedUpPdf);
+    const form = new FormData();
+    form.append("files", new File([bytes], "statement-2026-07.pdf", { type: "application/pdf" }));
+    const result = await interpretUploadedDocuments(form);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.flow.spending, 5619.59);
+    assert.ok(Math.abs(result.flow.income - 5418.24) < 0.05, `income ${result.flow.income}`);
+    assert.ok(result.transactions.length >= 120);
+    assert.equal(result.files[0].kind, "pdf");
   });
 });
 

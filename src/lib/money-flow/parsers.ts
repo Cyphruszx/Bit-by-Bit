@@ -2,6 +2,7 @@ import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize
 import { detectFileKind } from "@/lib/money-flow/detect";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import { rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
+import { looksLikeUpStatement, transactionsFromUpStatement } from "@/lib/money-flow/up-statement";
 import { transactionsFromText } from "@/lib/money-flow/text-lines";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -30,13 +31,11 @@ export async function parseDocument(
     const tableRows = tablesFromHtml(html);
     const fromTables = tableRows.flatMap((rows) => transactionsFromTable(rows, filename));
     if (fromTables.length > 0) return { transactions: fromTables, notes };
-    return { transactions: transactionsFromText(stripTags(html), filename), notes };
+    return { transactions: transactionsFromExtractedText(stripTags(html), filename), notes: notesForText(html) };
   }
   if (kind === "text") {
     const text = decodeText(bytes);
-    const asTable = transactionsFromTable(rowsFromCsv(text), filename);
-    if (asTable.length >= 2) return { transactions: asTable, notes };
-    return { transactions: transactionsFromText(text, filename), notes };
+    return { transactions: transactionsFromExtractedText(text, filename), notes: notesForText(text) };
   }
   if (kind === "xlsx") {
     const XLSX = await import("xlsx");
@@ -56,16 +55,12 @@ export async function parseDocument(
       notes.push("This PDF looks scanned. BitbyBit will try OCR next if you upload a photo of the page.");
       return { transactions: [], notes };
     }
-    const asTable = transactionsFromTable(rowsFromCsv(text), filename);
-    const asLines = transactionsFromText(text, filename);
-    return { transactions: asTable.length >= asLines.length ? asTable : asLines, notes };
+    return { transactions: transactionsFromExtractedText(text, filename), notes: notesForText(text) };
   }
   if (kind === "docx") {
     const mammoth = await import("mammoth");
     const result = await mammoth.extractRawText({ buffer: Buffer.from(bytes) });
-    const asTable = transactionsFromTable(rowsFromCsv(result.value), filename);
-    const asLines = transactionsFromText(result.value, filename);
-    return { transactions: asTable.length >= asLines.length ? asTable : asLines, notes };
+    return { transactions: transactionsFromExtractedText(result.value, filename), notes: notesForText(result.value) };
   }
   if (kind === "image") {
     try {
@@ -76,7 +71,7 @@ export async function parseDocument(
         return { transactions: [], notes: ["OCR did not find readable text on this image."] };
       }
       notes.push("Read with on-device OCR. Check a couple of amounts before you rely on them.");
-      return { transactions: transactionsFromText(text, filename), notes };
+      return { transactions: transactionsFromExtractedText(text, filename), notes };
     } catch (error) {
       return {
         transactions: [],
@@ -86,7 +81,18 @@ export async function parseDocument(
   }
 
   const fallback = decodeText(bytes);
-  return { transactions: transactionsFromText(fallback, filename), notes };
+  return { transactions: transactionsFromExtractedText(fallback, filename), notes: notesForText(fallback) };
+}
+
+function transactionsFromExtractedText(text: string, filename: string): InterpretedTransaction[] {
+  if (looksLikeUpStatement(text)) return transactionsFromUpStatement(text, filename);
+  const asTable = transactionsFromTable(rowsFromCsv(text), filename);
+  const asLines = transactionsFromText(text, filename);
+  return asTable.length >= asLines.length ? asTable : asLines;
+}
+
+function notesForText(text: string): string[] {
+  return looksLikeUpStatement(text) ? ["Read as an Up / Bendigo bank statement."] : [];
 }
 
 function parseJson(text: string, sourceFile: string): InterpretedTransaction[] {
