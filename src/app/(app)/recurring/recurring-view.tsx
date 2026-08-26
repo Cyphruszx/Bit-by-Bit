@@ -233,7 +233,7 @@ function AddPaymentForm({
           </select>
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-[#60716a]">Exact date</span>
+          <span className="mb-1 block text-[#60716a]">Date</span>
           <input
             type="date"
             value={nextDate}
