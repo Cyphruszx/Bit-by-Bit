@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { SavingsPathChart, SavingsPotLinesChart, SetAsideLineChart } from "@/components/savings-charts";
 import { useSavingsPots } from "@/components/savings-store";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
-import { monthsToPot, type SavingsPot } from "@/lib/money-flow/savings";
+import { monthlyTransferSeries, monthsToPot, type SavingsPot } from "@/lib/money-flow/savings";
 
 export function SavingsView() {
-  const { flow, hasUploads } = useMoneyFlow();
-  const { pots, addPot, updatePot, removePot } = useSavingsPots();
+  const { flow, hasUploads, transactions } = useMoneyFlow();
+  const { pots, snapshots, addPot, updatePot, removePot } = useSavingsPots();
   const saved = pots.reduce((sum, pot) => sum + pot.saved, 0);
   const target = pots.reduce((sum, pot) => sum + pot.target, 0);
   const monthly = pots.reduce((sum, pot) => sum + pot.monthlyContribution, 0);
@@ -33,6 +34,34 @@ export function SavingsView() {
           positive
         />
       </section>
+      <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+        <h2 className="text-lg font-bold">Path to target</h2>
+        <p className="mt-1 text-sm text-[#60716a]">
+          Combined saved amount over the coming months at your current contributions, with the combined target as a
+          dashed line.
+        </p>
+        <div className="mt-5">
+          <SavingsPathChart pots={pots} snapshots={snapshots} />
+        </div>
+      </article>
+      {pots.length > 1 ? (
+        <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+          <h2 className="text-lg font-bold">Each pot</h2>
+          <p className="mt-1 text-sm text-[#60716a]">How every pot grows if you keep the same monthly amount.</p>
+          <div className="mt-5">
+            <SavingsPotLinesChart pots={pots} />
+          </div>
+        </article>
+      ) : null}
+      {hasUploads && monthlyTransferSeries(transactions).length >= 2 ? (
+        <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+          <h2 className="text-lg font-bold">Set aside by month</h2>
+          <p className="mt-1 text-sm text-[#60716a]">Transfers from the documents you uploaded, grouped by month.</p>
+          <div className="mt-5">
+            <SetAsideLineChart transactions={transactions} />
+          </div>
+        </article>
+      ) : null}
       <AddPotForm onAdd={addPot} />
       <section className="mt-8 grid gap-4 lg:grid-cols-3">
         {pots.length === 0 ? (

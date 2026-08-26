@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { demoBudgets, useMoneyFlow } from "@/components/money-flow-provider";
+import { SavingsPathChart } from "@/components/savings-charts";
 import { useSavingsPots } from "@/components/savings-store";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
@@ -10,7 +11,7 @@ import { tagsOf } from "@/lib/money-flow/tags";
 
 export function DashboardView() {
   const { flow, hasUploads, transactions, usingDemo } = useMoneyFlow();
-  const { pots } = useSavingsPots();
+  const { pots, snapshots } = useSavingsPots();
   const recent = transactions.slice(0, 4);
 
   return (
@@ -48,24 +49,29 @@ export function DashboardView() {
               View all
             </Link>
           </div>
-          <div className="mt-5 space-y-5">
+          <div className="mt-5">
             {pots.length === 0 ? (
               <p className="text-sm text-[#60716a]">Add a pot on the Savings tab.</p>
             ) : (
-              pots.map((pot) => {
-                const percent = pot.target > 0 ? Math.round((pot.saved / pot.target) * 100) : 0;
-                return (
-                  <div key={pot.id}>
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{pot.name}</span>
-                      <span className="text-[#60716a]">
-                        {formatAud(pot.saved)} / {formatAud(pot.target)}
-                      </span>
-                    </div>
-                    <ProgressBar value={percent} />
-                  </div>
-                );
-              })
+              <>
+                <SavingsPathChart pots={pots} snapshots={snapshots} compact />
+                <div className="mt-5 space-y-5">
+                  {pots.map((pot) => {
+                    const percent = pot.target > 0 ? Math.round((pot.saved / pot.target) * 100) : 0;
+                    return (
+                      <div key={pot.id}>
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">{pot.name}</span>
+                          <span className="text-[#60716a]">
+                            {formatAud(pot.saved)} / {formatAud(pot.target)}
+                          </span>
+                        </div>
+                        <ProgressBar value={percent} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         </article>
