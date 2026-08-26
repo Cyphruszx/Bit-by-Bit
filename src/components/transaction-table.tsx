@@ -8,13 +8,27 @@ import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 type Direction = "all" | "in" | "out";
 
-export function TransactionTable({ transactions }: { transactions: InterpretedTransaction[] }) {
+export function TransactionTable({
+  transactions,
+  tag,
+  onTagChange,
+}: {
+  transactions: InterpretedTransaction[];
+  tag?: string;
+  onTagChange?: (tag: string) => void;
+}) {
   const { setTransactionTags } = useMoneyFlow();
   const [query, setQuery] = useState("");
-  const [tag, setTag] = useState("All");
+  const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
   const tagOptions = useMemo(() => ["All", ...allTags(transactions)], [transactions]);
-  const activeTag = tagOptions.includes(tag) ? tag : "All";
+  const selectedTag = tag ?? internalTag;
+  const activeTag = tagOptions.includes(selectedTag) ? selectedTag : "All";
+
+  function selectTag(next: string) {
+    if (onTagChange) onTagChange(next);
+    else setInternalTag(next);
+  }
 
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -44,7 +58,7 @@ export function TransactionTable({ transactions }: { transactions: InterpretedTr
         />
         <select
           value={activeTag}
-          onChange={(event) => setTag(event.target.value)}
+          onChange={(event) => selectTag(event.target.value)}
           aria-label="Filter by tag"
           className="rounded-full border border-[#dce4df] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#173b31]"
         >

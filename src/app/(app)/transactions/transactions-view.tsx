@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import { TransactionTable } from "@/components/transaction-table";
+import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud } from "@/lib/format";
 import { allTags, tagsOf } from "@/lib/money-flow/tags";
+import type { ChartKind } from "@/lib/money-flow/tag-charts";
 
 export function TransactionsView() {
   const { allTransactions, flow, hasUploads, removeTagEverywhere, renameTagEverywhere, transactions, usingDemo } =
     useMoneyFlow();
+  const [chart, setChart] = useState<ChartKind>("bar");
+  const [selectedTag, setSelectedTag] = useState("All");
 
   return (
     <>
@@ -19,7 +23,7 @@ export function TransactionsView() {
         {usingDemo
           ? "Track money in and out on sample activity, or upload documents to interpret your own. Add or change tags on a transaction, or rename a tag everywhere."
           : hasUploads
-            ? "Money in and out from your uploaded documents. Change tags on a transaction, or rename a tag across the whole list."
+            ? "Money in and out from your uploaded documents. Switch the bar or pie chart, tap a tag to filter, or rename a tag across the whole list."
             : "Sample activity with your tag edits, saved in this browser."}
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -32,8 +36,18 @@ export function TransactionsView() {
           positive={flow.net >= 0}
         />
       </section>
+      <div className="mt-8">
+        <TagChartCard
+          categories={flow.categories}
+          transactions={transactions}
+          selectedTag={selectedTag}
+          onSelectTag={setSelectedTag}
+          chart={chart}
+          onChartChange={setChart}
+        />
+      </div>
       <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
-        <TransactionTable transactions={transactions} />
+        <TransactionTable transactions={transactions} tag={selectedTag} onTagChange={setSelectedTag} />
       </article>
       <TagManager
         transactions={allTransactions}
