@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { detectRecurringOutflows, monthlyEquivalent, nextDateFromLast, recurringFingerprint } from "./recurring";
+import { advanceAfterPaid, detectRecurringOutflows, monthlyEquivalent, nextDateFromLast, paymentMatches, recurringFingerprint, trackedInPeriod, trackingSnapshot } from "./recurring";
 import type { InterpretedTransaction } from "./types";
 
 function txn(
@@ -54,5 +54,53 @@ describe("recurring outflows", () => {
     assert.equal(nextDateFromLast("2026-08-03", "monthly", "2026-08-26"), "2026-09-03");
     assert.equal(nextDateFromLast("2026-08-20", "weekly", "2026-08-26"), "2026-08-27");
     assert.equal(nextDateFromLast("2026-09-01", "monthly", "2026-08-26"), "2026-09-01");
+    assert.equal(advanceAfterPaid("2026-08-15", "monthly", "2026-08-26"), "2026-09-15");
+  });
+
+  it("matches tracked payments to activity without double-counting transfers", () => {
+    const item = {
+      fingerprint: recurringFingerprint("Netflix", 18.99),
+      name: "Netflix",
+      amount: 18.99,
+      cadence: "monthly" as const,
+      nextDate: "2026-09-03",
+    };
+    assert.equal(
+      paymentMatches(item, txn({ id: "1", merchant: "Netflix", amount: -18.99, dateIso: "2026-08-03" })),
+      true,
+    );
+    assert.equal(
+      paymentMatches(item, txn({ id: "2", merchant: "Woolworths", amount: -18.99, dateIso: "2026-08-03" })),
+      false,
+    );
+  });
+
+  it("keeps tracking a payment in the month it was paid, even if the next date is later", () => {
+    const item = {
+      fingerprint: recurringFingerprint("Rent", 980),
+      name: "Rent",
+      amount: 980,
+      cadence: "monthly" as const,
+      nextDate: "2026-09-15",
+    };
+    const rows = [
+      txn({ id: "1", merchant: "Rent", amount: -980, dateIso: "2026-08-15", category: "Housing" }),
+    ];
+    assert.equal(trackedInPeriod(item, { kind: "month", month: "2026-08" }, rows), true);
+    assert.equal(trackingSnapshot(item, rows, { kind: "month", month: "2026-08" }, "2026-08-26").status, "paid");
+    assert.equal(trackingSnapshot(item, rows, { kind: "all" }, "2026-08-26").status, "upcoming");
+  });
+
+  it("marks a tracked payment overdue when nothing has matched since the due date", () => {
+    const item = {
+      fingerprint: "custom:gym",
+      name: "Gym",
+      amount: 40,
+      cadence: "monthly" as const,
+      nextDate: "2026-08-01",
+    };
+    const snap = trackingSnapshot(item, [], { kind: "all" }, "2026-08-26");
+    assert.equal(snap.status, "overdue");
+    assert.equal(trackedInPeriod(item, { kind: "month", month: "2026-09" }, []), true);
   });
 });

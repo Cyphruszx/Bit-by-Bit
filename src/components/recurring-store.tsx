@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { Cadence } from "@/lib/money-flow/recurring";
+import { advanceAfterPaid, type Cadence } from "@/lib/money-flow/recurring";
 
 const STORAGE_KEY = "bitbybit.recurring-v1";
 const listeners = new Set<() => void>();
@@ -36,6 +36,7 @@ export function useRecurringStore() {
     stopTracking,
     addCustomPayment,
     updatePayment,
+    markPaid,
     removeCustomPayment,
   };
 }
@@ -128,6 +129,19 @@ function updatePayment(id: string, patch: Partial<Pick<TrackedRecurring, "nextDa
     ignored: store.ignored,
     confirmed: store.confirmed.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     custom: store.custom.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+  });
+}
+
+function markPaid(id: string, todayIso: string) {
+  const store = getSnapshot();
+  persist({
+    ignored: store.ignored,
+    confirmed: store.confirmed.map((item) =>
+      item.id === id ? { ...item, nextDate: advanceAfterPaid(item.nextDate, item.cadence, todayIso) } : item,
+    ),
+    custom: store.custom.map((item) =>
+      item.id === id ? { ...item, nextDate: advanceAfterPaid(item.nextDate, item.cadence, todayIso) } : item,
+    ),
   });
 }
 

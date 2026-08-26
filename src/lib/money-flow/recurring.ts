@@ -1,4 +1,5 @@
 import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
+import { inPeriod, monthBounds, type PeriodFilter } from "@/lib/money-flow/period";
 import { tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -71,11 +72,19 @@ export function monthlyEquivalent(amount: number, cadence: Cadence): number {
 }
 
 export function addCadence(iso: string, cadence: Cadence): string {
+  return shiftCadence(iso, cadence, 1);
+}
+
+export function subtractCadence(iso: string, cadence: Cadence): string {
+  return shiftCadence(iso, cadence, -1);
+}
+
+function shiftCadence(iso: string, cadence: Cadence, direction: 1 | -1): string {
   const [year, month, day] = iso.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
-  if (cadence === "weekly") date.setUTCDate(date.getUTCDate() + 7);
-  else if (cadence === "fortnightly") date.setUTCDate(date.getUTCDate() + 14);
-  else date.setUTCMonth(date.getUTCMonth() + 1);
+  if (cadence === "weekly") date.setUTCDate(date.getUTCDate() + 7 * direction);
+  else if (cadence === "fortnightly") date.setUTCDate(date.getUTCDate() + 14 * direction);
+  else date.setUTCMonth(date.getUTCMonth() + direction);
   return date.toISOString().slice(0, 10);
 }
 
@@ -87,6 +96,132 @@ export function nextDateFromLast(lastDateIso: string, cadence: Cadence, todayIso
     current = addCadence(current, cadence);
   }
   return current;
+}
+
+export function advanceAfterPaid(nextDate: string, cadence: Cadence, todayIso: string): string {
+  const start = /^\d{4}-\d{2}-\d{2}$/.test(nextDate) ? nextDate : todayIso;
+  let current = addCadence(start, cadence);
+  for (let i = 0; i < 48 && current < todayIso; i += 1) {
+    current = addCadence(current, cadence);
+  }
+  return current;
+}
+
+export type TrackablePayment = {
+  fingerprint: string;
+  name: string;
+  amount: number;
+  cadence: Cadence;
+  nextDate: string;
+};
+
+export type TrackingStatus = "paid" | "due" | "overdue" | "upcoming";
+
+export type TrackingSnapshot = {
+  status: TrackingStatus;
+  expectedDate: string | null;
+  matchedDate: string | null;
+};
+
+export function paymentMatches(item: Pick<TrackablePayment, "fingerprint" | "name" | "amount">, txn: InterpretedTransaction): boolean {
+  if (txn.amount >= 0 || txn.type === "transfer") return false;
+  const txnKey = recurringFingerprint(txn.merchant, txn.amount);
+  return item.fingerprint === txnKey || recurringFingerprint(item.name, item.amount) === txnKey;
+}
+
+export function periodDateBounds(period: PeriodFilter): { from: string; to: string } | null {
+  if (period.kind === "all") return null;
+  if (period.kind === "month") return monthBounds(period.month);
+  const from = period.from <= period.to ? period.from : period.to;
+  const to = period.from <= period.to ? period.to : period.from;
+  return { from, to };
+}
+
+export function expectedOccurrence(
+  nextDate: string,
+  cadence: Cadence,
+  from: string,
+  to: string,
+): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) return null;
+  let latest: string | null = null;
+  let current = nextDate;
+  for (let i = 0; i < 48; i += 1) {
+    if (current < from) break;
+    if (current <= to) latest = current;
+    current = subtractCadence(current, cadence);
+  }
+  current = addCadence(nextDate, cadence);
+  for (let i = 0; i < 48; i += 1) {
+    if (current > to) break;
+    if (current >= from) latest = !latest || current > latest ? current : latest;
+    current = addCadence(current, cadence);
+  }
+  return latest;
+}
+
+export function trackedInPeriod(
+  item: TrackablePayment,
+  period: PeriodFilter,
+  transactions: InterpretedTransaction[],
+): boolean {
+  if (period.kind === "all") return true;
+  if (item.nextDate && inPeriod(item.nextDate, period)) return true;
+  if (transactions.some((txn) => paymentMatches(item, txn) && inPeriod(txn.dateIso, period))) return true;
+  const bounds = periodDateBounds(period);
+  if (item.nextDate && bounds && item.nextDate < bounds.from) {
+    const paidSinceDue = transactions.some((txn) => paymentMatches(item, txn) && txn.dateIso >= item.nextDate);
+    if (!paidSinceDue) return true;
+  }
+  return false;
+}
+
+export function trackingSnapshot(
+  item: TrackablePayment,
+  transactions: InterpretedTransaction[],
+  period: PeriodFilter,
+  todayIso: string,
+): TrackingSnapshot {
+  const matches = transactions.filter((txn) => paymentMatches(item, txn)).sort((a, b) => a.dateIso.localeCompare(b.dateIso));
+  const bounds = periodDateBounds(period);
+  const inScope = (date: string) => (bounds ? date >= bounds.from && date <= bounds.to : true);
+  const latestInScope = [...matches].reverse().find((txn) => inScope(txn.dateIso)) ?? null;
+  const expected = bounds
+    ? expectedOccurrence(item.nextDate, item.cadence, bounds.from, bounds.to)
+    : item.nextDate || null;
+  const dueDate = expected ?? (item.nextDate || null);
+
+  if (bounds && latestInScope) {
+    return { status: "paid", expectedDate: dueDate, matchedDate: latestInScope.dateIso };
+  }
+
+  if (!bounds) {
+    const latest = matches[matches.length - 1] ?? null;
+    if (dueDate && dueDate > todayIso) {
+      return { status: "upcoming", expectedDate: dueDate, matchedDate: latest?.dateIso ?? null };
+    }
+    if (dueDate && dueDate === todayIso) {
+      return { status: "due", expectedDate: dueDate, matchedDate: latest?.dateIso ?? null };
+    }
+    if (dueDate && dueDate < todayIso) {
+      const paidThisCycle = latest && latest.dateIso >= dueDate;
+      if (paidThisCycle) return { status: "paid", expectedDate: dueDate, matchedDate: latest.dateIso };
+      return { status: "overdue", expectedDate: dueDate, matchedDate: latest?.dateIso ?? null };
+    }
+    if (latest) return { status: "paid", expectedDate: dueDate, matchedDate: latest.dateIso };
+    return { status: "upcoming", expectedDate: dueDate, matchedDate: null };
+  }
+
+  if (dueDate && dueDate < todayIso) return { status: "overdue", expectedDate: dueDate, matchedDate: null };
+  if (dueDate && dueDate === todayIso) return { status: "due", expectedDate: dueDate, matchedDate: null };
+  return { status: "upcoming", expectedDate: dueDate, matchedDate: null };
+}
+
+export function statusLabel(status: TrackingStatus): string {
+  if (status === "paid") return "Paid";
+  if (status === "due") return "Due today";
+  if (status === "overdue") return "Overdue";
+  return "Upcoming";
 }
 
 function inferCadence(dateIso: string[], singleHit: boolean): Cadence {

@@ -12,13 +12,18 @@ import {
   detectRecurringOutflows,
   monthlyEquivalent,
   nextDateFromLast,
+  statusLabel,
+  trackedInPeriod,
+  trackingSnapshot,
   type Cadence,
   type DetectedRecurring,
+  type TrackingSnapshot,
+  type TrackingStatus,
 } from "@/lib/money-flow/recurring";
 
 export function RecurringView() {
   const { allTransactions, flow, period, usingDemo } = useMoneyFlow();
-  const { ignored, confirmed, custom, confirmPayment, ignorePayment, stopTracking, addCustomPayment, updatePayment } =
+  const { ignored, confirmed, custom, confirmPayment, ignorePayment, stopTracking, addCustomPayment, updatePayment, markPaid } =
     useRecurringStore();
   const detected = useMemo(() => detectRecurringOutflows(allTransactions), [allTransactions]);
   const confirmedFingerprints = new Set(confirmed.map((item) => item.fingerprint));
@@ -29,10 +34,13 @@ export function RecurringView() {
       item.dates.some((date) => inPeriod(date, period)),
   );
   const tracked = [...confirmed, ...custom]
-    .filter((item) => (item.nextDate ? inPeriod(item.nextDate, period) : period.kind === "all"))
+    .filter((item) => trackedInPeriod(item, period, allTransactions))
     .sort((a, b) => (a.nextDate || "9999").localeCompare(b.nextDate || "9999"));
   const monthlyTotal = tracked.reduce((sum, item) => sum + monthlyEquivalent(item.amount, item.cadence), 0);
   const today = todayIso();
+  const paidCount = tracked.filter(
+    (item) => trackingSnapshot(item, allTransactions, period, today).status === "paid",
+  ).length;
 
   return (
     <>
@@ -40,11 +48,15 @@ export function RecurringView() {
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Recurring payments</h1>
       <p className="mt-2 max-w-2xl text-[#60716a]">
         {usingDemo
-          ? "BitbyBit looks through sample activity for repeating money out. The period filter shows payments due or seen in that window."
-          : "Repeating money out from your documents. The period filter shows payments due or seen in that window."}
+          ? "Track a repeating payment to see whether it was paid in this period. Mark it paid to roll the next date forward."
+          : "Track repeating money out from your documents. BitbyBit matches them against activity in this period."}
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <SummaryCard label="Tracked payments" value={String(tracked.length)} detail="Confirmed and added by you" />
+        <SummaryCard
+          label="Tracked payments"
+          value={String(tracked.length)}
+          detail={tracked.length === 0 ? "Confirm a suggestion or add a payment" : `${paidCount} paid in this period`}
+        />
         <SummaryCard
           label="Typical monthly out"
           value={formatAud(monthlyTotal)}
@@ -64,7 +76,14 @@ export function RecurringView() {
         ) : (
           <div className="mt-4 divide-y divide-[#edf0ee]">
             {tracked.map((item) => (
-              <TrackedRow key={item.id} item={item} onDateChange={(nextDate) => updatePayment(item.id, { nextDate })} onStop={() => stopTracking(item.id)} />
+              <TrackedRow
+                key={item.id}
+                item={item}
+                snapshot={trackingSnapshot(item, allTransactions, period, today)}
+                onDateChange={(nextDate) => updatePayment(item.id, { nextDate })}
+                onMarkPaid={() => markPaid(item.id, today)}
+                onStop={() => stopTracking(item.id)}
+              />
             ))}
           </div>
         )}
@@ -106,19 +125,27 @@ export function RecurringView() {
 
 function TrackedRow({
   item,
+  snapshot,
   onDateChange,
+  onMarkPaid,
   onStop,
 }: {
   item: TrackedRecurring;
+  snapshot: TrackingSnapshot;
   onDateChange: (nextDate: string) => void;
+  onMarkPaid: () => void;
   onStop: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-4">
       <div>
-        <p className="font-semibold">{item.name}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-semibold">{item.name}</p>
+          <StatusBadge status={snapshot.status} />
+        </div>
         <p className="mt-1 text-sm text-[#77857f]">
           {formatAud(item.amount)} · {cadenceLabel(item.cadence)} · about {formatAud(monthlyEquivalent(item.amount, item.cadence))} / month
+          {snapshot.matchedDate ? ` · seen ${formatDisplayDate(snapshot.matchedDate)}` : ""}
           {item.nextDate ? ` · next ${formatDisplayDate(item.nextDate)}` : ""}
         </p>
       </div>
@@ -132,12 +159,29 @@ function TrackedRow({
             className="ml-2 rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31]"
           />
         </label>
+        {snapshot.status === "paid" ? null : (
+          <button type="button" className="text-sm font-semibold text-[#355a3f]" onClick={onMarkPaid}>
+            Mark paid
+          </button>
+        )}
         <button type="button" className="text-sm font-semibold text-[#9b3b32]" onClick={onStop}>
           Stop tracking
         </button>
       </div>
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: TrackingStatus }) {
+  const tone =
+    status === "paid"
+      ? "bg-[#edf4dc] text-[#257155]"
+      : status === "overdue"
+        ? "bg-[#f8e8e6] text-[#9b3b32]"
+        : status === "due"
+          ? "bg-[#173b31] text-white"
+          : "bg-[#edf0ee] text-[#60716a]";
+  return <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${tone}`}>{statusLabel(status)}</span>;
 }
 
 function SuggestionRow({
