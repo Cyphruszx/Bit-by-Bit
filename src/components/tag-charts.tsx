@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { formatAud, formatAudCompact } from "@/lib/format";
-import { spendByTags } from "@/lib/money-flow/summary";
+import {
+  chartTagSeries,
+  NO_SUB_TAG,
+  type TagFlowDirection,
+} from "@/lib/money-flow/summary";
 import {
   barLayout,
   donutPath,
@@ -12,17 +16,16 @@ import {
   withTagColors,
   type ChartKind,
 } from "@/lib/money-flow/tag-charts";
-import { allTags } from "@/lib/money-flow/tags";
+import { allPrimaryTags, allSubTags } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export function TagChartCard({
   categories,
-  transactions,
+  transactions = [],
   selectedTag,
   onSelectTag,
   chart,
   onChartChange,
-  title = "Spending by tag",
 }: {
   categories?: CategorySpend[];
   transactions?: InterpretedTransaction[];
@@ -30,20 +33,39 @@ export function TagChartCard({
   onSelectTag: (tag: string) => void;
   chart: ChartKind;
   onChartChange: (chart: ChartKind) => void;
-  title?: string;
 }) {
-  const spend = useMemo(
-    () => (transactions ? spendByTags(transactions) : (categories ?? [])),
-    [categories, transactions],
+  const [direction, setDirection] = useState<TagFlowDirection>("out");
+  const series = useMemo(
+    () =>
+      transactions.length > 0
+        ? chartTagSeries(transactions, selectedTag, direction)
+        : { rows: categories ?? [], level: "primary" as const, total: (categories ?? []).reduce((sum, item) => sum + item.amount, 0), parent: null },
+    [categories, direction, selectedTag, transactions],
   );
+  const spend = series.rows;
   const slices = useMemo(() => pieSlices(topChartCategories(spend)), [spend]);
-  const tags = transactions ? allTags(transactions) : spend.map((item) => item.name);
-  const spentTotal = useMemo(() => {
-    if (!transactions) return slices.reduce((sum, item) => sum + item.amount, 0);
-    return transactions
-      .filter((txn) => txn.amount < 0 && txn.type !== "transfer")
-      .reduce((sum, txn) => sum + Math.abs(txn.amount), 0);
-  }, [slices, transactions]);
+  const scoped = useMemo(
+    () =>
+      transactions.filter((txn) => (direction === "out" ? txn.amount < 0 && txn.type !== "transfer" : txn.amount > 0 && txn.type !== "transfer")),
+    [direction, transactions],
+  );
+  const primaries = allPrimaryTags(scoped);
+  const subs = allSubTags(scoped);
+  const highlightAll = series.level === "sub" && series.parent === selectedTag;
+  const title =
+    direction === "in"
+      ? series.level === "sub" && series.parent
+        ? `${series.parent} · income sub-tags`
+        : "Income by primary tag"
+      : series.level === "sub" && series.parent
+        ? `${series.parent} · sub-tags`
+        : "Spending by primary tag";
+  const emptyLabel = direction === "in" ? "No income in this period." : "No spending in this period.";
+
+  function selectChartTag(name: string) {
+    if (name === NO_SUB_TAG) return;
+    onSelectTag(nextTagSelection(selectedTag, name));
+  }
 
   return (
     <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
@@ -51,10 +73,28 @@ export function TagChartCard({
         <div>
           <h2 className="text-lg font-bold">{title}</h2>
           <p className="mt-1 text-sm text-[#60716a]">
-            Toggle bar or pie, then tap a tag to show those transactions. A payment counts on every tag it has.
+            Totals use the primary tag only, so extra tags never double-count. Tap a primary to see its sub-tags.
           </p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
+          {(
+            [
+              ["out", "Spending"],
+              ["in", "Income"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={direction === value}
+              onClick={() => setDirection(value)}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
+                direction === value ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
           {(
             [
               ["bar", "Bar graph"],
@@ -76,30 +116,57 @@ export function TagChartCard({
         </div>
       </div>
       {spend.length === 0 ? (
-        <p className="mt-5 text-sm text-[#60716a]">No spending in this period.</p>
+        <p className="mt-5 text-sm text-[#60716a]">{emptyLabel}</p>
       ) : chart === "pie" ? (
         <PieChart
           slices={slices}
-          spentTotal={spentTotal}
+          spentTotal={series.total}
           selectedTag={selectedTag}
-          onSelectTag={onSelectTag}
+          highlightAll={highlightAll}
+          centreLabel={direction === "in" ? "in" : "spent"}
+          onSelectTag={selectChartTag}
         />
       ) : (
-        <BarGraph categories={topChartCategories(spend)} selectedTag={selectedTag} onSelectTag={onSelectTag} />
+        <BarGraph
+          categories={topChartCategories(spend)}
+          selectedTag={selectedTag}
+          highlightAll={highlightAll}
+          onSelectTag={selectChartTag}
+        />
       )}
-      {tags.length > 0 ? (
-        <div className="mt-5 flex flex-wrap gap-2">
-          <TagToggle active={selectedTag === "All"} onClick={() => onSelectTag("All")}>
-            All tags
-          </TagToggle>
-          {tags.map((tag) => (
-            <TagToggle key={tag} active={selectedTag === tag} onClick={() => onSelectTag(nextTagSelection(selectedTag, tag))}>
-              {tag}
+      {primaries.length > 0 || subs.length > 0 ? (
+        <div className="mt-5 space-y-3">
+          <ChipRow label="Primary">
+            <TagToggle active={selectedTag === "All"} onClick={() => onSelectTag("All")}>
+              All
             </TagToggle>
-          ))}
+            {primaries.map((tag) => (
+              <TagToggle key={tag} active={selectedTag === tag} onClick={() => onSelectTag(nextTagSelection(selectedTag, tag))}>
+                {tag}
+              </TagToggle>
+            ))}
+          </ChipRow>
+          {subs.length > 0 ? (
+            <ChipRow label="Sub-tag">
+              {subs.map((tag) => (
+                <TagToggle key={tag} active={selectedTag === tag} onClick={() => onSelectTag(nextTagSelection(selectedTag, tag))}>
+                  {tag}
+                </TagToggle>
+              ))}
+            </ChipRow>
+          ) : null}
         </div>
       ) : null}
     </article>
+  );
+}
+
+function ChipRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="w-16 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-[#77857f]">{label}</span>
+      {children}
+    </div>
   );
 }
 
@@ -129,10 +196,12 @@ function TagToggle({
 function BarGraph({
   categories,
   selectedTag,
+  highlightAll = false,
   onSelectTag,
 }: {
   categories: CategorySpend[];
   selectedTag: string;
+  highlightAll?: boolean;
   onSelectTag: (tag: string) => void;
 }) {
   const width = 640;
@@ -180,13 +249,13 @@ function BarGraph({
                 height={Math.max(bar.height, 0)}
                 rx="8"
                 fill={bar.color}
-                opacity={selectedTag === "All" || selected ? 1 : 0.38}
+                opacity={highlightAll || selectedTag === "All" || selected ? 1 : 0.38}
                 className="cursor-pointer"
-                onClick={() => onSelectTag(nextTagSelection(selectedTag, bar.name))}
+                onClick={() => onSelectTag(bar.name)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    onSelectTag(nextTagSelection(selectedTag, bar.name));
+                    onSelectTag(bar.name);
                   }
                 }}
               />
@@ -211,11 +280,15 @@ function PieChart({
   slices,
   spentTotal,
   selectedTag,
+  highlightAll = false,
+  centreLabel,
   onSelectTag,
 }: {
   slices: ReturnType<typeof pieSlices>;
   spentTotal: number;
   selectedTag: string;
+  highlightAll?: boolean;
+  centreLabel: string;
   onSelectTag: (tag: string) => void;
 }) {
   const size = 280;
@@ -223,6 +296,7 @@ function PieChart({
   const cy = 140;
   const outer = 108;
   const inner = 64;
+  const active = (name: string) => highlightAll || selectedTag === "All" || selectedTag === name;
 
   return (
     <div className="mt-5 grid gap-6 md:grid-cols-[280px_1fr] md:items-center">
@@ -243,13 +317,13 @@ function PieChart({
               aria-pressed={selected}
               d={donutPath(cx, cy, outer, inner, slice.startAngle, slice.endAngle)}
               fill={slice.color}
-              opacity={selectedTag === "All" || selected ? 1 : 0.38}
+              opacity={active(slice.name) ? 1 : 0.38}
               className="cursor-pointer"
-              onClick={() => onSelectTag(nextTagSelection(selectedTag, slice.name))}
+              onClick={() => onSelectTag(slice.name)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  onSelectTag(nextTagSelection(selectedTag, slice.name));
+                  onSelectTag(slice.name);
                 }
               }}
             />
@@ -259,7 +333,7 @@ function PieChart({
           {formatAudCompact(spentTotal)}
         </text>
         <text x={cx} y={cy + 12} textAnchor="middle" fill="#77857f" fontSize="11">
-          spent
+          {centreLabel}
         </text>
       </svg>
       <ul className="space-y-2">
@@ -270,7 +344,7 @@ function PieChart({
               <button
                 type="button"
                 aria-pressed={selected}
-                onClick={() => onSelectTag(nextTagSelection(selectedTag, slice.name))}
+                onClick={() => onSelectTag(slice.name)}
                 className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left text-sm ${
                   selected ? "bg-[#edf4dc]" : ""
                 }`}

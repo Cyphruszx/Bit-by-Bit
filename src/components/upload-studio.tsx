@@ -7,7 +7,7 @@ import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { acceptedDropTypes } from "@/lib/money-flow/accept";
 import { formatAud, formatSignedAud } from "@/lib/format";
-import { tagsOf } from "@/lib/money-flow/tags";
+import { primaryTag, subTags } from "@/lib/money-flow/tags";
 
 const SAMPLES = [
   ["/samples/commonwealth-bank.csv", "CSV statement"],
@@ -167,7 +167,8 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
                     <div>
                       <p className="font-semibold">{txn.merchant}</p>
                       <p className="mt-1 text-sm text-[#77857f]">
-                        {tagsOf(txn).join(" · ")}
+                        {primaryTag(txn)}
+                        {subTags(txn).length > 0 ? ` / ${subTags(txn).join(" · ")}` : ""}
                         {txn.tagSource === "ai" ? " · AI tag" : ""} · {txn.date} · {txn.sourceFile}
                       </p>
                     </div>

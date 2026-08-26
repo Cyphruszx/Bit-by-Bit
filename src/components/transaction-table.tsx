@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { TagEditor } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatSignedAud } from "@/lib/format";
 import { allTags, tagsOf } from "@/lib/money-flow/tags";
@@ -115,91 +116,6 @@ export function TransactionTable({
           ))
         )}
       </div>
-    </div>
-  );
-}
-
-function TagEditor({
-  tags,
-  aiSuggested = false,
-  suggestions,
-  listId,
-  onChange,
-}: {
-  tags: string[];
-  aiSuggested?: boolean;
-  suggestions: string[];
-  listId: string;
-  onChange: (tags: string[]) => void;
-}) {
-  const [draft, setDraft] = useState("");
-  const unused = suggestions.filter((name) => !tags.some((tag) => tag.toLowerCase() === name.toLowerCase()));
-
-  function add(name: string) {
-    const next = name.trim();
-    if (!next) return;
-    onChange([...tags, next]);
-    setDraft("");
-  }
-
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-2">
-      {tags.map((tag) => (
-        <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f]">
-          {tag}
-          <button
-            type="button"
-            aria-label={`Remove ${tag}`}
-            onClick={() => onChange(tags.filter((name) => name !== tag))}
-            className="text-[#527166] hover:text-[#173b31]"
-          >
-            ×
-          </button>
-        </span>
-      ))}
-      <form
-        className="flex items-center gap-1"
-        onSubmit={(event) => {
-          event.preventDefault();
-          add(draft);
-        }}
-      >
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          list={listId}
-          placeholder="Add tag"
-          className="w-28 rounded-full border border-[#dce4df] bg-white px-3 py-1 text-xs outline-none focus:border-[#173b31]"
-        />
-        <button type="submit" className="text-xs font-semibold text-[#355a3f]">
-          Add
-        </button>
-      </form>
-      {aiSuggested ? (
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-[#527166]">AI suggested</span>
-      ) : null}
-      {unused.length > 0 ? (
-        <select
-          value=""
-          aria-label="Add existing tag"
-          onChange={(event) => {
-            if (event.target.value) add(event.target.value);
-          }}
-          className="rounded-full border border-[#dce4df] bg-white px-2 py-1 text-xs outline-none focus:border-[#173b31]"
-        >
-          <option value="">Existing tags</option>
-          {unused.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-      ) : null}
-      <datalist id={listId}>
-        {unused.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
     </div>
   );
 }

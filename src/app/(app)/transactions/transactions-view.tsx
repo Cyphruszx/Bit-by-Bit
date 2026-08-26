@@ -6,7 +6,7 @@ import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud } from "@/lib/format";
-import { allTags, tagsOf } from "@/lib/money-flow/tags";
+import { allPrimaryTags, allSubTags, tagsOf } from "@/lib/money-flow/tags";
 import type { ChartKind } from "@/lib/money-flow/tag-charts";
 
 export function TransactionsView() {
@@ -21,9 +21,9 @@ export function TransactionsView() {
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Transactions</h1>
       <p className="mt-2 max-w-2xl text-[#60716a]">
         {usingDemo
-          ? "Track money in and out on sample activity, or upload documents to interpret your own. Add or change tags on a transaction, or rename a tag everywhere."
+          ? "Track money in and out on sample activity, or upload documents to interpret your own. Set a primary tag for totals, then an optional sub-tag for detail."
           : hasUploads
-            ? "Money in and out from your uploaded documents. Switch the bar or pie chart, tap a tag to filter, or rename a tag across the whole list."
+            ? "Money in and out from your uploaded documents. Charts use the primary tag so sub-tags never double-count."
             : "Sample activity with your tag edits, saved in this browser."}
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -67,21 +67,29 @@ function TagManager({
   onRename: (from: string, to: string) => void;
   onRemove: (name: string) => void;
 }) {
-  const tags = allTags(transactions);
+  const primaries = allPrimaryTags(transactions);
+  const subs = allSubTags(transactions);
+  const tags = [...primaries, ...subs.filter((tag) => !primaries.includes(tag))];
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
 
-  const counts = new Map<string, number>();
+  const primaryCounts = new Map<string, number>();
+  const subCounts = new Map<string, number>();
   for (const txn of transactions) {
-    for (const tag of tagsOf(txn)) {
-      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    const names = tagsOf(txn);
+    const primary = names[0];
+    if (primary) primaryCounts.set(primary, (primaryCounts.get(primary) ?? 0) + 1);
+    for (const tag of names.slice(1)) {
+      subCounts.set(tag, (subCounts.get(tag) ?? 0) + 1);
     }
   }
 
   return (
     <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
       <h2 className="text-lg font-bold">Tags</h2>
-      <p className="mt-1 text-sm text-[#60716a]">Rename a tag everywhere, or remove it from every transaction.</p>
+      <p className="mt-1 text-sm text-[#60716a]">
+        Primary tags drive spending and income totals. Sub-tags are extra detail and never add to those totals.
+      </p>
       <div className="mt-5 divide-y divide-[#edf0ee]">
         {tags.map((tag) => (
           <div className="flex flex-wrap items-center justify-between gap-3 py-3" key={tag}>
@@ -111,7 +119,13 @@ function TagManager({
               <div>
                 <p className="font-semibold">{tag}</p>
                 <p className="text-sm text-[#77857f]">
-                  {counts.get(tag) ?? 0} transaction{(counts.get(tag) ?? 0) === 1 ? "" : "s"}
+                  {primaryCounts.get(tag)
+                    ? `Primary on ${primaryCounts.get(tag)} transaction${primaryCounts.get(tag) === 1 ? "" : "s"}`
+                    : null}
+                  {primaryCounts.get(tag) && subCounts.get(tag) ? " · " : null}
+                  {subCounts.get(tag)
+                    ? `Sub-tag on ${subCounts.get(tag)} transaction${subCounts.get(tag) === 1 ? "" : "s"}`
+                    : null}
                 </p>
               </div>
             )}

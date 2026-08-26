@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import { detectFileKind } from "./detect";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate } from "./parse-values";
-import { summarizeMoneyFlow } from "./summary";
+import { summarizeMoneyFlow, chartTagSeries } from "./summary";
 
 process.env.OPENAI_API_KEY = "";
 
@@ -230,7 +230,7 @@ describe("money flow summary", () => {
     );
   });
 
-  it("counts spending against every tag on a payment, not only the first", () => {
+  it("counts spending on the primary tag only, so sub-tags do not double-count", () => {
     const summary = summarizeMoneyFlow([
       {
         id: "1",
@@ -262,9 +262,64 @@ describe("money flow summary", () => {
       summary.categories.map((category) => [category.name, category.amount]),
       [
         ["Groceries", 86.4],
-        ["Coffee", 28.4],
         ["Dining", 28.4],
       ],
+    );
+  });
+
+  it("splits a selected primary into sub-tags without changing the total", () => {
+    const rows = [
+      {
+        id: "1",
+        merchant: "Cafe Sydney",
+        category: "Dining",
+        tags: ["Dining", "Coffee"],
+        date: "20 Aug",
+        dateIso: "2026-08-20",
+        amount: -28.4,
+        type: "expense" as const,
+        sourceFile: "demo",
+        confidence: 1,
+      },
+      {
+        id: "2",
+        merchant: "Dinner Out",
+        category: "Dining",
+        tags: ["Dining"],
+        date: "21 Aug",
+        dateIso: "2026-08-21",
+        amount: -60,
+        type: "expense" as const,
+        sourceFile: "demo",
+        confidence: 1,
+      },
+      {
+        id: "3",
+        merchant: "Salary Acme",
+        category: "Income",
+        tags: ["Income", "Salary"],
+        date: "18 Aug",
+        dateIso: "2026-08-18",
+        amount: 2620,
+        type: "income" as const,
+        sourceFile: "demo",
+        confidence: 1,
+      },
+    ];
+    const drilled = chartTagSeries(rows, "Dining", "out");
+    assert.equal(drilled.level, "sub");
+    assert.equal(drilled.total, 88.4);
+    assert.deepEqual(
+      drilled.rows.map((row) => [row.name, row.amount]),
+      [
+        ["No sub-tag", 60],
+        ["Coffee", 28.4],
+      ],
+    );
+    const income = chartTagSeries(rows, "All", "in");
+    assert.deepEqual(
+      income.rows.map((row) => [row.name, row.amount]),
+      [["Income", 2620]],
     );
   });
 

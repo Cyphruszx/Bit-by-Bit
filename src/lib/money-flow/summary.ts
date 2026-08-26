@@ -1,7 +1,17 @@
 import { formatAud } from "@/lib/format";
 import { roundMoney } from "@/lib/money-flow/parse-values";
-import { tagsOf } from "@/lib/money-flow/tags";
+import { primaryTag, subTags, tagsOf } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
+
+export type TagFlowDirection = "out" | "in";
+export const NO_SUB_TAG = "No sub-tag";
+
+export type TagChartSeries = {
+  rows: CategorySpend[];
+  level: "primary" | "sub";
+  total: number;
+  parent: string | null;
+};
 
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const income = roundMoney(
@@ -34,25 +44,85 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   };
 }
 
+export function isOutflow(txn: InterpretedTransaction): boolean {
+  return txn.amount < 0 && txn.type !== "transfer";
+}
+
+export function isInflow(txn: InterpretedTransaction): boolean {
+  return txn.amount > 0 && txn.type !== "transfer";
+}
+
 export function spendByTags(transactions: InterpretedTransaction[]): CategorySpend[] {
-  const spending = roundMoney(
-    transactions
-      .filter((txn) => txn.amount < 0 && txn.type !== "transfer")
-      .reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
-  );
+  return amountByPrimaryTags(transactions, "out");
+}
+
+export function amountByPrimaryTags(
+  transactions: InterpretedTransaction[],
+  direction: TagFlowDirection = "out",
+): CategorySpend[] {
+  return aggregateByTag(directed(transactions, direction), (txn) => primaryTag(txn));
+}
+
+export function amountByFirstSubTag(
+  transactions: InterpretedTransaction[],
+  direction: TagFlowDirection = "out",
+): CategorySpend[] {
+  return aggregateByTag(directed(transactions, direction), (txn) => subTags(txn)[0] ?? NO_SUB_TAG);
+}
+
+export function chartTagSeries(
+  transactions: InterpretedTransaction[],
+  selectedTag: string,
+  direction: TagFlowDirection = "out",
+): TagChartSeries {
+  const rows = directed(transactions, direction);
+  const selectedIsPrimary = rows.some((txn) => primaryTag(txn) === selectedTag);
+
+  if (selectedTag !== "All" && selectedIsPrimary) {
+    const underPrimary = rows.filter((txn) => primaryTag(txn) === selectedTag);
+    const hasSub = underPrimary.some((txn) => subTags(txn).length > 0);
+    return {
+      rows: hasSub ? amountByFirstSubTag(underPrimary, direction) : amountByPrimaryTags(underPrimary, direction),
+      level: hasSub ? "sub" : "primary",
+      total: signedTotal(underPrimary),
+      parent: selectedTag,
+    };
+  }
+
+  const filtered =
+    selectedTag === "All" ? rows : rows.filter((txn) => tagsOf(txn).includes(selectedTag));
+  return {
+    rows: amountByPrimaryTags(filtered, direction),
+    level: "primary",
+    total: signedTotal(filtered),
+    parent: null,
+  };
+}
+
+function directed(transactions: InterpretedTransaction[], direction: TagFlowDirection): InterpretedTransaction[] {
+  return transactions.filter((txn) => (direction === "out" ? isOutflow(txn) : isInflow(txn)));
+}
+
+function signedTotal(transactions: InterpretedTransaction[]): number {
+  return roundMoney(transactions.reduce((sum, txn) => sum + Math.abs(txn.amount), 0));
+}
+
+function aggregateByTag(
+  transactions: InterpretedTransaction[],
+  keyOf: (txn: InterpretedTransaction) => string,
+): CategorySpend[] {
+  const total = signedTotal(transactions);
   const byTag = new Map<string, number>();
   for (const txn of transactions) {
-    if (txn.type === "transfer" || txn.type === "income" || txn.amount >= 0) continue;
+    const name = keyOf(txn);
     const amount = Math.abs(txn.amount);
-    for (const tag of tagsOf(txn)) {
-      byTag.set(tag, roundMoney((byTag.get(tag) ?? 0) + amount));
-    }
+    byTag.set(name, roundMoney((byTag.get(name) ?? 0) + amount));
   }
   return [...byTag.entries()]
     .map(([name, amount]) => ({
       name,
       amount,
-      share: spending > 0 ? Math.round((amount / spending) * 100) : 0,
+      share: total > 0 ? Math.round((amount / total) * 100) : 0,
     }))
     .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
 }
@@ -87,7 +157,7 @@ function insights(
   const topOut = transactions.filter((txn) => txn.amount < 0).sort((a, b) => a.amount - b.amount)[0];
   if (topIn) lines.push(`Money came in mainly from ${topIn.merchant} (${formatAud(topIn.amount)}).`);
   if (summary.categories[0]) {
-    lines.push(`The largest outflow tag is ${summary.categories[0].name} (${formatAud(summary.categories[0].amount)}).`);
+    lines.push(`The largest primary outflow tag is ${summary.categories[0].name} (${formatAud(summary.categories[0].amount)}).`);
   } else if (topOut) {
     lines.push(`The largest payment was ${topOut.merchant} (${formatAud(Math.abs(topOut.amount))}).`);
   }

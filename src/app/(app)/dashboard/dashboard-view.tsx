@@ -11,7 +11,7 @@ import { SummaryCard } from "@/components/summary-card";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { potsInTotal } from "@/lib/money-flow/savings";
 import type { ChartKind } from "@/lib/money-flow/tag-charts";
-import { tagsOf } from "@/lib/money-flow/tags";
+import { primaryTag, subTags, tagsOf } from "@/lib/money-flow/tags";
 
 export function DashboardView() {
   const { flow, hasUploads, transactions, usingDemo } = useMoneyFlow();
@@ -131,7 +131,8 @@ export function DashboardView() {
                 <div>
                   <p className="font-semibold">{txn.merchant}</p>
                   <p className="mt-1 text-sm text-[#77857f]">
-                    {tagsOf(txn).join(" · ")} · {txn.date}
+                    {primaryTag(txn)}
+                    {subTags(txn).length > 0 ? ` / ${subTags(txn).join(" · ")}` : ""} · {txn.date}
                   </p>
                 </div>
                 <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>

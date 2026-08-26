@@ -169,7 +169,7 @@ function toInterpreted(txn: (typeof demoTransactions)[number]): InterpretedTrans
     id: txn.id,
     merchant: txn.merchant,
     category: txn.category,
-    tags: [txn.category],
+    tags: [...txn.tags],
     date: txn.date,
     dateIso: parseDate(`${txn.date} 2026`) ?? "2026-08-01",
     amount: txn.amount,
