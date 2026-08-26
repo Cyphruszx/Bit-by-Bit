@@ -22,7 +22,7 @@ export function SavingsPathChart({
   compact?: boolean;
 }) {
   if (pots.length === 0) {
-    return <p className="text-sm text-[#60716a]">Add a pot to see the path to target.</p>;
+    return <p className="text-sm text-[#60716a]">Include a pot to see the path to target.</p>;
   }
 
   const fromIso = localIsoDate();
@@ -53,12 +53,19 @@ export function SavingsPathChart({
   );
 }
 
-export function SavingsPotLinesChart({ pots }: { pots: SavingsPot[] }) {
+export function SavingsPotLinesChart({
+  pots,
+  colorFrom,
+}: {
+  pots: SavingsPot[];
+  colorFrom?: SavingsPot[];
+}) {
   if (pots.length === 0) return null;
-  const series = projectedPotSeries(pots, { fromIso: localIsoDate() }).map((item, index) => ({
+  const palette = colorFrom ?? pots;
+  const series = projectedPotSeries(pots, { fromIso: localIsoDate() }).map((item) => ({
     id: item.id,
     label: item.name,
-    color: potLineColor(index),
+    color: potLineColor(Math.max(0, palette.findIndex((pot) => pot.id === item.id))),
     points: item.points,
   }));
   return <LineChart series={series} height={240} ariaLabel="Line graph of each savings pot over coming months" />;

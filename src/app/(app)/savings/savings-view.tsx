@@ -7,49 +7,78 @@ import { useSavingsPots } from "@/components/savings-store";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
-import { monthlyTransferSeries, monthsToPot, type SavingsPot } from "@/lib/money-flow/savings";
+import {
+  isIncludedInTotal,
+  monthlyTransferSeries,
+  monthsToPot,
+  potsInTotal,
+  type SavingsPot,
+} from "@/lib/money-flow/savings";
 
 export function SavingsView() {
   const { flow, hasUploads, transactions } = useMoneyFlow();
-  const { pots, snapshots, addPot, updatePot, removePot } = useSavingsPots();
-  const saved = pots.reduce((sum, pot) => sum + pot.saved, 0);
-  const target = pots.reduce((sum, pot) => sum + pot.target, 0);
-  const monthly = pots.reduce((sum, pot) => sum + pot.monthlyContribution, 0);
+  const { pots, snapshots, addPot, updatePot, removePot, toggleIncluded } = useSavingsPots();
+  const included = potsInTotal(pots);
+  const hiddenCount = pots.length - included.length;
+  const saved = included.reduce((sum, pot) => sum + pot.saved, 0);
+  const target = included.reduce((sum, pot) => sum + pot.target, 0);
+  const monthly = included.reduce((sum, pot) => sum + pot.monthlyContribution, 0);
 
   return (
     <>
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">Bit by bit</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Savings</h1>
       <p className="mt-2 max-w-2xl text-[#60716a]">
-        Track pots toward the things you are saving for. Edits stay in this browser. Uploaded transfers show as money
-        set aside this period, not spending.
+        Track pots toward the things you are saving for. Hide a pot to keep it off the combined total and charts so
+        you can watch one goal at a time. Edits stay in this browser.
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <SummaryCard label="Saved toward pots" value={formatAud(saved)} detail={`${pots.length} active pots`} positive />
-        <SummaryCard label="Combined target" value={formatAud(target)} detail="Across your savings pots" />
+        <SummaryCard
+          label="Saved toward pots"
+          value={formatAud(saved)}
+          detail={
+            hiddenCount > 0
+              ? `${included.length} in the total · ${hiddenCount} hidden`
+              : `${included.length} active pots`
+          }
+          positive
+        />
+        <SummaryCard
+          label="Combined target"
+          value={formatAud(target)}
+          detail={hiddenCount > 0 ? "Included pots only" : "Across your savings pots"}
+        />
         <SummaryCard
           label={hasUploads ? "Set aside this period" : "Monthly contributions"}
           value={formatAud(hasUploads ? flow.transfers : monthly)}
-          detail={hasUploads ? flow.periodLabel : "Planned each month"}
+          detail={hasUploads ? flow.periodLabel : hiddenCount > 0 ? "Included pots each month" : "Planned each month"}
           positive
         />
       </section>
       <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
         <h2 className="text-lg font-bold">Path to target</h2>
         <p className="mt-1 text-sm text-[#60716a]">
-          Combined saved amount over the coming months at your current contributions, with the combined target as a
-          dashed line.
+          {included.length === 1
+            ? `Progress for ${included[0]?.name} only. Turn pots on or off below to change what is in the total.`
+            : "Combined saved amount of included pots, with their combined target as a dashed line."}
         </p>
+        {pots.length > 0 ? (
+          <PotVisibilityToggles pots={pots} onToggle={toggleIncluded} />
+        ) : null}
         <div className="mt-5">
-          <SavingsPathChart pots={pots} snapshots={snapshots} />
+          {pots.length === 0 ? (
+            <p className="text-sm text-[#60716a]">Add a pot to see the path to target.</p>
+          ) : (
+            <SavingsPathChart pots={included} snapshots={hiddenCount === 0 ? snapshots : []} />
+          )}
         </div>
       </article>
-      {pots.length > 1 ? (
+      {included.length > 1 ? (
         <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
           <h2 className="text-lg font-bold">Each pot</h2>
-          <p className="mt-1 text-sm text-[#60716a]">How every pot grows if you keep the same monthly amount.</p>
+          <p className="mt-1 text-sm text-[#60716a]">How every included pot grows if you keep the same monthly amount.</p>
           <div className="mt-5">
-            <SavingsPotLinesChart pots={pots} />
+            <SavingsPotLinesChart pots={included} colorFrom={pots} />
           </div>
         </article>
       ) : null}
@@ -68,11 +97,48 @@ export function SavingsView() {
           <p className="text-sm text-[#60716a]">No savings pots yet. Add one above.</p>
         ) : (
           pots.map((pot) => (
-            <PotCard key={pot.id} pot={pot} onSave={(patch) => updatePot(pot.id, patch)} onRemove={() => removePot(pot.id)} />
+            <PotCard
+              key={pot.id}
+              pot={pot}
+              onSave={(patch) => updatePot(pot.id, patch)}
+              onRemove={() => removePot(pot.id)}
+              onToggleIncluded={() => toggleIncluded(pot.id)}
+            />
           ))
         )}
       </section>
     </>
+  );
+}
+
+function PotVisibilityToggles({
+  pots,
+  onToggle,
+}: {
+  pots: SavingsPot[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap gap-2">
+      {pots.map((pot) => {
+        const included = isIncludedInTotal(pot);
+        return (
+          <button
+            key={pot.id}
+            type="button"
+            aria-pressed={included}
+            onClick={() => onToggle(pot.id)}
+            className={
+              included
+                ? "rounded-full bg-[#173b31] px-3 py-1.5 text-sm font-medium text-white"
+                : "rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm font-medium text-[#60716a]"
+            }
+          >
+            {included ? pot.name : `${pot.name} · hidden`}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -122,10 +188,12 @@ function PotCard({
   pot,
   onSave,
   onRemove,
+  onToggleIncluded,
 }: {
   pot: SavingsPot;
   onSave: (patch: Partial<Omit<SavingsPot, "id">>) => void;
   onRemove: () => void;
+  onToggleIncluded: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(pot.name);
@@ -135,9 +203,10 @@ function PotCard({
   const remaining = Math.max(0, pot.target - pot.saved);
   const percent = pot.target > 0 ? Math.round((pot.saved / pot.target) * 100) : 0;
   const months = monthsToPot(pot);
+  const included = isIncludedInTotal(pot);
 
   return (
-    <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
+    <article className={`rounded-2xl border border-[#dce4df] bg-white p-6 ${included ? "" : "opacity-70"}`}>
       {editing ? (
         <form
           onSubmit={(event) => {
@@ -168,7 +237,12 @@ function PotCard({
         </form>
       ) : (
         <>
-          <h2 className="text-lg font-bold">{pot.name}</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-bold">{pot.name}</h2>
+            {included ? null : (
+              <span className="rounded-full bg-[#edf0ee] px-2 py-0.5 text-xs font-medium text-[#60716a]">Hidden</span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-[#60716a]">{pot.detail}</p>
           <p className="mt-5 text-2xl font-bold">{formatAud(pot.saved)}</p>
           <p className="mt-1 text-sm text-[#77857f]">of {formatAud(pot.target)}</p>
@@ -178,7 +252,7 @@ function PotCard({
             {months === 0 ? " · reached" : months == null ? "" : ` · about ${months} months to go`}
             {remaining > 0 ? ` · ${formatAud(remaining)} left` : ""}
           </p>
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
               className="text-sm font-semibold text-[#355a3f]"
@@ -191,6 +265,9 @@ function PotCard({
               }}
             >
               Edit
+            </button>
+            <button type="button" className="text-sm font-semibold text-[#355a3f]" onClick={onToggleIncluded}>
+              {included ? "Hide from total" : "Include in total"}
             </button>
             <button type="button" className="text-sm font-semibold text-[#9b3b32]" onClick={onRemove}>
               Remove

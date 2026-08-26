@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import {
   localIsoDate,
+  nextIncludedInTotal,
   recordSavingsSnapshot,
   seedSavingsPots,
   type SavingsPot,
@@ -23,7 +24,7 @@ type SavingsState = {
 
 export function useSavingsPots() {
   const state = useSyncExternalStore(subscribe, getSnapshot, () => emptyState);
-  return { pots: state.pots, snapshots: state.snapshots, addPot, updatePot, removePot };
+  return { pots: state.pots, snapshots: state.snapshots, addPot, updatePot, removePot, toggleIncluded };
 }
 
 function subscribe(onChange: () => void) {
@@ -73,5 +74,11 @@ function updatePot(id: string, patch: Partial<Omit<SavingsPot, "id">>) {
 
 function removePot(id: string) {
   persist(getSnapshot().pots.filter((pot) => pot.id !== id));
+}
+
+function toggleIncluded(id: string) {
+  persist(
+    getSnapshot().pots.map((pot) => (pot.id === id ? { ...pot, includedInTotal: nextIncludedInTotal(pot) } : pot)),
+  );
 }
 

@@ -9,6 +9,7 @@ export type SavingsPot = {
   saved: number;
   target: number;
   monthlyContribution: number;
+  includedInTotal?: boolean;
 };
 
 export type SavingsSnapshot = {
@@ -44,6 +45,18 @@ export function monthsToPot(pot: SavingsPot): number | null {
   if (remaining <= 0) return 0;
   if (pot.monthlyContribution <= 0) return null;
   return Math.ceil(remaining / pot.monthlyContribution);
+}
+
+export function isIncludedInTotal(pot: SavingsPot): boolean {
+  return pot.includedInTotal !== false;
+}
+
+export function potsInTotal(pots: SavingsPot[]): SavingsPot[] {
+  return pots.filter(isIncludedInTotal);
+}
+
+export function nextIncludedInTotal(pot: SavingsPot): boolean {
+  return !isIncludedInTotal(pot);
 }
 
 export function localIsoDate(now = new Date()): string {

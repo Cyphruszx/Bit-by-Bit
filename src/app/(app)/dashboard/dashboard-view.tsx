@@ -7,11 +7,14 @@ import { useSavingsPots } from "@/components/savings-store";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud, formatSignedAud } from "@/lib/format";
+import { potsInTotal } from "@/lib/money-flow/savings";
 import { tagsOf } from "@/lib/money-flow/tags";
 
 export function DashboardView() {
   const { flow, hasUploads, transactions, usingDemo } = useMoneyFlow();
   const { pots, snapshots } = useSavingsPots();
+  const included = potsInTotal(pots);
+  const hiddenCount = pots.length - included.length;
   const recent = transactions.slice(0, 4);
 
   return (
@@ -52,11 +55,24 @@ export function DashboardView() {
           <div className="mt-5">
             {pots.length === 0 ? (
               <p className="text-sm text-[#60716a]">Add a pot on the Savings tab.</p>
+            ) : included.length === 0 ? (
+              <p className="text-sm text-[#60716a]">
+                All pots are hidden from the total.{" "}
+                <Link href="/savings" className="font-semibold text-[#355a3f]">
+                  Include one on Savings
+                </Link>
+                .
+              </p>
             ) : (
               <>
-                <SavingsPathChart pots={pots} snapshots={snapshots} compact />
+                <SavingsPathChart pots={included} snapshots={hiddenCount === 0 ? snapshots : []} compact />
+                {hiddenCount > 0 ? (
+                  <p className="mt-3 text-sm text-[#60716a]">
+                    Showing {included.length} of {pots.length} pots. Hidden pots stay off this total.
+                  </p>
+                ) : null}
                 <div className="mt-5 space-y-5">
-                  {pots.map((pot) => {
+                  {included.map((pot) => {
                     const percent = pot.target > 0 ? Math.round((pot.saved / pot.target) * 100) : 0;
                     return (
                       <div key={pot.id}>

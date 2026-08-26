@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  isIncludedInTotal,
   monthlyTransferSeries,
   monthsToPot,
+  potsInTotal,
   prependRecordedMonths,
   projectedPotSeries,
   projectedSavingsPath,
@@ -98,6 +100,24 @@ describe("savings snapshots", () => {
     assert.deepEqual(sameDay, [{ date: "2026-08-26", totalSaved: 8500 }]);
     const unchanged = recordSavingsSnapshot([{ ...emergency, saved: 8500 }], sameDay, "2026-08-27");
     assert.equal(unchanged, sameDay);
+  });
+});
+
+describe("include in total", () => {
+  it("drops hidden pots from the combined path", () => {
+    const hidden = { ...japan, includedInTotal: false };
+    const included = potsInTotal([emergency, hidden]);
+    assert.equal(isIncludedInTotal(emergency), true);
+    assert.equal(isIncludedInTotal(hidden), false);
+    assert.deepEqual(
+      included.map((pot) => pot.id),
+      ["emergency"],
+    );
+    const points = projectedSavingsPath(included, { fromIso: "2026-08-01", maxMonths: 18 });
+    assert.equal(points[0]?.value, 8400);
+    assert.ok(points.every((point) => point.value <= 12000));
+    const snaps = recordSavingsSnapshot([emergency, hidden], [], "2026-08-26");
+    assert.equal(snaps[0]?.totalSaved, 10550);
   });
 });
 
