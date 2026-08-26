@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { detectRecurringOutflows, monthlyEquivalent, recurringFingerprint } from "./recurring";
+import { detectRecurringOutflows, monthlyEquivalent, nextDateFromLast, recurringFingerprint } from "./recurring";
 import type { InterpretedTransaction } from "./types";
 
 function txn(
@@ -47,5 +47,11 @@ describe("recurring outflows", () => {
       txn({ id: "2", merchant: "Transfer To Savings", amount: -400, dateIso: "2026-08-26", type: "transfer", category: "Goals" }),
     ]);
     assert.equal(found.length, 0);
+  });
+
+  it("advances the last payment date to the next occurrence", () => {
+    assert.equal(nextDateFromLast("2026-08-03", "monthly", "2026-08-26"), "2026-09-03");
+    assert.equal(nextDateFromLast("2026-08-20", "weekly", "2026-08-26"), "2026-08-27");
+    assert.equal(nextDateFromLast("2026-09-01", "monthly", "2026-08-26"), "2026-09-01");
   });
 });

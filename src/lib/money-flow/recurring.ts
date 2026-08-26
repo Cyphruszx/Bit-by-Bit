@@ -68,6 +68,25 @@ export function monthlyEquivalent(amount: number, cadence: Cadence): number {
   return roundMoney(amount);
 }
 
+export function addCadence(iso: string, cadence: Cadence): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (cadence === "weekly") date.setUTCDate(date.getUTCDate() + 7);
+  else if (cadence === "fortnightly") date.setUTCDate(date.getUTCDate() + 14);
+  else date.setUTCMonth(date.getUTCMonth() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+export function nextDateFromLast(lastDateIso: string, cadence: Cadence, todayIso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(lastDateIso)) return todayIso;
+  if (lastDateIso >= todayIso) return lastDateIso;
+  let current = lastDateIso;
+  for (let i = 0; i < 48 && current < todayIso; i += 1) {
+    current = addCadence(current, cadence);
+  }
+  return current;
+}
+
 function inferCadence(dateIso: string[], singleHit: boolean): Cadence {
   if (singleHit) return "monthly";
   if (dateIso.length < 2) return "unknown";

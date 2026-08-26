@@ -15,6 +15,7 @@ export type TrackedRecurring = {
   name: string;
   amount: number;
   cadence: Cadence;
+  nextDate: string;
   source: "detected" | "custom";
 };
 
@@ -34,6 +35,7 @@ export function useRecurringStore() {
     ignorePayment,
     stopTracking,
     addCustomPayment,
+    updatePayment,
     removeCustomPayment,
   };
 }
@@ -55,8 +57,8 @@ function getSnapshot(): RecurringStore {
     const parsed = JSON.parse(raw) as Partial<RecurringStore>;
     cached = {
       ignored: parsed.ignored ?? [],
-      confirmed: parsed.confirmed ?? [],
-      custom: parsed.custom ?? [],
+      confirmed: (parsed.confirmed ?? []).map(withNextDate),
+      custom: (parsed.custom ?? []).map(withNextDate),
     };
     return cached;
   } catch {
@@ -71,6 +73,10 @@ function persist(next: RecurringStore) {
   cachedRaw = raw;
   cached = next;
   listeners.forEach((listener) => listener());
+}
+
+function withNextDate(item: TrackedRecurring): TrackedRecurring {
+  return { ...item, nextDate: item.nextDate ?? "" };
 }
 
 function confirmPayment(payment: Omit<TrackedRecurring, "id" | "source">) {
@@ -103,7 +109,7 @@ function stopTracking(id: string) {
   });
 }
 
-function addCustomPayment(name: string, amount: number, cadence: Cadence) {
+function addCustomPayment(name: string, amount: number, cadence: Cadence, nextDate: string) {
   const store = getSnapshot();
   const id = crypto.randomUUID();
   persist({
@@ -111,8 +117,17 @@ function addCustomPayment(name: string, amount: number, cadence: Cadence) {
     confirmed: store.confirmed,
     custom: [
       ...store.custom,
-      { id, fingerprint: `custom:${id}`, name, amount, cadence, source: "custom" },
+      { id, fingerprint: `custom:${id}`, name, amount, cadence, nextDate, source: "custom" },
     ],
+  });
+}
+
+function updatePayment(id: string, patch: Partial<Pick<TrackedRecurring, "nextDate" | "name" | "amount" | "cadence">>) {
+  const store = getSnapshot();
+  persist({
+    ignored: store.ignored,
+    confirmed: store.confirmed.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    custom: store.custom.map((item) => (item.id === id ? { ...item, ...patch } : item)),
   });
 }
 
