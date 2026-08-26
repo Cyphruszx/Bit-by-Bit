@@ -34,6 +34,7 @@ describe("savings path", () => {
   it("starts at current saved and caps at the target", () => {
     const points = projectedSavingsPath([emergency], { fromIso: "2026-08-25", maxMonths: 18 });
     assert.equal(points[0]?.key, "2026-08");
+    assert.equal(points[0]?.label, "Aug 2026");
     assert.equal(points[0]?.value, 8400);
     assert.equal(points[1]?.value, 8800);
     assert.equal(points.at(-1)?.value, 12000);

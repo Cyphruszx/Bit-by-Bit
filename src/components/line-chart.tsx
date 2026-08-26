@@ -104,11 +104,14 @@ export function LineChart({
               ) : null}
               {aligned.map((point, index) =>
                 point ? (
-                  <circle key={`${item.id}-${point.key}`} cx={x(index)} cy={y(point.value)} r="3.5" fill={item.color}>
-                    <title>
-                      {item.label}: {formatAud(point.value)} · {point.label}
-                    </title>
-                  </circle>
+                  <circle
+                    key={`${item.id}-${point.key}`}
+                    cx={x(index)}
+                    cy={y(point.value)}
+                    r="3.5"
+                    fill={item.color}
+                    aria-label={`${item.label}: ${formatAud(point.value)} · ${point.label}`}
+                  />
                 ) : null,
               )}
             </g>

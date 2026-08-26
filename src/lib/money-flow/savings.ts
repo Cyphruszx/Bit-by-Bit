@@ -54,12 +54,10 @@ export function localIsoDate(now = new Date()): string {
 }
 
 export function monthLabelFromKey(key: string): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const [year, month] = key.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-AU", {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  const name = months[(month ?? 1) - 1] ?? "Jan";
+  return `${name} ${year}`;
 }
 
 export function recordSavingsSnapshot(
