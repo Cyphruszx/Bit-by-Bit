@@ -52,7 +52,7 @@ export function DashboardView() {
             {pots.length === 0 ? (
               <p className="text-sm text-[#60716a]">Add a pot on the Savings tab.</p>
             ) : (
-              pots.slice(0, 3).map((pot) => {
+              pots.map((pot) => {
                 const percent = pot.target > 0 ? Math.round((pot.saved / pot.target) * 100) : 0;
                 return (
                   <div key={pot.id}>
