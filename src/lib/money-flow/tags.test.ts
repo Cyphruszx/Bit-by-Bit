@@ -28,6 +28,7 @@ describe("transaction tags", () => {
     const next = withTags(txn("Groceries"), ["food", "Woolworths", "food"]);
     assert.deepEqual(next.tags, ["Food", "Woolworths"]);
     assert.equal(next.category, "Food");
+    assert.equal(next.tagSource, "user");
   });
 
   it("renames and removes a tag across the list", () => {

@@ -16,7 +16,7 @@ export function tagsOf(txn: Pick<InterpretedTransaction, "category" | "tags">): 
 export function withTags(txn: InterpretedTransaction, tags: string[]): InterpretedTransaction {
   const next = uniqueTags(tags.map(tidyTag).filter(Boolean));
   const primary = next[0] ?? "Other";
-  return { ...txn, tags: next.length > 0 ? next : ["Other"], category: primary };
+  return { ...txn, tags: next.length > 0 ? next : ["Other"], category: primary, tagSource: "user" };
 }
 
 export function renameTag(transactions: InterpretedTransaction[], from: string, to: string): InterpretedTransaction[] {

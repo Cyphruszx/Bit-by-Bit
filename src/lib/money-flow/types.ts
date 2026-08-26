@@ -15,6 +15,9 @@ export type FileKind =
 
 export type TransactionType = "income" | "expense" | "transfer" | "refund";
 
+export type TagSource = "rules" | "ai" | "user";
+export type ExtractionSource = "ai" | "ocr" | "parser";
+
 export type InterpretedTransaction = {
   id: string;
   merchant: string;
@@ -26,6 +29,8 @@ export type InterpretedTransaction = {
   sourceFile: string;
   confidence: number;
   tags?: string[];
+  tagSource?: TagSource;
+  extractedBy?: ExtractionSource;
 };
 
 export type FileInterpretation = {

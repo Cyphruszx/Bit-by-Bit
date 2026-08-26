@@ -11,6 +11,7 @@ export function acceptedDropTypes(): string {
     ".jpeg",
     ".webp",
     ".gif",
+    ".heic",
     ".ofx",
     ".qfx",
     ".qif",

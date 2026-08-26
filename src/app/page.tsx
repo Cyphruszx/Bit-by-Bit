@@ -4,8 +4,8 @@ import { siteDescription, siteName } from "@/lib/brand";
 
 const features = [
   ["Almost any document", "CSV, Excel, PDF, OFX, QIF, Word, HTML, JSON, photos of receipts, and plain text."],
+  ["AI reads photos", "Vision extracts totals from receipts and statement photos, then suggests tags when the merchant is unclear."],
   ["Interpreted money flow", "See money in, money out, and the tags that actually moved."],
-  ["Built for real files", "Drop a bank export or a photographed statement into one place."],
   ["Made for Australia", "Dates, dollars, and merchants parsed with local statements in mind."],
 ];
 
@@ -41,7 +41,7 @@ export default function Home() {
             <li>Bank CSV and Excel exports</li>
             <li>OFX, QFX, and QIF downloads</li>
             <li>PDF statements and Word docs</li>
-            <li>Photos of receipts and printed pages</li>
+            <li>Photos of receipts and printed pages, read with AI when configured</li>
           </ul>
           <p className="mt-8 text-sm text-[#b9cdc4]">Then it shows</p>
           <div className="mt-3 grid grid-cols-2 gap-3">

@@ -1,3 +1,4 @@
+import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFlowAi } from "@/lib/money-flow/ai";
 import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
 import { parseDocument } from "@/lib/money-flow/parsers";
 import { summarizeMoneyFlow, uniqueTransactions } from "@/lib/money-flow/summary";
@@ -6,9 +7,15 @@ import type { FileInterpretation, InterpretationResult, InterpretedTransaction }
 export const MAX_FILES = 8;
 export const MAX_FILE_BYTES = 12 * 1024 * 1024;
 
+export type InterpretOptions = {
+  ai?: MoneyFlowAi | null;
+};
+
 export async function interpretDocuments(
   files: Array<{ filename: string; mime: string; bytes: Uint8Array }>,
+  options: InterpretOptions = {},
 ): Promise<InterpretationResult> {
+  const ai = "ai" in options ? options.ai : createOpenAiFromEnv();
   const interpretations: FileInterpretation[] = [];
   const transactions: InterpretedTransaction[] = [];
 
@@ -45,7 +52,7 @@ export async function interpretDocuments(
     }
 
     try {
-      const parsed = await parseDocument(filename, file.mime, file.bytes);
+      const parsed = await parseDocument(filename, file.mime, file.bytes, { ai });
       transactions.push(...parsed.transactions);
       interpretations.push({
         ...base,
@@ -67,10 +74,35 @@ export async function interpretDocuments(
     }
   }
 
-  const merged = uniqueTransactions(transactions).sort(
+  let merged = uniqueTransactions(transactions).sort(
     (a, b) => b.dateIso.localeCompare(a.dateIso) || b.id.localeCompare(a.id),
   );
-  return { files: interpretations, transactions: merged, flow: summarizeMoneyFlow(merged) };
+  let taggedCount = 0;
+
+  if (ai) {
+    const pending = merged.filter(needsInitialTag);
+    if (pending.length > 0) {
+      try {
+        const suggestions = await ai.suggestTags({ transactions: pending });
+        const applied = applyTagSuggestions(merged, suggestions);
+        merged = applied.transactions;
+        taggedCount = applied.taggedCount;
+      } catch (error) {
+        interpretations[0]?.notes.push(
+          `AI tagging was skipped (${error instanceof Error ? error.message : "unknown error"}).`,
+        );
+      }
+    }
+  }
+
+  const flow = summarizeMoneyFlow(merged);
+  if (taggedCount > 0) {
+    flow.insights.unshift(
+      `AI suggested tags for ${taggedCount} unlabelled movement${taggedCount === 1 ? "" : "s"}. You can change them on Transactions.`,
+    );
+  }
+
+  return { files: interpretations, transactions: merged, flow };
 }
 
 export function sanitizeFilename(filename: string): string {

@@ -15,7 +15,7 @@ const SAMPLES = [
   ["/samples/receipt-notes.txt", "Text / receipt notes"],
 ];
 
-export function UploadStudio() {
+export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { applyInterpretation, clearInterpretation, files, flow, hasUploads, transactions } = useMoneyFlow();
   const [dragging, setDragging] = useState(false);
@@ -66,7 +66,10 @@ export function UploadStudio() {
         <h2 className="mt-2 text-2xl font-bold">Drop almost any money document</h2>
         <p className="mx-auto mt-3 max-w-xl text-[#52625c]">
           Bank CSV and Excel exports, OFX/QIF, PDFs, Word docs, HTML statements, JSON, photos of receipts, and plain
-          text. BitbyBit reads the file and interprets money in versus money out.
+          text. BitbyBit reads the file and interprets money in versus money out
+          {aiReady
+            ? ", using AI vision on photos and suggesting tags when a merchant is still unlabelled."
+            : ". Add OPENAI_API_KEY to .env.local to let AI read receipt photos and suggest tags; until then, photos use on-device OCR and merchant rules."}
         </p>
         <input
           ref={inputRef}
@@ -82,7 +85,7 @@ export function UploadStudio() {
           disabled={pending}
           className="mt-6 rounded-full bg-[#d5f06c] px-6 py-3 font-bold text-[#173b31] disabled:opacity-60"
         >
-          {pending ? "Reading documents…" : "Choose documents"}
+          {pending ? (aiReady ? "Reading with AI…" : "Reading documents…") : "Choose documents"}
         </button>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           {SAMPLES.map(([path, label]) => (
@@ -161,7 +164,8 @@ export function UploadStudio() {
                   <div>
                     <p className="font-semibold">{txn.merchant}</p>
                     <p className="mt-1 text-sm text-[#77857f]">
-                      {tagsOf(txn).join(" · ")} · {txn.date} · {txn.sourceFile}
+                      {tagsOf(txn).join(" · ")}
+                      {txn.tagSource === "ai" ? " · AI tag" : ""} · {txn.date} · {txn.sourceFile}
                     </p>
                   </div>
                   <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>

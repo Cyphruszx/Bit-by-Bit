@@ -86,6 +86,7 @@ export function TransactionTable({ transactions }: { transactions: InterpretedTr
                 <p className="mt-1 text-sm text-[#77857f]">{txn.date}</p>
                 <TagEditor
                   tags={tagsOf(txn)}
+                  aiSuggested={txn.tagSource === "ai"}
                   suggestions={allTags(transactions)}
                   listId={`tag-suggestions-${txn.id}`}
                   onChange={(next) => setTransactionTags(txn.id, next)}
@@ -104,11 +105,13 @@ export function TransactionTable({ transactions }: { transactions: InterpretedTr
 
 function TagEditor({
   tags,
+  aiSuggested = false,
   suggestions,
   listId,
   onChange,
 }: {
   tags: string[];
+  aiSuggested?: boolean;
   suggestions: string[];
   listId: string;
   onChange: (tags: string[]) => void;
@@ -156,6 +159,9 @@ function TagEditor({
           Add
         </button>
       </form>
+      {aiSuggested ? (
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-[#527166]">AI suggested</span>
+      ) : null}
       {unused.length > 0 ? (
         <select
           value=""

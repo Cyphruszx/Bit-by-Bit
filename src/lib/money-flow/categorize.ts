@@ -1,4 +1,21 @@
+import { tidyTag } from "@/lib/money-flow/tags";
 import type { TransactionType } from "@/lib/money-flow/types";
+
+export const KNOWN_TAGS = [
+  "Housing",
+  "Groceries",
+  "Dining",
+  "Transport",
+  "Shopping",
+  "Entertainment",
+  "Utilities",
+  "Subscriptions",
+  "Health",
+  "Travel",
+  "Income",
+  "Goals",
+  "Other",
+] as const;
 
 const RULES: Array<[RegExp, string]> = [
   [/\b(woolworths|coles|aldi|iga|foodworks|harris farm|greengrocer|supermarket|wojia)\b/i, "Groceries"],
@@ -19,6 +36,15 @@ export function categorize(description: string): string {
   for (const [pattern, category] of RULES) {
     if (pattern.test(description)) return category;
   }
+  return "Other";
+}
+
+export function snapTag(raw: string, allowNew = false): string {
+  const tidy = tidyTag(raw);
+  if (!tidy) return "Other";
+  const known = KNOWN_TAGS.find((tag) => tag.toLowerCase() === tidy.toLowerCase());
+  if (known) return known;
+  if (allowNew && /^[\p{L}\p{N}][\p{L}\p{N} &/'()-]{0,39}$/u.test(tidy)) return tidy;
   return "Other";
 }
 

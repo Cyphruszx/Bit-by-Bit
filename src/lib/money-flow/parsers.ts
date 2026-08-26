@@ -1,3 +1,4 @@
+import { type MoneyFlowAi, visionMime } from "@/lib/money-flow/ai";
 import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
 import { detectFileKind } from "@/lib/money-flow/detect";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
@@ -6,10 +7,15 @@ import { looksLikeUpStatement, transactionsFromUpStatement } from "@/lib/money-f
 import { transactionsFromText } from "@/lib/money-flow/text-lines";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
+export type ParseDocumentOptions = {
+  ai?: MoneyFlowAi | null;
+};
+
 export async function parseDocument(
   filename: string,
   mime: string,
   bytes: Uint8Array,
+  options: ParseDocumentOptions = {},
 ): Promise<{ transactions: InterpretedTransaction[]; notes: string[] }> {
   const kind = detectFileKind(filename, mime, bytes);
   const notes: string[] = [];
@@ -63,25 +69,62 @@ export async function parseDocument(
     return { transactions: transactionsFromExtractedText(result.value, filename), notes: notesForText(result.value) };
   }
   if (kind === "image") {
-    try {
-      const Tesseract = await import("tesseract.js");
-      const recognized = await Tesseract.recognize(Buffer.from(bytes), "eng");
-      const text = recognized.data.text.trim();
-      if (!text) {
-        return { transactions: [], notes: ["OCR did not find readable text on this image."] };
-      }
-      notes.push("Read with on-device OCR. Check a couple of amounts before you rely on them.");
-      return { transactions: transactionsFromExtractedText(text, filename), notes };
-    } catch (error) {
-      return {
-        transactions: [],
-        notes: [`Could not OCR this image: ${error instanceof Error ? error.message : "unknown error"}`],
-      };
-    }
+    return readImageDocument(filename, mime, bytes, options.ai);
   }
 
   const fallback = decodeText(bytes);
   return { transactions: transactionsFromExtractedText(fallback, filename), notes: notesForText(fallback) };
+}
+
+export async function readImageDocument(
+  filename: string,
+  mime: string,
+  bytes: Uint8Array,
+  ai?: MoneyFlowAi | null,
+  ocr: (image: Uint8Array) => Promise<string> = ocrImageText,
+): Promise<{ transactions: InterpretedTransaction[]; notes: string[] }> {
+  const notes: string[] = [];
+
+  if (ai && visionMime(filename, mime)) {
+    try {
+      const extracted = await ai.extractFromImage({ filename, mime, bytes });
+      notes.push(...extracted.notes);
+      if (extracted.transactions.length > 0) {
+        notes.push("Read with AI vision. Check a couple of amounts before you rely on them.");
+        return { transactions: extracted.transactions, notes };
+      }
+      notes.push("AI did not find money movement, so BitbyBit tried on-device OCR.");
+    } catch (error) {
+      notes.push(
+        `AI could not read this photo (${error instanceof Error ? error.message : "unknown error"}). Trying on-device OCR.`,
+      );
+    }
+  } else if (ai && !visionMime(filename, mime)) {
+    notes.push("This photo format is not supported by AI vision, so BitbyBit tried on-device OCR.");
+  }
+
+  try {
+    const text = (await ocr(bytes)).trim();
+    if (!text) {
+      return { transactions: [], notes: [...notes, "OCR did not find readable text on this image."] };
+    }
+    notes.push("Read with on-device OCR. Check a couple of amounts before you rely on them.");
+    return {
+      transactions: transactionsFromExtractedText(text, filename).map((txn) => ({ ...txn, extractedBy: "ocr" as const })),
+      notes,
+    };
+  } catch (error) {
+    return {
+      transactions: [],
+      notes: [...notes, `Could not OCR this image: ${error instanceof Error ? error.message : "unknown error"}`],
+    };
+  }
+}
+
+async function ocrImageText(bytes: Uint8Array): Promise<string> {
+  const Tesseract = await import("tesseract.js");
+  const recognized = await Tesseract.recognize(Buffer.from(bytes), "eng");
+  return recognized.data.text;
 }
 
 function transactionsFromExtractedText(text: string, filename: string): InterpretedTransaction[] {

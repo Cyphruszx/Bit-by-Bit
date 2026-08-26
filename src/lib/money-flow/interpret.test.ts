@@ -7,6 +7,8 @@ import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate } from "./parse-values";
 import { summarizeMoneyFlow } from "./summary";
 
+process.env.OPENAI_API_KEY = "";
+
 const samples = path.join(process.cwd(), "public/samples");
 
 function file(filename: string, mime: string, contents: string | Uint8Array) {
