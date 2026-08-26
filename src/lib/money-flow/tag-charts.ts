@@ -42,7 +42,12 @@ export function pieSlices(categories: CategorySpend[]): TagChartSlice[] {
     const startAngle = angle;
     const endAngle = angle + sweep;
     angle = endAngle;
-    return { ...item, startAngle, endAngle };
+    return {
+      ...item,
+      share: Math.round((item.amount / total) * 100),
+      startAngle,
+      endAngle,
+    };
   });
 }
 

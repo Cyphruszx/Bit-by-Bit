@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { formatAud, formatAudCompact } from "@/lib/format";
+import { spendByTags } from "@/lib/money-flow/summary";
 import {
   barLayout,
   donutPath,
@@ -23,7 +24,7 @@ export function TagChartCard({
   onChartChange,
   title = "Spending by tag",
 }: {
-  categories: CategorySpend[];
+  categories?: CategorySpend[];
   transactions?: InterpretedTransaction[];
   selectedTag: string;
   onSelectTag: (tag: string) => void;
@@ -31,15 +32,27 @@ export function TagChartCard({
   onChartChange: (chart: ChartKind) => void;
   title?: string;
 }) {
-  const slices = useMemo(() => pieSlices(topChartCategories(categories)), [categories]);
-  const tags = transactions ? allTags(transactions) : categories.map((item) => item.name);
+  const spend = useMemo(
+    () => (transactions ? spendByTags(transactions) : (categories ?? [])),
+    [categories, transactions],
+  );
+  const slices = useMemo(() => pieSlices(topChartCategories(spend)), [spend]);
+  const tags = transactions ? allTags(transactions) : spend.map((item) => item.name);
+  const spentTotal = useMemo(() => {
+    if (!transactions) return slices.reduce((sum, item) => sum + item.amount, 0);
+    return transactions
+      .filter((txn) => txn.amount < 0 && txn.type !== "transfer")
+      .reduce((sum, txn) => sum + Math.abs(txn.amount), 0);
+  }, [slices, transactions]);
 
   return (
     <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">{title}</h2>
-          <p className="mt-1 text-sm text-[#60716a]">Toggle bar or pie, then tap a tag to show those transactions.</p>
+          <p className="mt-1 text-sm text-[#60716a]">
+            Toggle bar or pie, then tap a tag to show those transactions. A payment counts on every tag it has.
+          </p>
         </div>
         <div className="flex gap-1">
           {(
@@ -62,12 +75,17 @@ export function TagChartCard({
           ))}
         </div>
       </div>
-      {categories.length === 0 ? (
+      {spend.length === 0 ? (
         <p className="mt-5 text-sm text-[#60716a]">No spending in this period.</p>
       ) : chart === "pie" ? (
-        <PieChart slices={slices} selectedTag={selectedTag} onSelectTag={onSelectTag} />
+        <PieChart
+          slices={slices}
+          spentTotal={spentTotal}
+          selectedTag={selectedTag}
+          onSelectTag={onSelectTag}
+        />
       ) : (
-        <BarGraph categories={topChartCategories(categories)} selectedTag={selectedTag} onSelectTag={onSelectTag} />
+        <BarGraph categories={topChartCategories(spend)} selectedTag={selectedTag} onSelectTag={onSelectTag} />
       )}
       {tags.length > 0 ? (
         <div className="mt-5 flex flex-wrap gap-2">
@@ -191,10 +209,12 @@ function BarGraph({
 
 function PieChart({
   slices,
+  spentTotal,
   selectedTag,
   onSelectTag,
 }: {
   slices: ReturnType<typeof pieSlices>;
+  spentTotal: number;
   selectedTag: string;
   onSelectTag: (tag: string) => void;
 }) {
@@ -203,7 +223,6 @@ function PieChart({
   const cy = 140;
   const outer = 108;
   const inner = 64;
-  const total = slices.reduce((sum, item) => sum + item.amount, 0);
 
   return (
     <div className="mt-5 grid gap-6 md:grid-cols-[280px_1fr] md:items-center">
@@ -237,7 +256,7 @@ function PieChart({
           );
         })}
         <text x={cx} y={cy - 6} textAnchor="middle" fill="#173b31" fontSize="13" fontWeight="700">
-          {formatAudCompact(total)}
+          {formatAudCompact(spentTotal)}
         </text>
         <text x={cx} y={cy + 12} textAnchor="middle" fill="#77857f" fontSize="11">
           spent

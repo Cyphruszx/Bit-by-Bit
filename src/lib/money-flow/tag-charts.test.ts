@@ -36,6 +36,8 @@ describe("tag charts", () => {
     assert.ok(Math.abs(slices[0].startAngle - -Math.PI / 2) < 1e-9);
     assert.ok(Math.abs(slices[1].endAngle - (-Math.PI / 2 + Math.PI * 2)) < 1e-9);
     assert.equal(slices[0].color, "#173b31");
+    assert.equal(slices[0].share, 75);
+    assert.equal(slices[1].share, 25);
     assert.ok(donutPath(100, 100, 80, 48, slices[0].startAngle, slices[0].endAngle).startsWith("M "));
   });
 

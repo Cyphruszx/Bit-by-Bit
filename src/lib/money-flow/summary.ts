@@ -1,7 +1,7 @@
 import { formatAud } from "@/lib/format";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { tagsOf } from "@/lib/money-flow/tags";
-import type { InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
+import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const income = roundMoney(
@@ -19,20 +19,7 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
     transactions.filter((txn) => txn.type === "refund").reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   const net = roundMoney(income - spending);
-  const expenseByCategory = new Map<string, number>();
-  for (const txn of transactions) {
-    if (txn.type === "transfer" || txn.type === "income" || txn.amount >= 0) continue;
-    const primary = tagsOf(txn)[0];
-    const current = expenseByCategory.get(primary) ?? 0;
-    expenseByCategory.set(primary, roundMoney(current + Math.abs(txn.amount)));
-  }
-  const categories = [...expenseByCategory.entries()]
-    .map(([name, amount]) => ({
-      name,
-      amount,
-      share: spending > 0 ? Math.round((amount / spending) * 100) : 0,
-    }))
-    .sort((a, b) => b.amount - a.amount);
+  const categories = spendByTags(transactions);
 
   return {
     income,
@@ -45,6 +32,29 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
     periodLabel: periodLabel(transactions),
     insights: insights(transactions, { income, spending, net, transfers, categories }),
   };
+}
+
+export function spendByTags(transactions: InterpretedTransaction[]): CategorySpend[] {
+  const spending = roundMoney(
+    transactions
+      .filter((txn) => txn.amount < 0 && txn.type !== "transfer")
+      .reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+  );
+  const byTag = new Map<string, number>();
+  for (const txn of transactions) {
+    if (txn.type === "transfer" || txn.type === "income" || txn.amount >= 0) continue;
+    const amount = Math.abs(txn.amount);
+    for (const tag of tagsOf(txn)) {
+      byTag.set(tag, roundMoney((byTag.get(tag) ?? 0) + amount));
+    }
+  }
+  return [...byTag.entries()]
+    .map(([name, amount]) => ({
+      name,
+      amount,
+      share: spending > 0 ? Math.round((amount / spending) * 100) : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
 }
 
 export function uniqueTransactions(rows: InterpretedTransaction[]): InterpretedTransaction[] {

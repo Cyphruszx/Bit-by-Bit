@@ -229,6 +229,83 @@ describe("money flow summary", () => {
       ["Groceries"],
     );
   });
+
+  it("counts spending against every tag on a payment, not only the first", () => {
+    const summary = summarizeMoneyFlow([
+      {
+        id: "1",
+        merchant: "Cafe Sydney",
+        category: "Dining",
+        tags: ["Dining", "Coffee"],
+        date: "20 Aug",
+        dateIso: "2026-08-20",
+        amount: -28.4,
+        type: "expense",
+        sourceFile: "demo",
+        confidence: 1,
+      },
+      {
+        id: "2",
+        merchant: "Woolworths Bondi",
+        category: "Groceries",
+        tags: ["Groceries"],
+        date: "25 Aug",
+        dateIso: "2026-08-25",
+        amount: -86.4,
+        type: "expense",
+        sourceFile: "demo",
+        confidence: 1,
+      },
+    ]);
+    assert.equal(summary.spending, 114.8);
+    assert.deepEqual(
+      summary.categories.map((category) => [category.name, category.amount]),
+      [
+        ["Groceries", 86.4],
+        ["Coffee", 28.4],
+        ["Dining", 28.4],
+      ],
+    );
+  });
+
+  it("moves spend onto a replacement tag", () => {
+    const before = summarizeMoneyFlow([
+      {
+        id: "1",
+        merchant: "Rent Payment Smith",
+        category: "Housing",
+        tags: ["Housing"],
+        date: "1 Aug",
+        dateIso: "2026-08-01",
+        amount: -980,
+        type: "expense",
+        sourceFile: "demo",
+        confidence: 1,
+      },
+    ]);
+    const after = summarizeMoneyFlow([
+      {
+        id: "1",
+        merchant: "Rent Payment Smith",
+        category: "Rent",
+        tags: ["Rent"],
+        date: "1 Aug",
+        dateIso: "2026-08-01",
+        amount: -980,
+        type: "expense",
+        sourceFile: "demo",
+        confidence: 1,
+      },
+    ]);
+    assert.deepEqual(
+      before.categories.map((category) => category.name),
+      ["Housing"],
+    );
+    assert.deepEqual(
+      after.categories.map((category) => [category.name, category.amount]),
+      [["Rent", 980]],
+    );
+  });
 });
 
 function minimalPdf(text: string): Uint8Array {
