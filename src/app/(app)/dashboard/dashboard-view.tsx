@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { demoBudgets, demoGoals, useMoneyFlow } from "@/components/money-flow-provider";
+import { demoBudgets, useMoneyFlow } from "@/components/money-flow-provider";
+import { useSavingsPots } from "@/components/savings-store";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud, formatSignedAud } from "@/lib/format";
@@ -9,6 +10,7 @@ import { tagsOf } from "@/lib/money-flow/tags";
 
 export function DashboardView() {
   const { flow, hasUploads, transactions, usingDemo } = useMoneyFlow();
+  const { pots } = useSavingsPots();
   const recent = transactions.slice(0, 4);
 
   return (
@@ -41,26 +43,30 @@ export function DashboardView() {
       <section className="mt-8 grid gap-6 lg:grid-cols-[1.25fr_.75fr]">
         <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">Savings goals</h2>
-            <Link href="/goals" className="text-sm font-semibold text-[#355a3f]">
+            <h2 className="text-lg font-bold">Savings</h2>
+            <Link href="/savings" className="text-sm font-semibold text-[#355a3f]">
               View all
             </Link>
           </div>
           <div className="mt-5 space-y-5">
-            {demoGoals.map((goal) => {
-              const percent = Math.round((goal.saved / goal.target) * 100);
-              return (
-                <div key={goal.id}>
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{goal.name}</span>
-                    <span className="text-[#60716a]">
-                      {formatAud(goal.saved)} / {formatAud(goal.target)}
-                    </span>
+            {pots.length === 0 ? (
+              <p className="text-sm text-[#60716a]">Add a pot on the Savings tab.</p>
+            ) : (
+              pots.slice(0, 3).map((pot) => {
+                const percent = pot.target > 0 ? Math.round((pot.saved / pot.target) * 100) : 0;
+                return (
+                  <div key={pot.id}>
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">{pot.name}</span>
+                      <span className="text-[#60716a]">
+                        {formatAud(pot.saved)} / {formatAud(pot.target)}
+                      </span>
+                    </div>
+                    <ProgressBar value={percent} />
                   </div>
-                  <ProgressBar value={percent} />
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </article>
         <article className="rounded-2xl border border-[#dce4df] bg-white p-6">

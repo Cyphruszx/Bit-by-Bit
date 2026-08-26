@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import { accounts as demoAccounts, budgets as demoBudgets, goals as demoGoals, periodLabel as demoPeriod, snapshot as demoSnapshot, transactions as demoTransactions } from "@/lib/demo-data";
+import { parseDate } from "@/lib/money-flow/parse-values";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import { removeTag, renameTag, withTags } from "@/lib/money-flow/tags";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
@@ -131,7 +132,7 @@ function toInterpreted(txn: (typeof demoTransactions)[number]): InterpretedTrans
     category: txn.category,
     tags: [txn.category],
     date: txn.date,
-    dateIso: "2026-08-01",
+    dateIso: parseDate(`${txn.date} 2026`) ?? "2026-08-01",
     amount: txn.amount,
     type: txn.amount > 0 ? "income" : txn.category === "Goals" ? "transfer" : "expense",
     sourceFile: "demo",
