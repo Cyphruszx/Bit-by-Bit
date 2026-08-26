@@ -13,13 +13,13 @@ export function AccountsView() {
   return (
     <>
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">
-        {hasUploads ? "From your documents" : "Upload to interpret"}
+        {hasUploads ? flow.periodLabel : "Upload to interpret"}
       </p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Accounts and sources</h1>
       <p className="mt-2 text-[#60716a]">
         {hasUploads
-          ? "Documents already interpreted in this browser. Live bank connections can replace this later."
-          : "Placeholder balances until you upload statements. CSV, Excel, PDF, OFX, photos, and more."}
+          ? "Documents already interpreted in this browser. The period filter changes the net flow from those files."
+          : "Placeholder balances until you upload statements. Use the period filter on Dashboard and Transactions to slice sample activity."}
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <SummaryCard

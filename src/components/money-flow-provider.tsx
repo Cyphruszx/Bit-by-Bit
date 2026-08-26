@@ -1,22 +1,29 @@
 "use client";
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-import { accounts as demoAccounts, budgets as demoBudgets, goals as demoGoals, periodLabel as demoPeriod, snapshot as demoSnapshot, transactions as demoTransactions } from "@/lib/demo-data";
+import { accounts as demoAccounts, budgets as demoBudgets, goals as demoGoals, transactions as demoTransactions } from "@/lib/demo-data";
 import { parseDate } from "@/lib/money-flow/parse-values";
-import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
+import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { removeTag, renameTag, withTags } from "@/lib/money-flow/tags";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
 const STORAGE_KEY = "bitbybit.interpreted-v1";
+const PERIOD_KEY = "bitbybit.period-v1";
 const empty = { files: [] as FileInterpretation[], transactions: [] as InterpretedTransaction[] };
 const listeners = new Set<() => void>();
+const periodListeners = new Set<() => void>();
 let cachedRaw: string | null = null;
 let cachedSnapshot = empty;
+let cachedPeriodRaw: string | null = null;
+let cachedPeriod: PeriodFilter = ALL_PERIOD;
 
 type MoneyFlowState = {
   files: FileInterpretation[];
+  allTransactions: InterpretedTransaction[];
   transactions: InterpretedTransaction[];
   flow: MoneyFlowSummary;
+  period: PeriodFilter;
+  setPeriod: (period: PeriodFilter) => void;
   hasUploads: boolean;
   usingDemo: boolean;
   applyInterpretation: (result: InterpretationResult) => void;
@@ -30,14 +37,20 @@ const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
 
 export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
   const stored = useSyncExternalStore(subscribe, getSnapshot, () => empty);
+  const period = useSyncExternalStore(subscribePeriod, getPeriod, () => ALL_PERIOD);
 
   const value = useMemo<MoneyFlowState>(() => {
     const hasUploads = stored.files.length > 0;
     const hasStoredTxns = stored.transactions.length > 0;
+    const allTransactions = hasStoredTxns ? stored.transactions : demoTransactions.map(toInterpreted);
+    const transactions = filterByPeriod(allTransactions, period);
     return {
       files: stored.files,
-      transactions: hasStoredTxns ? stored.transactions : demoTransactions.map(toInterpreted),
-      flow: hasStoredTxns ? summarizeMoneyFlow(stored.transactions) : demoFlow(),
+      allTransactions,
+      transactions,
+      flow: summarizePeriod(allTransactions, period),
+      period,
+      setPeriod: writePeriod,
       hasUploads,
       usingDemo: !hasStoredTxns,
       applyInterpretation: writeStore,
@@ -46,7 +59,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       renameTagEverywhere,
       removeTagEverywhere,
     };
-  }, [stored]);
+  }, [stored, period]);
 
   return <MoneyFlowContext.Provider value={value}>{children}</MoneyFlowContext.Provider>;
 }
@@ -62,6 +75,11 @@ export { demoAccounts, demoBudgets, demoGoals };
 function subscribe(onChange: () => void) {
   listeners.add(onChange);
   return () => listeners.delete(onChange);
+}
+
+function subscribePeriod(onChange: () => void) {
+  periodListeners.add(onChange);
+  return () => periodListeners.delete(onChange);
 }
 
 function getSnapshot() {
@@ -80,6 +98,27 @@ function getSnapshot() {
     cachedSnapshot = empty;
     return empty;
   }
+}
+
+function getPeriod(): PeriodFilter {
+  try {
+    const raw = localStorage.getItem(PERIOD_KEY);
+    if (raw === cachedPeriodRaw) return cachedPeriod;
+    cachedPeriodRaw = raw;
+    cachedPeriod = raw ? parsePeriod(JSON.parse(raw)) : ALL_PERIOD;
+    return cachedPeriod;
+  } catch {
+    cachedPeriod = ALL_PERIOD;
+    return ALL_PERIOD;
+  }
+}
+
+function writePeriod(period: PeriodFilter) {
+  const raw = JSON.stringify(period);
+  localStorage.setItem(PERIOD_KEY, raw);
+  cachedPeriodRaw = raw;
+  cachedPeriod = period;
+  periodListeners.forEach((listener) => listener());
 }
 
 function writeStore(result: InterpretationResult) {
@@ -137,26 +176,5 @@ function toInterpreted(txn: (typeof demoTransactions)[number]): InterpretedTrans
     type: txn.amount > 0 ? "income" : txn.category === "Goals" ? "transfer" : "expense",
     sourceFile: "demo",
     confidence: 1,
-  };
-}
-
-function demoFlow(): MoneyFlowSummary {
-  return {
-    income: demoSnapshot.income,
-    spending: demoSnapshot.spending,
-    net: demoSnapshot.net,
-    transfers: 400,
-    refunds: 0,
-    transactionCount: demoTransactions.length,
-    categories: demoBudgets.map((budget) => ({
-      name: budget.name,
-      amount: budget.spent,
-      share: Math.round((budget.spent / demoSnapshot.spending) * 100),
-    })),
-    periodLabel: demoPeriod,
-    insights: [
-      "This is sample activity so you can look around.",
-      "Upload a statement to replace it with money flow from your documents.",
-    ],
   };
 }

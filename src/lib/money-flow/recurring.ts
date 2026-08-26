@@ -12,6 +12,7 @@ export type DetectedRecurring = {
   cadence: Cadence;
   lastDateIso: string;
   lastDate: string;
+  dates: string[];
   suggested: boolean;
 };
 
@@ -46,9 +47,10 @@ export function detectRecurringOutflows(transactions: InterpretedTransaction[]):
       typicalAmount,
       count: rows.length,
       cadence: inferCadence(dates, rows.length === 1),
-      lastDateIso,
-      lastDate: lastDateIso ? formatDisplayDate(lastDateIso) : rows[0].date,
-      suggested: rows.length < 2,
+        lastDateIso,
+        lastDate: lastDateIso ? formatDisplayDate(lastDateIso) : rows[0].date,
+        dates,
+        suggested: rows.length < 2,
     });
   }
 

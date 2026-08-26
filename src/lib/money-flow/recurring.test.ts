@@ -29,6 +29,7 @@ describe("recurring outflows", () => {
     assert.equal(found[0].typicalAmount, 18.99);
     assert.equal(found[0].cadence, "monthly");
     assert.equal(found[0].suggested, false);
+    assert.deepEqual(found[0].dates, ["2026-07-03", "2026-08-03"]);
     assert.equal(recurringFingerprint("Netflix", 18.99), "netflix|19");
   });
 

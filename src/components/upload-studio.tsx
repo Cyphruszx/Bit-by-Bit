@@ -159,18 +159,22 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
             <h3 className="text-lg font-bold">Extracted activity</h3>
             <div className="mt-4 divide-y divide-[#edf0ee]">
-              {transactions.slice(0, 12).map((txn) => (
-                <div className="flex items-center justify-between py-4" key={txn.id}>
-                  <div>
-                    <p className="font-semibold">{txn.merchant}</p>
-                    <p className="mt-1 text-sm text-[#77857f]">
-                      {tagsOf(txn).join(" · ")}
-                      {txn.tagSource === "ai" ? " · AI tag" : ""} · {txn.date} · {txn.sourceFile}
-                    </p>
+              {transactions.length === 0 ? (
+                <p className="py-4 text-sm text-[#60716a]">No movements in this period.</p>
+              ) : (
+                transactions.slice(0, 12).map((txn) => (
+                  <div className="flex items-center justify-between py-4" key={txn.id}>
+                    <div>
+                      <p className="font-semibold">{txn.merchant}</p>
+                      <p className="mt-1 text-sm text-[#77857f]">
+                        {tagsOf(txn).join(" · ")}
+                        {txn.tagSource === "ai" ? " · AI tag" : ""} · {txn.date} · {txn.sourceFile}
+                      </p>
+                    </div>
+                    <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>
                   </div>
-                  <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </article>
         </>

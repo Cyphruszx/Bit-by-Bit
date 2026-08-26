@@ -8,7 +8,8 @@ import { formatAud } from "@/lib/format";
 import { allTags, tagsOf } from "@/lib/money-flow/tags";
 
 export function TransactionsView() {
-  const { flow, hasUploads, removeTagEverywhere, renameTagEverywhere, transactions, usingDemo } = useMoneyFlow();
+  const { allTransactions, flow, hasUploads, removeTagEverywhere, renameTagEverywhere, transactions, usingDemo } =
+    useMoneyFlow();
 
   return (
     <>
@@ -35,7 +36,7 @@ export function TransactionsView() {
         <TransactionTable transactions={transactions} />
       </article>
       <TagManager
-        transactions={transactions}
+        transactions={allTransactions}
         onRename={renameTagEverywhere}
         onRemove={removeTagEverywhere}
       />

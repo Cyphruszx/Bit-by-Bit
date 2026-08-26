@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { demoBudgets, useMoneyFlow } from "@/components/money-flow-provider";
+import { useMoneyFlow } from "@/components/money-flow-provider";
 import { SavingsPathChart } from "@/components/savings-charts";
 import { useSavingsPots } from "@/components/savings-store";
 import { ProgressBar } from "@/components/progress-bar";
@@ -92,10 +92,12 @@ export function DashboardView() {
           </div>
         </article>
         <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
-          <h2 className="text-lg font-bold">{hasUploads ? "Spending by tag" : "Spending vs budgets"}</h2>
+          <h2 className="text-lg font-bold">Spending by tag</h2>
           <div className="mt-5 space-y-5">
-            {(hasUploads ? flow.categories.slice(0, 4) : demoBudgets.map((budget) => ({ name: budget.name, amount: budget.spent, share: Math.round((budget.spent / budget.limit) * 100) }))).map(
-              (item) => (
+            {flow.categories.length === 0 ? (
+              <p className="text-sm text-[#60716a]">No spending in this period.</p>
+            ) : (
+              flow.categories.slice(0, 4).map((item) => (
                 <div key={item.name}>
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">{item.name}</span>
@@ -103,7 +105,7 @@ export function DashboardView() {
                   </div>
                   <ProgressBar value={item.share} />
                 </div>
-              ),
+              ))
             )}
           </div>
         </article>
@@ -116,17 +118,21 @@ export function DashboardView() {
           </Link>
         </div>
         <div className="mt-5 divide-y divide-[#edf0ee]">
-          {recent.map((txn) => (
-            <div className="flex items-center justify-between py-4" key={txn.id}>
-              <div>
-                <p className="font-semibold">{txn.merchant}</p>
-                <p className="mt-1 text-sm text-[#77857f]">
-                  {tagsOf(txn).join(" · ")} · {txn.date}
-                </p>
+          {recent.length === 0 ? (
+            <p className="py-4 text-sm text-[#60716a]">No movements in this period.</p>
+          ) : (
+            recent.map((txn) => (
+              <div className="flex items-center justify-between py-4" key={txn.id}>
+                <div>
+                  <p className="font-semibold">{txn.merchant}</p>
+                  <p className="mt-1 text-sm text-[#77857f]">
+                    {tagsOf(txn).join(" · ")} · {txn.date}
+                  </p>
+                </div>
+                <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>
               </div>
-              <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </article>
     </>

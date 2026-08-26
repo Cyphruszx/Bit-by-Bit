@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
 import { BrandMark } from "@/components/brand-mark";
+import { PeriodFilterBar } from "@/components/period-filter";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      <PeriodFilterBar />
       <div className="mx-auto max-w-6xl px-6 py-10">{children}</div>
     </main>
   );

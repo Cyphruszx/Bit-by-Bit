@@ -77,7 +77,9 @@ export function TransactionTable({ transactions }: { transactions: InterpretedTr
       </div>
       <div className="mt-5 divide-y divide-[#edf0ee]">
         {rows.length === 0 ? (
-          <p className="py-8 text-sm text-[#60716a]">No transactions match that search.</p>
+          <p className="py-8 text-sm text-[#60716a]">
+            {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
+          </p>
         ) : (
           rows.map((txn) => (
             <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between" key={txn.id}>

@@ -16,7 +16,7 @@ import {
 } from "@/lib/money-flow/savings";
 
 export function SavingsView() {
-  const { flow, hasUploads, transactions } = useMoneyFlow();
+  const { allTransactions, flow, hasUploads } = useMoneyFlow();
   const { pots, snapshots, addPot, updatePot, removePot, toggleIncluded } = useSavingsPots();
   const included = potsInTotal(pots);
   const hiddenCount = pots.length - included.length;
@@ -26,7 +26,7 @@ export function SavingsView() {
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">Bit by bit</p>
+      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Savings</h1>
       <p className="mt-2 max-w-2xl text-[#60716a]">
         Track pots toward the things you are saving for. Hide a pot to keep it off the combined total and charts so
@@ -82,12 +82,12 @@ export function SavingsView() {
           </div>
         </article>
       ) : null}
-      {hasUploads && monthlyTransferSeries(transactions).length >= 2 ? (
+      {hasUploads && monthlyTransferSeries(allTransactions).length >= 2 ? (
         <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
           <h2 className="text-lg font-bold">Set aside by month</h2>
-          <p className="mt-1 text-sm text-[#60716a]">Transfers from the documents you uploaded, grouped by month.</p>
+          <p className="mt-1 text-sm text-[#60716a]">Transfers from the documents you uploaded, grouped by month. Use the period filter to change the set-aside total above.</p>
           <div className="mt-5">
-            <SetAsideLineChart transactions={transactions} />
+            <SetAsideLineChart transactions={allTransactions} />
           </div>
         </article>
       ) : null}

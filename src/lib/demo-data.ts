@@ -75,6 +75,9 @@ export const transactions = [
   { id: "t8", merchant: "Salary", category: "Income", date: "4 Aug", amount: 2620 },
   { id: "t9", merchant: "Coles", category: "Groceries", date: "3 Aug", amount: -72.15 },
   { id: "t10", merchant: "Cafe Sydney", category: "Dining", date: "2 Aug", amount: -28.4 },
+  { id: "t11", merchant: "Salary", category: "Income", date: "18 Jul", amount: 2620 },
+  { id: "t12", merchant: "Rent", category: "Housing", date: "15 Jul", amount: -980 },
+  { id: "t13", merchant: "Woolworths", category: "Groceries", date: "8 Jul", amount: -54.2 },
 ] as const;
 
 export const categories = ["All", ...Array.from(new Set(transactions.map((txn) => txn.category)))];

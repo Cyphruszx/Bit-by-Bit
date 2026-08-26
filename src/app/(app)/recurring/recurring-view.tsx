@@ -6,6 +6,7 @@ import { useRecurringStore, type TrackedRecurring } from "@/components/recurring
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
+import { inPeriod } from "@/lib/money-flow/period";
 import {
   cadenceLabel,
   detectRecurringOutflows,
@@ -16,41 +17,50 @@ import {
 } from "@/lib/money-flow/recurring";
 
 export function RecurringView() {
-  const { transactions, usingDemo } = useMoneyFlow();
+  const { allTransactions, flow, period, usingDemo } = useMoneyFlow();
   const { ignored, confirmed, custom, confirmPayment, ignorePayment, stopTracking, addCustomPayment, updatePayment } =
     useRecurringStore();
-  const detected = useMemo(() => detectRecurringOutflows(transactions), [transactions]);
+  const detected = useMemo(() => detectRecurringOutflows(allTransactions), [allTransactions]);
   const confirmedFingerprints = new Set(confirmed.map((item) => item.fingerprint));
   const suggestions = detected.filter(
-    (item) => !ignored.has(item.fingerprint) && !confirmedFingerprints.has(item.fingerprint),
+    (item) =>
+      !ignored.has(item.fingerprint) &&
+      !confirmedFingerprints.has(item.fingerprint) &&
+      item.dates.some((date) => inPeriod(date, period)),
   );
-  const tracked = [...confirmed, ...custom].sort((a, b) => (a.nextDate || "9999").localeCompare(b.nextDate || "9999"));
+  const tracked = [...confirmed, ...custom]
+    .filter((item) => (item.nextDate ? inPeriod(item.nextDate, period) : period.kind === "all"))
+    .sort((a, b) => (a.nextDate || "9999").localeCompare(b.nextDate || "9999"));
   const monthlyTotal = tracked.reduce((sum, item) => sum + monthlyEquivalent(item.amount, item.cadence), 0);
   const today = todayIso();
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">Money out on a schedule</p>
+      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Recurring payments</h1>
       <p className="mt-2 max-w-2xl text-[#60716a]">
         {usingDemo
-          ? "BitbyBit looks through sample activity for repeating money out. Set the exact next date when you track or add a payment."
-          : "Repeating money out from your documents. Set the exact next date when you track or add a payment."}
+          ? "BitbyBit looks through sample activity for repeating money out. The period filter shows payments due or seen in that window."
+          : "Repeating money out from your documents. The period filter shows payments due or seen in that window."}
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <SummaryCard label="Tracked payments" value={String(tracked.length)} detail="Confirmed and added by you" />
         <SummaryCard
           label="Typical monthly out"
           value={formatAud(monthlyTotal)}
-          detail="From tracked payments"
+          detail="From tracked payments in this period"
         />
-        <SummaryCard label="Suggestions" value={String(suggestions.length)} detail="From this period's activity" />
+        <SummaryCard label="Suggestions" value={String(suggestions.length)} detail="Seen in this period" />
       </section>
 
       <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
         <h2 className="text-lg font-bold">Tracked</h2>
         {tracked.length === 0 ? (
-          <p className="mt-4 text-sm text-[#60716a]">Nothing tracked yet. Confirm a suggestion or add a payment.</p>
+          <p className="mt-4 text-sm text-[#60716a]">
+            {period.kind === "all"
+              ? "Nothing tracked yet. Confirm a suggestion or add a payment."
+              : "Nothing tracked is due in this period."}
+          </p>
         ) : (
           <div className="mt-4 divide-y divide-[#edf0ee]">
             {tracked.map((item) => (
@@ -63,7 +73,9 @@ export function RecurringView() {
       <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
         <h2 className="text-lg font-bold">Suggested from activity</h2>
         {suggestions.length === 0 ? (
-          <p className="mt-4 text-sm text-[#60716a]">No repeating money out to suggest right now.</p>
+          <p className="mt-4 text-sm text-[#60716a]">
+            {period.kind === "all" ? "No repeating money out to suggest right now." : "No repeating money out in this period."}
+          </p>
         ) : (
           <div className="mt-4 divide-y divide-[#edf0ee]">
             {suggestions.map((item) => (
