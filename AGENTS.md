@@ -11,3 +11,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Ask first
 
 Double-check ideas with the user before implementing them. Do not start a new feature, architecture change, or extra slice of work until they confirm. If they decline, stop or revert.
+
+Product, security, data-protection, legal, and AI-vendor decisions live in `docs/PLAN.md`. Use that file as the reference when work resumes. Do not implement from it until the user names which numbered steps to run. **§1–3 (scope, auth, persistence) are the approved slice.**
