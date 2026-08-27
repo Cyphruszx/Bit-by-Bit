@@ -61,7 +61,6 @@ export function detectFileKind(filename: string, mime: string, bytes: Uint8Array
   if (EXTENSIONS[ext]) return EXTENSIONS[ext];
   if (type.includes("csv")) return "csv";
   if (type.includes("pdf")) return "pdf";
-  if (type.startsWith("image/")) return "image";
   if (type.includes("json")) return "json";
   if (type.includes("html")) return "html";
 
@@ -69,9 +68,36 @@ export function detectFileKind(filename: string, mime: string, bytes: Uint8Array
   if (head.includes("ofxheader") || head.includes("<ofx") || head.includes("<stmttrn")) return "ofx";
   if (head.startsWith("!type:") || head.startsWith("!account")) return "qif";
   if (head.startsWith("{") || head.startsWith("[")) return "json";
-  if (head.includes("<html") || head.includes("<table")) return "html";
+  if (head.includes("<html") || head.includes("<table") || head.includes("<script") || head.includes("<svg")) return "html";
+  if (type.startsWith("image/")) return "image";
   if ((head.match(/,/g) ?? []).length >= 2 || head.includes("\t")) return "csv";
   return head ? "text" : "unknown";
+}
+
+export function hostileUploadReason(filename: string, mime: string, bytes: Uint8Array): string | null {
+  const ext = extensionOf(filename);
+  const type = mime.toLowerCase();
+  const head = decodeText(bytes.slice(0, 240)).trim().toLowerCase();
+  if (bytes.length >= 2 && bytes[0] === 0x4d && bytes[1] === 0x5a) {
+    return "This file looks like a program, not a statement.";
+  }
+  if (ext === "svg" || type.includes("svg") || head.startsWith("<svg") || (head.startsWith("<?xml") && head.includes("<svg"))) {
+    return "SVG files are not accepted.";
+  }
+  const claimsImage = type.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif", "bmp"].includes(ext);
+  const looksMarkup =
+    head.includes("<html") ||
+    head.includes("<script") ||
+    head.includes("<svg") ||
+    head.includes("javascript:") ||
+    head.startsWith("<!doctype");
+  if (claimsImage && (looksMarkup || detectFileKind(filename, mime, bytes) !== "image")) {
+    return "This file is not a real image.";
+  }
+  if (ext === "html" || ext === "htm" || ext === "js" || ext === "mjs") {
+    if (type.startsWith("image/")) return "This file is not a real image.";
+  }
+  return null;
 }
 
 export function toSchemaFileType(kind: FileKind): SchemaFileType {

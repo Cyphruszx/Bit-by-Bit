@@ -34,6 +34,7 @@ export type InterpretedTransaction = {
 };
 
 export type FileInterpretation = {
+  id?: string;
   filename: string;
   fileType: SchemaFileType;
   kind: FileKind;
