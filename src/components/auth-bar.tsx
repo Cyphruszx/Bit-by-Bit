@@ -6,9 +6,7 @@ import { wipeLocalFinanceKeys } from "@/lib/persist/keys";
 import { useSession } from "@/components/session-provider";
 
 export function AuthBar() {
-  const { user, cloudConfigured, hydrating } = useSession();
-
-  if (!cloudConfigured) return null;
+  const { user, hydrating } = useSession();
 
   if (!user) {
     return (
