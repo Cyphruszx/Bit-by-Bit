@@ -114,7 +114,7 @@ function SubmitButton({ disabled, label }: { disabled: boolean; label: string })
     <button
       type="submit"
       disabled={disabled || pending}
-      className="w-full rounded-full bg-[#173b31] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+      className="w-full rounded-full bg-[#173b31] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
     >
       {pending ? "Please wait…" : label}
     </button>
@@ -127,7 +127,7 @@ function MagicLinkButton({ disabled }: { disabled: boolean }) {
     <button
       type="submit"
       disabled={disabled || pending}
-      className="mt-3 w-full rounded-full border border-[#dce4df] px-5 py-3 text-sm font-semibold text-[#355a3f] disabled:opacity-60"
+      className="mt-3 w-full rounded-full border border-[#dce4df] px-5 py-3 text-sm font-semibold text-[#355a3f] disabled:cursor-not-allowed disabled:opacity-40"
     >
       {pending ? "Sending link…" : "Email me a sign-in link"}
     </button>
