@@ -6,9 +6,10 @@ import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { removeTag, renameTag, withTags } from "@/lib/money-flow/tags";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
+import { replaceMoneyFlow, replacePeriod } from "@/lib/persist/cloud";
+import { INTERPRETED_KEY, PERIOD_KEY } from "@/lib/persist/keys";
+import { enqueueCloudWrite, financeClient, getCloudUserId, isCloudPersistEnabled } from "@/lib/persist/runtime";
 
-const STORAGE_KEY = "bitbybit.interpreted-v1";
-const PERIOD_KEY = "bitbybit.period-v1";
 const empty = { files: [] as FileInterpretation[], transactions: [] as InterpretedTransaction[] };
 const listeners = new Set<() => void>();
 const periodListeners = new Set<() => void>();
@@ -16,6 +17,7 @@ let cachedRaw: string | null = null;
 let cachedSnapshot = empty;
 let cachedPeriodRaw: string | null = null;
 let cachedPeriod: PeriodFilter = ALL_PERIOD;
+let cloudCache = false;
 
 type MoneyFlowState = {
   files: FileInterpretation[];
@@ -72,6 +74,31 @@ export function useMoneyFlow() {
 
 export { demoAccounts, demoBudgets, demoGoals };
 
+export function applyRemoteMoneyFlow(
+  files: FileInterpretation[],
+  transactions: InterpretedTransaction[],
+  period: PeriodFilter,
+  useCloudCache: boolean,
+) {
+  cloudCache = useCloudCache;
+  cachedRaw = useCloudCache ? "__cloud__" : JSON.stringify({ files, transactions });
+  cachedSnapshot = { files, transactions };
+  cachedPeriodRaw = useCloudCache ? "__cloud__" : JSON.stringify(period);
+  cachedPeriod = period;
+  listeners.forEach((listener) => listener());
+  periodListeners.forEach((listener) => listener());
+}
+
+export function resetMoneyFlowCache() {
+  cloudCache = false;
+  cachedRaw = null;
+  cachedSnapshot = empty;
+  cachedPeriodRaw = null;
+  cachedPeriod = ALL_PERIOD;
+  listeners.forEach((listener) => listener());
+  periodListeners.forEach((listener) => listener());
+}
+
 function subscribe(onChange: () => void) {
   listeners.add(onChange);
   return () => listeners.delete(onChange);
@@ -83,8 +110,9 @@ function subscribePeriod(onChange: () => void) {
 }
 
 function getSnapshot() {
+  if (cloudCache) return cachedSnapshot;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(INTERPRETED_KEY);
     if (raw === cachedRaw) return cachedSnapshot;
     cachedRaw = raw;
     if (!raw) {
@@ -101,6 +129,7 @@ function getSnapshot() {
 }
 
 function getPeriod(): PeriodFilter {
+  if (cloudCache) return cachedPeriod;
   try {
     const raw = localStorage.getItem(PERIOD_KEY);
     if (raw === cachedPeriodRaw) return cachedPeriod;
@@ -115,9 +144,15 @@ function getPeriod(): PeriodFilter {
 
 function writePeriod(period: PeriodFilter) {
   const raw = JSON.stringify(period);
-  localStorage.setItem(PERIOD_KEY, raw);
   cachedPeriodRaw = raw;
   cachedPeriod = period;
+  if (isCloudPersistEnabled()) {
+    cloudCache = true;
+    const userId = getCloudUserId();
+    if (userId) enqueueCloudWrite(() => replacePeriod(financeClient(), userId, period));
+  } else {
+    localStorage.setItem(PERIOD_KEY, raw);
+  }
   periodListeners.forEach((listener) => listener());
 }
 
@@ -127,16 +162,28 @@ function writeStore(result: InterpretationResult) {
 
 function persist(files: FileInterpretation[], transactions: InterpretedTransaction[]) {
   const raw = JSON.stringify({ files, transactions });
-  localStorage.setItem(STORAGE_KEY, raw);
   cachedRaw = raw;
   cachedSnapshot = { files, transactions };
+  if (isCloudPersistEnabled()) {
+    cloudCache = true;
+    const userId = getCloudUserId();
+    if (userId) enqueueCloudWrite(() => replaceMoneyFlow(financeClient(), userId, files, transactions));
+  } else {
+    localStorage.setItem(INTERPRETED_KEY, raw);
+  }
   listeners.forEach((listener) => listener());
 }
 
 function clearStore() {
-  localStorage.removeItem(STORAGE_KEY);
   cachedRaw = null;
   cachedSnapshot = empty;
+  if (isCloudPersistEnabled()) {
+    cloudCache = true;
+    const userId = getCloudUserId();
+    if (userId) enqueueCloudWrite(() => replaceMoneyFlow(financeClient(), userId, [], []));
+  } else {
+    localStorage.removeItem(INTERPRETED_KEY);
+  }
   listeners.forEach((listener) => listener());
 }
 

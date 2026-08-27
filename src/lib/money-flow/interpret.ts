@@ -1,5 +1,5 @@
 import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFlowAi } from "@/lib/money-flow/ai";
-import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
+import { detectFileKind, hostileUploadReason, toSchemaFileType } from "@/lib/money-flow/detect";
 import { parseDocument } from "@/lib/money-flow/parsers";
 import { summarizeMoneyFlow, uniqueTransactions } from "@/lib/money-flow/summary";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction } from "@/lib/money-flow/types";
@@ -38,6 +38,16 @@ export async function interpretDocuments(
         uploadStatus: "failed",
         processingStatus: "failed",
         processingError: "The file was empty.",
+      });
+      continue;
+    }
+    const hostile = hostileUploadReason(filename, file.mime, file.bytes);
+    if (hostile) {
+      interpretations.push({
+        ...base,
+        uploadStatus: "failed",
+        processingStatus: "failed",
+        processingError: hostile,
       });
       continue;
     }

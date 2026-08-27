@@ -15,6 +15,9 @@ export default function Home() {
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <BrandMark />
         <div className="flex items-center gap-3">
+          <Link href="/signin" className="text-sm font-semibold text-[#355a3f]">
+            Sign in
+          </Link>
           <Link href="/dashboard" className="text-sm font-semibold text-[#355a3f]">
             Dashboard
           </Link>
