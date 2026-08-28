@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { advanceAfterPaid, detectRecurringOutflows, monthlyEquivalent, nextDateFromLast, paymentMatches, recurringFingerprint, trackedInPeriod, trackingSnapshot } from "./recurring";
+import { addCadence, advanceAfterPaid, detectRecurringOutflows, expectedOccurrence, monthlyEquivalent, nextDateFromLast, paymentMatches, recurringFingerprint, trackedInPeriod, trackingSnapshot } from "./recurring";
 import type { InterpretedTransaction } from "./types";
 
 function txn(
@@ -55,6 +55,12 @@ describe("recurring outflows", () => {
     assert.equal(nextDateFromLast("2026-08-20", "weekly", "2026-08-26"), "2026-08-27");
     assert.equal(nextDateFromLast("2026-09-01", "monthly", "2026-08-26"), "2026-09-01");
     assert.equal(advanceAfterPaid("2026-08-15", "monthly", "2026-08-26"), "2026-09-15");
+    assert.equal(nextDateFromLast("2026-01-31", "monthly", "2026-02-05"), "2026-02-28");
+    assert.equal(advanceAfterPaid("2026-01-31", "monthly", "2026-02-05"), "2026-02-28");
+    assert.equal(advanceAfterPaid("2026-01-31", "monthly", "2026-03-05"), "2026-03-31");
+    assert.equal(expectedOccurrence("2026-03-31", "monthly", "2026-02-01", "2026-02-28"), "2026-02-28");
+    assert.equal(addCadence("2026-01-31", "monthly"), "2026-02-28");
+    assert.equal(addCadence("2024-01-31", "monthly"), "2024-02-29");
   });
 
   it("matches tracked payments to activity without double-counting transfers", () => {

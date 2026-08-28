@@ -64,15 +64,5 @@ export function transactionsFromText(text: string, sourceFile: string): Interpre
     });
   });
 
-  return dedupe(results);
-}
-
-function dedupe(rows: InterpretedTransaction[]): InterpretedTransaction[] {
-  const seen = new Set<string>();
-  return rows.filter((row) => {
-    const key = `${row.dateIso}|${row.amount}|${row.merchant}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return results;
 }
