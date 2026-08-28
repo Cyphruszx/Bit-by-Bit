@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isEmail, passwordError } from "@/lib/auth/password";
-import { assertSameOrigin, clientIp } from "@/lib/security/origin";
+import { assertSameOrigin, clientIp, publicAppOrigin } from "@/lib/security/origin";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { safeInternalPath } from "@/lib/security/redirect";
 import { isSupabaseConfigured, LAST_ACTIVE_COOKIE } from "@/lib/supabase/config";
@@ -14,7 +14,7 @@ export type AuthState = {
   message?: string;
 };
 
-async function guardAuth(): Promise<AuthState | null> {
+async function guardAuth(email: string): Promise<AuthState | null> {
   if (!isSupabaseConfigured()) {
     return {
       error: "Cloud sign-in is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
@@ -26,7 +26,9 @@ async function guardAuth(): Promise<AuthState | null> {
     return { error: "Invalid request origin." };
   }
   const ip = await clientIp();
-  if (!rateLimit(`auth:${ip}`, 8, 15 * 60 * 1000)) {
+  const ipLimited = !rateLimit(`auth-ip:${ip}`, 8, 15 * 60 * 1000);
+  const emailLimited = Boolean(email) && !rateLimit(`auth-email:${email}`, 8, 15 * 60 * 1000);
+  if (ipLimited || emailLimited) {
     return { error: "Too many sign-in attempts. Try again in a few minutes." };
   }
   return null;
@@ -36,19 +38,15 @@ function redirectTo(formData: FormData) {
   return safeInternalPath(String(formData.get("next") ?? "/dashboard"));
 }
 
-async function requestOrigin() {
-  const headerStore = await headers();
-  const origin = headerStore.get("origin");
-  if (origin) return origin;
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
-  const proto = headerStore.get("x-forwarded-proto") ?? "http";
-  return host ? `${proto}://${host}` : "";
+async function emailRedirectTo() {
+  const origin = publicAppOrigin(process.env, await headers());
+  return origin ? `${origin}/auth/callback` : undefined;
 }
 
 export async function signInWithPassword(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const blocked = await guardAuth();
-  if (blocked) return blocked;
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const blocked = await guardAuth(email);
+  if (blocked) return blocked;
   const password = String(formData.get("password") ?? "");
   if (!isEmail(email)) return { error: "Enter a valid email address." };
   const supabase = await createServerSupabaseClient();
@@ -58,22 +56,21 @@ export async function signInWithPassword(_prev: AuthState, formData: FormData): 
 }
 
 export async function signUpWithPassword(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const blocked = await guardAuth();
-  if (blocked) return blocked;
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const blocked = await guardAuth(email);
+  if (blocked) return blocked;
   const password = String(formData.get("password") ?? "");
   const displayName = String(formData.get("displayName") ?? "").trim().slice(0, 80);
   if (!isEmail(email)) return { error: "Enter a valid email address." };
   const passwordProblem = passwordError(password);
   if (passwordProblem) return { error: passwordProblem };
   const supabase = await createServerSupabaseClient();
-  const origin = await requestOrigin();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: displayName ? { display_name: displayName } : undefined,
-      emailRedirectTo: origin ? `${origin}/auth/callback` : undefined,
+      emailRedirectTo: await emailRedirectTo(),
     },
   });
   if (error) return { error: error.message };
@@ -84,16 +81,15 @@ export async function signUpWithPassword(_prev: AuthState, formData: FormData): 
 }
 
 export async function sendMagicLink(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const blocked = await guardAuth();
-  if (blocked) return blocked;
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const blocked = await guardAuth(email);
+  if (blocked) return blocked;
   if (!isEmail(email)) return { error: "Enter a valid email address." };
   const supabase = await createServerSupabaseClient();
-  const origin = await requestOrigin();
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: origin ? `${origin}/auth/callback` : undefined,
+      emailRedirectTo: await emailRedirectTo(),
     },
   });
   if (error) return { error: error.message };

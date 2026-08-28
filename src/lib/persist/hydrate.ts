@@ -71,8 +71,8 @@ function applyLoadedRecurring(store: RecurringStore) {
   if (!hasDeferredWrite("recurring")) applyRemoteRecurring(store, true);
 }
 
-function applyLoadedSavings(pots: CloudFinance["pots"], snapshots: CloudFinance["snapshots"], useCloudCache: boolean) {
-  if (!hasDeferredWrite("savings")) applyRemoteSavings(pots, snapshots, useCloudCache);
+function applyLoadedSavings(pots: CloudFinance["pots"], snapshots: CloudFinance["snapshots"]) {
+  if (!hasDeferredWrite("savings")) applyRemoteSavings(pots, snapshots, true);
 }
 
 export async function hydrateCloudSession(userId: string | null) {
@@ -121,16 +121,16 @@ export async function hydrateCloudSession(userId: string | null) {
 
       if (importing.savings && local.savings) {
         await replaceSavings(client, userId, local.savings.pots, local.savings.snapshots);
-        applyLoadedSavings(local.savings.pots, local.savings.snapshots, true);
+        applyLoadedSavings(local.savings.pots, local.savings.snapshots);
       } else {
-        applyLoadedSavings(remote.pots, remote.snapshots, hasCloudSavings(remote.pots, remote.snapshots));
+        applyLoadedSavings(remote.pots, remote.snapshots);
       }
 
       wipeLocalFinance();
     } else {
       applyLoadedMoney(remote.files, remote.transactions, remote.period);
       applyLoadedRecurring(remote.recurring);
-      applyLoadedSavings(remote.pots, remote.snapshots, hasCloudSavings(remote.pots, remote.snapshots));
+      applyLoadedSavings(remote.pots, remote.snapshots);
     }
     setHydrating(false);
     setPersistReady(true);
@@ -139,7 +139,7 @@ export async function hydrateCloudSession(userId: string | null) {
     clearDeferredWrites();
     applyRemoteMoneyFlow([], [], ALL_PERIOD, true);
     applyRemoteRecurring(emptyRecurring, true);
-    applyRemoteSavings([], [], false);
+    applyRemoteSavings([], [], true);
     setPersistReady(false);
     setHydrating(false);
   }
