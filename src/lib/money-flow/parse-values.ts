@@ -85,10 +85,9 @@ export function parseAmount(raw: string | number | null | undefined): number | n
 }
 
 export function parseDate(raw: string | number | Date | null | undefined): string | null {
-  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return toIso(raw);
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return calendarIso(raw);
   if (typeof raw === "number" && raw > 20000 && raw < 80000) {
-    const excel = excelSerialToDate(raw);
-    return excel ? toIso(excel) : null;
+    return excelSerialToIso(raw);
   }
   if (raw == null) return null;
   const text = String(raw).trim();
@@ -116,7 +115,7 @@ export function parseDate(raw: string | number | Date | null | undefined): strin
   }
 
   const parsed = Date.parse(text);
-  if (!Number.isNaN(parsed)) return toIso(new Date(parsed));
+  if (!Number.isNaN(parsed)) return calendarIso(new Date(parsed));
   return null;
 }
 
@@ -140,15 +139,21 @@ function normalizeIso(year: string, month: string, day: string): string | null {
   const m = Number(month);
   const d = Number(day);
   if (y < 1970 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return null;
   return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-function toIso(date: Date): string {
-  return date.toISOString().slice(0, 10);
+function calendarIso(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function excelSerialToDate(serial: number): Date | null {
+function excelSerialToIso(serial: number): string | null {
   const utc = Date.UTC(1899, 11, 30) + Math.round(serial) * 86400000;
   const date = new Date(utc);
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
 }

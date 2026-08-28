@@ -149,7 +149,7 @@ export function interpretTable(
       amount = lastAmountCell(cells);
     }
     if (amount == null || !dateIso || !description) return;
-    if (/\b(balance|opening|closing|total)\b/i.test(description) && Math.abs(amount) > 0 && cells.length <= 3) {
+    if (isSummaryRow(description) && Math.abs(amount) > 0 && cells.length <= 3) {
       return;
     }
 
@@ -220,4 +220,8 @@ function lastAmountCell(cells: string[]): number | null {
     if (amount != null) return amount;
   }
   return null;
+}
+
+function isSummaryRow(description: string): boolean {
+  return /^(opening( balance)?|closing( balance)?|balance|total)$/i.test(description.trim());
 }

@@ -56,6 +56,11 @@ describe("value parsing", () => {
     assert.equal(parseDate("25/08/2026"), "2026-08-25");
     assert.equal(parseDate("18 Aug 2026"), "2026-08-18");
     assert.equal(parseDate("20260815000000"), "2026-08-15");
+    assert.equal(parseDate(new Date(2026, 7, 25)), "2026-08-25");
+    assert.equal(parseDate(new Date(2026, 7, 1)), "2026-08-01");
+    assert.equal(parseDate("31/04/2026"), null);
+    assert.equal(parseDate("31/02/2026"), null);
+    assert.equal(parseDate(46259), "2026-08-25");
   });
 });
 
@@ -132,6 +137,54 @@ PSalary Acme
     assert.equal(result.files[0].kind, "xlsx");
     assert.equal(result.flow.income, 1500);
     assert.equal(result.flow.spending, 86.4);
+  });
+
+  it("keeps Excel date cells on the calendar day, including month boundaries", async () => {
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.utils.book_new();
+    const sheet = XLSX.utils.aoa_to_sheet([
+      ["Date", "Description", "Amount"],
+      [new Date(2026, 7, 25), "Woolworths Bondi", -86.4],
+      [new Date(2026, 7, 1), "Rent Payment Smith", -980],
+    ]);
+    XLSX.utils.book_append_sheet(workbook, sheet, "Statement");
+    const bytes = new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer);
+    const result = await interpretDocuments([
+      file("dates.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes),
+    ]);
+    assert.equal(result.transactions.find((txn) => txn.merchant === "Woolworths Bondi")?.dateIso, "2026-08-25");
+    assert.equal(result.transactions.find((txn) => txn.merchant.includes("Rent"))?.dateIso, "2026-08-01");
+  });
+
+  it("keeps two same-day purchases at the same shop, and merchants whose names include Total", async () => {
+    const csv = `Date,Description,Amount
+02/08/2026,Cafe Sydney,-5.50
+02/08/2026,Cafe Sydney,-5.50
+25/08/2026,Total Tools,-45.00
+25/08/2026,Closing balance,1234.00
+`;
+    const result = await interpretDocuments([file("stmt.csv", "text/csv", csv)]);
+    assert.equal(result.transactions.filter((txn) => txn.merchant === "Cafe Sydney").length, 2);
+    assert.equal(result.transactions.some((txn) => txn.merchant === "Total Tools"), true);
+    assert.equal(result.transactions.some((txn) => /closing balance/i.test(txn.merchant)), false);
+    assert.equal(result.flow.spending, 56);
+  });
+
+  it("drops a movement only when a second file repeats it", async () => {
+    const first = `Date,Description,Amount
+25/08/2026,Woolworths,-86.40
+`;
+    const second = `Date,Description,Amount
+25/08/2026,Woolworths,-86.40
+02/08/2026,Cafe Sydney,-5.50
+`;
+    const result = await interpretDocuments([
+      file("july.csv", "text/csv", first),
+      file("august.csv", "text/csv", second),
+    ]);
+    assert.equal(result.transactions.filter((txn) => txn.merchant === "Woolworths").length, 1);
+    assert.equal(result.transactions.some((txn) => txn.merchant === "Cafe Sydney"), true);
+    assert.equal(result.flow.spending, 91.9);
   });
 
   it("interprets a text PDF statement", async () => {
