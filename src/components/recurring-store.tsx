@@ -76,14 +76,12 @@ function persist(next: RecurringStore) {
   cachedRaw = JSON.stringify(next);
   cached = next;
   const destination = persistDestination();
-  if (destination === "cloud") {
+  if (destination === "local") {
+    localStorage.setItem(RECURRING_KEY, cachedRaw);
+  } else {
     cloudCache = true;
     const userId = getCloudUserId();
     if (userId) enqueueCloudWrite("recurring", () => replaceRecurring(financeClient(), userId, next));
-  } else if (destination === "memory") {
-    cloudCache = true;
-  } else {
-    localStorage.setItem(RECURRING_KEY, cachedRaw);
   }
   listeners.forEach((listener) => listener());
 }

@@ -1,12 +1,12 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isEmail, passwordError } from "@/lib/auth/password";
 import { assertSameOrigin, clientIp } from "@/lib/security/origin";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { safeInternalPath } from "@/lib/security/redirect";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isSupabaseConfigured, LAST_ACTIVE_COOKIE } from "@/lib/supabase/config";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export type AuthState = {
@@ -105,5 +105,12 @@ export async function signOut() {
     const supabase = await createServerSupabaseClient();
     await supabase.auth.signOut();
   }
+  const cookieStore = await cookies();
+  cookieStore.set(LAST_ACTIVE_COOKIE, "", {
+    path: "/",
+    maxAge: 0,
+    httpOnly: true,
+    sameSite: "lax",
+  });
   redirect("/");
 }

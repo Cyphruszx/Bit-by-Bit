@@ -24,8 +24,18 @@ function applySecurityHeaders(response: NextResponse, request: NextRequest, nonc
   }
 }
 
+function copyRequestCookies(request: NextRequest, requestHeaders: Headers) {
+  const cookie = request.cookies
+    .getAll()
+    .map(({ name, value }) => `${name}=${value}`)
+    .join("; ");
+  if (cookie) requestHeaders.set("cookie", cookie);
+  else requestHeaders.delete("cookie");
+}
+
 function nextWithCsp(request: NextRequest, requestHeaders: Headers, nonce: string) {
   const csp = buildCsp(nonce, supabaseOrigin() ?? undefined, process.env.NODE_ENV === "development");
+  copyRequestCookies(request, requestHeaders);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
   const response = NextResponse.next({
@@ -73,7 +83,13 @@ export async function updateSession(request: NextRequest) {
     const lastActive = lastActiveRaw ? Number(lastActiveRaw) : NaN;
     if (Number.isFinite(lastActive) && Date.now() - lastActive > IDLE_TIMEOUT_MS) {
       await supabase.auth.signOut();
-      supabaseResponse.cookies.set(LAST_ACTIVE_COOKIE, "", { path: "/", maxAge: 0 });
+      supabaseResponse.cookies.set(LAST_ACTIVE_COOKIE, "", {
+        path: "/",
+        maxAge: 0,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: request.nextUrl.protocol === "https:",
+      });
     } else {
       supabaseResponse.cookies.set(LAST_ACTIVE_COOKIE, String(Date.now()), {
         path: "/",
@@ -83,6 +99,14 @@ export async function updateSession(request: NextRequest) {
         maxAge: SESSION_MAX_AGE_SECONDS,
       });
     }
+  } else {
+    supabaseResponse.cookies.set(LAST_ACTIVE_COOKIE, "", {
+      path: "/",
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: request.nextUrl.protocol === "https:",
+    });
   }
 
   return supabaseResponse;

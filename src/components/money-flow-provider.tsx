@@ -86,15 +86,20 @@ export function applyRemoteMoneyFlow(
   transactions: InterpretedTransaction[],
   period: PeriodFilter,
   useCloudCache: boolean,
+  keep?: { money?: boolean; period?: boolean },
 ) {
   cloudCache = useCloudCache;
-  demoOverrides = null;
-  cachedRaw = useCloudCache ? "__cloud__" : JSON.stringify({ files, transactions });
-  cachedSnapshot = { files, transactions };
-  cachedPeriodRaw = useCloudCache ? "__cloud__" : JSON.stringify(period);
-  cachedPeriod = period;
-  listeners.forEach((listener) => listener());
-  periodListeners.forEach((listener) => listener());
+  if (!keep?.money) {
+    demoOverrides = null;
+    cachedRaw = useCloudCache ? "__cloud__" : JSON.stringify({ files, transactions });
+    cachedSnapshot = { files, transactions };
+    listeners.forEach((listener) => listener());
+  }
+  if (!keep?.period) {
+    cachedPeriodRaw = useCloudCache ? "__cloud__" : JSON.stringify(period);
+    cachedPeriod = period;
+    periodListeners.forEach((listener) => listener());
+  }
 }
 
 export function resetMoneyFlowCache() {
@@ -156,14 +161,12 @@ function writePeriod(period: PeriodFilter) {
   cachedPeriodRaw = raw;
   cachedPeriod = period;
   const destination = persistDestination();
-  if (destination === "cloud") {
+  if (destination === "local") {
+    localStorage.setItem(PERIOD_KEY, raw);
+  } else {
     cloudCache = true;
     const userId = getCloudUserId();
     if (userId) enqueueCloudWrite("period", () => replacePeriod(financeClient(), userId, period));
-  } else if (destination === "memory") {
-    cloudCache = true;
-  } else {
-    localStorage.setItem(PERIOD_KEY, raw);
   }
   periodListeners.forEach((listener) => listener());
 }
@@ -185,14 +188,12 @@ function persist(files: FileInterpretation[], transactions: InterpretedTransacti
   const raw = JSON.stringify({ files, transactions });
   cachedRaw = raw;
   cachedSnapshot = { files, transactions };
-  if (destination === "cloud") {
+  if (destination === "local") {
+    localStorage.setItem(INTERPRETED_KEY, raw);
+  } else {
     cloudCache = true;
     const userId = getCloudUserId();
     if (userId) enqueueCloudWrite("money", () => replaceMoneyFlow(financeClient(), userId, files, transactions));
-  } else if (destination === "memory") {
-    cloudCache = true;
-  } else {
-    localStorage.setItem(INTERPRETED_KEY, raw);
   }
   listeners.forEach((listener) => listener());
 }
@@ -202,14 +203,12 @@ function clearStore() {
   cachedRaw = null;
   cachedSnapshot = empty;
   const destination = persistDestination();
-  if (destination === "cloud") {
+  if (destination === "local") {
+    localStorage.removeItem(INTERPRETED_KEY);
+  } else {
     cloudCache = true;
     const userId = getCloudUserId();
     if (userId) enqueueCloudWrite("money", () => replaceMoneyFlow(financeClient(), userId, [], []));
-  } else if (destination === "memory") {
-    cloudCache = true;
-  } else {
-    localStorage.removeItem(INTERPRETED_KEY);
   }
   listeners.forEach((listener) => listener());
 }

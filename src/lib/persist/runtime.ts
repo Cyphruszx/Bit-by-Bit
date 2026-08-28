@@ -15,6 +15,7 @@ const listeners = new Set<() => void>();
 let status: PersistStatus = { cloudUserId: null, hydrating: false, ready: false, error: null };
 let writeChain: Promise<void> = Promise.resolve();
 const pending = new Map<CloudWriteKey, () => Promise<void>>();
+const deferred = new Map<CloudWriteKey, () => Promise<void>>();
 
 export function getPersistStatus(): PersistStatus {
   return status;
@@ -54,6 +55,7 @@ export function isHydrating() {
 
 export function setHydrating(value: boolean) {
   setStatus({ hydrating: value });
+  if (!value && status.ready) flushDeferredWrites();
 }
 
 export function setCloudUserId(userId: string | null) {
@@ -62,6 +64,7 @@ export function setCloudUserId(userId: string | null) {
 
 export function setPersistReady(value: boolean) {
   setStatus({ ready: value });
+  if (value && !status.hydrating) flushDeferredWrites();
 }
 
 export function setPersistError(message: string | null) {
@@ -69,15 +72,34 @@ export function setPersistError(message: string | null) {
 }
 
 export function primeCloudHydration(userId: string) {
-  if (status.cloudUserId === userId && (status.hydrating || status.ready)) return;
-  status = { cloudUserId: userId, hydrating: true, ready: false, error: status.error };
+  if (status.cloudUserId === userId) return;
+  status = { cloudUserId: userId, hydrating: true, ready: false, error: null };
 }
 
 export function financeClient(): SupabaseClient {
   return createBrowserSupabaseClient();
 }
 
+export function hasDeferredWrite(key: CloudWriteKey) {
+  return deferred.has(key);
+}
+
 export function enqueueCloudWrite(key: CloudWriteKey, task: () => Promise<void>) {
+  if (!isCloudPersistEnabled()) {
+    deferred.set(key, task);
+    return writeChain;
+  }
+  return queueWrite(key, task);
+}
+
+function flushDeferredWrites() {
+  if (deferred.size === 0) return;
+  const tasks = [...deferred.entries()];
+  deferred.clear();
+  for (const [key, task] of tasks) queueWrite(key, task);
+}
+
+function queueWrite(key: CloudWriteKey, task: () => Promise<void>) {
   pending.set(key, task);
   writeChain = writeChain.then(async () => {
     const next = pending.get(key);
@@ -97,8 +119,13 @@ export async function flushCloudWrites() {
   await writeChain;
 }
 
+export function clearDeferredWrites() {
+  deferred.clear();
+}
+
 export function resetPersistRuntime() {
   status = { cloudUserId: null, hydrating: false, ready: false, error: null };
   writeChain = Promise.resolve();
   pending.clear();
+  deferred.clear();
 }

@@ -81,16 +81,13 @@ function persist(pots: SavingsPot[]) {
   cachedRaw = JSON.stringify(next);
   cachedState = next;
   const destination = persistDestination();
-  if (destination === "cloud") {
+  if (destination === "local") {
+    localStorage.setItem(SAVINGS_KEY, cachedRaw);
+  } else {
     cloudCache = true;
     cloudHasSavings = true;
     const userId = getCloudUserId();
     if (userId) enqueueCloudWrite("savings", () => replaceSavings(financeClient(), userId, pots, snapshots));
-  } else if (destination === "memory") {
-    cloudCache = true;
-    cloudHasSavings = true;
-  } else {
-    localStorage.setItem(SAVINGS_KEY, cachedRaw);
   }
   listeners.forEach((listener) => listener());
 }
