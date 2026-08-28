@@ -5,6 +5,22 @@ import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export type Cadence = "weekly" | "fortnightly" | "monthly" | "unknown";
 
+export type TrackedRecurring = {
+  id: string;
+  fingerprint: string;
+  name: string;
+  amount: number;
+  cadence: Cadence;
+  nextDate: string;
+  source: "detected" | "custom";
+};
+
+export type RecurringStore = {
+  ignored: string[];
+  confirmed: TrackedRecurring[];
+  custom: TrackedRecurring[];
+};
+
 export type DetectedRecurring = {
   fingerprint: string;
   merchant: string;

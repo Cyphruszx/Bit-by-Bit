@@ -1,5 +1,5 @@
 import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFlowAi } from "@/lib/money-flow/ai";
-import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
+import { detectFileKind, hostileUploadReason, toSchemaFileType } from "@/lib/money-flow/detect";
 import { parseDocument } from "@/lib/money-flow/parsers";
 import { summarizeMoneyFlow, uniqueTransactions } from "@/lib/money-flow/summary";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction } from "@/lib/money-flow/types";
@@ -22,7 +22,9 @@ export async function interpretDocuments(
   for (const file of files.slice(0, MAX_FILES)) {
     const filename = sanitizeFilename(file.filename);
     const kind = detectFileKind(filename, file.mime, file.bytes);
+    const fileId = crypto.randomUUID();
     const base: FileInterpretation = {
+      id: fileId,
       filename,
       fileType: toSchemaFileType(kind),
       kind,
@@ -41,6 +43,16 @@ export async function interpretDocuments(
       });
       continue;
     }
+    const hostile = hostileUploadReason(filename, file.mime, file.bytes);
+    if (hostile) {
+      interpretations.push({
+        ...base,
+        uploadStatus: "failed",
+        processingStatus: "failed",
+        processingError: hostile,
+      });
+      continue;
+    }
     if (file.bytes.byteLength > MAX_FILE_BYTES) {
       interpretations.push({
         ...base,
@@ -53,7 +65,7 @@ export async function interpretDocuments(
 
     try {
       const parsed = await parseDocument(filename, file.mime, file.bytes, { ai });
-      transactions.push(...parsed.transactions);
+      transactions.push(...parsed.transactions.map((txn) => ({ ...txn, sourceFileId: fileId })));
       interpretations.push({
         ...base,
         processingStatus: parsed.transactions.length > 0 ? "completed" : "failed",

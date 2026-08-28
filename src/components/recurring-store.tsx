@@ -1,29 +1,18 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { advanceAfterPaid, type Cadence } from "@/lib/money-flow/recurring";
+import { advanceAfterPaid, type Cadence, type RecurringStore, type TrackedRecurring } from "@/lib/money-flow/recurring";
+import { replaceRecurring } from "@/lib/persist/cloud";
+import { RECURRING_KEY } from "@/lib/persist/keys";
+import { enqueueCloudWrite, financeClient, getCloudUserId, persistDestination } from "@/lib/persist/runtime";
 
-const STORAGE_KEY = "bitbybit.recurring-v1";
+export type { RecurringStore, TrackedRecurring };
+
 const listeners = new Set<() => void>();
 const empty: RecurringStore = { ignored: [], confirmed: [], custom: [] };
 let cachedRaw: string | null = null;
 let cached = empty;
-
-export type TrackedRecurring = {
-  id: string;
-  fingerprint: string;
-  name: string;
-  amount: number;
-  cadence: Cadence;
-  nextDate: string;
-  source: "detected" | "custom";
-};
-
-export type RecurringStore = {
-  ignored: string[];
-  confirmed: TrackedRecurring[];
-  custom: TrackedRecurring[];
-};
+let cloudCache = false;
 
 export function useRecurringStore() {
   const store = useSyncExternalStore(subscribe, getSnapshot, () => empty);
@@ -41,14 +30,29 @@ export function useRecurringStore() {
   };
 }
 
+export function applyRemoteRecurring(store: RecurringStore, useCloudCache: boolean) {
+  cloudCache = useCloudCache;
+  cachedRaw = useCloudCache ? "__cloud__" : JSON.stringify(store);
+  cached = store;
+  listeners.forEach((listener) => listener());
+}
+
+export function resetRecurringCache() {
+  cloudCache = false;
+  cachedRaw = null;
+  cached = empty;
+  listeners.forEach((listener) => listener());
+}
+
 function subscribe(onChange: () => void) {
   listeners.add(onChange);
   return () => listeners.delete(onChange);
 }
 
 function getSnapshot(): RecurringStore {
+  if (cloudCache) return cached;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(RECURRING_KEY);
     if (raw === cachedRaw) return cached;
     cachedRaw = raw;
     if (!raw) {
@@ -69,10 +73,16 @@ function getSnapshot(): RecurringStore {
 }
 
 function persist(next: RecurringStore) {
-  const raw = JSON.stringify(next);
-  localStorage.setItem(STORAGE_KEY, raw);
-  cachedRaw = raw;
+  cachedRaw = JSON.stringify(next);
   cached = next;
+  const destination = persistDestination();
+  if (destination === "local") {
+    localStorage.setItem(RECURRING_KEY, cachedRaw);
+  } else {
+    cloudCache = true;
+    const userId = getCloudUserId();
+    if (userId) enqueueCloudWrite("recurring", () => replaceRecurring(financeClient(), userId, next));
+  }
   listeners.forEach((listener) => listener());
 }
 

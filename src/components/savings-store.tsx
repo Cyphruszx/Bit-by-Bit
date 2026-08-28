@@ -9,13 +9,17 @@ import {
   type SavingsPot,
   type SavingsSnapshot,
 } from "@/lib/money-flow/savings";
+import { replaceSavings } from "@/lib/persist/cloud";
+import { SAVINGS_KEY } from "@/lib/persist/keys";
+import { enqueueCloudWrite, financeClient, getCloudUserId, persistDestination } from "@/lib/persist/runtime";
 
-const STORAGE_KEY = "bitbybit.savings-v1";
 const listeners = new Set<() => void>();
 const seeded = seedSavingsPots();
 const emptyState: SavingsState = { pots: seeded, snapshots: [] };
 let cachedRaw: string | null = null;
 let cachedState = emptyState;
+let cloudCache = false;
+let cloudHasSavings = false;
 
 type SavingsState = {
   pots: SavingsPot[];
@@ -27,14 +31,31 @@ export function useSavingsPots() {
   return { pots: state.pots, snapshots: state.snapshots, addPot, updatePot, removePot, toggleIncluded };
 }
 
+export function applyRemoteSavings(pots: SavingsPot[], snapshots: SavingsSnapshot[], useCloudCache: boolean) {
+  cloudCache = useCloudCache;
+  cloudHasSavings = pots.length > 0 || snapshots.length > 0;
+  cachedState = cloudHasSavings ? { pots, snapshots } : emptyState;
+  cachedRaw = useCloudCache ? "__cloud__" : JSON.stringify({ pots, snapshots });
+  listeners.forEach((listener) => listener());
+}
+
+export function resetSavingsCache() {
+  cloudCache = false;
+  cloudHasSavings = false;
+  cachedRaw = null;
+  cachedState = emptyState;
+  listeners.forEach((listener) => listener());
+}
+
 function subscribe(onChange: () => void) {
   listeners.add(onChange);
   return () => listeners.delete(onChange);
 }
 
 function getSnapshot(): SavingsState {
+  if (cloudCache) return cloudHasSavings ? cachedState : emptyState;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(SAVINGS_KEY);
     if (raw === cachedRaw) return cachedState;
     cachedRaw = raw;
     if (!raw) {
@@ -57,10 +78,17 @@ function persist(pots: SavingsPot[]) {
   const current = getSnapshot();
   const snapshots = recordSavingsSnapshot(pots, current.snapshots, localIsoDate());
   const next: SavingsState = { pots, snapshots };
-  const raw = JSON.stringify(next);
-  localStorage.setItem(STORAGE_KEY, raw);
-  cachedRaw = raw;
+  cachedRaw = JSON.stringify(next);
   cachedState = next;
+  const destination = persistDestination();
+  if (destination === "local") {
+    localStorage.setItem(SAVINGS_KEY, cachedRaw);
+  } else {
+    cloudCache = true;
+    cloudHasSavings = true;
+    const userId = getCloudUserId();
+    if (userId) enqueueCloudWrite("savings", () => replaceSavings(financeClient(), userId, pots, snapshots));
+  }
   listeners.forEach((listener) => listener());
 }
 
@@ -81,4 +109,3 @@ function toggleIncluded(id: string) {
     getSnapshot().pots.map((pot) => (pot.id === id ? { ...pot, includedInTotal: nextIncludedInTotal(pot) } : pot)),
   );
 }
-

@@ -6,9 +6,16 @@ import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { removeTag, renameTag, withTags } from "@/lib/money-flow/tags";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
+import { replaceMoneyFlow, replacePeriod } from "@/lib/persist/cloud";
+import { isDemoMoneySnapshot } from "@/lib/persist/demo-snapshot";
+import { INTERPRETED_KEY, PERIOD_KEY } from "@/lib/persist/keys";
+import {
+  enqueueCloudWrite,
+  financeClient,
+  getCloudUserId,
+  persistDestination,
+} from "@/lib/persist/runtime";
 
-const STORAGE_KEY = "bitbybit.interpreted-v1";
-const PERIOD_KEY = "bitbybit.period-v1";
 const empty = { files: [] as FileInterpretation[], transactions: [] as InterpretedTransaction[] };
 const listeners = new Set<() => void>();
 const periodListeners = new Set<() => void>();
@@ -16,6 +23,8 @@ let cachedRaw: string | null = null;
 let cachedSnapshot = empty;
 let cachedPeriodRaw: string | null = null;
 let cachedPeriod: PeriodFilter = ALL_PERIOD;
+let cloudCache = false;
+let demoOverrides: InterpretedTransaction[] | null = null;
 
 type MoneyFlowState = {
   files: FileInterpretation[];
@@ -42,7 +51,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<MoneyFlowState>(() => {
     const hasUploads = stored.files.length > 0;
     const hasStoredTxns = stored.transactions.length > 0;
-    const allTransactions = hasStoredTxns ? stored.transactions : demoTransactions.map(toInterpreted);
+    const allTransactions = hasStoredTxns ? stored.transactions : (demoOverrides ?? demoInterpreted);
     const transactions = filterByPeriod(allTransactions, period);
     return {
       files: stored.files,
@@ -72,6 +81,38 @@ export function useMoneyFlow() {
 
 export { demoAccounts, demoBudgets, demoGoals };
 
+export function applyRemoteMoneyFlow(
+  files: FileInterpretation[],
+  transactions: InterpretedTransaction[],
+  period: PeriodFilter,
+  useCloudCache: boolean,
+  keep?: { money?: boolean; period?: boolean },
+) {
+  cloudCache = useCloudCache;
+  if (!keep?.money) {
+    demoOverrides = null;
+    cachedRaw = useCloudCache ? "__cloud__" : JSON.stringify({ files, transactions });
+    cachedSnapshot = { files, transactions };
+    listeners.forEach((listener) => listener());
+  }
+  if (!keep?.period) {
+    cachedPeriodRaw = useCloudCache ? "__cloud__" : JSON.stringify(period);
+    cachedPeriod = period;
+    periodListeners.forEach((listener) => listener());
+  }
+}
+
+export function resetMoneyFlowCache() {
+  cloudCache = false;
+  demoOverrides = null;
+  cachedRaw = null;
+  cachedSnapshot = empty;
+  cachedPeriodRaw = null;
+  cachedPeriod = ALL_PERIOD;
+  listeners.forEach((listener) => listener());
+  periodListeners.forEach((listener) => listener());
+}
+
 function subscribe(onChange: () => void) {
   listeners.add(onChange);
   return () => listeners.delete(onChange);
@@ -83,8 +124,9 @@ function subscribePeriod(onChange: () => void) {
 }
 
 function getSnapshot() {
+  if (cloudCache) return cachedSnapshot;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(INTERPRETED_KEY);
     if (raw === cachedRaw) return cachedSnapshot;
     cachedRaw = raw;
     if (!raw) {
@@ -101,6 +143,7 @@ function getSnapshot() {
 }
 
 function getPeriod(): PeriodFilter {
+  if (cloudCache) return cachedPeriod;
   try {
     const raw = localStorage.getItem(PERIOD_KEY);
     if (raw === cachedPeriodRaw) return cachedPeriod;
@@ -115,9 +158,16 @@ function getPeriod(): PeriodFilter {
 
 function writePeriod(period: PeriodFilter) {
   const raw = JSON.stringify(period);
-  localStorage.setItem(PERIOD_KEY, raw);
   cachedPeriodRaw = raw;
   cachedPeriod = period;
+  const destination = persistDestination();
+  if (destination === "local") {
+    localStorage.setItem(PERIOD_KEY, raw);
+  } else {
+    cloudCache = true;
+    const userId = getCloudUserId();
+    if (userId) enqueueCloudWrite("period", () => replacePeriod(financeClient(), userId, period));
+  }
   periodListeners.forEach((listener) => listener());
 }
 
@@ -126,24 +176,47 @@ function writeStore(result: InterpretationResult) {
 }
 
 function persist(files: FileInterpretation[], transactions: InterpretedTransaction[]) {
+  const destination = persistDestination();
+  if (destination !== "local" && isDemoMoneySnapshot(files, transactions)) {
+    demoOverrides = transactions;
+    cachedSnapshot = { files: cachedSnapshot.files, transactions: cachedSnapshot.transactions };
+    listeners.forEach((listener) => listener());
+    return;
+  }
+
+  demoOverrides = null;
   const raw = JSON.stringify({ files, transactions });
-  localStorage.setItem(STORAGE_KEY, raw);
   cachedRaw = raw;
   cachedSnapshot = { files, transactions };
+  if (destination === "local") {
+    localStorage.setItem(INTERPRETED_KEY, raw);
+  } else {
+    cloudCache = true;
+    const userId = getCloudUserId();
+    if (userId) enqueueCloudWrite("money", () => replaceMoneyFlow(financeClient(), userId, files, transactions));
+  }
   listeners.forEach((listener) => listener());
 }
 
 function clearStore() {
-  localStorage.removeItem(STORAGE_KEY);
+  demoOverrides = null;
   cachedRaw = null;
   cachedSnapshot = empty;
+  const destination = persistDestination();
+  if (destination === "local") {
+    localStorage.removeItem(INTERPRETED_KEY);
+  } else {
+    cloudCache = true;
+    const userId = getCloudUserId();
+    if (userId) enqueueCloudWrite("money", () => replaceMoneyFlow(financeClient(), userId, [], []));
+  }
   listeners.forEach((listener) => listener());
 }
 
 function workingCopy() {
   const stored = getSnapshot();
   if (stored.transactions.length > 0) return stored;
-  return { files: stored.files, transactions: demoTransactions.map(toInterpreted) };
+  return { files: stored.files, transactions: demoOverrides ?? demoInterpreted };
 }
 
 function setTransactionTags(id: string, tags: string[]) {
@@ -178,3 +251,5 @@ function toInterpreted(txn: (typeof demoTransactions)[number]): InterpretedTrans
     confidence: 1,
   };
 }
+
+const demoInterpreted = demoTransactions.map(toInterpreted);

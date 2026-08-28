@@ -1,7 +1,11 @@
 import { Geist } from "next/font/google";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { MoneyFlowProvider } from "@/components/money-flow-provider";
+import { SessionProvider } from "@/components/session-provider";
 import { siteDescription, siteName, siteTagline } from "@/lib/brand";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getAuthUser } from "@/lib/supabase/server";
 import "./globals.css";
 
 const geist = Geist({
@@ -16,11 +20,15 @@ export const metadata: Metadata = {
   description: siteDescription,
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  await headers();
+  const user = await getAuthUser();
   return (
     <html lang="en-AU" className={geist.className}>
       <body>
-        <MoneyFlowProvider>{children}</MoneyFlowProvider>
+        <SessionProvider cloudConfigured={isSupabaseConfigured()} initialUser={user}>
+          <MoneyFlowProvider>{children}</MoneyFlowProvider>
+        </SessionProvider>
       </body>
     </html>
   );
