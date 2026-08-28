@@ -45,36 +45,75 @@ function originFromValue(value: string): string | null {
   }
 }
 
+function addOrigin(origins: string[], value: string | undefined) {
+  const origin = value?.trim() ? originFromValue(value.trim().replace(/\/$/, "")) : null;
+  if (origin && !origins.includes(origin)) origins.push(origin);
+}
+
+export function trustedAppOrigins(
+  env: Record<string, string | undefined> = process.env,
+  headerStore?: HeaderReader,
+): string[] {
+  const origins: string[] = [];
+  addOrigin(origins, env.NEXT_PUBLIC_SITE_URL);
+  addOrigin(origins, env.VERCEL_PROJECT_PRODUCTION_URL);
+  addOrigin(origins, env.VERCEL_BRANCH_URL);
+  addOrigin(origins, env.VERCEL_URL);
+  const host = headerStore?.get("host") ?? "";
+  if (isLoopbackHost(host)) {
+    const proto = headerStore?.get("x-forwarded-proto") === "https" ? "https" : "http";
+    addOrigin(origins, `${proto}://${host}`);
+  }
+  return origins;
+}
+
 export function publicAppOrigin(
   env: Record<string, string | undefined> = process.env,
   headerStore?: HeaderReader,
 ): string | null {
   const configured = env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
   if (configured) return originFromValue(configured);
-  const vercel = env.VERCEL_URL?.trim();
-  if (vercel) return originFromValue(vercel);
+  const production = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (production) return originFromValue(production);
   const host = headerStore?.get("host") ?? "";
   if (!isLoopbackHost(host)) return null;
   const proto = headerStore?.get("x-forwarded-proto") === "https" ? "https" : "http";
   return originFromValue(`${proto}://${host}`);
 }
 
-export function assertOriginMatches(originHeader: string | null, expectedOrigin: string | null) {
-  if (!originHeader || !expectedOrigin) {
+export function originForEmailRedirect(
+  originHeader: string | null,
+  env: Record<string, string | undefined> = process.env,
+  headerStore?: HeaderReader,
+): string | null {
+  const trusted = trustedAppOrigins(env, headerStore);
+  if (originHeader) {
+    try {
+      const origin = new URL(originHeader).origin;
+      if (trusted.includes(origin)) return origin;
+    } catch {
+      /* fall through to the canonical origin */
+    }
+  }
+  return publicAppOrigin(env, headerStore);
+}
+
+export function assertOriginMatches(originHeader: string | null, trustedOrigins: readonly string[]) {
+  if (!originHeader || trustedOrigins.length === 0) {
     throw new Error("Invalid request origin.");
   }
-  let originHost = "";
+  let origin = "";
   try {
-    originHost = new URL(originHeader).origin;
+    origin = new URL(originHeader).origin;
   } catch {
     throw new Error("Invalid request origin.");
   }
-  if (originHost !== expectedOrigin) {
+  if (!trustedOrigins.includes(origin)) {
     throw new Error("Invalid request origin.");
   }
 }
 
 export async function assertSameOrigin() {
   const headerStore = await headers();
-  assertOriginMatches(headerStore.get("origin"), publicAppOrigin(process.env, headerStore));
+  assertOriginMatches(headerStore.get("origin"), trustedAppOrigins(process.env, headerStore));
 }

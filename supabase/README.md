@@ -5,7 +5,7 @@ Auth and cloud persist need a hosted Supabase project. The app still runs signed
 1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard).
 2. In its SQL Editor, run `migrations/202608210001_initial_finance_schema.sql`, then `migrations/202608270001_auth_persist_schema.sql`.
 3. Copy the project URL and **publishable** key into `.env.local` from `../.env.example`. Do not commit that file. Never put `service_role` in the app.
-4. In Authentication, enable email + password. Turn on magic-link email if you want one-time links. Add `http://localhost:3000/auth/callback` (and the production origin) to Redirect URLs. Set `NEXT_PUBLIC_SITE_URL` to that production origin so confirmation links are not built from `Origin` or `X-Forwarded-Host`.
+4. In Authentication, enable email + password. Turn on magic-link email if you want one-time links. Add `http://localhost:3000/auth/callback` and the public origin (`NEXT_PUBLIC_SITE_URL`, including a custom domain) to Redirect URLs. Do not use the per-deployment `*.vercel.app` URL as the only allowed origin.
 5. Create two test users. The `handle_new_user` trigger creates `public.users`, default categories, and preferences.
 
 ## Manual verification (use the authenticated client, not service role)

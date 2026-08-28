@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isEmail, passwordError } from "@/lib/auth/password";
-import { assertSameOrigin, clientIp, publicAppOrigin } from "@/lib/security/origin";
+import { assertSameOrigin, clientIp, originForEmailRedirect } from "@/lib/security/origin";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { safeInternalPath } from "@/lib/security/redirect";
 import { isSupabaseConfigured, LAST_ACTIVE_COOKIE } from "@/lib/supabase/config";
@@ -39,7 +39,8 @@ function redirectTo(formData: FormData) {
 }
 
 async function emailRedirectTo() {
-  const origin = publicAppOrigin(process.env, await headers());
+  const headerStore = await headers();
+  const origin = originForEmailRedirect(headerStore.get("origin"), process.env, headerStore);
   return origin ? `${origin}/auth/callback` : undefined;
 }
 
