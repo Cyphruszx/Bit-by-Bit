@@ -79,30 +79,44 @@ export function subtractCadence(iso: string, cadence: Cadence): string {
   return shiftCadence(iso, cadence, -1);
 }
 
-function shiftCadence(iso: string, cadence: Cadence, direction: 1 | -1): string {
+function shiftCadence(iso: string, cadence: Cadence, steps: number): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || steps === 0) return iso;
   const [year, month, day] = iso.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (cadence === "weekly") date.setUTCDate(date.getUTCDate() + 7 * direction);
-  else if (cadence === "fortnightly") date.setUTCDate(date.getUTCDate() + 14 * direction);
-  else date.setUTCMonth(date.getUTCMonth() + direction);
-  return date.toISOString().slice(0, 10);
+  if (cadence === "weekly") return addUtcDays(year, month, day, 7 * steps);
+  if (cadence === "fortnightly") return addUtcDays(year, month, day, 14 * steps);
+  return addMonthsClamped(year, month, day, steps);
+}
+
+function addUtcDays(year: number, month: number, day: number, days: number): string {
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function addMonthsClamped(year: number, month: number, day: number, months: number): string {
+  const monthIndex = year * 12 + (month - 1) + months;
+  const nextYear = Math.floor(monthIndex / 12);
+  const nextMonth = monthIndex - nextYear * 12;
+  const lastDay = new Date(Date.UTC(nextYear, nextMonth + 1, 0)).getUTCDate();
+  const nextDay = Math.min(day, lastDay);
+  return `${String(nextYear).padStart(4, "0")}-${String(nextMonth + 1).padStart(2, "0")}-${String(nextDay).padStart(2, "0")}`;
 }
 
 export function nextDateFromLast(lastDateIso: string, cadence: Cadence, todayIso: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(lastDateIso)) return todayIso;
   if (lastDateIso >= todayIso) return lastDateIso;
   let current = lastDateIso;
-  for (let i = 0; i < 48 && current < todayIso; i += 1) {
-    current = addCadence(current, cadence);
+  for (let i = 1; i <= 48; i += 1) {
+    current = shiftCadence(lastDateIso, cadence, i);
+    if (current >= todayIso) return current;
   }
   return current;
 }
 
 export function advanceAfterPaid(nextDate: string, cadence: Cadence, todayIso: string): string {
   const start = /^\d{4}-\d{2}-\d{2}$/.test(nextDate) ? nextDate : todayIso;
-  let current = addCadence(start, cadence);
-  for (let i = 0; i < 48 && current < todayIso; i += 1) {
-    current = addCadence(current, cadence);
+  let current = start;
+  for (let i = 1; i <= 48; i += 1) {
+    current = shiftCadence(start, cadence, i);
+    if (current >= todayIso) return current;
   }
   return current;
 }
@@ -145,17 +159,15 @@ export function expectedOccurrence(
 ): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) return null;
   let latest: string | null = null;
-  let current = nextDate;
-  for (let i = 0; i < 48; i += 1) {
+  for (let i = 0; i <= 48; i += 1) {
+    const current = shiftCadence(nextDate, cadence, -i);
     if (current < from) break;
     if (current <= to) latest = current;
-    current = subtractCadence(current, cadence);
   }
-  current = addCadence(nextDate, cadence);
-  for (let i = 0; i < 48; i += 1) {
+  for (let i = 1; i <= 48; i += 1) {
+    const current = shiftCadence(nextDate, cadence, i);
     if (current > to) break;
     if (current >= from) latest = !latest || current > latest ? current : latest;
-    current = addCadence(current, cadence);
   }
   return latest;
 }

@@ -130,9 +130,11 @@ function aggregateByTag(
 export function uniqueTransactions(rows: InterpretedTransaction[]): InterpretedTransaction[] {
   const seen = new Set<string>();
   return rows.filter((row) => {
-    const key = `${row.dateIso}|${row.amount}|${row.merchant.toLowerCase()}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
+    const fingerprint = `${row.dateIso}|${row.amount}|${row.merchant.toLowerCase()}`;
+    const fromThisFile = `${fingerprint}|${row.sourceFile}`;
+    if (seen.has(fingerprint) && !seen.has(fromThisFile)) return false;
+    seen.add(fingerprint);
+    seen.add(fromThisFile);
     return true;
   });
 }
