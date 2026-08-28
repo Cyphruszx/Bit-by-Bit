@@ -11,7 +11,7 @@ import {
 } from "@/lib/money-flow/savings";
 import { replaceSavings } from "@/lib/persist/cloud";
 import { SAVINGS_KEY } from "@/lib/persist/keys";
-import { enqueueCloudWrite, financeClient, getCloudUserId, isCloudPersistEnabled } from "@/lib/persist/runtime";
+import { enqueueCloudWrite, financeClient, getCloudUserId, persistDestination } from "@/lib/persist/runtime";
 
 const listeners = new Set<() => void>();
 const seeded = seedSavingsPots();
@@ -80,11 +80,15 @@ function persist(pots: SavingsPot[]) {
   const next: SavingsState = { pots, snapshots };
   cachedRaw = JSON.stringify(next);
   cachedState = next;
-  if (isCloudPersistEnabled()) {
+  const destination = persistDestination();
+  if (destination === "cloud") {
     cloudCache = true;
     cloudHasSavings = true;
     const userId = getCloudUserId();
-    if (userId) enqueueCloudWrite(() => replaceSavings(financeClient(), userId, pots, snapshots));
+    if (userId) enqueueCloudWrite("savings", () => replaceSavings(financeClient(), userId, pots, snapshots));
+  } else if (destination === "memory") {
+    cloudCache = true;
+    cloudHasSavings = true;
   } else {
     localStorage.setItem(SAVINGS_KEY, cachedRaw);
   }

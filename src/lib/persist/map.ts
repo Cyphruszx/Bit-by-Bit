@@ -40,6 +40,7 @@ export type CloudTransactionRow = {
   amount: number;
   transaction_type: string;
   subcategory: string | null;
+  source_file_id?: string | null;
   source_filename: string | null;
   ai_confidence: number | null;
   tags: string[];
@@ -63,10 +64,46 @@ export type MappedMoneyFlow = {
   transactions: InterpretedTransaction[];
 };
 
+export function ensureFileId(file: FileInterpretation): FileInterpretation & { id: string } {
+  if (file.id && isUuid(file.id)) return file as FileInterpretation & { id: string };
+  return { ...file, id: crypto.randomUUID() };
+}
+
+export function ensurePotId(pot: SavingsPot): SavingsPot & { id: string } {
+  if (isUuid(pot.id)) return pot;
+  return { ...pot, id: crypto.randomUUID() };
+}
+
+export function assignClientKeys(ids: string[]): string[] {
+  const seen = new Map<string, number>();
+  return ids.map((id) => {
+    const base = id.slice(0, 180) || "txn";
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    if (count === 0) return base;
+    const suffix = `~${count}`;
+    return `${base.slice(0, Math.max(1, 180 - suffix.length))}${suffix}`;
+  });
+}
+
+export function resolveSourceFileId(
+  txn: Pick<InterpretedTransaction, "sourceFile" | "sourceFileId">,
+  files: Array<Pick<FileInterpretation, "id" | "filename">>,
+): string | null {
+  if (txn.sourceFileId) {
+    const hit = files.find((file) => file.id === txn.sourceFileId);
+    if (hit?.id && isUuid(hit.id)) return hit.id;
+  }
+  const filename = redactAccountIdentifiers(txn.sourceFile).slice(0, 255);
+  const matches = files.filter((file) => file.filename === filename || file.filename === txn.sourceFile);
+  if (matches.length === 1 && matches[0]?.id && isUuid(matches[0].id)) return matches[0].id;
+  return null;
+}
+
 export function fileToRow(file: FileInterpretation, userId: string) {
-  const id = file.id && isUuid(file.id) ? file.id : undefined;
+  const withId = ensureFileId(file);
   return {
-    ...(id ? { id } : {}),
+    id: withId.id,
     user_id: userId,
     filename: redactAccountIdentifiers(file.filename).slice(0, 255) || "document",
     file_type: FILE_TYPES.has(file.fileType) ? file.fileType : "other",
@@ -85,12 +122,13 @@ export function transactionToRow(
   userId: string,
   categoryId: string | null,
   sourceFileId: string | null,
+  clientKey = txn.id.slice(0, 180),
 ) {
   const tags = tagsOf(txn).map((tag) => redactAccountIdentifiers(tag).slice(0, 80));
   const merchant = redactAccountIdentifiers(txn.merchant).slice(0, 500) || "Unknown";
   return {
     user_id: userId,
-    client_key: txn.id.slice(0, 180),
+    client_key: clientKey,
     transaction_date: txn.dateIso,
     description: merchant,
     merchant_name: merchant.slice(0, 200),
@@ -140,6 +178,7 @@ export function transactionFromRow(row: CloudTransactionRow): InterpretedTransac
     amount: Number(row.amount),
     type,
     sourceFile: row.source_filename || "account",
+    sourceFileId: row.source_file_id ?? undefined,
     confidence: row.ai_confidence ?? 1,
     tagSource: TAG_SOURCES.has(row.tag_source as TagSource) ? (row.tag_source as TagSource) : undefined,
     extractedBy: EXTRACTORS.has(row.extracted_by as ExtractionSource)

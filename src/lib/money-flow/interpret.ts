@@ -22,7 +22,9 @@ export async function interpretDocuments(
   for (const file of files.slice(0, MAX_FILES)) {
     const filename = sanitizeFilename(file.filename);
     const kind = detectFileKind(filename, file.mime, file.bytes);
+    const fileId = crypto.randomUUID();
     const base: FileInterpretation = {
+      id: fileId,
       filename,
       fileType: toSchemaFileType(kind),
       kind,
@@ -63,7 +65,7 @@ export async function interpretDocuments(
 
     try {
       const parsed = await parseDocument(filename, file.mime, file.bytes, { ai });
-      transactions.push(...parsed.transactions);
+      transactions.push(...parsed.transactions.map((txn) => ({ ...txn, sourceFileId: fileId })));
       interpretations.push({
         ...base,
         processingStatus: parsed.transactions.length > 0 ? "completed" : "failed",

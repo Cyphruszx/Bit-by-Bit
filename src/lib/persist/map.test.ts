@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { redactAccountIdentifiers } from "./redact";
 import { INTERPRETED_KEY, LOCAL_FINANCE_KEYS, wipeLocalFinanceKeys } from "./keys";
 import { localHasImportableData, readLocalInterpreted } from "./local";
-import { fileFromRow, neededCategoryNames, periodFromJson, transactionFromRow, transactionToRow } from "./map";
+import { assignClientKeys, fileFromRow, neededCategoryNames, periodFromJson, resolveSourceFileId, transactionFromRow, transactionToRow } from "./map";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 describe("redactAccountIdentifiers", () => {
@@ -55,6 +55,19 @@ describe("transaction mapping", () => {
     assert.equal(back.category, "Groceries");
     assert.deepEqual(back.tags, ["Groceries", "Woolworths"]);
     assert.equal(neededCategoryNames([txn])[0], "Groceries");
+  });
+
+  it("resolves source files by id when filenames collide", () => {
+    const files = [
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", filename: "statement.csv" },
+      { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", filename: "statement.csv" },
+    ];
+    assert.equal(
+      resolveSourceFileId({ sourceFile: "statement.csv", sourceFileId: files[0].id }, files),
+      files[0].id,
+    );
+    assert.equal(resolveSourceFileId({ sourceFile: "statement.csv" }, files), null);
+    assert.deepEqual(assignClientKeys(["dup", "dup"]), ["dup", "dup~1"]);
   });
 
   it("restores file metadata without a storage path", () => {

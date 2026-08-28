@@ -37,6 +37,8 @@ describe("document interpretation", () => {
     const csv = readFileSync(path.join(samples, "commonwealth-bank.csv"));
     const result = await interpretDocuments([file("commonwealth-bank.csv", "text/csv", csv)]);
     assert.equal(result.files[0].processingStatus, "completed");
+    assert.match(result.files[0].id ?? "", /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    assert.equal(result.transactions[0]?.sourceFileId, result.files[0].id);
     assert.equal(result.flow.income, 5240);
     assert.equal(result.flow.transfers, 400);
     assert.ok(result.transactions.some((txn) => txn.merchant.includes("Woolworths")));

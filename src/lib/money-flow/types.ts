@@ -27,6 +27,7 @@ export type InterpretedTransaction = {
   amount: number;
   type: TransactionType;
   sourceFile: string;
+  sourceFileId?: string;
   confidence: number;
   tags?: string[];
   tagSource?: TagSource;

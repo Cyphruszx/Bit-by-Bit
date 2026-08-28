@@ -4,12 +4,17 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 export type PersistStatus = {
   cloudUserId: string | null;
   hydrating: boolean;
+  ready: boolean;
   error: string | null;
 };
 
+export type CloudWriteKey = "money" | "period" | "recurring" | "savings";
+export type PersistDestination = "cloud" | "memory" | "local";
+
 const listeners = new Set<() => void>();
-let status: PersistStatus = { cloudUserId: null, hydrating: false, error: null };
+let status: PersistStatus = { cloudUserId: null, hydrating: false, ready: false, error: null };
 let writeChain: Promise<void> = Promise.resolve();
+const pending = new Map<CloudWriteKey, () => Promise<void>>();
 
 export function getPersistStatus(): PersistStatus {
   return status;
@@ -30,7 +35,13 @@ export function getCloudUserId() {
 }
 
 export function isCloudPersistEnabled() {
-  return Boolean(status.cloudUserId);
+  return Boolean(status.cloudUserId) && status.ready && !status.hydrating;
+}
+
+export function persistDestination(): PersistDestination {
+  if (!status.cloudUserId) return "local";
+  if (status.ready && !status.hydrating) return "cloud";
+  return "memory";
 }
 
 export function getPersistError() {
@@ -49,18 +60,31 @@ export function setCloudUserId(userId: string | null) {
   setStatus({ cloudUserId: userId });
 }
 
+export function setPersistReady(value: boolean) {
+  setStatus({ ready: value });
+}
+
 export function setPersistError(message: string | null) {
   setStatus({ error: message });
+}
+
+export function primeCloudHydration(userId: string) {
+  if (status.cloudUserId === userId && (status.hydrating || status.ready)) return;
+  status = { cloudUserId: userId, hydrating: true, ready: false, error: status.error };
 }
 
 export function financeClient(): SupabaseClient {
   return createBrowserSupabaseClient();
 }
 
-export function enqueueCloudWrite(task: () => Promise<void>) {
+export function enqueueCloudWrite(key: CloudWriteKey, task: () => Promise<void>) {
+  pending.set(key, task);
   writeChain = writeChain.then(async () => {
+    const next = pending.get(key);
+    if (next !== task) return;
+    pending.delete(key);
     try {
-      await task();
+      await next();
       if (status.error) setPersistError(null);
     } catch (error) {
       setPersistError(error instanceof Error ? error.message : "Could not save to your account.");
@@ -71,4 +95,10 @@ export function enqueueCloudWrite(task: () => Promise<void>) {
 
 export async function flushCloudWrites() {
   await writeChain;
+}
+
+export function resetPersistRuntime() {
+  status = { cloudUserId: null, hydrating: false, ready: false, error: null };
+  writeChain = Promise.resolve();
+  pending.clear();
 }

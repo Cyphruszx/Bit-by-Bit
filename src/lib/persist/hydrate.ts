@@ -9,7 +9,7 @@ import {
   replaceSavings,
 } from "@/lib/persist/cloud";
 import { localHasImportableData, readLocalInterpreted, readLocalPeriod, readLocalRecurring, readLocalSavings, wipeLocalFinance } from "@/lib/persist/local";
-import { financeClient, flushCloudWrites, setCloudUserId, setHydrating, setPersistError } from "@/lib/persist/runtime";
+import { financeClient, flushCloudWrites, setCloudUserId, setHydrating, setPersistError, setPersistReady } from "@/lib/persist/runtime";
 import { applyRemoteMoneyFlow, resetMoneyFlowCache } from "@/components/money-flow-provider";
 import { applyRemoteRecurring, resetRecurringCache } from "@/components/recurring-store";
 import { applyRemoteSavings, resetSavingsCache } from "@/components/savings-store";
@@ -19,6 +19,7 @@ export async function hydrateCloudSession(userId: string | null) {
   setPersistError(null);
   if (!userId) {
     setCloudUserId(null);
+    setPersistReady(false);
     setHydrating(false);
     resetMoneyFlowCache();
     resetRecurringCache();
@@ -27,6 +28,7 @@ export async function hydrateCloudSession(userId: string | null) {
   }
 
   setHydrating(true);
+  setPersistReady(false);
   setCloudUserId(userId);
   try {
     const client = financeClient();
@@ -57,9 +59,10 @@ export async function hydrateCloudSession(userId: string | null) {
       applyRemoteRecurring(remote.recurring, true);
       applyRemoteSavings([], [], false);
     }
+    setPersistReady(true);
   } catch (error) {
     setPersistError(error instanceof Error ? error.message : "Could not load your account.");
-    setCloudUserId(null);
+    setPersistReady(false);
   } finally {
     setHydrating(false);
   }

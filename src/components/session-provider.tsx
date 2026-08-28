@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { hydrateCloudSession } from "@/lib/persist/hydrate";
-import { getPersistStatus, subscribePersistStatus } from "@/lib/persist/runtime";
+import { getPersistStatus, primeCloudHydration, subscribePersistStatus } from "@/lib/persist/runtime";
 import { wipeLocalFinanceKeys } from "@/lib/persist/keys";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
@@ -29,6 +29,9 @@ export function SessionProvider({
   initialUser: SessionUser | null;
   cloudConfigured: boolean;
 }) {
+  if (cloudConfigured && initialUser) {
+    primeCloudHydration(initialUser.id);
+  }
   const [user, setUser] = useState<SessionUser | null>(initialUser);
   const persist = useSyncExternalStore(subscribePersistStatus, getPersistStatus, getPersistStatus);
 
@@ -39,6 +42,7 @@ export function SessionProvider({
       const nextUser = session?.user ? { id: session.user.id, email: session.user.email ?? null } : null;
       setUser(nextUser);
       if (event === "SIGNED_OUT") wipeLocalFinanceKeys();
+      if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") return;
       void hydrateCloudSession(nextUser?.id ?? null);
     });
     return () => data.subscription.unsubscribe();

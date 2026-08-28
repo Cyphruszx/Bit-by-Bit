@@ -7,8 +7,14 @@ import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFi
 import { removeTag, renameTag, withTags } from "@/lib/money-flow/tags";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 import { replaceMoneyFlow, replacePeriod } from "@/lib/persist/cloud";
+import { isDemoMoneySnapshot } from "@/lib/persist/demo-snapshot";
 import { INTERPRETED_KEY, PERIOD_KEY } from "@/lib/persist/keys";
-import { enqueueCloudWrite, financeClient, getCloudUserId, isCloudPersistEnabled } from "@/lib/persist/runtime";
+import {
+  enqueueCloudWrite,
+  financeClient,
+  getCloudUserId,
+  persistDestination,
+} from "@/lib/persist/runtime";
 
 const empty = { files: [] as FileInterpretation[], transactions: [] as InterpretedTransaction[] };
 const listeners = new Set<() => void>();
@@ -18,6 +24,7 @@ let cachedSnapshot = empty;
 let cachedPeriodRaw: string | null = null;
 let cachedPeriod: PeriodFilter = ALL_PERIOD;
 let cloudCache = false;
+let demoOverrides: InterpretedTransaction[] | null = null;
 
 type MoneyFlowState = {
   files: FileInterpretation[];
@@ -44,7 +51,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<MoneyFlowState>(() => {
     const hasUploads = stored.files.length > 0;
     const hasStoredTxns = stored.transactions.length > 0;
-    const allTransactions = hasStoredTxns ? stored.transactions : demoTransactions.map(toInterpreted);
+    const allTransactions = hasStoredTxns ? stored.transactions : (demoOverrides ?? demoInterpreted);
     const transactions = filterByPeriod(allTransactions, period);
     return {
       files: stored.files,
@@ -81,6 +88,7 @@ export function applyRemoteMoneyFlow(
   useCloudCache: boolean,
 ) {
   cloudCache = useCloudCache;
+  demoOverrides = null;
   cachedRaw = useCloudCache ? "__cloud__" : JSON.stringify({ files, transactions });
   cachedSnapshot = { files, transactions };
   cachedPeriodRaw = useCloudCache ? "__cloud__" : JSON.stringify(period);
@@ -91,6 +99,7 @@ export function applyRemoteMoneyFlow(
 
 export function resetMoneyFlowCache() {
   cloudCache = false;
+  demoOverrides = null;
   cachedRaw = null;
   cachedSnapshot = empty;
   cachedPeriodRaw = null;
@@ -146,10 +155,13 @@ function writePeriod(period: PeriodFilter) {
   const raw = JSON.stringify(period);
   cachedPeriodRaw = raw;
   cachedPeriod = period;
-  if (isCloudPersistEnabled()) {
+  const destination = persistDestination();
+  if (destination === "cloud") {
     cloudCache = true;
     const userId = getCloudUserId();
-    if (userId) enqueueCloudWrite(() => replacePeriod(financeClient(), userId, period));
+    if (userId) enqueueCloudWrite("period", () => replacePeriod(financeClient(), userId, period));
+  } else if (destination === "memory") {
+    cloudCache = true;
   } else {
     localStorage.setItem(PERIOD_KEY, raw);
   }
@@ -161,13 +173,24 @@ function writeStore(result: InterpretationResult) {
 }
 
 function persist(files: FileInterpretation[], transactions: InterpretedTransaction[]) {
+  const destination = persistDestination();
+  if (destination !== "local" && isDemoMoneySnapshot(files, transactions)) {
+    demoOverrides = transactions;
+    cachedSnapshot = { files: cachedSnapshot.files, transactions: cachedSnapshot.transactions };
+    listeners.forEach((listener) => listener());
+    return;
+  }
+
+  demoOverrides = null;
   const raw = JSON.stringify({ files, transactions });
   cachedRaw = raw;
   cachedSnapshot = { files, transactions };
-  if (isCloudPersistEnabled()) {
+  if (destination === "cloud") {
     cloudCache = true;
     const userId = getCloudUserId();
-    if (userId) enqueueCloudWrite(() => replaceMoneyFlow(financeClient(), userId, files, transactions));
+    if (userId) enqueueCloudWrite("money", () => replaceMoneyFlow(financeClient(), userId, files, transactions));
+  } else if (destination === "memory") {
+    cloudCache = true;
   } else {
     localStorage.setItem(INTERPRETED_KEY, raw);
   }
@@ -175,12 +198,16 @@ function persist(files: FileInterpretation[], transactions: InterpretedTransacti
 }
 
 function clearStore() {
+  demoOverrides = null;
   cachedRaw = null;
   cachedSnapshot = empty;
-  if (isCloudPersistEnabled()) {
+  const destination = persistDestination();
+  if (destination === "cloud") {
     cloudCache = true;
     const userId = getCloudUserId();
-    if (userId) enqueueCloudWrite(() => replaceMoneyFlow(financeClient(), userId, [], []));
+    if (userId) enqueueCloudWrite("money", () => replaceMoneyFlow(financeClient(), userId, [], []));
+  } else if (destination === "memory") {
+    cloudCache = true;
   } else {
     localStorage.removeItem(INTERPRETED_KEY);
   }
@@ -190,7 +217,7 @@ function clearStore() {
 function workingCopy() {
   const stored = getSnapshot();
   if (stored.transactions.length > 0) return stored;
-  return { files: stored.files, transactions: demoTransactions.map(toInterpreted) };
+  return { files: stored.files, transactions: demoOverrides ?? demoInterpreted };
 }
 
 function setTransactionTags(id: string, tags: string[]) {
@@ -225,3 +252,5 @@ function toInterpreted(txn: (typeof demoTransactions)[number]): InterpretedTrans
     confidence: 1,
   };
 }
+
+const demoInterpreted = demoTransactions.map(toInterpreted);

@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { advanceAfterPaid, type Cadence, type RecurringStore, type TrackedRecurring } from "@/lib/money-flow/recurring";
 import { replaceRecurring } from "@/lib/persist/cloud";
 import { RECURRING_KEY } from "@/lib/persist/keys";
-import { enqueueCloudWrite, financeClient, getCloudUserId, isCloudPersistEnabled } from "@/lib/persist/runtime";
+import { enqueueCloudWrite, financeClient, getCloudUserId, persistDestination } from "@/lib/persist/runtime";
 
 export type { RecurringStore, TrackedRecurring };
 
@@ -75,10 +75,13 @@ function getSnapshot(): RecurringStore {
 function persist(next: RecurringStore) {
   cachedRaw = JSON.stringify(next);
   cached = next;
-  if (isCloudPersistEnabled()) {
+  const destination = persistDestination();
+  if (destination === "cloud") {
     cloudCache = true;
     const userId = getCloudUserId();
-    if (userId) enqueueCloudWrite(() => replaceRecurring(financeClient(), userId, next));
+    if (userId) enqueueCloudWrite("recurring", () => replaceRecurring(financeClient(), userId, next));
+  } else if (destination === "memory") {
+    cloudCache = true;
   } else {
     localStorage.setItem(RECURRING_KEY, cachedRaw);
   }
