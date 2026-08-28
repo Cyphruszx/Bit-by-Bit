@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { isEmail, passwordError } from "@/lib/auth/password";
 import { assertSameOrigin, clientIp } from "@/lib/security/origin";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { safeInternalPath } from "@/lib/security/redirect";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -32,8 +33,7 @@ async function guardAuth(): Promise<AuthState | null> {
 }
 
 function redirectTo(formData: FormData) {
-  const next = String(formData.get("next") ?? "/dashboard");
-  return next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  return safeInternalPath(String(formData.get("next") ?? "/dashboard"));
 }
 
 async function requestOrigin() {

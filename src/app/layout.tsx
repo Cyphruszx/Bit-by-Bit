@@ -1,5 +1,6 @@
 import { Geist } from "next/font/google";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { MoneyFlowProvider } from "@/components/money-flow-provider";
 import { SessionProvider } from "@/components/session-provider";
 import { siteDescription, siteName, siteTagline } from "@/lib/brand";
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  await headers();
   const user = await getAuthUser();
   return (
     <html lang="en-AU" className={geist.className}>

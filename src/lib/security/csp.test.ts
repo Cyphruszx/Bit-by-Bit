@@ -20,5 +20,6 @@ describe("CSP", () => {
     assert.doesNotMatch(csp, /script-src[^;]*'unsafe-inline'/);
     assert.match(csp, /connect-src 'self' https:\/\/example.supabase.co/);
     assert.match(csp, /frame-ancestors 'none'/);
+    assert.match(csp, /style-src 'self' 'nonce-abc123'/);
   });
 });

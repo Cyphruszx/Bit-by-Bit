@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
+import { safeInternalPath } from "@/lib/security/redirect";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const next = url.searchParams.get("next");
-  const destination = next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  const destination = safeInternalPath(url.searchParams.get("next"));
   if (!isSupabaseConfigured()) {
     return NextResponse.redirect(new URL("/signin", url.origin));
   }

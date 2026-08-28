@@ -24,16 +24,21 @@ function applySecurityHeaders(response: NextResponse, request: NextRequest, nonc
   }
 }
 
+function nextWithCsp(request: NextRequest, requestHeaders: Headers, nonce: string) {
+  const csp = buildCsp(nonce, supabaseOrigin() ?? undefined, process.env.NODE_ENV === "development");
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  applySecurityHeaders(response, request, nonce);
+  return response;
+}
+
 export async function updateSession(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-
-  let supabaseResponse = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
-
-  applySecurityHeaders(supabaseResponse, request, nonce);
+  let supabaseResponse = nextWithCsp(request, requestHeaders, nonce);
 
   if (!isSupabaseConfigured()) {
     return supabaseResponse;
@@ -47,9 +52,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet, cacheHeaders) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({
-          request: { headers: requestHeaders },
-        });
+        supabaseResponse = nextWithCsp(request, requestHeaders, nonce);
         cookiesToSet.forEach(({ name, value, options }) => {
           supabaseResponse.cookies.set(name, value, options);
         });
@@ -58,7 +61,6 @@ export async function updateSession(request: NextRequest) {
             supabaseResponse.headers.set(key, value);
           }
         }
-        applySecurityHeaders(supabaseResponse, request, nonce);
       },
     },
   });
