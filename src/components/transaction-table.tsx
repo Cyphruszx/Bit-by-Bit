@@ -49,19 +49,19 @@ export function TransactionTable({
 
   return (
     <div>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search merchants, tags, or files"
-          className="w-full rounded-full border border-[#dce4df] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#173b31] sm:max-w-xs"
+          className="w-full rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31] sm:max-w-xs"
         />
         <select
           value={activeTag}
           onChange={(event) => selectTag(event.target.value)}
           aria-label="Filter by tag"
-          className="rounded-full border border-[#dce4df] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#173b31]"
+          className="rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31]"
         >
           {tagOptions.map((name) => (
             <option key={name} value={name}>
@@ -73,15 +73,16 @@ export function TransactionTable({
           {(
             [
               ["all", "All"],
-              ["in", "Money in"],
-              ["out", "Money out"],
+              ["in", "In"],
+              ["out", "Out"],
             ] as const
           ).map(([value, label]) => (
             <button
               key={value}
               type="button"
+              aria-label={value === "all" ? "All directions" : value === "in" ? "Money in" : "Money out"}
               onClick={() => setDirection(value)}
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                 direction === value ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
               }`}
             >
@@ -90,17 +91,22 @@ export function TransactionTable({
           ))}
         </div>
       </div>
-      <div className="mt-5 divide-y divide-[#edf0ee]">
+      <div className="mt-3 divide-y divide-[#edf0ee]">
         {rows.length === 0 ? (
-          <p className="py-8 text-sm text-[#60716a]">
+          <p className="py-5 text-sm text-[#60716a]">
             {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
           </p>
         ) : (
           rows.map((txn) => (
-            <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between" key={txn.id}>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold">{txn.merchant}</p>
-                <p className="mt-1 text-sm text-[#77857f]">{txn.date}</p>
+            <div className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-1 py-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.4fr)] sm:items-center" key={txn.id}>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{txn.merchant}</p>
+                <p className="text-[11px] text-[#77857f]">{txn.date}</p>
+              </div>
+              <p className={`shrink-0 text-sm font-semibold tabular-nums ${txn.amount > 0 ? "text-[#257155]" : ""}`}>
+                {formatSignedAud(txn.amount)}
+              </p>
+              <div className="col-span-2 min-w-0 sm:col-span-1">
                 <TagEditor
                   tags={tagsOf(txn)}
                   aiSuggested={txn.tagSource === "ai"}
@@ -109,9 +115,6 @@ export function TransactionTable({
                   onChange={(next) => setTransactionTags(txn.id, next)}
                 />
               </div>
-              <p className={`font-semibold sm:pt-0.5 ${txn.amount > 0 ? "text-[#257155]" : ""}`}>
-                {formatSignedAud(txn.amount)}
-              </p>
             </div>
           ))
         )}
