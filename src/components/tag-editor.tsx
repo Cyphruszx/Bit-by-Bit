@@ -82,7 +82,7 @@ function TagChip({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
         tone === "primary" ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
       }`}
     >
