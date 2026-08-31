@@ -17,26 +17,27 @@ export function TransactionsView() {
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Transactions</h1>
-      <p className="mt-2 max-w-2xl text-[#60716a]">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
+      <h1 className="mt-1 text-2xl font-bold tracking-tight">Transactions</h1>
+      <p className="mt-1 max-w-2xl text-sm text-[#60716a]">
         {usingDemo
           ? "Track money in and out on sample activity, or upload documents to interpret your own. Set a primary tag for totals, then an optional sub-tag for detail."
           : hasUploads
             ? "Money in and out from your uploaded documents. Charts use the primary tag so sub-tags never double-count."
             : "Sample activity with your tag edits, saved in this browser."}
       </p>
-      <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <SummaryCard label="Money in" value={formatAud(flow.income)} detail="Income and refunds" positive />
-        <SummaryCard label="Money out" value={formatAud(flow.spending)} detail="Spending this period" />
+      <section className="mt-4 grid gap-3 sm:grid-cols-3">
+        <SummaryCard label="Money in" value={formatAud(flow.income)} detail="Income and refunds" positive compact />
+        <SummaryCard label="Money out" value={formatAud(flow.spending)} detail="Spending this period" compact />
         <SummaryCard
           label="Net"
           value={formatAud(flow.net)}
           detail={`${flow.transactionCount} movements`}
           positive={flow.net >= 0}
+          compact
         />
       </section>
-      <div className="mt-8">
+      <div className="mt-4">
         <TagChartCard
           categories={flow.categories}
           transactions={transactions}
@@ -44,9 +45,10 @@ export function TransactionsView() {
           onSelectTag={setSelectedTag}
           chart={chart}
           onChartChange={setChart}
+          compact
         />
       </div>
-      <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+      <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
         <TransactionTable transactions={transactions} tag={selectedTag} onTagChange={setSelectedTag} />
       </article>
       <TagManager
@@ -85,14 +87,14 @@ function TagManager({
   }
 
   return (
-    <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
-      <h2 className="text-lg font-bold">Tags</h2>
-      <p className="mt-1 text-sm text-[#60716a]">
+    <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
+      <h2 className="text-base font-bold">Tags</h2>
+      <p className="mt-0.5 text-xs text-[#60716a]">
         Primary tags drive spending and income totals. Sub-tags are extra detail and never add to those totals.
       </p>
-      <div className="mt-5 divide-y divide-[#edf0ee]">
+      <div className="mt-3 divide-y divide-[#edf0ee]">
         {tags.map((tag) => (
-          <div className="flex flex-wrap items-center justify-between gap-3 py-3" key={tag}>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5" key={tag}>
             {editing === tag ? (
               <form
                 className="flex flex-wrap items-center gap-2"
@@ -117,8 +119,8 @@ function TagManager({
               </form>
             ) : (
               <div>
-                <p className="font-semibold">{tag}</p>
-                <p className="text-sm text-[#77857f]">
+                <p className="text-sm font-semibold">{tag}</p>
+                <p className="text-xs text-[#77857f]">
                   {primaryCounts.get(tag)
                     ? `Primary on ${primaryCounts.get(tag)} transaction${primaryCounts.get(tag) === 1 ? "" : "s"}`
                     : null}

@@ -20,9 +20,12 @@ export function TagEditor({
   const unused = suggestions.filter((name) => !tags.some((tag) => tag.toLowerCase() === name.toLowerCase()));
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <TagRow label="Primary">
         <TagChip name={primary} tone="primary" onRemove={subs.length > 0 ? () => onChange(subs) : undefined} />
+        {aiSuggested ? (
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-[#527166]">AI</span>
+        ) : null}
         <TagNameForm
           listId={`${listId}-primary`}
           options={unused}
@@ -31,8 +34,8 @@ export function TagEditor({
           onSubmit={(name) => onChange([name, ...subs.filter((tag) => tag.toLowerCase() !== name.toLowerCase())])}
         />
       </TagRow>
-      <TagRow label="Sub-tag">
-        {subs.length === 0 ? <span className="text-xs text-[#77857f]">Optional detail</span> : null}
+      <TagRow label="Sub">
+        {subs.length === 0 ? <span className="text-[11px] text-[#77857f]">Optional</span> : null}
         {subs.map((tag) => (
           <TagChip
             key={tag}
@@ -53,17 +56,14 @@ export function TagEditor({
           }}
         />
       </TagRow>
-      {aiSuggested ? (
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#527166]">AI suggested primary</p>
-      ) : null}
     </div>
   );
 }
 
 function TagRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-[#77857f]">{label}</span>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#77857f]">{label}</span>
       {children}
     </div>
   );
@@ -82,7 +82,7 @@ function TagChip({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${}
         tone === "primary" ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
       }`}
     >
@@ -141,7 +141,7 @@ function TagNameForm({
         onChange={(event) => setDraft(event.target.value)}
         list={listId}
         placeholder={placeholder}
-        className="w-28 rounded-full border border-[#dce4df] bg-white px-3 py-1 text-xs outline-none focus:border-[#173b31]"
+        className="w-24 rounded-full border border-[#dce4df] bg-white px-2 py-0.5 text-[11px] outline-none focus:border-[#173b31]"
       />
       <button type="submit" className="text-xs font-semibold text-[#355a3f]">
         {submitLabel}
@@ -153,7 +153,7 @@ function TagNameForm({
           onChange={(event) => {
             if (event.target.value) submit(event.target.value);
           }}
-          className="rounded-full border border-[#dce4df] bg-white px-2 py-1 text-xs outline-none focus:border-[#173b31]"
+          className="rounded-full border border-[#dce4df] bg-white px-1.5 py-0.5 text-[11px] outline-none focus:border-[#173b31]"
         >
           <option value="">Existing</option>
           {options.map((name) => (
