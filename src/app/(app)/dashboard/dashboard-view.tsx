@@ -1,17 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { SavingsPathChart } from "@/components/savings-charts";
 import { useSavingsPots } from "@/components/savings-store";
 import { TagChartCard } from "@/components/tag-charts";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
-import { formatAud, formatSignedAud } from "@/lib/format";
+import { formatAud } from "@/lib/format";
 import { potsInTotal } from "@/lib/money-flow/savings";
 import type { ChartKind } from "@/lib/money-flow/tag-charts";
-import { primaryTag, subTags, tagsOf } from "@/lib/money-flow/tags";
 
 export function DashboardView() {
   const { flow, hasUploads, transactions, usingDemo } = useMoneyFlow();
@@ -20,11 +19,6 @@ export function DashboardView() {
   const hiddenCount = pots.length - included.length;
   const [chart, setChart] = useState<ChartKind>("bar");
   const [selectedTag, setSelectedTag] = useState("All");
-  const recent = useMemo(() => {
-    const rows =
-      selectedTag === "All" ? transactions : transactions.filter((txn) => tagsOf(txn).includes(selectedTag));
-    return rows.slice(0, 4);
-  }, [selectedTag, transactions]);
 
   return (
     <>
@@ -111,36 +105,6 @@ export function DashboardView() {
           onChartChange={setChart}
         />
       </section>
-      <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">
-            {selectedTag === "All" ? "Recent transactions" : `Recent · ${selectedTag}`}
-          </h2>
-          <Link href="/transactions" className="text-sm font-semibold text-[#355a3f]">
-            View all
-          </Link>
-        </div>
-        <div className="mt-5 divide-y divide-[#edf0ee]">
-          {recent.length === 0 ? (
-            <p className="py-4 text-sm text-[#60716a]">
-              {selectedTag === "All" ? "No movements in this period." : `No ${selectedTag} movements in this period.`}
-            </p>
-          ) : (
-            recent.map((txn) => (
-              <div className="flex items-center justify-between py-4" key={txn.id}>
-                <div>
-                  <p className="font-semibold">{txn.merchant}</p>
-                  <p className="mt-1 text-sm text-[#77857f]">
-                    {primaryTag(txn)}
-                    {subTags(txn).length > 0 ? ` / ${subTags(txn).join(" · ")}` : ""} · {txn.date}
-                  </p>
-                </div>
-                <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>
-              </div>
-            ))
-          )}
-        </div>
-      </article>
     </>
   );
 }
