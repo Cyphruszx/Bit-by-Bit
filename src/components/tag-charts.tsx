@@ -2,7 +2,14 @@
 
 import { useMemo, type ReactNode } from "react";
 import { formatAud, formatAudCompact, formatSignedAud } from "@/lib/format";
-import { chartTagFlowSeries, NO_SUB_TAG, type TagFlowRow } from "@/lib/money-flow/summary";
+import { LineChart, type LineChartSeries } from "@/components/line-chart";
+import {
+  chartTagFlowSeries,
+  tagFlowOverTime,
+  NO_SUB_TAG,
+  type FlowOverTimePoint,
+  type TagFlowRow,
+} from "@/lib/money-flow/summary";
 import {
   barAxisTicks,
   barLayout,
@@ -40,6 +47,7 @@ export function TagChartCard({
   );
   const spend = useMemo(() => orderByFlow(topChartCategories(series.rows)), [series.rows]);
   const slices = useMemo(() => pieSlices(spend), [spend]);
+  const timeline = useMemo(() => tagFlowOverTime(transactions, selectedTag), [selectedTag, transactions]);
   const scoped = useMemo(
     () => transactions.filter((txn) => txn.type !== "transfer" && txn.amount !== 0),
     [transactions],
@@ -68,17 +76,22 @@ export function TagChartCard({
         <div>
           <h2 className={compact ? "text-base font-bold" : "text-lg font-bold"}>{title}</h2>
           <p className={`text-[#60716a] ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"}`}>
-            Money in sits above the line, money out below. Totals use the primary tag only, so extra tags never
-            double-count. Tap a primary to see its sub-tags.
+            {chart === "bar"
+              ? "Money in sits above the line, money out below."
+              : chart === "line"
+                ? "Money in and money out tracked across the period."
+                : "Slice size is the share of all movement, and money in is outlined."}{" "}
+            Totals use the primary tag only, so extra tags never double-count. Tap a primary to see its sub-tags.
           </p>
         </div>
         <div className="flex flex-wrap gap-1">
           {(
             [
-              ["bar", "Bar"],
-              ["pie", "Pie"],
+              ["bar", "Bar", "Bar graph"],
+              ["line", "Line", "Line graph"],
+              ["pie", "Pie", "Pie chart"],
             ] as const
-          ).map(([value, label]) => (
+          ).map(([value, short, long]) => (
             <button
               key={value}
               type="button"
@@ -88,13 +101,15 @@ export function TagChartCard({
                 chart === value ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
               }`}
             >
-              {compact ? label : value === "bar" ? "Bar graph" : "Pie chart"}
+              {compact ? short : long}
             </button>
           ))}
         </div>
       </div>
       {spend.length === 0 ? (
         <p className={`${compact ? "mt-3" : "mt-5"} text-sm text-[#60716a]`}>{emptyLabel}</p>
+      ) : chart === "line" ? (
+        <FlowLineChart points={timeline} compact={compact} />
       ) : chart === "pie" ? (
         <PieChart
           slices={slices}
@@ -291,6 +306,33 @@ function BarGraph({
         })}
       </svg>
     </figure>
+  );
+}
+
+function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[]; compact?: boolean }) {
+  const series: LineChartSeries[] = [
+    {
+      id: "in",
+      label: "Money in",
+      color: "#257155",
+      points: points.map((point) => ({ key: point.key, label: point.label, value: point.income })),
+    },
+    {
+      id: "out",
+      label: "Money out",
+      color: "#9b3b32",
+      points: points.map((point) => ({ key: point.key, label: point.label, value: point.spending })),
+    },
+  ];
+
+  return (
+    <div className={compact ? "mt-3" : "mt-5"}>
+      <LineChart
+        series={series}
+        height={compact ? 180 : 240}
+        ariaLabel="Line graph of money in and out across the period"
+      />
+    </div>
   );
 }
 

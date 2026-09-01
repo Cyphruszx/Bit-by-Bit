@@ -1,5 +1,6 @@
 import { formatAud } from "@/lib/format";
 import { roundMoney } from "@/lib/money-flow/parse-values";
+import { monthLabelFromKey } from "@/lib/money-flow/savings";
 import { primaryTag, subTags, tagsOf } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
@@ -19,6 +20,13 @@ export type TagFlowSeries = {
   spending: number;
   net: number;
   parent: string | null;
+};
+
+export type FlowOverTimePoint = {
+  key: string;
+  label: string;
+  income: number;
+  spending: number;
 };
 
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
@@ -93,6 +101,40 @@ export function chartTagFlowSeries(transactions: InterpretedTransaction[], selec
     ...flowTotals(filtered),
     parent: null,
   };
+}
+
+/** Buckets money in and out by month, dropping to a daily bucket when the period covers one month. */
+export function tagFlowOverTime(
+  transactions: InterpretedTransaction[],
+  selectedTag = "All",
+): FlowOverTimePoint[] {
+  const rows = transactions.filter(
+    (txn) =>
+      txn.type !== "transfer" &&
+      txn.amount !== 0 &&
+      Boolean(txn.dateIso) &&
+      (selectedTag === "All" || tagsOf(txn).includes(selectedTag)),
+  );
+  if (rows.length === 0) return [];
+
+  const byDay = new Set(rows.map((txn) => txn.dateIso.slice(0, 7))).size < 2;
+  const buckets = new Map<string, { label: string; income: number; spending: number }>();
+
+  for (const txn of rows) {
+    const key = byDay ? txn.dateIso.slice(0, 10) : txn.dateIso.slice(0, 7);
+    const entry = buckets.get(key) ?? {
+      label: byDay ? txn.date : monthLabelFromKey(key),
+      income: 0,
+      spending: 0,
+    };
+    if (txn.amount > 0) entry.income = roundMoney(entry.income + txn.amount);
+    else entry.spending = roundMoney(entry.spending + Math.abs(txn.amount));
+    buckets.set(key, entry);
+  }
+
+  return [...buckets.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, entry]) => ({ key, ...entry }));
 }
 
 function flowTotals(transactions: InterpretedTransaction[]): { income: number; spending: number; net: number } {

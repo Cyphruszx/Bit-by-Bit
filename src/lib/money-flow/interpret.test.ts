@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import { detectFileKind } from "./detect";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate } from "./parse-values";
-import { summarizeMoneyFlow, chartTagFlowSeries } from "./summary";
+import { summarizeMoneyFlow, chartTagFlowSeries, tagFlowOverTime } from "./summary";
 
 process.env.OPENAI_API_KEY = "";
 
@@ -380,6 +380,67 @@ describe("money flow summary", () => {
         ["Shopping", -60],
         ["Dining", -28.4],
       ],
+    );
+  });
+
+  it("tracks money in and out by month, and by day within a single month", () => {
+    const july = {
+      id: "1",
+      merchant: "Salary Acme",
+      category: "Income",
+      tags: ["Income"],
+      date: "18 Jul",
+      dateIso: "2026-07-18",
+      amount: 2000,
+      type: "income" as const,
+      sourceFile: "demo",
+      confidence: 1,
+    };
+    const augustIn = {
+      id: "2",
+      merchant: "Salary Acme",
+      category: "Income",
+      tags: ["Income"],
+      date: "18 Aug",
+      dateIso: "2026-08-18",
+      amount: 2500,
+      type: "income" as const,
+      sourceFile: "demo",
+      confidence: 1,
+    };
+    const augustOut = {
+      id: "3",
+      merchant: "Rent",
+      category: "Housing",
+      tags: ["Housing"],
+      date: "20 Aug",
+      dateIso: "2026-08-20",
+      amount: -900,
+      type: "expense" as const,
+      sourceFile: "demo",
+      confidence: 1,
+    };
+
+    assert.deepEqual(
+      tagFlowOverTime([augustOut, july, augustIn]).map((point) => [point.key, point.income, point.spending]),
+      [
+        ["2026-07", 2000, 0],
+        ["2026-08", 2500, 900],
+      ],
+    );
+
+    const singleMonth = tagFlowOverTime([augustOut, augustIn]);
+    assert.deepEqual(
+      singleMonth.map((point) => [point.key, point.label, point.income, point.spending]),
+      [
+        ["2026-08-18", "18 Aug", 2500, 0],
+        ["2026-08-20", "20 Aug", 0, 900],
+      ],
+    );
+
+    assert.deepEqual(
+      tagFlowOverTime([augustOut, july, augustIn], "Housing").map((point) => [point.key, point.spending]),
+      [["2026-08-20", 900]],
     );
   });
 
