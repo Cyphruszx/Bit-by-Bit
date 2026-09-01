@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import { detectFileKind } from "./detect";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate } from "./parse-values";
-import { summarizeMoneyFlow, chartTagSeries } from "./summary";
+import { summarizeMoneyFlow, chartTagFlowSeries } from "./summary";
 
 process.env.OPENAI_API_KEY = "";
 
@@ -405,20 +405,80 @@ describe("money flow summary", () => {
         confidence: 1,
       },
     ];
-    const drilled = chartTagSeries(rows, "Dining", "out");
+    const drilled = chartTagFlowSeries(rows, "Dining");
     assert.equal(drilled.level, "sub");
-    assert.equal(drilled.total, 88.4);
+    assert.equal(drilled.spending, 88.4);
     assert.deepEqual(
       drilled.rows.map((row) => [row.name, row.amount]),
       [
-        ["No sub-tag", 60],
-        ["Coffee", 28.4],
+        ["No sub-tag", -60],
+        ["Coffee", -28.4],
       ],
     );
-    const income = chartTagSeries(rows, "All", "in");
+  });
+
+  it("charts money in above the line and money out below it", () => {
+    const rows = [
+      {
+        id: "1",
+        merchant: "Cafe Sydney",
+        category: "Dining",
+        tags: ["Dining"],
+        date: "20 Aug",
+        dateIso: "2026-08-20",
+        amount: -28.4,
+        type: "expense" as const,
+        sourceFile: "demo",
+        confidence: 1,
+      },
+      {
+        id: "2",
+        merchant: "Salary Acme",
+        category: "Income",
+        tags: ["Income"],
+        date: "18 Aug",
+        dateIso: "2026-08-18",
+        amount: 2620,
+        type: "income" as const,
+        sourceFile: "demo",
+        confidence: 1,
+      },
+      {
+        id: "3",
+        merchant: "Refunded jacket",
+        category: "Shopping",
+        tags: ["Shopping"],
+        date: "19 Aug",
+        dateIso: "2026-08-19",
+        amount: 40,
+        type: "refund" as const,
+        sourceFile: "demo",
+        confidence: 1,
+      },
+      {
+        id: "4",
+        merchant: "Jacket",
+        category: "Shopping",
+        tags: ["Shopping"],
+        date: "17 Aug",
+        dateIso: "2026-08-17",
+        amount: -100,
+        type: "expense" as const,
+        sourceFile: "demo",
+        confidence: 1,
+      },
+    ];
+    const combined = chartTagFlowSeries(rows, "All");
+    assert.equal(combined.income, 2660);
+    assert.equal(combined.spending, 128.4);
+    assert.equal(combined.net, 2531.6);
     assert.deepEqual(
-      income.rows.map((row) => [row.name, row.amount]),
-      [["Income", 2620]],
+      combined.rows.map((row) => [row.name, row.amount]),
+      [
+        ["Income", 2620],
+        ["Shopping", -60],
+        ["Dining", -28.4],
+      ],
     );
   });
 
