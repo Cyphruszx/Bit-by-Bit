@@ -50,8 +50,9 @@ export function snapTag(raw: string, allowNew = false): string {
 
 export function inferType(description: string, amount: number, category: string): TransactionType {
   const text = description.toLowerCase();
-  if (/\brefund|reversal|rebate\b/.test(text)) return "refund";
+  if (/\b(refund|reversal|rebate)/.test(text)) return "refund";
   if (/\b(transfer|tfr|sweep)\b/.test(text) || category === "Goals") return "transfer";
+  if (amount < 0) return "expense";
   if (amount > 0 || category === "Income" || /\bosko payment received|\binterest\b/.test(text)) return "income";
   return "expense";
 }

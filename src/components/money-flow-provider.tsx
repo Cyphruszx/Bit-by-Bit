@@ -123,6 +123,7 @@ function writePeriod(period: PeriodFilter) {
 
 function writeStore(result: InterpretationResult) {
   persist(result.files, result.transactions);
+  writePeriod(ALL_PERIOD);
 }
 
 function persist(files: FileInterpretation[], transactions: InterpretedTransaction[]) {

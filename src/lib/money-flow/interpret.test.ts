@@ -23,6 +23,8 @@ describe("value parsing", () => {
     assert.equal(parseAmount("(18.99)"), -18.99);
     assert.equal(parseAmount("2,620.00 CR"), 2620);
     assert.equal(parseAmount("42.00 DR"), -42);
+    assert.equal(parseAmount("662.40 INTER-BANK CREDIT"), 662.4);
+    assert.equal(parseAmount("-200.00"), -200);
   });
 
   it("reads common statement dates", () => {
@@ -42,6 +44,9 @@ describe("document interpretation", () => {
     assert.ok(result.transactions.some((txn) => txn.merchant.includes("Woolworths")));
     assert.ok(result.transactions.some((txn) => txn.category === "Housing"));
     assert.equal(result.flow.net, result.flow.income - result.flow.spending);
+    assert.equal(result.flow.cashIn, 5240);
+    assert.equal(result.flow.cashOut, 1692.44);
+    assert.equal(result.flow.cashNet, 3547.56);
   });
 
   it("interprets OFX credit and debit tags", async () => {
@@ -114,6 +119,97 @@ PSalary Acme
   it("sniffs file kinds from names and bytes", () => {
     assert.equal(detectFileKind("photo.PNG", "image/png", new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), "image");
     assert.equal(detectFileKind("notes.txt", "text/plain", new TextEncoder().encode("hello")), "text");
+  });
+});
+
+describe("NAB CSV exports", () => {
+  const nabFiles = ["nab-medicare.csv", "nab-rent.csv"];
+
+  function amountsFromCsv(filename: string): number[] {
+    return readFileSync(path.join(samples, filename), "utf8")
+      .trim()
+      .split("\n")
+      .slice(1)
+      .map((line) => Number(line.split(",")[1]))
+      .filter((amount) => Number.isFinite(amount) && amount !== 0);
+  }
+
+  async function interpretNab() {
+    return interpretDocuments(
+      nabFiles.map((filename) => file(filename, "text/csv", readFileSync(path.join(samples, filename)))),
+    );
+  }
+
+  it("takes every amount from the Amount column rather than a neighbouring cell", async () => {
+    const result = await interpretNab();
+    const expected = nabFiles.flatMap(amountsFromCsv).sort((a, b) => a - b);
+    const actual = result.transactions.map((txn) => txn.amount).sort((a, b) => a - b);
+    assert.deepEqual(actual, expected);
+  });
+
+  it("totals the two accounts the way the statements do", async () => {
+    const result = await interpretNab();
+    const moneyIn = result.transactions.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0);
+    const moneyOut = result.transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + txn.amount, 0);
+    assert.equal(Math.round(moneyIn * 100) / 100, 204214.49);
+    assert.equal(Math.round(moneyOut * 100) / 100, -203665.05);
+    assert.equal(result.flow.cashIn, 204214.49);
+    assert.equal(result.flow.cashOut, 203665.05);
+    assert.equal(result.flow.cashNet, 549.44);
+  });
+
+  it("keeps incoming transfers positive", async () => {
+    const result = await interpretNab();
+    const drawdown = result.transactions.find((txn) => txn.merchant.startsWith("Soc-"));
+    assert.equal(drawdown?.amount, 25000);
+    assert.equal(drawdown?.type, "transfer");
+    const outgoing = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === -200);
+    assert.ok(outgoing, "the same day's outgoing transfer should stay negative");
+  });
+
+  it("names the merchant from the Merchant Name column", async () => {
+    const result = await interpretNab();
+    const medicare = result.transactions.find((txn) => txn.dateIso === "2026-06-29" && txn.amount === 662.4);
+    assert.equal(medicare?.merchant, "Medicare");
+    assert.equal(medicare?.category, "Health");
+    assert.ok(result.transactions.some((txn) => txn.merchant === "Woolworths (Wagga Wagga North)"));
+  });
+
+  it("treats charged interest as an expense and interest paid as income", async () => {
+    const result = await interpretNab();
+    const charged = result.transactions.find((txn) => txn.merchant === "Interest Charged");
+    assert.equal(charged?.amount, -0.61);
+    assert.equal(charged?.type, "expense");
+    const paid = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === 0.1);
+    assert.equal(paid?.type, "income");
+  });
+
+  it("drops the zero-value interest rate notices", async () => {
+    const result = await interpretNab();
+    const rows = nabFiles.reduce(
+      (total, filename) => total + readFileSync(path.join(samples, filename), "utf8").trim().split("\n").length - 1,
+      0,
+    );
+    assert.equal(rows, 446);
+    assert.equal(result.transactions.length, 437);
+    assert.ok(!result.transactions.some((txn) => txn.merchant.includes("Interest Rate Is")));
+  });
+
+  it("reads NAB as a NAB export and uses the Category column when rules miss", async () => {
+    const result = await interpretNab();
+    assert.ok(result.files.every((fileResult) => fileResult.notes.some((note) => note.includes("NAB account export"))));
+    const grocery = result.transactions.find((txn) => txn.merchant === "Woolworths (Wagga Wagga North)" && txn.amount === -12.8);
+    assert.equal(grocery?.category, "Groceries");
+    const csv = `Date,Amount,Account Number,,Transaction Type,Transaction Details,Balance,Category,Merchant Name,Processed On
+01 Jun 26,-15.40,100200300,,EFTPOS DEBIT,XYZ MART 999,-15.40,Groceries,,01 Jun 26
+01 Jun 26,80.00,100200300,,INTER-BANK CREDIT,CENTRELINK PAYMENT,64.60,Government payments,,01 Jun 26
+01 Jun 26,-50.00,100200300,,TRANSFER DEBIT,TO SAVINGS,14.60,Transfers out,,01 Jun 26
+`;
+    const tagged = await interpretDocuments([file("nab-gaps.csv", "text/csv", csv)]);
+    assert.equal(tagged.transactions.find((txn) => txn.amount === -15.4)?.category, "Groceries");
+    assert.equal(tagged.transactions.find((txn) => txn.amount === 80)?.category, "Income");
+    assert.equal(tagged.transactions.find((txn) => txn.amount === -50)?.category, "Goals");
+    assert.equal(tagged.transactions.find((txn) => txn.amount === -50)?.type, "transfer");
   });
 });
 
@@ -224,6 +320,9 @@ describe("money flow summary", () => {
     assert.equal(summary.spending, 80);
     assert.equal(summary.transfers, 400);
     assert.equal(summary.net, 1920);
+    assert.equal(summary.cashIn, 2000);
+    assert.equal(summary.cashOut, 480);
+    assert.equal(summary.cashNet, 1520);
     assert.deepEqual(
       summary.categories.map((category) => category.name),
       ["Groceries"],

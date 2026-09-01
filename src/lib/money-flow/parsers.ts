@@ -2,7 +2,7 @@ import { type MoneyFlowAi, visionMime } from "@/lib/money-flow/ai";
 import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
 import { detectFileKind } from "@/lib/money-flow/detect";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
-import { rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
+import { interpretTable, rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
 import { looksLikeUpStatement, transactionsFromUpStatement } from "@/lib/money-flow/up-statement";
 import { transactionsFromText } from "@/lib/money-flow/text-lines";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
@@ -21,10 +21,10 @@ export async function parseDocument(
   const notes: string[] = [];
 
   if (kind === "csv") {
-    return { transactions: transactionsFromTable(rowsFromCsv(decodeText(bytes)), filename), notes };
+    return interpretTable(rowsFromCsv(decodeText(bytes)), filename);
   }
   if (kind === "json") {
-    return { transactions: parseJson(decodeText(bytes), filename), notes };
+    return parseJson(decodeText(bytes), filename);
   }
   if (kind === "ofx") {
     return { transactions: parseOfx(decodeText(bytes), filename), notes };
@@ -35,8 +35,11 @@ export async function parseDocument(
   if (kind === "html") {
     const html = decodeText(bytes);
     const tableRows = tablesFromHtml(html);
-    const fromTables = tableRows.flatMap((rows) => transactionsFromTable(rows, filename));
-    if (fromTables.length > 0) return { transactions: fromTables, notes };
+    const fromTables = tableRows.map((rows) => interpretTable(rows, filename));
+    const tableTransactions = fromTables.flatMap((result) => result.transactions);
+    if (tableTransactions.length > 0) {
+      return { transactions: tableTransactions, notes: fromTables.flatMap((result) => result.notes) };
+    }
     return { transactions: transactionsFromExtractedText(stripTags(html), filename), notes: notesForText(html) };
   }
   if (kind === "text") {
@@ -46,12 +49,15 @@ export async function parseDocument(
   if (kind === "xlsx") {
     const XLSX = await import("xlsx");
     const workbook = XLSX.read(bytes, { type: "array", cellDates: true });
-    const transactions = workbook.SheetNames.flatMap((name) => {
+    const sheets = workbook.SheetNames.map((name) => {
       const sheet = workbook.Sheets[name];
       const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, { header: 1, raw: true, defval: "" });
-      return transactionsFromTable(rows, `${filename} · ${name}`);
+      return interpretTable(rows, `${filename} · ${name}`);
     });
-    return { transactions, notes: workbook.SheetNames.length > 1 ? [`Read ${workbook.SheetNames.length} sheets`] : notes };
+    const transactions = sheets.flatMap((sheet) => sheet.transactions);
+    const sheetNotes = sheets.flatMap((sheet) => sheet.notes);
+    if (workbook.SheetNames.length > 1) sheetNotes.unshift(`Read ${workbook.SheetNames.length} sheets`);
+    return { transactions, notes: sheetNotes };
   }
   if (kind === "pdf") {
     const { extractText } = await import("unpdf");
@@ -138,13 +144,13 @@ function notesForText(text: string): string[] {
   return looksLikeUpStatement(text) ? ["Read as an Up / Bendigo bank statement."] : [];
 }
 
-function parseJson(text: string, sourceFile: string): InterpretedTransaction[] {
+function parseJson(text: string, sourceFile: string): { transactions: InterpretedTransaction[]; notes: string[] } {
   const parsed: unknown = JSON.parse(text);
   const records = flattenJsonRecords(parsed);
-  if (records.length === 0) return [];
+  if (records.length === 0) return { transactions: [], notes: [] };
   const headers = Array.from(new Set(records.flatMap((record) => Object.keys(record))));
   const rows = [headers, ...records.map((record) => headers.map((header) => record[header] ?? ""))];
-  return transactionsFromTable(rows, sourceFile);
+  return interpretTable(rows, sourceFile);
 }
 
 function flattenJsonRecords(value: unknown): Array<Record<string, string | number | null>> {

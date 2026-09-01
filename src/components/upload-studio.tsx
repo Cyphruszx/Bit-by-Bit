@@ -9,10 +9,13 @@ import { acceptedDropTypes } from "@/lib/money-flow/accept";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { primaryTag, subTags } from "@/lib/money-flow/tags";
 
-const SAMPLES = [
-  ["/samples/commonwealth-bank.csv", "CSV statement"],
-  ["/samples/activity.ofx", "OFX export"],
-  ["/samples/receipt-notes.txt", "Text / receipt notes"],
+const SAMPLES: Array<{ paths: string[]; label: string }> = [
+  { paths: ["/samples/commonwealth-bank.csv"], label: "CSV statement" },
+  { paths: ["/samples/nab-medicare.csv", "/samples/nab-rent.csv"], label: "NAB both accounts" },
+  { paths: ["/samples/nab-medicare.csv"], label: "NAB everyday account" },
+  { paths: ["/samples/nab-rent.csv"], label: "NAB rent and offset account" },
+  { paths: ["/samples/activity.ofx"], label: "OFX export" },
+  { paths: ["/samples/receipt-notes.txt"], label: "Text / receipt notes" },
 ];
 
 export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
@@ -37,11 +40,16 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
     });
   }
 
-  async function loadSample(path: string) {
-    const response = await fetch(path);
-    const blob = await response.blob();
-    const name = path.split("/").pop() ?? "sample";
-    interpret([new File([blob], name, { type: blob.type })]);
+  async function loadSample(paths: string[]) {
+    const files = await Promise.all(
+      paths.map(async (path) => {
+        const response = await fetch(path);
+        const blob = await response.blob();
+        const name = path.split("/").pop() ?? "sample";
+        return new File([blob], name, { type: blob.type });
+      }),
+    );
+    interpret(files);
   }
 
   return (
@@ -88,15 +96,15 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           {pending ? (aiReady ? "Reading with AI…" : "Reading documents…") : "Choose documents"}
         </button>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
-          {SAMPLES.map(([path, label]) => (
+          {SAMPLES.map((sample) => (
             <button
-              key={path}
+              key={sample.label}
               type="button"
-              onClick={() => loadSample(path)}
+              onClick={() => loadSample(sample.paths)}
               disabled={pending}
               className="rounded-full border border-[#dce4df] px-4 py-2 text-sm font-semibold text-[#355a3f]"
             >
-              Try {label}
+              Try {sample.label}
             </button>
           ))}
         </div>
@@ -106,9 +114,14 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
       {hasUploads ? (
         <>
           <section className="grid gap-4 sm:grid-cols-3">
-            <SummaryCard label="Money in" value={formatAud(flow.income)} detail={flow.periodLabel} positive />
-            <SummaryCard label="Money out" value={formatAud(flow.spending)} detail={`${flow.transactionCount} movements`} />
-            <SummaryCard label="Net cash flow" value={formatAud(flow.net)} detail="Income minus spending" positive={flow.net >= 0} />
+            <SummaryCard label="Money in" value={formatAud(flow.cashIn)} detail={flow.periodLabel} positive />
+            <SummaryCard label="Money out" value={formatAud(flow.cashOut)} detail={`${flow.transactionCount} movements`} />
+            <SummaryCard
+              label="Net cash flow"
+              value={formatAud(flow.cashNet)}
+              detail="Credits minus debits"
+              positive={flow.cashNet >= 0}
+            />
           </section>
           <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
