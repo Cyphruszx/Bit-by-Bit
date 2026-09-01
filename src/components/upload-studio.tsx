@@ -221,16 +221,19 @@ function describeImport(report: ImportReport): string {
 
 function describeStatement(statement: HeldStatement): string {
   const parts = [statement.kind.toUpperCase()];
-  if (statement.from) {
-    parts.push(
-      statement.from === statement.to
-        ? formatDisplayDate(statement.from)
-        : `${formatDisplayDate(statement.from)} – ${formatDisplayDate(statement.to)}`,
-    );
-  }
+  if (statement.from) parts.push(describeSpan(statement.from, statement.to));
   parts.push(`${statement.movements} movement${statement.movements === 1 ? "" : "s"}`);
   if (statement.uploads > 1) parts.push(`uploaded ${statement.uploads} times`);
   return parts.join(" · ");
+}
+
+/** A statement can run across new year, where bare days and months read backwards. */
+function describeSpan(from: string, to: string): string {
+  if (from === to) return formatDisplayDate(from);
+  const sameYear = from.slice(0, 4) === to.slice(0, 4);
+  const start = sameYear ? formatDisplayDate(from) : `${formatDisplayDate(from)} ${from.slice(0, 4)}`;
+  const end = sameYear ? formatDisplayDate(to) : `${formatDisplayDate(to)} ${to.slice(0, 4)}`;
+  return `${start} – ${end}`;
 }
 
 /** Recognises the same file coming back under a different name. */
