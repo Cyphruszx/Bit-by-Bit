@@ -4,8 +4,33 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { detectFileKind } from "./detect";
 import { interpretDocuments } from "./interpret";
-import { parseAmount, parseDate } from "./parse-values";
+import { parseAmount, parseDate, roundMoney } from "./parse-values";
 import { summarizeMoneyFlow, chartTagFlowSeries, tagFlowOverTime } from "./summary";
+import type { InterpretedTransaction, TransactionType } from "./types";
+
+let flowRowCount = 0;
+
+function flowRow(
+  dateIso: string,
+  date: string,
+  amount: number,
+  tags: string[],
+  type: TransactionType,
+): InterpretedTransaction {
+  flowRowCount += 1;
+  return {
+    id: `flow-${flowRowCount}`,
+    merchant: `Merchant ${flowRowCount}`,
+    category: tags[0],
+    tags,
+    date,
+    dateIso,
+    amount,
+    type,
+    sourceFile: "flow-test",
+    confidence: 1,
+  };
+}
 
 process.env.OPENAI_API_KEY = "";
 
@@ -482,93 +507,90 @@ describe("money flow summary", () => {
     );
   });
 
-  it("tracks money in and out by month, and by day within a single month", () => {
-    const july = {
-      id: "1",
-      merchant: "Salary Acme",
-      category: "Income",
-      tags: ["Income"],
-      date: "18 Jul",
-      dateIso: "2026-07-18",
-      amount: 2000,
-      type: "income" as const,
-      sourceFile: "demo",
-      confidence: 1,
-    };
-    const augustIn = {
-      id: "2",
-      merchant: "Salary Acme",
-      category: "Income",
-      tags: ["Income"],
-      date: "18 Aug",
-      dateIso: "2026-08-18",
-      amount: 2500,
-      type: "income" as const,
-      sourceFile: "demo",
-      confidence: 1,
-    };
-    const augustOut = {
-      id: "3",
-      merchant: "Rent",
-      category: "Housing",
-      tags: ["Housing"],
-      date: "20 Aug",
-      dateIso: "2026-08-20",
-      amount: -900,
-      type: "expense" as const,
-      sourceFile: "demo",
-      confidence: 1,
-    };
+  it("tracks a three month run of money in and out", () => {
+    // July: in 4200 + 180 refund = 4380, out 1450 + 260.75 = 1710.75, net 2669.25
+    // August: in 4200, out 1450 + 612.40 + 87.60 = 2150, net 2050
+    // September: in 900, out 1450 + 330.20 = 1780.20, net -880.20
+    const rows = [
+      flowRow("2026-07-03", "3 Jul", 4200, ["Income"], "income"),
+      flowRow("2026-07-11", "11 Jul", -1450, ["Housing"], "expense"),
+      flowRow("2026-07-19", "19 Jul", -260.75, ["Groceries"], "expense"),
+      flowRow("2026-07-27", "27 Jul", 180, ["Shopping"], "refund"),
+      flowRow("2026-07-30", "30 Jul", -700, ["Goals"], "transfer"),
+      flowRow("2026-08-03", "3 Aug", 4200, ["Income"], "income"),
+      flowRow("2026-08-11", "11 Aug", -1450, ["Housing"], "expense"),
+      flowRow("2026-08-16", "16 Aug", -612.4, ["Shopping"], "expense"),
+      flowRow("2026-08-23", "23 Aug", -87.6, ["Dining"], "expense"),
+      flowRow("2026-09-03", "3 Sep", 900, ["Income"], "income"),
+      flowRow("2026-09-11", "11 Sep", -1450, ["Housing"], "expense"),
+      flowRow("2026-09-24", "24 Sep", -330.2, ["Groceries"], "expense"),
+    ];
 
     assert.deepEqual(
-      tagFlowOverTime([augustOut, july, augustIn]).map((point) => [point.key, point.income, point.spending, point.net]),
+      tagFlowOverTime(rows).map((point) => [point.label, point.income, point.spending, point.net]),
       [
-        ["2026-07", 2000, 0, 2000],
-        ["2026-08", 2500, 900, 1600],
+        ["Jul 2026", 4380, 1710.75, 2669.25],
+        ["Aug 2026", 4200, 2150, 2050],
+        ["Sep 2026", 900, 1780.2, -880.2],
       ],
     );
 
-    const singleMonth = tagFlowOverTime([augustOut, augustIn]);
+    // Every month nets out to the same totals the summary reports.
+    const summary = summarizeMoneyFlow(rows);
+    const points = tagFlowOverTime(rows);
+    assert.equal(
+      roundMoney(points.reduce((sum, point) => sum + point.income, 0)),
+      summary.income,
+    );
+    assert.equal(
+      roundMoney(points.reduce((sum, point) => sum + point.spending, 0)),
+      summary.spending,
+    );
+    assert.equal(roundMoney(points.reduce((sum, point) => sum + point.net, 0)), summary.net);
+  });
+
+  it("keeps a quiet month on the timeline instead of closing the gap", () => {
+    const rows = [
+      flowRow("2026-07-05", "5 Jul", 500, ["Income"], "income"),
+      flowRow("2026-10-05", "5 Oct", -300, ["Housing"], "expense"),
+    ];
+
     assert.deepEqual(
-      singleMonth.map((point) => [point.key, point.label, point.net]),
+      tagFlowOverTime(rows).map((point) => [point.label, point.net]),
+      [
+        ["Jul 2026", 500],
+        ["Aug 2026", 0],
+        ["Sep 2026", 0],
+        ["Oct 2026", -300],
+      ],
+    );
+  });
+
+  it("fills the quiet days between movements inside a single month", () => {
+    const rows = [
+      flowRow("2026-08-18", "18 Aug", 2500, ["Income"], "income"),
+      flowRow("2026-08-20", "20 Aug", -900, ["Housing"], "expense"),
+    ];
+
+    assert.deepEqual(
+      tagFlowOverTime(rows).map((point) => [point.key, point.label, point.net]),
       [
         ["2026-08-18", "18 Aug", 2500],
+        ["2026-08-19", "19 Aug", 0],
         ["2026-08-20", "20 Aug", -900],
       ],
     );
 
     assert.deepEqual(
-      tagFlowOverTime([augustOut, july, augustIn], "Housing").map((point) => [point.key, point.net]),
+      tagFlowOverTime(rows, "Housing").map((point) => [point.key, point.net]),
       [["2026-08-20", -900]],
     );
   });
 
   it("nets a bucket below zero when spending outruns income", () => {
     const rows = [
-      {
-        id: "1",
-        merchant: "Refund",
-        category: "Shopping",
-        tags: ["Shopping"],
-        date: "2 Aug",
-        dateIso: "2026-08-02",
-        amount: 40,
-        type: "refund" as const,
-        sourceFile: "demo",
-        confidence: 1,
-      },
-      {
-        id: "2",
-        merchant: "Rent",
-        category: "Housing",
-        tags: ["Housing"],
-        date: "2 Aug",
-        dateIso: "2026-08-02",
-        amount: -900,
-        type: "expense" as const,
-        sourceFile: "demo",
-        confidence: 1,
-      },
+      flowRow("2026-08-02", "2 Aug", 40, ["Shopping"], "refund"),
+      flowRow("2026-08-02", "2 Aug", -900, ["Housing"], "expense"),
     ];
     assert.deepEqual(
       tagFlowOverTime(rows).map((point) => [point.income, point.spending, point.net]),
