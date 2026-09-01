@@ -44,6 +44,9 @@ describe("document interpretation", () => {
     assert.ok(result.transactions.some((txn) => txn.merchant.includes("Woolworths")));
     assert.ok(result.transactions.some((txn) => txn.category === "Housing"));
     assert.equal(result.flow.net, result.flow.income - result.flow.spending);
+    assert.equal(result.flow.cashIn, 5240);
+    assert.equal(result.flow.cashOut, 1692.44);
+    assert.equal(result.flow.cashNet, 3547.56);
   });
 
   it("interprets OFX credit and debit tags", async () => {
@@ -150,6 +153,9 @@ describe("NAB CSV exports", () => {
     const moneyOut = result.transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + txn.amount, 0);
     assert.equal(Math.round(moneyIn * 100) / 100, 204214.49);
     assert.equal(Math.round(moneyOut * 100) / 100, -203665.05);
+    assert.equal(result.flow.cashIn, 204214.49);
+    assert.equal(result.flow.cashOut, 203665.05);
+    assert.equal(result.flow.cashNet, 549.44);
   });
 
   it("keeps incoming transfers positive", async () => {
@@ -314,6 +320,9 @@ describe("money flow summary", () => {
     assert.equal(summary.spending, 80);
     assert.equal(summary.transfers, 400);
     assert.equal(summary.net, 1920);
+    assert.equal(summary.cashIn, 2000);
+    assert.equal(summary.cashOut, 480);
+    assert.equal(summary.cashNet, 1520);
     assert.deepEqual(
       summary.categories.map((category) => category.name),
       ["Groceries"],

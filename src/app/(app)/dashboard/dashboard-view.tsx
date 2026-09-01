@@ -36,13 +36,19 @@ export function DashboardView() {
           : "Money flow interpreted from the documents you uploaded."}
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <SummaryCard label="Money in" value={formatAud(flow.income)} detail="Income and refunds" positive />
-        <SummaryCard label="Money out" value={formatAud(flow.spending)} detail="Spending this period" />
+        <SummaryCard label="Money in" value={formatAud(flow.cashIn)} detail="Every credit on the statement" positive />
+        <SummaryCard label="Money out" value={formatAud(flow.cashOut)} detail="Every debit on the statement" />
         <SummaryCard
           label="Net cash flow"
-          value={formatAud(flow.net)}
-          detail={hasUploads ? `${flow.transactionCount} interpreted movements` : "Income minus spending"}
-          positive={flow.net >= 0}
+          value={formatAud(flow.cashNet)}
+          detail={
+            flow.transfers > 0
+              ? `Spending ${formatAud(flow.spending)} · transfers ${formatAud(flow.transfers)}`
+              : hasUploads
+                ? `${flow.transactionCount} interpreted movements`
+                : "Credits minus debits"
+          }
+          positive={flow.cashNet >= 0}
         />
       </section>
       <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
@@ -127,15 +133,17 @@ export function DashboardView() {
             </p>
           ) : (
             recent.map((txn) => (
-              <div className="flex items-center justify-between py-4" key={txn.id}>
-                <div>
-                  <p className="font-semibold">{txn.merchant}</p>
-                  <p className="mt-1 text-sm text-[#77857f]">
+              <div className="flex items-center justify-between gap-4 py-4" key={txn.id}>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{txn.merchant}</p>
+                  <p className="mt-1 truncate text-sm text-[#77857f]">
                     {primaryTag(txn)}
                     {subTags(txn).length > 0 ? ` / ${subTags(txn).join(" · ")}` : ""} · {txn.date}
                   </p>
                 </div>
-                <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>
+                <p className={`shrink-0 font-semibold tabular-nums ${txn.amount > 0 ? "text-[#257155]" : ""}`}>
+                  {formatSignedAud(txn.amount)}
+                </p>
               </div>
             ))
           )}

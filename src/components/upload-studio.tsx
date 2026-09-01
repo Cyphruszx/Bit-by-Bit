@@ -108,9 +108,14 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
       {hasUploads ? (
         <>
           <section className="grid gap-4 sm:grid-cols-3">
-            <SummaryCard label="Money in" value={formatAud(flow.income)} detail={flow.periodLabel} positive />
-            <SummaryCard label="Money out" value={formatAud(flow.spending)} detail={`${flow.transactionCount} movements`} />
-            <SummaryCard label="Net cash flow" value={formatAud(flow.net)} detail="Income minus spending" positive={flow.net >= 0} />
+            <SummaryCard label="Money in" value={formatAud(flow.cashIn)} detail={flow.periodLabel} positive />
+            <SummaryCard label="Money out" value={formatAud(flow.cashOut)} detail={`${flow.transactionCount} movements`} />
+            <SummaryCard
+              label="Net cash flow"
+              value={formatAud(flow.cashNet)}
+              detail="Credits minus debits"
+              positive={flow.cashNet >= 0}
+            />
           </section>
           <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">

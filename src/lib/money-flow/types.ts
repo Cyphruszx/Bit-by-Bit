@@ -54,6 +54,9 @@ export type MoneyFlowSummary = {
   income: number;
   spending: number;
   net: number;
+  cashIn: number;
+  cashOut: number;
+  cashNet: number;
   transfers: number;
   refunds: number;
   transactionCount: number;

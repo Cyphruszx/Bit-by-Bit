@@ -24,7 +24,7 @@ export function AccountsView() {
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <SummaryCard
           label={hasUploads ? "Interpreted net flow" : "Net across accounts"}
-          value={formatAud(hasUploads ? flow.net : total)}
+          value={formatAud(hasUploads ? flow.cashNet : total)}
           detail={hasUploads ? flow.periodLabel : "Everyday, savings, and card"}
           positive
         />

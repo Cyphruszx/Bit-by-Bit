@@ -27,13 +27,13 @@ export function TransactionsView() {
             : "Sample activity with your tag edits, saved in this browser."}
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <SummaryCard label="Money in" value={formatAud(flow.income)} detail="Income and refunds" positive />
-        <SummaryCard label="Money out" value={formatAud(flow.spending)} detail="Spending this period" />
+        <SummaryCard label="Money in" value={formatAud(flow.cashIn)} detail="Every credit on the statement" positive />
+        <SummaryCard label="Money out" value={formatAud(flow.cashOut)} detail="Every debit on the statement" />
         <SummaryCard
           label="Net"
-          value={formatAud(flow.net)}
+          value={formatAud(flow.cashNet)}
           detail={`${flow.transactionCount} movements`}
-          positive={flow.net >= 0}
+          positive={flow.cashNet >= 0}
         />
       </section>
       <div className="mt-8">
