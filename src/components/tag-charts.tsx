@@ -79,7 +79,7 @@ export function TagChartCard({
             {chart === "bar"
               ? "Money in sits above the line, money out below."
               : chart === "line"
-                ? "Money in minus money out, so the line drops under zero when spending wins."
+                ? "A running total: money in lifts the line, money out pulls it down, and it holds level on quiet days."
                 : "Slice size is the share of all movement, and money in is outlined."}{" "}
             Totals use the primary tag only, so extra tags never double-count. Tap a primary to see its sub-tags.
           </p>
@@ -313,9 +313,9 @@ function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[
   const series: LineChartSeries[] = [
     {
       id: "net",
-      label: "Net (money in minus money out)",
+      label: "Running total (money in adds, money out subtracts)",
       color: "#173b31",
-      points: points.map((point) => ({ key: point.key, label: point.label, value: point.net })),
+      points: points.map((point) => ({ key: point.key, label: point.label, value: point.runningNet })),
     },
   ];
 
@@ -324,7 +324,7 @@ function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[
       <LineChart
         series={series}
         height={compact ? 180 : 240}
-        ariaLabel="Line graph of net money in minus money out across the period"
+        ariaLabel="Line graph of the running total of money in and out across the period"
       />
     </div>
   );

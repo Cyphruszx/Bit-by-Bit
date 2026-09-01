@@ -535,6 +535,12 @@ describe("money flow summary", () => {
       ],
     );
 
+    // The running total carries each month forward and lands on the period net.
+    assert.deepEqual(
+      tagFlowOverTime(rows).map((point) => point.runningNet),
+      [2669.25, 4719.25, 3839.05],
+    );
+
     // Every month nets out to the same totals the summary reports.
     const summary = summarizeMoneyFlow(rows);
     const points = tagFlowOverTime(rows);
@@ -547,6 +553,27 @@ describe("money flow summary", () => {
       summary.spending,
     );
     assert.equal(roundMoney(points.reduce((sum, point) => sum + point.net, 0)), summary.net);
+    assert.equal(points[points.length - 1].runningNet, summary.net);
+  });
+
+  it("holds the running total level through quiet days instead of dropping to zero", () => {
+    const rows = [
+      flowRow("2026-08-18", "18 Aug", 2620, ["Income"], "income"),
+      flowRow("2026-08-24", "24 Aug", -18.99, ["Subscriptions"], "expense"),
+    ];
+
+    assert.deepEqual(
+      tagFlowOverTime(rows).map((point) => [point.label, point.net, point.runningNet]),
+      [
+        ["18 Aug", 2620, 2620],
+        ["19 Aug", 0, 2620],
+        ["20 Aug", 0, 2620],
+        ["21 Aug", 0, 2620],
+        ["22 Aug", 0, 2620],
+        ["23 Aug", 0, 2620],
+        ["24 Aug", -18.99, 2601.01],
+      ],
+    );
   });
 
   it("keeps a quiet month on the timeline instead of closing the gap", () => {
@@ -556,12 +583,12 @@ describe("money flow summary", () => {
     ];
 
     assert.deepEqual(
-      tagFlowOverTime(rows).map((point) => [point.label, point.net]),
+      tagFlowOverTime(rows).map((point) => [point.label, point.net, point.runningNet]),
       [
-        ["Jul 2026", 500],
-        ["Aug 2026", 0],
-        ["Sep 2026", 0],
-        ["Oct 2026", -300],
+        ["Jul 2026", 500, 500],
+        ["Aug 2026", 0, 500],
+        ["Sep 2026", 0, 500],
+        ["Oct 2026", -300, 200],
       ],
     );
   });
