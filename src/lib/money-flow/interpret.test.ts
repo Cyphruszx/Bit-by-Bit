@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { detectFileKind } from "./detect";
@@ -238,7 +238,7 @@ describe("NAB CSV exports", () => {
   });
 });
 
-const uploadedUpPdf = "/home/ubuntu/.cursor/projects/workspace/uploads/statement-2026-07_a358.pdf";
+const upSample = path.join(samples, "up-june-2026.txt");
 
 describe("Up Bank statement backend", () => {
   it("interprets an Up-style statement layout, including page-broken amounts", async () => {
@@ -270,37 +270,57 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.equal(result.flow.income, 307.9);
   });
 
-  it("interprets the uploaded July 2026 Up PDF through interpretDocuments", { skip: !existsSync(uploadedUpPdf) }, async () => {
-    const bytes = new Uint8Array(readFileSync(uploadedUpPdf));
-    const result = await interpretDocuments([{ filename: "statement-2026-07.pdf", mime: "application/pdf", bytes }]);
+  it("totals the June sample the way the statement does", async () => {
+    const result = await interpretDocuments([
+      { filename: "up-june-2026.txt", mime: "text/plain", bytes: new Uint8Array(readFileSync(upSample)) },
+    ]);
     const fileResult = result.files[0];
     assert.equal(fileResult.processingStatus, "completed");
-    assert.equal(fileResult.kind, "pdf");
     assert.ok(fileResult.notes.includes("Read as an Up / Bendigo bank statement."));
-    assert.equal(result.flow.spending, 5619.59);
-    assert.ok(Math.abs(result.flow.income - 5418.24) < 0.05, `income ${result.flow.income}`);
-    assert.ok(result.transactions.length >= 120, `txn count ${result.transactions.length}`);
-    assert.match(result.flow.periodLabel, /1 Jul.*31 Jul/);
-    assert.ok(
-      result.transactions.some((txn) => txn.merchant === "Woolworths" && txn.amount === -10.5 && txn.dateIso === "2026-07-31"),
-    );
-    assert.ok(result.transactions.some((txn) => txn.merchant === "Osko Payment Received" && txn.amount === 1000));
+    assert.equal(result.transactions.length, 92);
+    // The statement heads itself "Money In +$4,788.08" and "Money Out $4,879.57".
+    assert.equal(result.flow.cashIn, 4788.08);
+    assert.equal(result.flow.cashOut, 4879.57);
+    assert.equal(result.flow.cashNet, -91.49);
+    assert.match(result.flow.periodLabel, /1 June.*30 June/);
+    assert.ok(result.transactions.some((txn) => txn.merchant === "Woolworths" && txn.amount === -13));
     assert.ok(result.transactions.some((txn) => txn.merchant === "Zambrero"));
-    assert.ok(result.transactions.some((txn) => txn.merchant === "Soul Origin" && txn.type === "refund"));
   });
 
-  it("runs the server action against the uploaded Up PDF", { skip: !existsSync(uploadedUpPdf) }, async () => {
+  it("reads the money coming in from the other bank", async () => {
+    const result = await interpretDocuments([
+      { filename: "up-june-2026.txt", mime: "text/plain", bytes: new Uint8Array(readFileSync(upSample)) },
+    ]);
+    const osko = result.transactions.filter((txn) => txn.merchant === "Osko Payment Received");
+    assert.equal(osko.length, 8);
+    assert.equal(
+      osko.reduce((sum, txn) => sum + txn.amount, 0),
+      3800,
+    );
+    assert.ok(osko.every((txn) => txn.amount > 0));
+  });
+
+  it("runs the server action against the June sample", async () => {
     const { interpretUploadedDocuments } = await import("../../app/actions/interpret-documents");
-    const bytes = readFileSync(uploadedUpPdf);
     const form = new FormData();
-    form.append("files", new File([bytes], "statement-2026-07.pdf", { type: "application/pdf" }));
+    form.append("files", new File([readFileSync(upSample)], "up-june-2026.txt", { type: "text/plain" }));
     const result = await interpretUploadedDocuments(form);
     assert.equal(result.ok, true);
     if (!result.ok) return;
-    assert.equal(result.flow.spending, 5619.59);
-    assert.ok(Math.abs(result.flow.income - 5418.24) < 0.05, `income ${result.flow.income}`);
-    assert.ok(result.transactions.length >= 120);
-    assert.equal(result.files[0].kind, "pdf");
+    assert.equal(result.flow.cashIn, 4788.08);
+    assert.equal(result.flow.cashOut, 4879.57);
+    assert.equal(result.transactions.length, 92);
+  });
+
+  it("carries no personal detail into the shared sample", () => {
+    const text = readFileSync(upSample, "utf8");
+    assert.match(text, /Jordan Lee/, "the sample should use the same pseudonym as the NAB samples");
+    for (const pattern of [/steven/i, /taehyun/i, /nellie/i, /mitchell park/i]) {
+      assert.doesNotMatch(text, pattern);
+    }
+    // Account and reference numbers are kept in shape but blanked after the first digit.
+    const unmasked = (text.match(/\b\d{7,}\b/g) ?? []).filter((digits) => digits.replace(/0/g, "").length > 1);
+    assert.deepEqual(unmasked, []);
   });
 });
 

@@ -16,6 +16,7 @@ const SAMPLES: Array<{ paths: string[]; label: string }> = [
   { paths: ["/samples/nab-medicare.csv", "/samples/nab-rent.csv"], label: "NAB both accounts" },
   { paths: ["/samples/nab-medicare.csv"], label: "NAB everyday account" },
   { paths: ["/samples/nab-rent.csv"], label: "NAB rent and offset account" },
+  { paths: ["/samples/up-june-2026.txt"], label: "Up statement" },
   { paths: ["/samples/activity.ofx"], label: "OFX export" },
   { paths: ["/samples/receipt-notes.txt"], label: "Text / receipt notes" },
 ];

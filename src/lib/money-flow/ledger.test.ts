@@ -205,6 +205,28 @@ describe("accumulating the NAB statements", () => {
     assert.equal(flow.cashNet, 549.44);
   });
 
+  it("holds statements from two banks side by side", async () => {
+    const nab = await readSamples(["nab-medicare.csv", "nab-rent.csv"]);
+    const first = appendToLedger(EMPTY_LEDGER, nab, { importedAt: "2026-09-01T00:00:00.000Z" });
+
+    const up = await interpretDocuments(
+      [
+        {
+          filename: "up-june-2026.txt",
+          mime: "text/plain",
+          bytes: new Uint8Array(readFileSync(path.join(samples, "up-june-2026.txt"))),
+        },
+      ],
+      { ai: null },
+    );
+    const both = appendToLedger(first.ledger, up, { importedAt: "2026-09-02T00:00:00.000Z" });
+
+    assert.equal(both.report.added, 92);
+    assert.equal(both.report.duplicates, 0);
+    assert.equal(both.ledger.entries.length, 529);
+    assert.equal(both.ledger.imports.length, 3);
+  });
+
   it("names the account each import covered", async () => {
     const result = await readSamples(["nab-medicare.csv", "nab-rent.csv"]);
     const { report } = appendToLedger(EMPTY_LEDGER, result, { importedAt: "2026-09-01T00:00:00.000Z" });
