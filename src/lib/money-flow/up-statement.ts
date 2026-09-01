@@ -30,7 +30,8 @@ export function looksLikeUpStatement(text: string): boolean {
 }
 
 export function transactionsFromUpStatement(text: string, sourceFile: string): InterpretedTransaction[] {
-  const year = statementYear(text);
+  const latestYear = statementYear(text);
+  const covers = statementRange(text);
   const normalized = text.replace(/\+\s*\n\s*\$/g, "+$").replace(/\r/g, "\n");
   const lines = normalized
     .split("\n")
@@ -41,6 +42,10 @@ export function transactionsFromUpStatement(text: string, sourceFile: string): I
   const results: InterpretedTransaction[] = [];
   let currentDate: string | null = null;
   let pending: string[] = [];
+  // Day headings carry no year and run newest first, so the year steps back a
+  // year each time the month climbs instead of falling.
+  let year = latestYear;
+  let previousMonth: number | null = null;
 
   const flush = () => {
     const txn = transactionFromBlock(pending, currentDate, sourceFile, results.length);
@@ -49,10 +54,30 @@ export function transactionsFromUpStatement(text: string, sourceFile: string): I
   };
 
   for (const line of lines) {
+    // Each saver account restarts at the newest day.
+    if (/Opening Balance:/i.test(line)) {
+      flush();
+      year = latestYear;
+      previousMonth = null;
+      continue;
+    }
+
     const header = line.match(DATE_HEADER);
     if (header) {
       flush();
-      currentDate = toIso(Number(header[2]), MONTHS[header[3].toLowerCase()], year);
+      const month = MONTHS[header[3].toLowerCase()];
+      if (month && previousMonth != null && month > previousMonth) year -= 1;
+      if (month) previousMonth = month;
+
+      const day = Number(header[2]);
+      const inRange = withinRange(toIso(day, month, year), covers);
+      if (!inRange) {
+        // A heading the month rule mis-stepped on, rather than a movement from
+        // outside the period the statement says it covers.
+        const nudged = [year + 1, year - 1].find((candidate) => withinRange(toIso(day, month, candidate), covers));
+        if (nudged) year = nudged;
+      }
+      currentDate = toIso(day, month, year);
       continue;
     }
 
@@ -74,11 +99,36 @@ export function transactionsFromUpStatement(text: string, sourceFile: string): I
   return results;
 }
 
-function statementYear(text: string): number {
+type StatementRange = { from: string; to: string } | null;
+
+/** "01 Jul 2025 to 30 Jun 2026", when the statement states what it covers. */
+function statementRange(text: string): StatementRange {
   const match = text.match(
+    /\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(20\d{2})\s+to\s+(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(20\d{2})/i,
+  );
+  if (!match) return null;
+  const from = toIso(Number(match[1]), MONTHS[match[2].toLowerCase()], Number(match[3]));
+  const to = toIso(Number(match[4]), MONTHS[match[5].toLowerCase()], Number(match[6]));
+  return from && to ? { from, to } : null;
+}
+
+function withinRange(iso: string | null, covers: StatementRange): boolean {
+  if (!iso) return false;
+  if (!covers) return true;
+  return iso >= covers.from && iso <= covers.to;
+}
+
+/** The year the newest movement falls in, which the day headings count back from. */
+function statementYear(text: string): number {
+  const range = text.match(
+    /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+20\d{2}\s+to\s+\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(20\d{2})/i,
+  );
+  if (range) return Number(range[1]);
+
+  const single = text.match(
     /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})\s+Statement/i,
   );
-  return match ? Number(match[1]) : new Date().getFullYear();
+  return single ? Number(single[1]) : new Date().getFullYear();
 }
 
 function shouldSkip(line: string): boolean {

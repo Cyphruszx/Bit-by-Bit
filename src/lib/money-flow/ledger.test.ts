@@ -242,18 +242,18 @@ describe("accumulating the NAB statements", () => {
     const up = await interpretDocuments(
       [
         {
-          filename: "up-june-2026.txt",
+          filename: "up-2025-07-to-2026-06.txt",
           mime: "text/plain",
-          bytes: new Uint8Array(readFileSync(path.join(samples, "up-june-2026.txt"))),
+          bytes: new Uint8Array(readFileSync(path.join(samples, "up-2025-07-to-2026-06.txt"))),
         },
       ],
       { ai: null },
     );
     const both = appendToLedger(first.ledger, up, { importedAt: "2026-09-02T00:00:00.000Z" });
 
-    assert.equal(both.report.added, 92);
+    assert.equal(both.report.added, up.transactions.length);
     assert.equal(both.report.duplicates, 0);
-    assert.equal(both.ledger.entries.length, 529);
+    assert.equal(both.ledger.entries.length, 437 + up.transactions.length);
     assert.equal(both.ledger.imports.length, 3);
   });
 

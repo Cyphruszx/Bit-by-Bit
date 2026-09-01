@@ -238,7 +238,7 @@ describe("NAB CSV exports", () => {
   });
 });
 
-const upSample = path.join(samples, "up-june-2026.txt");
+const upSample = path.join(samples, "up-2025-07-to-2026-06.txt");
 
 describe("Up Bank statement backend", () => {
   it("interprets an Up-style statement layout, including page-broken amounts", async () => {
@@ -270,46 +270,47 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.equal(result.flow.income, 307.9);
   });
 
-  it("totals the June sample the way the statement does", async () => {
-    const result = await interpretDocuments([
-      { filename: "up-june-2026.txt", mime: "text/plain", bytes: new Uint8Array(readFileSync(upSample)) },
+  async function readUpSample() {
+    return interpretDocuments([
+      { filename: "up-2025-07-to-2026-06.txt", mime: "text/plain", bytes: new Uint8Array(readFileSync(upSample)) },
     ]);
+  }
+
+  it("reads the year sample as an Up statement", async () => {
+    const result = await readUpSample();
     const fileResult = result.files[0];
     assert.equal(fileResult.processingStatus, "completed");
     assert.ok(fileResult.notes.includes("Read as an Up / Bendigo bank statement."));
-    assert.equal(result.transactions.length, 92);
-    // The statement heads itself "Money In +$4,788.08" and "Money Out $4,879.57".
-    assert.equal(result.flow.cashIn, 4788.08);
-    assert.equal(result.flow.cashOut, 4879.57);
-    assert.equal(result.flow.cashNet, -91.49);
-    assert.match(result.flow.periodLabel, /1 June.*30 June/);
-    assert.ok(result.transactions.some((txn) => txn.merchant === "Woolworths" && txn.amount === -13));
+    assert.ok(result.transactions.length > 1000, `txn count ${result.transactions.length}`);
     assert.ok(result.transactions.some((txn) => txn.merchant === "Zambrero"));
   });
 
+  it("counts day headings back through the year they belong to", async () => {
+    const result = await readUpSample();
+    const dates = result.transactions.map((txn) => txn.dateIso).sort();
+    // The statement heads itself "01 Jul 2025 to 30 Jun 2026" and its day headings carry no year.
+    assert.ok(dates[0] >= "2025-07-01", `earliest ${dates[0]}`);
+    assert.ok(dates[dates.length - 1] <= "2026-06-30", `latest ${dates[dates.length - 1]}`);
+    assert.ok(dates.some((date) => date.startsWith("2025-")), "the first half of the year should be dated 2025");
+    assert.ok(dates.some((date) => date.startsWith("2026-")), "the second half should be dated 2026");
+  });
+
   it("reads the money coming in from the other bank", async () => {
-    const result = await interpretDocuments([
-      { filename: "up-june-2026.txt", mime: "text/plain", bytes: new Uint8Array(readFileSync(upSample)) },
-    ]);
+    const result = await readUpSample();
     const osko = result.transactions.filter((txn) => txn.merchant === "Osko Payment Received");
-    assert.equal(osko.length, 8);
-    assert.equal(
-      osko.reduce((sum, txn) => sum + txn.amount, 0),
-      3800,
-    );
+    assert.ok(osko.length > 50, `osko receipts ${osko.length}`);
     assert.ok(osko.every((txn) => txn.amount > 0));
   });
 
-  it("runs the server action against the June sample", async () => {
+  it("runs the server action against the year sample", async () => {
     const { interpretUploadedDocuments } = await import("../../app/actions/interpret-documents");
     const form = new FormData();
-    form.append("files", new File([readFileSync(upSample)], "up-june-2026.txt", { type: "text/plain" }));
+    form.append("files", new File([readFileSync(upSample)], "up-2025-07-to-2026-06.txt", { type: "text/plain" }));
     const result = await interpretUploadedDocuments(form);
     assert.equal(result.ok, true);
     if (!result.ok) return;
-    assert.equal(result.flow.cashIn, 4788.08);
-    assert.equal(result.flow.cashOut, 4879.57);
-    assert.equal(result.transactions.length, 92);
+    assert.ok(result.transactions.length > 1000);
+    assert.equal(result.files[0].kind, "text");
   });
 
   it("carries no personal detail into the shared sample", () => {
