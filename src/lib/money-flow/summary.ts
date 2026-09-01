@@ -108,9 +108,10 @@ export function chartTagFlowSeries(transactions: InterpretedTransaction[], selec
 }
 
 /**
- * Buckets money in and out by month, dropping to a daily bucket when the period covers one month.
- * Every bucket between the first and last is emitted, including quiet ones: the chart spaces points
- * evenly, so skipping a month would draw its neighbours as if they were consecutive.
+ * Buckets money in and out by day so each movement lands on its own point, falling back to months
+ * only once the range is too long to plot daily. Every bucket between the first and last is emitted,
+ * including quiet ones: the chart spaces points evenly, so skipping one would draw its neighbours as
+ * if they were consecutive.
  */
 export function tagFlowOverTime(
   transactions: InterpretedTransaction[],
@@ -125,7 +126,10 @@ export function tagFlowOverTime(
   );
   if (rows.length === 0) return [];
 
-  const byDay = new Set(rows.map((txn) => txn.dateIso.slice(0, 7))).size < 2;
+  const days = rows.map((txn) => txn.dateIso.slice(0, 10)).sort();
+  const firstDay = days[0];
+  const lastDay = days[days.length - 1];
+  const byDay = spanInDays(firstDay, lastDay) <= MAX_DAILY_SPAN;
   const totals = new Map<string, { income: number; spending: number }>();
 
   for (const txn of rows) {
@@ -136,10 +140,9 @@ export function tagFlowOverTime(
     totals.set(key, entry);
   }
 
-  const present = [...totals.keys()].sort();
-  const first = present[0];
-  const last = present[present.length - 1];
-  const keys = byDay ? daySpan(first, last) : monthSpan(first, last);
+  const keys = byDay
+    ? daySpan(firstDay, lastDay)
+    : monthSpan(firstDay.slice(0, 7), lastDay.slice(0, 7));
 
   let running = 0;
   return keys.map((key) => {
@@ -158,7 +161,17 @@ export function tagFlowOverTime(
 }
 
 /** Both spans are bounded so a malformed date can never spin the browser. */
-const MAX_BUCKETS = 400;
+const MAX_BUCKETS = 800;
+
+/** A point per day keeps every movement visible; past this many days it collapses to months. */
+const MAX_DAILY_SPAN = 400;
+
+function spanInDays(first: string, last: string): number {
+  const start = Date.parse(`${first}T00:00:00Z`);
+  const end = Date.parse(`${last}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end)) return Number.POSITIVE_INFINITY;
+  return Math.round((end - start) / 86_400_000);
+}
 
 function monthSpan(first: string, last: string): string[] {
   const [firstYear, firstMonth] = first.split("-").map(Number);

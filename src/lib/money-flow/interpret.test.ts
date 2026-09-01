@@ -427,32 +427,40 @@ describe("money flow summary", () => {
       flowRow("2026-09-24", "24 Sep", -330.2, ["Groceries"], "expense"),
     ];
 
+    const points = tagFlowOverTime(rows);
+
+    // A point per day across 3 Jul to 24 Sep, so every movement gets its own step.
+    assert.equal(points.length, 84);
+    assert.equal(points[0].label, "3 July");
+    assert.equal(points[points.length - 1].label, "24 Sept");
+
+    const byLabel = new Map(points.map((point) => [point.label, point]));
+    assert.equal(byLabel.get("3 July")?.net, 4200);
+    assert.equal(byLabel.get("11 July")?.net, -1450);
+    assert.equal(byLabel.get("27 July")?.net, 180);
+    assert.equal(byLabel.get("30 July")?.net, 0, "the savings transfer is not spending");
+    assert.equal(byLabel.get("16 Aug")?.net, -612.4);
+    assert.equal(byLabel.get("24 Sept")?.net, -330.2);
+
+    // Rolled back up, each month still reports the totals worked out above.
+    const monthly = new Map<string, number>();
+    for (const point of points) {
+      const month = point.key.slice(0, 7);
+      monthly.set(month, roundMoney((monthly.get(month) ?? 0) + point.net));
+    }
     assert.deepEqual(
-      tagFlowOverTime(rows).map((point) => [point.label, point.income, point.spending, point.net]),
+      [...monthly.entries()],
       [
-        ["Jul 2026", 4380, 1710.75, 2669.25],
-        ["Aug 2026", 4200, 2150, 2050],
-        ["Sep 2026", 900, 1780.2, -880.2],
+        ["2026-07", 2669.25],
+        ["2026-08", 2050],
+        ["2026-09", -880.2],
       ],
     );
 
-    // The running total carries each month forward and lands on the period net.
-    assert.deepEqual(
-      tagFlowOverTime(rows).map((point) => point.runningNet),
-      [2669.25, 4719.25, 3839.05],
-    );
-
-    // Every month nets out to the same totals the summary reports.
+    // Everything reconciles with the summary the cards show.
     const summary = summarizeMoneyFlow(rows);
-    const points = tagFlowOverTime(rows);
-    assert.equal(
-      roundMoney(points.reduce((sum, point) => sum + point.income, 0)),
-      summary.income,
-    );
-    assert.equal(
-      roundMoney(points.reduce((sum, point) => sum + point.spending, 0)),
-      summary.spending,
-    );
+    assert.equal(roundMoney(points.reduce((sum, point) => sum + point.income, 0)), summary.income);
+    assert.equal(roundMoney(points.reduce((sum, point) => sum + point.spending, 0)), summary.spending);
     assert.equal(roundMoney(points.reduce((sum, point) => sum + point.net, 0)), summary.net);
     assert.equal(points[points.length - 1].runningNet, summary.net);
   });
@@ -477,19 +485,35 @@ describe("money flow summary", () => {
     );
   });
 
-  it("keeps a quiet month on the timeline instead of closing the gap", () => {
+  it("collapses to months once the range is too long to plot daily, keeping quiet months", () => {
     const rows = [
       flowRow("2026-07-05", "5 Jul", 500, ["Income"], "income"),
-      flowRow("2026-10-05", "5 Oct", -300, ["Housing"], "expense"),
+      flowRow("2027-10-05", "5 Oct", -300, ["Housing"], "expense"),
+    ];
+
+    const points = tagFlowOverTime(rows);
+    assert.equal(points.length, 16, "Jul 2026 through Oct 2027 inclusive");
+    assert.deepEqual([points[0].label, points[0].net, points[0].runningNet], ["Jul 2026", 500, 500]);
+    assert.deepEqual([points[15].label, points[15].net, points[15].runningNet], ["Oct 2027", -300, 200]);
+    assert.ok(
+      points.slice(1, 15).every((point) => point.net === 0 && point.runningNet === 500),
+      "the quiet months stay on the axis and hold the running total",
+    );
+  });
+
+  it("keeps a quiet day on the timeline instead of closing the gap", () => {
+    const rows = [
+      flowRow("2026-07-05", "5 Jul", 500, ["Income"], "income"),
+      flowRow("2026-07-08", "8 Jul", -300, ["Housing"], "expense"),
     ];
 
     assert.deepEqual(
       tagFlowOverTime(rows).map((point) => [point.label, point.net, point.runningNet]),
       [
-        ["Jul 2026", 500, 500],
-        ["Aug 2026", 0, 500],
-        ["Sep 2026", 0, 500],
-        ["Oct 2026", -300, 200],
+        ["5 July", 500, 500],
+        ["6 July", 0, 500],
+        ["7 July", 0, 500],
+        ["8 July", -300, 200],
       ],
     );
   });

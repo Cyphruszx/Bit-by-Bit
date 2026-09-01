@@ -79,7 +79,7 @@ export function TagChartCard({
             {chart === "bar"
               ? "Money in sits above the line, money out below."
               : chart === "line"
-                ? "A running total: money in lifts the line, money out pulls it down, and it holds level on quiet days."
+                ? "A running total stepping at every movement: money in lifts the line, money out pulls it down, and it holds level on quiet days."
                 : "Slice size is the share of all movement, and money in is outlined."}{" "}
             Totals use the primary tag only, so extra tags never double-count. Tap a primary to see its sub-tags.
           </p>
