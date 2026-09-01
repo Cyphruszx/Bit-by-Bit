@@ -24,3 +24,9 @@ export function formatAudCompact(amount: number) {
   }
   return formatAud(amount);
 }
+
+const count = new Intl.NumberFormat("en-AU");
+
+export function formatCount(value: number) {
+  return count.format(value);
+}

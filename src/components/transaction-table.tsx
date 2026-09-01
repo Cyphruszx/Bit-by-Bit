@@ -3,11 +3,14 @@
 import { useMemo, useState } from "react";
 import { TagEditor, TagList } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
-import { formatSignedAud } from "@/lib/format";
+import { formatCount, formatSignedAud } from "@/lib/format";
 import { allTags, tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 type Direction = "all" | "in" | "out";
+
+/** A statement year runs to well over a thousand movements, which is more than anyone scrolls. */
+const PAGE_SIZE = 25;
 
 export function TransactionTable({
   transactions,
@@ -23,6 +26,7 @@ export function TransactionTable({
   const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const tagOptions = useMemo(() => ["All", ...allTags(transactions)], [transactions]);
   const selectedTag = tag ?? internalTag;
   const activeTag = tagOptions.includes(selectedTag) ? selectedTag : "All";
@@ -47,6 +51,20 @@ export function TransactionTable({
       return matchesTag && matchesDirection && matchesQuery;
     });
   }, [activeTag, direction, query, transactions]);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  // Narrowing the list can strand the reader on a page that no longer exists, so go back to
+  // the first page whenever what is being filtered changes.
+  const filterKey = `${activeTag}|${direction}|${query.trim().toLowerCase()}|${transactions.length}`;
+  const [shownFor, setShownFor] = useState(filterKey);
+  if (shownFor !== filterKey) {
+    setShownFor(filterKey);
+    setPage(1);
+  }
+  // Clamped rather than trusted, so a page that has gone out of range still renders rows.
+  const currentPage = Math.min(page, pageCount);
+  const firstOnPage = (currentPage - 1) * PAGE_SIZE;
+  const visible = rows.slice(firstOnPage, firstOnPage + PAGE_SIZE);
 
   return (
     <div>
@@ -98,7 +116,7 @@ export function TransactionTable({
             {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
           </p>
         ) : (
-          rows.map((txn) => {
+          visible.map((txn) => {
             const editing = editingId === txn.id;
             return (
               <div className="py-2" key={txn.id}>
@@ -144,6 +162,38 @@ export function TransactionTable({
           })
         )}
       </div>
+      {rows.length > PAGE_SIZE ? (
+        <nav
+          aria-label="Merchant pages"
+          className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#edf0ee] pt-3"
+        >
+          <p className="text-xs text-[#60716a]" aria-live="polite">
+            Showing {formatCount(firstOnPage + 1)}–{formatCount(firstOnPage + visible.length)} of{" "}
+            {formatCount(rows.length)}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <p className="text-xs font-semibold text-[#60716a]">
+              Page {formatCount(currentPage)} of {formatCount(pageCount)}
+            </p>
+            <button
+              type="button"
+              onClick={() => setPage(currentPage + 1)}
+              disabled={currentPage === pageCount}
+              className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </nav>
+      ) : null}
     </div>
   );
 }
