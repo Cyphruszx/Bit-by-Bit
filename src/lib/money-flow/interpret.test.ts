@@ -302,6 +302,33 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.ok(osko.every((txn) => txn.amount > 0));
   });
 
+  it("reconciles the year sample to the summary the statement prints", async () => {
+    const result = await readUpSample();
+    // The statement heads itself "Money In +$70,574.39 Money Out $71,631.34". Those count
+    // money entering and leaving Up, so they exclude the movements the holder makes between
+    // their own Spending account and their savers.
+    assert.equal(result.flow.income, 70574.39);
+    assert.equal(result.flow.spending, 71631.34);
+  });
+
+  it("keeps money moved between the holder's own Up accounts out of the totals", async () => {
+    const result = await readUpSample();
+    const internal = result.transactions.filter((txn) => txn.type === "transfer");
+    const intoSavers = roundMoney(
+      internal.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    );
+    const backToSpending = roundMoney(
+      internal.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
+    );
+    // Every leg is written twice, once in the Spending account and once in the saver, so the
+    // two sides carry the same money and cancel. Counting either side as income or spending
+    // is what made the statement read high.
+    assert.equal(internal.length, 84);
+    assert.equal(intoSavers, 14446.6);
+    assert.equal(backToSpending, 14446.6);
+    assert.equal(roundMoney(backToSpending - intoSavers), 0);
+  });
+
   it("runs the server action against the year sample", async () => {
     const { interpretUploadedDocuments } = await import("../../app/actions/interpret-documents");
     const form = new FormData();
