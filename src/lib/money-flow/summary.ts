@@ -1,5 +1,5 @@
 import { formatAud } from "@/lib/format";
-import { roundMoney } from "@/lib/money-flow/parse-values";
+import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { monthLabelFromKey } from "@/lib/money-flow/savings";
 import { primaryTag, subTags, tagsOf } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
@@ -105,7 +105,11 @@ export function chartTagFlowSeries(transactions: InterpretedTransaction[], selec
   };
 }
 
-/** Buckets money in and out by month, dropping to a daily bucket when the period covers one month. */
+/**
+ * Buckets money in and out by month, dropping to a daily bucket when the period covers one month.
+ * Every bucket between the first and last is emitted, including quiet ones: the chart spaces points
+ * evenly, so skipping a month would draw its neighbours as if they were consecutive.
+ */
 export function tagFlowOverTime(
   transactions: InterpretedTransaction[],
   selectedTag = "All",
@@ -120,23 +124,65 @@ export function tagFlowOverTime(
   if (rows.length === 0) return [];
 
   const byDay = new Set(rows.map((txn) => txn.dateIso.slice(0, 7))).size < 2;
-  const buckets = new Map<string, { label: string; income: number; spending: number }>();
+  const totals = new Map<string, { income: number; spending: number }>();
 
   for (const txn of rows) {
-    const key = byDay ? txn.dateIso.slice(0, 10) : txn.dateIso.slice(0, 7);
-    const entry = buckets.get(key) ?? {
-      label: byDay ? txn.date : monthLabelFromKey(key),
-      income: 0,
-      spending: 0,
-    };
+    const key = txn.dateIso.slice(0, byDay ? 10 : 7);
+    const entry = totals.get(key) ?? { income: 0, spending: 0 };
     if (txn.amount > 0) entry.income = roundMoney(entry.income + txn.amount);
     else entry.spending = roundMoney(entry.spending + Math.abs(txn.amount));
-    buckets.set(key, entry);
+    totals.set(key, entry);
   }
 
-  return [...buckets.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, entry]) => ({ key, ...entry, net: roundMoney(entry.income - entry.spending) }));
+  const present = [...totals.keys()].sort();
+  const first = present[0];
+  const last = present[present.length - 1];
+  const keys = byDay ? daySpan(first, last) : monthSpan(first, last);
+
+  return keys.map((key) => {
+    const entry = totals.get(key) ?? { income: 0, spending: 0 };
+    return {
+      key,
+      label: byDay ? formatDisplayDate(key) : monthLabelFromKey(key),
+      income: entry.income,
+      spending: entry.spending,
+      net: roundMoney(entry.income - entry.spending),
+    };
+  });
+}
+
+/** Both spans are bounded so a malformed date can never spin the browser. */
+const MAX_BUCKETS = 400;
+
+function monthSpan(first: string, last: string): string[] {
+  const [firstYear, firstMonth] = first.split("-").map(Number);
+  const [lastYear, lastMonth] = last.split("-").map(Number);
+  if (!firstYear || !firstMonth || !lastYear || !lastMonth) return [first];
+
+  const keys: string[] = [];
+  let year = firstYear;
+  let month = firstMonth;
+  while (keys.length < MAX_BUCKETS && (year < lastYear || (year === lastYear && month <= lastMonth))) {
+    keys.push(`${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return keys;
+}
+
+function daySpan(first: string, last: string): string[] {
+  const start = Date.parse(`${first}T00:00:00Z`);
+  const end = Date.parse(`${last}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end)) return [first];
+
+  const keys: string[] = [];
+  for (let day = start; day <= end && keys.length < MAX_BUCKETS; day += 86_400_000) {
+    keys.push(new Date(day).toISOString().slice(0, 10));
+  }
+  return keys;
 }
 
 function flowTotals(transactions: InterpretedTransaction[]): { income: number; spending: number; net: number } {
