@@ -1,4 +1,4 @@
-import type { FileInterpretation, InterpretedTransaction } from "@/lib/money-flow/types";
+import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const LEDGER_VERSION = 1;
 
@@ -14,6 +14,8 @@ export type LedgerImport = {
   label: string;
   filename: string;
   importedAt: string;
+  kind: FileKind;
+  notes: string[];
   contentHash?: string;
   accountKeys: string[];
   from: string;
@@ -21,6 +23,7 @@ export type LedgerImport = {
   rows: number;
   added: number;
   duplicates: number;
+  error?: string;
   /** Set when the same file content was imported before, so nothing was read again. */
   repeatOf?: string;
 };
@@ -70,22 +73,30 @@ export function appendToLedger(
   const entries = [...ledger.entries];
   const imports: LedgerImport[] = [];
 
-  grouped(result).forEach(([label, rows], index) => {
-    const filename = fileFor(label, result.files);
+  grouped(result).forEach(({ label, file, rows }, index) => {
+    const filename = file?.filename ?? label;
     const contentHash = options.hashes?.[filename];
     const record: LedgerImport = {
       id: `${importedAt}-${index}-${slug(label)}`,
       label,
       filename,
       importedAt,
+      kind: file?.kind ?? "unknown",
+      notes: file?.notes ?? [],
       ...(contentHash ? { contentHash } : {}),
+      ...(file?.processingError ? { error: file.processingError } : {}),
       accountKeys: unique(rows.map(accountOf)),
-      from: rows.reduce((min, row) => (row.dateIso < min ? row.dateIso : min), rows[0].dateIso),
-      to: rows.reduce((max, row) => (row.dateIso > max ? row.dateIso : max), rows[0].dateIso),
+      from: rows.length > 0 ? rows.reduce((min, row) => (row.dateIso < min ? row.dateIso : min), rows[0].dateIso) : "",
+      to: rows.length > 0 ? rows.reduce((max, row) => (row.dateIso > max ? row.dateIso : max), rows[0].dateIso) : "",
       rows: rows.length,
       added: 0,
       duplicates: 0,
     };
+
+    if (rows.length === 0) {
+      imports.push(record);
+      return;
+    }
 
     const repeat = contentHash ? ledger.imports.find((prior) => prior.contentHash === contentHash) : undefined;
     if (repeat) {
@@ -149,6 +160,30 @@ export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {
   return ledger.entries;
 }
 
+/** Every statement the ledger holds, described the way the document views expect. */
+export function importedFiles(ledger: Ledger): FileInterpretation[] {
+  const held = new Map<string, FileInterpretation>();
+  for (const record of ledger.imports) {
+    const existing = held.get(record.label);
+    held.set(record.label, {
+      filename: record.label,
+      fileType: schemaType(record.kind),
+      kind: record.kind,
+      uploadStatus: record.error ? "failed" : "uploaded",
+      processingStatus: record.error ? "failed" : "completed",
+      ...(record.error ? { processingError: record.error } : {}),
+      transactionCount: (existing?.transactionCount ?? 0) + record.added,
+      notes: record.notes,
+    });
+  }
+  return [...held.values()];
+}
+
+function schemaType(kind: FileKind): FileInterpretation["fileType"] {
+  if (kind === "csv" || kind === "xlsx" || kind === "pdf" || kind === "image") return kind;
+  return "other";
+}
+
 export function replaceTransactions(ledger: Ledger, transactions: InterpretedTransaction[]): Ledger {
   const byId = new Map(transactions.map((txn) => [txn.id, txn]));
   return {
@@ -180,11 +215,15 @@ export function parseLedger(value: unknown): Ledger | null {
   return { version: LEDGER_VERSION, entries: sortEntries(entries), imports: raw.imports };
 }
 
-/** Grouped in upload order rather than the order movements happen to be sorted in. */
-function grouped(result: {
-  files: FileInterpretation[];
-  transactions: InterpretedTransaction[];
-}): Array<[string, InterpretedTransaction[]]> {
+type Group = { label: string; file?: FileInterpretation; rows: InterpretedTransaction[] };
+
+/**
+ * One group per statement, in upload order rather than the order movements happen
+ * to be sorted in. A spreadsheet contributes a group per sheet but hashes against
+ * the one uploaded file, and a file that yielded nothing still gets a record so the
+ * failure is remembered.
+ */
+function grouped(result: { files: FileInterpretation[]; transactions: InterpretedTransaction[] }): Group[] {
   const groups = new Map<string, InterpretedTransaction[]>();
   for (const txn of result.transactions) {
     const rows = groups.get(txn.sourceFile) ?? [];
@@ -192,21 +231,22 @@ function grouped(result: {
     groups.set(txn.sourceFile, rows);
   }
 
-  const ordered: Array<[string, InterpretedTransaction[]]> = [];
+  const ordered: Group[] = [];
   for (const file of result.files) {
-    for (const [label, rows] of groups) {
-      if (label !== file.filename && !label.startsWith(`${file.filename} · `)) continue;
-      ordered.push([label, rows]);
+    const labels = [...groups.keys()].filter(
+      (label) => label === file.filename || label.startsWith(`${file.filename} · `),
+    );
+    if (labels.length === 0) {
+      ordered.push({ label: file.filename, file, rows: [] });
+      continue;
+    }
+    for (const label of labels) {
+      ordered.push({ label, file, rows: groups.get(label) ?? [] });
       groups.delete(label);
     }
   }
-  return [...ordered, ...groups.entries()].filter(([, rows]) => rows.length > 0);
-}
-
-/** Spreadsheet sheets arrive as "book.xlsx · Sheet1" but hash against the uploaded file. */
-function fileFor(label: string, files: FileInterpretation[]): string {
-  const match = files.find((file) => label === file.filename || label.startsWith(`${file.filename} · `));
-  return match?.filename ?? label;
+  for (const [label, rows] of groups) ordered.push({ label, rows });
+  return ordered;
 }
 
 function describe(txn: InterpretedTransaction): string {

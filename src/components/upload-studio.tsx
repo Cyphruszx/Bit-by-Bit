@@ -7,6 +7,8 @@ import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { acceptedDropTypes } from "@/lib/money-flow/accept";
 import { formatAud, formatSignedAud } from "@/lib/format";
+import { formatDisplayDate } from "@/lib/money-flow/parse-values";
+import type { ImportReport, LedgerImport } from "@/lib/money-flow/ledger";
 import { primaryTag, subTags } from "@/lib/money-flow/tags";
 
 const SAMPLES: Array<{ paths: string[]; label: string }> = [
@@ -20,9 +22,10 @@ const SAMPLES: Array<{ paths: string[]; label: string }> = [
 
 export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { applyInterpretation, clearInterpretation, files, flow, hasUploads, transactions } = useMoneyFlow();
+  const { clearInterpretation, flow, hasUploads, importDocuments, imports, removeImport, transactions } = useMoneyFlow();
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [report, setReport] = useState<ImportReport | null>(null);
   const [pending, startTransition] = useTransition();
 
   function interpret(list: File[]) {
@@ -31,12 +34,13 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
     for (const file of list) formData.append("files", file);
     setError(null);
     startTransition(async () => {
+      const hashes = await hashFiles(list);
       const result = await interpretUploadedDocuments(formData);
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      applyInterpretation(result);
+      setReport(importDocuments(result, hashes));
     });
   }
 
@@ -109,6 +113,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           ))}
         </div>
         {error ? <p className="mt-4 text-sm text-[#9b3b32]">{error}</p> : null}
+        {report ? <p className="mt-4 text-sm text-[#355a3f]">{describeImport(report)}</p> : null}
       </section>
 
       {hasUploads ? (
@@ -148,23 +153,30 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
             </div>
           </article>
           <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
-            <h3 className="text-lg font-bold">Documents read</h3>
+            <h3 className="text-lg font-bold">Statements you have added</h3>
+            <p className="mt-1 text-sm text-[#60716a]">
+              Every upload is kept, so you can build up months of activity. Uploading a statement twice adds nothing.
+            </p>
             <div className="mt-4 divide-y divide-[#edf0ee]">
-              {files.map((file) => (
-                <div className="flex flex-wrap items-center justify-between gap-3 py-3" key={file.filename}>
-                  <div>
-                    <p className="font-semibold">{file.filename}</p>
-                    <p className="mt-1 text-sm text-[#77857f]">
-                      {file.kind.toUpperCase()} · {file.processingStatus}
-                      {file.transactionCount ? ` · ${file.transactionCount} movements` : ""}
-                    </p>
-                    {file.processingError ? <p className="mt-1 text-sm text-[#9b3b32]">{file.processingError}</p> : null}
-                    {file.notes.map((note) => (
+              {imports.map((record) => (
+                <div className="flex flex-wrap items-start justify-between gap-3 py-3" key={record.id}>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{record.label}</p>
+                    <p className="mt-1 text-sm text-[#77857f]">{describeRecord(record)}</p>
+                    {record.error ? <p className="mt-1 text-sm text-[#9b3b32]">{record.error}</p> : null}
+                    {record.notes.map((note) => (
                       <p className="mt-1 text-sm text-[#60716a]" key={note}>
                         {note}
                       </p>
                     ))}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => removeImport(record.id)}
+                    className="shrink-0 text-sm font-semibold text-[#9b3b32]"
+                  >
+                    Remove
+                  </button>
                 </div>
               ))}
             </div>
@@ -195,4 +207,37 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
       ) : null}
     </div>
   );
+}
+
+function describeImport(report: ImportReport): string {
+  const documents = `${report.imports.length} document${report.imports.length === 1 ? "" : "s"}`;
+  if (report.added === 0 && report.duplicates > 0) {
+    return `Nothing new in ${documents} — all ${report.duplicates} movements were already here.`;
+  }
+  const added = `Added ${report.added} movement${report.added === 1 ? "" : "s"} from ${documents}.`;
+  return report.duplicates > 0 ? `${added} ${report.duplicates} were already here.` : added;
+}
+
+function describeRecord(record: LedgerImport): string {
+  const parts = [record.kind.toUpperCase()];
+  if (record.from) {
+    parts.push(record.from === record.to ? formatDisplayDate(record.from) : `${formatDisplayDate(record.from)} – ${formatDisplayDate(record.to)}`);
+  }
+  if (record.repeatOf) parts.push("already uploaded");
+  else if (record.added > 0) parts.push(`${record.added} movements`);
+  if (record.duplicates > 0 && !record.repeatOf) parts.push(`${record.duplicates} already held`);
+  return parts.join(" · ");
+}
+
+/** Recognises the same file coming back under a different name. */
+async function hashFiles(list: File[]): Promise<Record<string, string>> {
+  if (typeof crypto === "undefined" || !crypto.subtle) return {};
+  const entries = await Promise.all(
+    list.map(async (file) => {
+      const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+      const hex = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      return [file.name, hex] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
 }
