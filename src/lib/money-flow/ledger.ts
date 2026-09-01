@@ -142,6 +142,71 @@ export function appendToLedger(
   };
 }
 
+export type HeldStatement = {
+  key: string;
+  label: string;
+  kind: FileKind;
+  notes: string[];
+  accountKeys: string[];
+  from: string;
+  to: string;
+  /** Movements the ledger still holds from this statement. */
+  movements: number;
+  /** How many times it has been uploaded. */
+  uploads: number;
+  addedAt: string;
+  error?: string;
+};
+
+/**
+ * One row per statement rather than per upload, so uploading the same file again
+ * does not read as a second document.
+ */
+export function heldStatements(ledger: Ledger): HeldStatement[] {
+  const byKey = new Map<string, HeldStatement>();
+  const importsFor = new Map<string, Set<string>>();
+
+  for (const record of ledger.imports) {
+    const key = record.label;
+    const ids = importsFor.get(key) ?? new Set<string>();
+    ids.add(record.id);
+    importsFor.set(key, ids);
+
+    const held = byKey.get(key);
+    byKey.set(key, {
+      key,
+      label: record.label,
+      kind: held?.kind ?? record.kind,
+      notes: record.notes.length > 0 ? record.notes : (held?.notes ?? []),
+      accountKeys: unique([...(held?.accountKeys ?? []), ...record.accountKeys]),
+      from: earliest(held?.from, record.from),
+      to: latest(held?.to, record.to),
+      movements: 0,
+      uploads: (held?.uploads ?? 0) + 1,
+      addedAt: held?.addedAt ?? record.importedAt,
+      ...(record.error ? { error: record.error } : held?.error ? { error: held.error } : {}),
+    });
+  }
+
+  for (const entry of ledger.entries) {
+    for (const [key, ids] of importsFor) {
+      if (!entry.importIds.some((id) => ids.has(id))) continue;
+      const held = byKey.get(key);
+      if (held) held.movements += 1;
+      break;
+    }
+  }
+
+  return [...byKey.values()];
+}
+
+/** Removes a statement however many times it was uploaded. */
+export function removeStatement(ledger: Ledger, key: string): Ledger {
+  return ledger.imports
+    .filter((record) => record.label === key)
+    .reduce((next, record) => removeImport(next, record.id), ledger);
+}
+
 export function removeImport(ledger: Ledger, importId: string): Ledger {
   const entries: LedgerEntry[] = [];
   for (const entry of ledger.entries) {
@@ -259,6 +324,18 @@ function normalize(value: string): string {
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function earliest(a: string | undefined, b: string): string {
+  if (!a) return b;
+  if (!b) return a;
+  return a < b ? a : b;
+}
+
+function latest(a: string | undefined, b: string): string {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
 }
 
 function slug(value: string): string {

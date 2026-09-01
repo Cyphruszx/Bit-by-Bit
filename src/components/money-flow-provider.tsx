@@ -5,13 +5,14 @@ import { accounts as demoAccounts, budgets as demoBudgets, goals as demoGoals, t
 import {
   appendToLedger,
   EMPTY_LEDGER,
+  heldStatements,
   importedFiles,
   ledgerTransactions,
-  removeImport as dropImport,
+  removeStatement as dropStatement,
   replaceTransactions,
+  type HeldStatement,
   type ImportReport,
   type Ledger,
-  type LedgerImport,
 } from "@/lib/money-flow/ledger";
 import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
@@ -41,7 +42,7 @@ let cachedPeriod: PeriodFilter = ALL_PERIOD;
 
 type MoneyFlowState = {
   files: FileInterpretation[];
-  imports: LedgerImport[];
+  statements: HeldStatement[];
   allTransactions: InterpretedTransaction[];
   transactions: InterpretedTransaction[];
   flow: MoneyFlowSummary;
@@ -52,7 +53,7 @@ type MoneyFlowState = {
   /** False until the stored ledger has been read, so the UI can wait instead of flashing samples. */
   ready: boolean;
   importDocuments: (result: InterpretationResult, hashes?: Record<string, string>) => ImportReport;
-  removeImport: (importId: string) => void;
+  removeStatement: (key: string) => void;
   clearInterpretation: () => void;
   setTransactionTags: (id: string, tags: string[]) => void;
   renameTagEverywhere: (from: string, to: string) => void;
@@ -74,7 +75,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const allTransactions = stored.length > 0 ? stored : demoRows(held.demoTags);
     return {
       files: importedFiles(held.ledger),
-      imports: held.ledger.imports,
+      statements: heldStatements(held.ledger),
       allTransactions,
       transactions: filterByPeriod(allTransactions, period),
       flow: summarizePeriod(allTransactions, period),
@@ -84,7 +85,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       usingDemo: stored.length === 0,
       ready: held.ready,
       importDocuments,
-      removeImport,
+      removeStatement,
       clearInterpretation: clearLedger,
       setTransactionTags,
       renameTagEverywhere,
@@ -153,8 +154,8 @@ function importDocuments(result: InterpretationResult, hashes?: Record<string, s
   return report;
 }
 
-function removeImport(importId: string) {
-  commit(dropImport(snapshot.ledger, importId));
+function removeStatement(key: string) {
+  commit(dropStatement(snapshot.ledger, key));
 }
 
 function clearLedger() {

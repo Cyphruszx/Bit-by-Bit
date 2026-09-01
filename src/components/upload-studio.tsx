@@ -8,7 +8,7 @@ import { SummaryCard } from "@/components/summary-card";
 import { acceptedDropTypes } from "@/lib/money-flow/accept";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
-import type { ImportReport, LedgerImport } from "@/lib/money-flow/ledger";
+import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
 import { primaryTag, subTags } from "@/lib/money-flow/tags";
 
 const SAMPLES: Array<{ paths: string[]; label: string }> = [
@@ -23,7 +23,7 @@ const SAMPLES: Array<{ paths: string[]; label: string }> = [
 
 export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { clearInterpretation, flow, hasUploads, importDocuments, imports, removeImport, transactions } = useMoneyFlow();
+  const { clearInterpretation, flow, hasUploads, importDocuments, removeStatement, statements, transactions } = useMoneyFlow();
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
@@ -159,13 +159,13 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               Every upload is kept, so you can build up months of activity. Uploading a statement twice adds nothing.
             </p>
             <div className="mt-4 divide-y divide-[#edf0ee]">
-              {imports.map((record) => (
-                <div className="flex flex-wrap items-start justify-between gap-3 py-3" key={record.id}>
+              {statements.map((statement) => (
+                <div className="flex flex-wrap items-start justify-between gap-3 py-3" key={statement.key}>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{record.label}</p>
-                    <p className="mt-1 text-sm text-[#77857f]">{describeRecord(record)}</p>
-                    {record.error ? <p className="mt-1 text-sm text-[#9b3b32]">{record.error}</p> : null}
-                    {record.notes.map((note) => (
+                    <p className="truncate font-semibold">{statement.label}</p>
+                    <p className="mt-1 text-sm text-[#77857f]">{describeStatement(statement)}</p>
+                    {statement.error ? <p className="mt-1 text-sm text-[#9b3b32]">{statement.error}</p> : null}
+                    {statement.notes.map((note) => (
                       <p className="mt-1 text-sm text-[#60716a]" key={note}>
                         {note}
                       </p>
@@ -173,7 +173,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => removeImport(record.id)}
+                    onClick={() => removeStatement(statement.key)}
                     className="shrink-0 text-sm font-semibold text-[#9b3b32]"
                   >
                     Remove
@@ -219,14 +219,17 @@ function describeImport(report: ImportReport): string {
   return report.duplicates > 0 ? `${added} ${report.duplicates} were already here.` : added;
 }
 
-function describeRecord(record: LedgerImport): string {
-  const parts = [record.kind.toUpperCase()];
-  if (record.from) {
-    parts.push(record.from === record.to ? formatDisplayDate(record.from) : `${formatDisplayDate(record.from)} – ${formatDisplayDate(record.to)}`);
+function describeStatement(statement: HeldStatement): string {
+  const parts = [statement.kind.toUpperCase()];
+  if (statement.from) {
+    parts.push(
+      statement.from === statement.to
+        ? formatDisplayDate(statement.from)
+        : `${formatDisplayDate(statement.from)} – ${formatDisplayDate(statement.to)}`,
+    );
   }
-  if (record.repeatOf) parts.push("already uploaded");
-  else if (record.added > 0) parts.push(`${record.added} movements`);
-  if (record.duplicates > 0 && !record.repeatOf) parts.push(`${record.duplicates} already held`);
+  parts.push(`${statement.movements} movement${statement.movements === 1 ? "" : "s"}`);
+  if (statement.uploads > 1) parts.push(`uploaded ${statement.uploads} times`);
   return parts.join(" · ");
 }
 

@@ -7,9 +7,11 @@ import {
   appendToLedger,
   EMPTY_LEDGER,
   fingerprintOf,
+  heldStatements,
   ledgerTransactions,
   parseLedger,
   removeImport,
+  removeStatement,
 } from "./ledger";
 import { summarizeMoneyFlow } from "./summary";
 import type { FileInterpretation, InterpretedTransaction } from "./types";
@@ -155,6 +157,34 @@ describe("accumulating a ledger", () => {
     assert.equal(withoutFirst.entries.length, 1);
     assert.equal(withoutFirst.entries[0]?.amount, -5);
     assert.equal(withoutFirst.imports.length, 1);
+  });
+
+  it("lists one row per statement however many times it was uploaded", () => {
+    const rows = [txn({ accountKey: "100200300" }), txn({ id: "b", amount: -9, accountKey: "100200300" })];
+    const first = appendToLedger(EMPTY_LEDGER, upload(rows), { importedAt: "2026-09-01T00:00:00.000Z" });
+    const second = appendToLedger(first.ledger, upload(rows), { importedAt: "2026-09-02T00:00:00.000Z" });
+
+    const statements = heldStatements(second.ledger);
+    assert.equal(statements.length, 1);
+    assert.equal(statements[0]?.uploads, 2);
+    assert.equal(statements[0]?.movements, 2);
+    assert.equal(statements[0]?.addedAt, "2026-09-01T00:00:00.000Z");
+  });
+
+  it("removes a statement along with every upload of it", () => {
+    const keep = txn({ sourceFile: "keep.csv", accountKey: "100200300" });
+    const drop = txn({ id: "b", amount: -9, sourceFile: "drop.csv", accountKey: "400500600" });
+    const first = appendToLedger(EMPTY_LEDGER, upload([keep, drop]), { importedAt: "2026-09-01T00:00:00.000Z" });
+    const second = appendToLedger(first.ledger, upload([drop]), { importedAt: "2026-09-02T00:00:00.000Z" });
+    assert.equal(heldStatements(second.ledger).find((entry) => entry.key === "drop.csv")?.uploads, 2);
+
+    const without = removeStatement(second.ledger, "drop.csv");
+    assert.deepEqual(
+      heldStatements(without).map((entry) => entry.key),
+      ["keep.csv"],
+    );
+    assert.equal(without.entries.length, 1);
+    assert.equal(without.entries[0]?.sourceFile, "keep.csv");
   });
 
   it("reads back a stored ledger and rejects junk", () => {
