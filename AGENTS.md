@@ -11,3 +11,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Ask first
 
 Double-check ideas with the user before implementing them. Do not start a new feature, architecture change, or extra slice of work until they confirm. If they decline, stop or revert.
+
+## Testing
+
+Skip screenshots and screen recordings for UI changes — the user verifies on the Vercel web preview. Run `npm run typecheck`, `npm run lint`, and `npm test`, then commit and push.
+
+When a change affects how a statement is read, verify it against a file in `public/samples/` and quote the numbers.

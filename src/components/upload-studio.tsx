@@ -11,6 +11,8 @@ import { primaryTag, subTags } from "@/lib/money-flow/tags";
 
 const SAMPLES = [
   ["/samples/commonwealth-bank.csv", "CSV statement"],
+  ["/samples/nab-medicare.csv", "NAB everyday account"],
+  ["/samples/nab-rent.csv", "NAB rent and offset account"],
   ["/samples/activity.ofx", "OFX export"],
   ["/samples/receipt-notes.txt", "Text / receipt notes"],
 ];
