@@ -52,14 +52,17 @@ export function parseAmount(raw: string | number | null | undefined): number | n
   const trailingMinus = /-$/.test(text);
   const leadingMinus = text.startsWith("-") || text.startsWith("−");
 
-  text = text
+  // Take the first number rather than stripping every non-numeric character, so
+  // words sitting alongside the value (for example "INTER-BANK CREDIT") cannot
+  // contribute stray digits or hyphens to it.
+  const token = text
     .replace(/[()]/g, "")
     .replace(/[−–—]/g, "-")
-    .replace(/\b(cr|dr|credit|debit|aud|nzd|usd|eur|gbp)\b/gi, "")
-    .replace(/[^\d,.\-]/g, "")
-    .replace(/-(?=[^-]*-)/g, "")
-    .trim();
+    .replace(/\b(cr|dr|credit|debit|aud|nzd|usd|eur|gbp)\b/gi, " ")
+    .match(/-?\d[\d,.]*/);
 
+  if (!token) return null;
+  text = token[0].replace(/[.,]+$/, "");
   if (!text || text === "-") return null;
 
   const negative =

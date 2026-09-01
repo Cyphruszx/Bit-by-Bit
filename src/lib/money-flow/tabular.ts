@@ -1,5 +1,6 @@
-import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
-import { formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { interpretMovement } from "@/lib/money-flow/interpret-row";
+import { parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { tableInterpretationNotes } from "@/lib/money-flow/statement-category";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const DATE_HEADERS = ["date", "transaction date", "txn date", "posted", "value date", "processed", "trans date"];
@@ -19,6 +20,10 @@ const AMOUNT_HEADERS = ["amount", "value", "transaction amount", "aud", "nzd", "
 const DEBIT_HEADERS = ["debit", "debit amount", "withdrawal", "money out", "spent", "payments"];
 const CREDIT_HEADERS = ["credit", "credit amount", "deposit", "money in", "received", "receipts"];
 const TYPE_HEADERS = ["type", "transaction type", "dr/cr", "debit/credit"];
+const MERCHANT_HEADERS = ["merchant name", "merchant", "payee"];
+const CATEGORY_HEADERS = ["category", "nab category", "bank category"];
+
+const MONEY_CELL = /^[-+(]?\s*\$?\s*\d[\d,]*(\.\d{1,2})?\s*\)?-?$/;
 
 function norm(header: string): string {
   return header.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -92,8 +97,11 @@ export function rowsFromCsv(text: string): string[][] {
   return parseDelimited(text.replace(/^\uFEFF/, ""), delimiter);
 }
 
-export function transactionsFromTable(rows: Array<Array<string | number | null>>, sourceFile: string): InterpretedTransaction[] {
-  if (rows.length === 0) return [];
+export function interpretTable(
+  rows: Array<Array<string | number | null>>,
+  sourceFile: string,
+): { transactions: InterpretedTransaction[]; notes: string[] } {
+  if (rows.length === 0) return { transactions: [], notes: [] };
   const headerIndex = rows.findIndex((row) => row.some((cell) => typeof cell === "string" && looksLikeHeader(String(cell))));
   const start = headerIndex >= 0 ? headerIndex : 0;
   const headers = (rows[start] ?? []).map((cell) => String(cell ?? ""));
@@ -104,6 +112,9 @@ export function transactionsFromTable(rows: Array<Array<string | number | null>>
   const debitIdx = findColumn(headers, DEBIT_HEADERS);
   const creditIdx = findColumn(headers, CREDIT_HEADERS);
   const typeIdx = findColumn(headers, TYPE_HEADERS);
+  const merchantIdx = findColumn(headers, MERCHANT_HEADERS);
+  const categoryIdx = findColumn(headers, CATEGORY_HEADERS);
+  const claimed = [dateIdx, amountIdx, debitIdx, creditIdx, typeIdx, merchantIdx, categoryIdx];
 
   const results: InterpretedTransaction[] = [];
   body.forEach((row, index) => {
@@ -111,19 +122,26 @@ export function transactionsFromTable(rows: Array<Array<string | number | null>>
     if (cells.every((cell) => !cell.trim())) return;
 
     const dateIso = parseDate(dateIdx >= 0 ? cells[dateIdx] : firstDateCell(cells));
-    const description = descriptionFrom(headers, cells, dateIdx);
+    const description = descriptionFrom(headers, cells, claimed, dateIdx);
     const typeHint = typeIdx >= 0 ? cells[typeIdx] : "";
+    const amountCell = amountIdx >= 0 ? (cells[amountIdx] ?? "").trim() : "";
     let amount: number | null = null;
+    let directionKnown = false;
 
     if (debitIdx >= 0 || creditIdx >= 0) {
       const debit = debitIdx >= 0 ? parseAmount(cells[debitIdx]) : null;
       const credit = creditIdx >= 0 ? parseAmount(cells[creditIdx]) : null;
       if (credit != null || debit != null) {
         amount = (credit ?? 0) - Math.abs(debit ?? 0);
+        directionKnown = true;
       }
     }
-    if (amount == null && amountIdx >= 0) {
-      amount = parseAmount(`${cells[amountIdx]} ${typeHint}`.trim());
+    if (amount == null && amountCell) {
+      const parsed = parseAmount(amountCell);
+      if (parsed == null) return;
+      const direction = directionFrom(typeHint);
+      amount = parsed > 0 && direction < 0 ? -parsed : parsed;
+      directionKnown = parsed < 0 || direction !== 0;
     }
     if (amount == null) {
       amount = lastAmountCell(cells);
@@ -133,29 +151,41 @@ export function transactionsFromTable(rows: Array<Array<string | number | null>>
       return;
     }
 
-    const category = categorize(`${description} ${typeHint}`);
-    const type = inferType(`${description} ${typeHint}`, amount, category);
-    const signed = type === "income" || type === "refund" ? Math.abs(amount) : type === "transfer" ? -Math.abs(amount) : amount > 0 && type === "expense" ? -amount : amount;
-
-    results.push({
-      id: `${sourceFile}-${index}-${dateIso}-${amount}`,
-      merchant: tidyMerchant(description),
-      category,
-      date: formatDisplayDate(dateIso),
-      dateIso,
-      amount: signed === 0 ? amount : signed,
-      type,
-      sourceFile,
-      confidence: headerIndex >= 0 ? 0.92 : 0.7,
-    });
+    results.push(
+      interpretMovement({
+        dateIso,
+        amount,
+        directionKnown,
+        description,
+        typeHint,
+        merchant: merchantIdx >= 0 ? cells[merchantIdx] : "",
+        bankCategory: categoryIdx >= 0 ? cells[categoryIdx] : "",
+        sourceFile,
+        id: `${sourceFile}-${index}-${dateIso}-${amount}`,
+        confidence: headerIndex >= 0 ? 0.92 : 0.7,
+      }),
+    );
   });
 
-  return results;
+  return { transactions: results, notes: tableInterpretationNotes(headers) };
 }
 
-function descriptionFrom(headers: string[], cells: string[], dateIdx: number): string {
+export function transactionsFromTable(
+  rows: Array<Array<string | number | null>>,
+  sourceFile: string,
+): InterpretedTransaction[] {
+  return interpretTable(rows, sourceFile).transactions;
+}
+
+function directionFrom(typeHint: string): number {
+  if (/\b(cr|credit|deposit)\b/i.test(typeHint)) return 1;
+  if (/\b(dr|debit|withdrawal)\b/i.test(typeHint)) return -1;
+  return 0;
+}
+
+function descriptionFrom(headers: string[], cells: string[], claimed: number[], dateIdx: number): string {
   const parts = DESC_HEADERS.map((header) => findColumn(headers, [header]))
-    .filter((index, position, all) => index >= 0 && all.indexOf(index) === position)
+    .filter((index, position, all) => index >= 0 && !claimed.includes(index) && all.indexOf(index) === position)
     .map((index) => cells[index]?.trim())
     .filter(Boolean);
   if (parts.length > 0) return parts.join(" ");
@@ -164,7 +194,7 @@ function descriptionFrom(headers: string[], cells: string[], dateIdx: number): s
 
 function looksLikeHeader(cell: string): boolean {
   const value = norm(cell);
-  return [...DATE_HEADERS, ...DESC_HEADERS, ...AMOUNT_HEADERS, ...DEBIT_HEADERS, ...CREDIT_HEADERS].some(
+  return [...DATE_HEADERS, ...DESC_HEADERS, ...AMOUNT_HEADERS, ...DEBIT_HEADERS, ...CREDIT_HEADERS, ...TYPE_HEADERS, ...CATEGORY_HEADERS].some(
     (header) => value === header || value.includes(header),
   );
 }
@@ -182,6 +212,7 @@ function longestTextCell(cells: string[], skip: number): string {
 
 function lastAmountCell(cells: string[]): number | null {
   for (let i = cells.length - 1; i >= 0; i -= 1) {
+    if (!MONEY_CELL.test(cells[i].trim())) continue;
     const amount = parseAmount(cells[i]);
     if (amount != null) return amount;
   }
