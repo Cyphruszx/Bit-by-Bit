@@ -49,7 +49,13 @@ export function TransactionsView() {
         />
       </div>
       <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
-        <TransactionTable transactions={transactions} tag={selectedTag} onTagChange={setSelectedTag} />
+        <h2 className="text-base font-bold">Merchants</h2>
+        <p className="mt-0.5 text-xs text-[#60716a]">
+          Every movement in this period. Search or filter the list, then tag each merchant.
+        </p>
+        <div className="mt-3">
+          <TransactionTable transactions={transactions} tag={selectedTag} onTagChange={setSelectedTag} />
+        </div>
       </article>
       <TagManager
         transactions={allTransactions}
