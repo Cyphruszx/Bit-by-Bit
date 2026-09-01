@@ -14,7 +14,7 @@ Three anonymised statements live in `public/samples/`. Every number below is mea
 |---|---|---|---|
 | `nab-medicare.csv` | NAB everyday, `100200300` | 1 Jul 2025 – 30 Jun 2026 | 378 |
 | `nab-rent.csv` | NAB rent/offset, `400500600` | 2 Jul 2025 – 30 Jun 2026 | 59 |
-| `up-2025-07-to-2026-06.txt` | Up transaction account plus 8 savers | 1 Jul 2025 – 30 Jun 2026 | 1247 as read today, which is wrong — see the open bug |
+| `up-2025-07-to-2026-06.txt` | Up transaction account plus 8 savers | 1 Jul 2025 – 30 Jun 2026 | 1267 |
 
 The NAB pair reads correctly and reconciles: money in **$204,214.49**, money out **$203,665.05**, net **$549.44**. Everyday alone is $164,344.90 / $160,675.88 / $3,669.02; rent alone is $39,869.59 / $42,989.17 / −$3,119.58. These are asserted in `ledger.test.ts` and `interpret.test.ts`. If you break them, you have broken the reader.
 
@@ -38,18 +38,25 @@ The samples are anonymised with a shared pseudonym: the account holder is **Jord
 
 Verified in a browser: uploading one NAB account then both accumulates to the combined totals, a deliberate duplicate upload reports "Nothing new" and moves nothing, the ledger survives a reload, and removing a statement takes its movements with it.
 
-## The open bug, which is the next thing to fix
+## The Up statement bug, now fixed
 
-Reading `up-2025-07-to-2026-06.txt` does not reconcile. The statement heads itself **Money In $70,574.39, Money Out $71,631.34**. The reader currently produces **$82,836.54 in and $85,576.89 out** across 1247 movements. Dates are correct — that part was fixed — but the amounts are over-read.
+`up-2025-07-to-2026-06.txt` reconciles. The statement heads itself **Money In $70,574.39, Money Out $71,631.34**, and the reader now produces exactly that across **1267 movements**.
 
-What is known:
+The diagnosis in the first draft of this handover was wrong on both counts, so do not build on it:
 
-- The file is one transaction account followed by a `Savers` section holding **8 separate saver accounts**, each with its own `Opening Balance: … Closing Balance: …<Name>` header and its own day headings. Splitting them off gives 82 saver rows worth $6,810.26 in and $7,646.60 out. They belong to their own accounts and should not sit in the transaction account's totals.
-- Even with savers removed the main section reads **$78,210.73 in and $78,431.34 out**, still over by $7,636.34 and by exactly **$6,800.00**. An exact round overshoot suggests a specific repeated pattern rather than scattered noise.
-- The main section holds **43 rows described as transfers to or from a saver, worth $14,726.08**. Up's own summary appears to treat these differently from ordinary movements.
-- There are **12 groups of rows identical in date, amount and merchant, worth $2,385.44 in the duplicated copies**. Some will be genuine repeat purchases; some are likely one movement read twice across a page break. Check them against the sample text before assuming either way.
+- **The amounts were never over-read.** Every Up line carries an amount followed by a running balance, and those balances form an unbroken chain within each account. Walking each chain from its opening to its closing balance reproduces all 1267 stated amounts to the cent, with no mismatches, so `transactionFromBlock` was taking the right value all along.
+- **The reader was losing movements, not inventing them.** The 1247 figure was the count *after* the pipeline had silently deleted 20 rows.
 
-Start by reading `src/lib/money-flow/up-statement.ts` alongside the sample. `transactionFromBlock` takes the *first* money value in a block, and each Up line carries both an amount and a running balance, so a block that swallows an extra line will read a balance as an amount.
+What was actually wrong:
+
+- **`uniqueTransactions` in `summary.ts` keyed on date, amount and merchant alone**, so a movement that legitimately repeats was discarded — 20 rows carrying $2,184.45 in and $501.05 out. The savers show it most plainly: several are paid a cent of interest on the same morning under an identical description, and only the first cent survived. It now counts how often a description has already appeared *within its own file*, the same occurrence rule `fingerprintOf` uses in `ledger.ts`, so a re-uploaded file still collapses while a genuine repeat is kept.
+- **Up's Money In and Money Out exclude the holder's own internal transfers.** The file holds nine accounts — the Spending account and eight savers — and 84 rows move money between them, $14,446.60 in each direction, every leg written twice. `inferType` already types these as `transfer` and `income`/`spending` already exclude transfers, so once the dropped rows came back the totals landed on the statement's own figures with no further change.
+
+The arithmetic closes end to end: opening $398.25 + $70,574.39 in − $71,631.34 out + $836.34 drawn down out of the savers = the closing balance of $177.64, and the savers' own balances fall by exactly that $836.34.
+
+Two tests in `interpret.test.ts` pin the reconciliation and the mirrored transfer legs, so this cannot drift again unnoticed.
+
+Note that the savers are still merged into one file's worth of movements rather than carrying an account of their own. That is stage 2 below, and it is unfinished — the totals are right, but the app cannot yet say which account a saver movement belongs to.
 
 ## The plan the owner agreed to
 
@@ -83,7 +90,7 @@ Stages, in order. Only the ledger is done.
 - **Ask first.** Do not start a feature, architecture change or extra slice until the owner confirms. They are specific about scope and will say no.
 - **Skip screenshots and screen recordings.** The owner verifies on the Vercel preview. Run `npm run typecheck`, `npm run lint` and `npm test`, then commit and push. When a change affects how a statement is read, verify against a file in `public/samples/` and quote the numbers.
 
-Everything is currently green: **110 tests, none skipped**, lint, typecheck and build clean.
+Everything is currently green: **112 tests, none skipped**, lint, typecheck and build clean.
 
 Commits are small and single-purpose, with a plain-English subject in the imperative and a body explaining why, not what. Branches are `cursor/<name>-c20d`. Never merge a PR — the owner does that. Stacked PRs need their base retargeted by hand before merging, because the repo does not delete head branches on merge; that mistake already sent one PR into the wrong branch and needed [#16](https://github.com/Cyphruszx/Bit-by-Bit/pull/16) to fix.
 
