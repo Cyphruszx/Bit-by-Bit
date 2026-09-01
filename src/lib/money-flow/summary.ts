@@ -27,8 +27,10 @@ export type FlowOverTimePoint = {
   label: string;
   income: number;
   spending: number;
-  /** Money in minus money out for the bucket, so it dips below zero when spending wins. */
+  /** Money in minus money out for this bucket alone. */
   net: number;
+  /** Every bucket's net added up to here, so the line holds its level between movements. */
+  runningNet: number;
 };
 
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
@@ -139,14 +141,18 @@ export function tagFlowOverTime(
   const last = present[present.length - 1];
   const keys = byDay ? daySpan(first, last) : monthSpan(first, last);
 
+  let running = 0;
   return keys.map((key) => {
     const entry = totals.get(key) ?? { income: 0, spending: 0 };
+    const net = roundMoney(entry.income - entry.spending);
+    running = roundMoney(running + net);
     return {
       key,
       label: byDay ? formatDisplayDate(key) : monthLabelFromKey(key),
       income: entry.income,
       spending: entry.spending,
-      net: roundMoney(entry.income - entry.spending),
+      net,
+      runningNet: running,
     };
   });
 }
