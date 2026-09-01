@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { TagEditor, TagList } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
+import { paginate } from "@/lib/paging";
 import { allTags, tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -52,19 +53,15 @@ export function TransactionTable({
     });
   }, [activeTag, direction, query, transactions]);
 
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  // Narrowing the list can strand the reader on a page that no longer exists, so go back to
-  // the first page whenever what is being filtered changes.
+  // Going back to the first page whenever the filter changes, so narrowing the list does not
+  // leave the reader parked on a page of it that no longer means anything.
   const filterKey = `${activeTag}|${direction}|${query.trim().toLowerCase()}|${transactions.length}`;
   const [shownFor, setShownFor] = useState(filterKey);
   if (shownFor !== filterKey) {
     setShownFor(filterKey);
     setPage(1);
   }
-  // Clamped rather than trusted, so a page that has gone out of range still renders rows.
-  const currentPage = Math.min(page, pageCount);
-  const firstOnPage = (currentPage - 1) * PAGE_SIZE;
-  const visible = rows.slice(firstOnPage, firstOnPage + PAGE_SIZE);
+  const { items: visible, page: currentPage, pageCount, firstIndex: firstOnPage } = paginate(rows, page, PAGE_SIZE);
 
   return (
     <div>
