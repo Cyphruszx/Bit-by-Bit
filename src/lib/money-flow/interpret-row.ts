@@ -11,6 +11,7 @@ export type RawMovement = {
   typeHint?: string;
   merchant?: string;
   bankCategory?: string;
+  accountKey?: string;
   sourceFile: string;
   id: string;
   confidence: number;
@@ -32,6 +33,8 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
   const type = inferType(text, raw.amount, category);
   const amount = raw.directionKnown ? raw.amount : signFromType(raw.amount, type);
 
+  const accountKey = raw.accountKey?.trim();
+
   return {
     id: raw.id,
     merchant: tidyMerchant(merchantLabel || raw.description),
@@ -44,6 +47,8 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
     amount,
     type,
     sourceFile: raw.sourceFile,
+    ...(accountKey ? { accountKey } : {}),
+    ...(raw.description.trim() ? { description: raw.description.trim() } : {}),
     confidence: raw.confidence,
   };
 }

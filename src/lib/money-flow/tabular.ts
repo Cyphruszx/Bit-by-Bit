@@ -22,6 +22,7 @@ const CREDIT_HEADERS = ["credit", "credit amount", "deposit", "money in", "recei
 const TYPE_HEADERS = ["type", "transaction type", "dr/cr", "debit/credit"];
 const MERCHANT_HEADERS = ["merchant name", "merchant", "payee"];
 const CATEGORY_HEADERS = ["category", "nab category", "bank category"];
+const ACCOUNT_HEADERS = ["account number", "account no", "account", "acct", "bsb account number", "card number"];
 
 const MONEY_CELL = /^[-+(]?\s*\$?\s*\d[\d,]*(\.\d{1,2})?\s*\)?-?$/;
 
@@ -114,7 +115,8 @@ export function interpretTable(
   const typeIdx = findColumn(headers, TYPE_HEADERS);
   const merchantIdx = findColumn(headers, MERCHANT_HEADERS);
   const categoryIdx = findColumn(headers, CATEGORY_HEADERS);
-  const claimed = [dateIdx, amountIdx, debitIdx, creditIdx, typeIdx, merchantIdx, categoryIdx];
+  const accountIdx = findColumn(headers, ACCOUNT_HEADERS);
+  const claimed = [dateIdx, amountIdx, debitIdx, creditIdx, typeIdx, merchantIdx, categoryIdx, accountIdx];
 
   const results: InterpretedTransaction[] = [];
   body.forEach((row, index) => {
@@ -160,6 +162,7 @@ export function interpretTable(
         typeHint,
         merchant: merchantIdx >= 0 ? cells[merchantIdx] : "",
         bankCategory: categoryIdx >= 0 ? cells[categoryIdx] : "",
+        accountKey: accountIdx >= 0 ? cells[accountIdx] : "",
         sourceFile,
         id: `${sourceFile}-${index}-${dateIso}-${amount}`,
         confidence: headerIndex >= 0 ? 0.92 : 0.7,

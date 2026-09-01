@@ -28,6 +28,10 @@ export type InterpretedTransaction = {
   type: TransactionType;
   sourceFile: string;
   confidence: number;
+  /** The account the statement says this belongs to. Absent when the export never names one. */
+  accountKey?: string;
+  /** Raw statement wording, kept because it identifies a movement more reliably than the tidied merchant. */
+  description?: string;
   tags?: string[];
   tagSource?: TagSource;
   extractedBy?: ExtractionSource;
