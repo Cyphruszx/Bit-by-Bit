@@ -325,6 +325,7 @@ function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[
         series={series}
         height={compact ? 180 : 240}
         ariaLabel="Line graph of the running total of money in and out across the period"
+        showPoints={false}
       />
     </div>
   );
