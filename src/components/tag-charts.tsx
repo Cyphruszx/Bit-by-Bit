@@ -79,7 +79,7 @@ export function TagChartCard({
             {chart === "bar"
               ? "Money in sits above the line, money out below."
               : chart === "line"
-                ? "Money in and money out tracked across the period."
+                ? "Money in minus money out, so the line drops under zero when spending wins."
                 : "Slice size is the share of all movement, and money in is outlined."}{" "}
             Totals use the primary tag only, so extra tags never double-count. Tap a primary to see its sub-tags.
           </p>
@@ -312,16 +312,10 @@ function BarGraph({
 function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[]; compact?: boolean }) {
   const series: LineChartSeries[] = [
     {
-      id: "in",
-      label: "Money in",
-      color: "#257155",
-      points: points.map((point) => ({ key: point.key, label: point.label, value: point.income })),
-    },
-    {
-      id: "out",
-      label: "Money out",
-      color: "#9b3b32",
-      points: points.map((point) => ({ key: point.key, label: point.label, value: point.spending })),
+      id: "net",
+      label: "Net (money in minus money out)",
+      color: "#173b31",
+      points: points.map((point) => ({ key: point.key, label: point.label, value: point.net })),
     },
   ];
 
@@ -330,7 +324,7 @@ function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[
       <LineChart
         series={series}
         height={compact ? 180 : 240}
-        ariaLabel="Line graph of money in and out across the period"
+        ariaLabel="Line graph of net money in minus money out across the period"
       />
     </div>
   );
@@ -338,8 +332,7 @@ function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[
 
 function signedCompact(amount: number): string {
   if (amount === 0) return "$0";
-  const magnitude = formatAudCompact(Math.abs(amount));
-  return amount < 0 ? `-${magnitude}` : `+${magnitude}`;
+  return amount > 0 ? `+${formatAudCompact(amount)}` : formatAudCompact(amount);
 }
 
 function PieChart({

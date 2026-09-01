@@ -27,6 +27,8 @@ export type FlowOverTimePoint = {
   label: string;
   income: number;
   spending: number;
+  /** Money in minus money out for the bucket, so it dips below zero when spending wins. */
+  net: number;
 };
 
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
@@ -144,7 +146,7 @@ export function tagFlowOverTime(
 
   return [...buckets.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, entry]) => ({ key, ...entry }));
+    .map(([key, entry]) => ({ key, ...entry, net: roundMoney(entry.income - entry.spending) }));
 }
 
 function flowTotals(transactions: InterpretedTransaction[]): { income: number; spending: number; net: number } {

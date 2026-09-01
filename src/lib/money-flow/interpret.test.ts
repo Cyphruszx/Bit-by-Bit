@@ -521,25 +521,58 @@ describe("money flow summary", () => {
     };
 
     assert.deepEqual(
-      tagFlowOverTime([augustOut, july, augustIn]).map((point) => [point.key, point.income, point.spending]),
+      tagFlowOverTime([augustOut, july, augustIn]).map((point) => [point.key, point.income, point.spending, point.net]),
       [
-        ["2026-07", 2000, 0],
-        ["2026-08", 2500, 900],
+        ["2026-07", 2000, 0, 2000],
+        ["2026-08", 2500, 900, 1600],
       ],
     );
 
     const singleMonth = tagFlowOverTime([augustOut, augustIn]);
     assert.deepEqual(
-      singleMonth.map((point) => [point.key, point.label, point.income, point.spending]),
+      singleMonth.map((point) => [point.key, point.label, point.net]),
       [
-        ["2026-08-18", "18 Aug", 2500, 0],
-        ["2026-08-20", "20 Aug", 0, 900],
+        ["2026-08-18", "18 Aug", 2500],
+        ["2026-08-20", "20 Aug", -900],
       ],
     );
 
     assert.deepEqual(
-      tagFlowOverTime([augustOut, july, augustIn], "Housing").map((point) => [point.key, point.spending]),
-      [["2026-08-20", 900]],
+      tagFlowOverTime([augustOut, july, augustIn], "Housing").map((point) => [point.key, point.net]),
+      [["2026-08-20", -900]],
+    );
+  });
+
+  it("nets a bucket below zero when spending outruns income", () => {
+    const rows = [
+      {
+        id: "1",
+        merchant: "Refund",
+        category: "Shopping",
+        tags: ["Shopping"],
+        date: "2 Aug",
+        dateIso: "2026-08-02",
+        amount: 40,
+        type: "refund" as const,
+        sourceFile: "demo",
+        confidence: 1,
+      },
+      {
+        id: "2",
+        merchant: "Rent",
+        category: "Housing",
+        tags: ["Housing"],
+        date: "2 Aug",
+        dateIso: "2026-08-02",
+        amount: -900,
+        type: "expense" as const,
+        sourceFile: "demo",
+        confidence: 1,
+      },
+    ];
+    assert.deepEqual(
+      tagFlowOverTime(rows).map((point) => [point.income, point.spending, point.net]),
+      [[40, 900, -860]],
     );
   });
 

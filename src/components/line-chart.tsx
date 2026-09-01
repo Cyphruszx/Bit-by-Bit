@@ -37,13 +37,14 @@ export function LineChart({
   const innerWidth = width - pad.left - pad.right;
   const innerHeight = height - pad.top - pad.bottom;
   const values = series.flatMap((item) => item.points.map((point) => point.value));
+  const lowest = Math.min(0, ...values);
   const maxValue = niceMax(Math.max(0, ...values));
-  const minValue = 0;
+  const minValue = lowest < 0 ? -niceMax(-lowest) : 0;
   const x = (index: number) =>
     pad.left + (labels.length === 1 ? innerWidth / 2 : (index / (labels.length - 1)) * innerWidth);
   const y = (value: number) =>
     pad.top + innerHeight - ((value - minValue) / Math.max(maxValue - minValue, 1)) * innerHeight;
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => maxValue * ratio);
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minValue + (maxValue - minValue) * ratio);
   const xLabelEvery = Math.max(1, Math.ceil(labels.length / 6));
 
   return (
@@ -70,6 +71,9 @@ export function LineChart({
             </text>
           </g>
         ))}
+        {minValue < 0 ? (
+          <line x1={pad.left} x2={width - pad.right} y1={y(0)} y2={y(0)} stroke="#c3cfc8" strokeWidth="1" />
+        ) : null}
         {labels.map((label, index) =>
           index % xLabelEvery === 0 || index === labels.length - 1 ? (
             <text
