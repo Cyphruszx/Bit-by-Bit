@@ -9,12 +9,13 @@ import { acceptedDropTypes } from "@/lib/money-flow/accept";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { primaryTag, subTags } from "@/lib/money-flow/tags";
 
-const SAMPLES = [
-  ["/samples/commonwealth-bank.csv", "CSV statement"],
-  ["/samples/nab-medicare.csv", "NAB everyday account"],
-  ["/samples/nab-rent.csv", "NAB rent and offset account"],
-  ["/samples/activity.ofx", "OFX export"],
-  ["/samples/receipt-notes.txt", "Text / receipt notes"],
+const SAMPLES: Array<{ paths: string[]; label: string }> = [
+  { paths: ["/samples/commonwealth-bank.csv"], label: "CSV statement" },
+  { paths: ["/samples/nab-medicare.csv", "/samples/nab-rent.csv"], label: "NAB both accounts" },
+  { paths: ["/samples/nab-medicare.csv"], label: "NAB everyday account" },
+  { paths: ["/samples/nab-rent.csv"], label: "NAB rent and offset account" },
+  { paths: ["/samples/activity.ofx"], label: "OFX export" },
+  { paths: ["/samples/receipt-notes.txt"], label: "Text / receipt notes" },
 ];
 
 export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
@@ -39,11 +40,16 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
     });
   }
 
-  async function loadSample(path: string) {
-    const response = await fetch(path);
-    const blob = await response.blob();
-    const name = path.split("/").pop() ?? "sample";
-    interpret([new File([blob], name, { type: blob.type })]);
+  async function loadSample(paths: string[]) {
+    const files = await Promise.all(
+      paths.map(async (path) => {
+        const response = await fetch(path);
+        const blob = await response.blob();
+        const name = path.split("/").pop() ?? "sample";
+        return new File([blob], name, { type: blob.type });
+      }),
+    );
+    interpret(files);
   }
 
   return (
@@ -90,15 +96,15 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           {pending ? (aiReady ? "Reading with AI…" : "Reading documents…") : "Choose documents"}
         </button>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
-          {SAMPLES.map(([path, label]) => (
+          {SAMPLES.map((sample) => (
             <button
-              key={path}
+              key={sample.label}
               type="button"
-              onClick={() => loadSample(path)}
+              onClick={() => loadSample(sample.paths)}
               disabled={pending}
               className="rounded-full border border-[#dce4df] px-4 py-2 text-sm font-semibold text-[#355a3f]"
             >
-              Try {label}
+              Try {sample.label}
             </button>
           ))}
         </div>
