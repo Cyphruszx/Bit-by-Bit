@@ -78,6 +78,7 @@ function TagManager({
   const primaries = allPrimaryTags(transactions);
   const subs = allSubTags(transactions);
   const tags = [...primaries, ...subs.filter((tag) => !primaries.includes(tag))];
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
 
@@ -94,11 +95,30 @@ function TagManager({
 
   return (
     <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
-      <h2 className="text-base font-bold">Tags</h2>
-      <p className="mt-0.5 text-xs text-[#60716a]">
-        Primary tags drive spending and income totals. Sub-tags are extra detail and never add to those totals.
-      </p>
-      <div className="mt-3 divide-y divide-[#edf0ee]">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-base font-bold">Tags</h2>
+          <p className="mt-0.5 text-xs text-[#60716a]">
+            Primary tags drive spending and income totals. Sub-tags are extra detail and never add to those totals.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="tag-manager-list"
+          onClick={() => {
+            if (open) setEditing(null);
+            setOpen(!open);
+          }}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f]"
+        >
+          {open ? "Hide" : `Show ${tags.length}`}
+          <span aria-hidden="true" className={`inline-block leading-none ${open ? "rotate-180" : ""}`}>
+            ▾
+          </span>
+        </button>
+      </div>
+      <div id="tag-manager-list" hidden={!open} className="mt-3 divide-y divide-[#edf0ee]">
         {tags.map((tag) => (
           <div className="flex flex-wrap items-center justify-between gap-2 py-1.5" key={tag}>
             {editing === tag ? (
