@@ -18,10 +18,15 @@ Three anonymised statements live in `public/samples/`. Every number below is mea
 
 The NAB pair reads correctly and reconciles: money in **$204,214.49**, money out **$203,665.05**, net **$549.44**. Everyday alone is $164,344.90 / $160,675.88 / $3,669.02; rent alone is $39,869.59 / $42,989.17 / −$3,119.58. These are asserted in `ledger.test.ts` and `interpret.test.ts`. If you break them, you have broken the reader.
 
-Two measurements drive the whole roadmap:
+Two measurements drive the whole roadmap. Both were re-measured after the dedupe fix, and the cross-bank one moved a long way, so use these and not the figures the first draft carried:
 
-- **Between the two NAB accounts**: 27 transfers, **$41,842.82 on each side**, every one same-day with no ambiguity. That is a fifth of the reported money in and out being the same dollars counted twice.
-- **Between NAB and Up**: 91 transfers, **$52,440.06 on each side**, matching on equal amount within two business days with the credit not preceding the debit. **12 of those had more than one candidate**, which is why the matcher must score candidates and refuse to guess rather than take the first match.
+- **Between the two NAB accounts**: 27 transfers, **$41,842.82 on each side**, every one same-day with no ambiguity. Unchanged by the fix, and widening the window to a business day adds nothing, so the same-day characterisation holds. That is a fifth of the reported money in and out being the same dollars counted twice.
+- **Between NAB and Up**: **100 transfers, $61,894.45 on each side**, matching on equal amount within two business days with the credit not preceding the debit. **18 of the 100 were chosen from more than one candidate** (19 debits have a tie somewhere), which is why the matcher must score candidates and refuse to guess.
+
+The first draft recorded 91 transfers and $52,440.06 here. That figure is reproducible, but only under the old dedupe *and* only by counting one direction, NAB to Up, at a one-business-day window — not the two-day rule the text claimed. Both departures matter:
+
+- **Money flows both ways.** Three transfers worth **$7,070.00** run Up to NAB and a one-directional pass cannot see them.
+- **Ambiguity was understated roughly fourfold.** The old measurement found 12 contested pairs; the same rule now finds 18, because restoring the dropped repeat movements put more equal-amount candidates in the window. The matcher's scoring requirement is more load-bearing than the plan assumed, not less.
 
 The samples are anonymised with a shared pseudonym: the account holder is **Jordan Lee** in all three files, so the transfers between banks still line up. Never commit a real statement. `interpret.test.ts` has a test that fails if personal detail reappears in a sample.
 
@@ -66,10 +71,10 @@ Stages, in order. Only the ledger is done.
 2. **Account identity** — give every movement an `accountId` with an institution and a display label, group by account rather than by file, and split the Up savers into their own accounts. `accountKey` already exists on `InterpretedTransaction` and is populated for NAB; this stage builds on it. Nothing else can be correct before this.
 3. **Bank profiles** — turn the ad-hoc handling into a profile per bank and format, each with a fixture and golden totals. NAB and Up already have bespoke pieces in `statement-category.ts` and `up-statement.ts`; today's heuristics become the fallback profile.
 4. **The transfer matcher** — pair a debit with a credit of equal amount in a different account. Requirements the owner asked for explicitly, and the measurements that justify them:
-   - Count **business days, not calendar days**. All 446 NAB movements fall Monday to Friday, so a Friday transfer landing Monday is one business day, not three.
+   - Count **business days, not calendar days**. All 437 NAB movements fall Monday to Friday — none on a weekend — so a Friday transfer landing Monday is one business day, not three.
    - Size the window to the route: same bank stays at one business day, cross-institution gets two or three, slower rails get more but demand corroboration.
    - **Respect the arrow of time** — a credit may lag the debit by the whole window but lead it by at most a day.
-   - **Score candidates and require a clear winner**, because $500 appears 25 times as an outgoing amount, $300 twenty times and $200 seventeen times. Where two candidates tie, leave it unmatched and ask. 12 of the 91 cross-bank pairs are in this position.
+   - **Score candidates and require a clear winner**, because across NAB and Up $500 appears 33 times as an outgoing amount, $300 twenty-six times and $200 twenty-seven times. Where two candidates tie, leave it unmatched and ask. 18 of the 100 cross-bank pairs are in this position.
    - **Match recurring series** rather than single legs where a repeated amount runs on a cadence.
    - **Re-match when new statements arrive**, over the whole ledger, idempotently — a transfer sent at the end of one statement lands in the next.
    - Also collapse **pending-then-settled** duplicates within one account, which is the other face of delay.
