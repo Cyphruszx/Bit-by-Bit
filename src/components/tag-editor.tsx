@@ -2,15 +2,30 @@
 
 import { useState, type ReactNode } from "react";
 
+export function TagList({ tags, aiSuggested = false }: { tags: string[]; aiSuggested?: boolean }) {
+  const primary = tags[0] ?? "Other";
+  const subs = tags.slice(1);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <TagChip name={primary} tone="primary" />
+      {subs.map((tag) => (
+        <TagChip key={tag} name={tag} tone="sub" />
+      ))}
+      {aiSuggested ? (
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-[#527166]">AI</span>
+      ) : null}
+    </div>
+  );
+}
+
 export function TagEditor({
   tags,
-  aiSuggested = false,
   suggestions,
   listId,
   onChange,
 }: {
   tags: string[];
-  aiSuggested?: boolean;
   suggestions: string[];
   listId: string;
   onChange: (tags: string[]) => void;
@@ -23,9 +38,6 @@ export function TagEditor({
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <TagRow label="Primary">
         <TagChip name={primary} tone="primary" onRemove={subs.length > 0 ? () => onChange(subs) : undefined} />
-        {aiSuggested ? (
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-[#527166]">AI</span>
-        ) : null}
         <TagNameForm
           listId={`${listId}-primary`}
           options={unused}
