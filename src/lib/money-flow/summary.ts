@@ -6,10 +6,18 @@ import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/
 export type TagFlowDirection = "out" | "in";
 export const NO_SUB_TAG = "No sub-tag";
 
-export type TagChartSeries = {
-  rows: CategorySpend[];
+/** A tag's net position: `amount` is signed, positive for money in and negative for money out. */
+export type TagFlowRow = CategorySpend & {
+  income: number;
+  spending: number;
+};
+
+export type TagFlowSeries = {
+  rows: TagFlowRow[];
   level: "primary" | "sub";
-  total: number;
+  income: number;
+  spending: number;
+  net: number;
   parent: string | null;
 };
 
@@ -63,40 +71,64 @@ export function amountByPrimaryTags(
   return aggregateByTag(directed(transactions, direction), (txn) => primaryTag(txn));
 }
 
-export function amountByFirstSubTag(
-  transactions: InterpretedTransaction[],
-  direction: TagFlowDirection = "out",
-): CategorySpend[] {
-  return aggregateByTag(directed(transactions, direction), (txn) => subTags(txn)[0] ?? NO_SUB_TAG);
-}
-
-export function chartTagSeries(
-  transactions: InterpretedTransaction[],
-  selectedTag: string,
-  direction: TagFlowDirection = "out",
-): TagChartSeries {
-  const rows = directed(transactions, direction);
+export function chartTagFlowSeries(transactions: InterpretedTransaction[], selectedTag: string): TagFlowSeries {
+  const rows = transactions.filter((txn) => txn.type !== "transfer" && txn.amount !== 0);
   const selectedIsPrimary = rows.some((txn) => primaryTag(txn) === selectedTag);
 
   if (selectedTag !== "All" && selectedIsPrimary) {
     const underPrimary = rows.filter((txn) => primaryTag(txn) === selectedTag);
     const hasSub = underPrimary.some((txn) => subTags(txn).length > 0);
     return {
-      rows: hasSub ? amountByFirstSubTag(underPrimary, direction) : amountByPrimaryTags(underPrimary, direction),
+      rows: netByTag(underPrimary, hasSub ? (txn) => subTags(txn)[0] ?? NO_SUB_TAG : (txn) => primaryTag(txn)),
       level: hasSub ? "sub" : "primary",
-      total: signedTotal(underPrimary),
+      ...flowTotals(underPrimary),
       parent: selectedTag,
     };
   }
 
-  const filtered =
-    selectedTag === "All" ? rows : rows.filter((txn) => tagsOf(txn).includes(selectedTag));
+  const filtered = selectedTag === "All" ? rows : rows.filter((txn) => tagsOf(txn).includes(selectedTag));
   return {
-    rows: amountByPrimaryTags(filtered, direction),
+    rows: netByTag(filtered, (txn) => primaryTag(txn)),
     level: "primary",
-    total: signedTotal(filtered),
+    ...flowTotals(filtered),
     parent: null,
   };
+}
+
+function flowTotals(transactions: InterpretedTransaction[]): { income: number; spending: number; net: number } {
+  const income = roundMoney(transactions.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0));
+  const spending = roundMoney(
+    transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+  );
+  return { income, spending, net: roundMoney(income - spending) };
+}
+
+function netByTag(
+  transactions: InterpretedTransaction[],
+  keyOf: (txn: InterpretedTransaction) => string,
+): TagFlowRow[] {
+  const byTag = new Map<string, { income: number; spending: number }>();
+  for (const txn of transactions) {
+    const name = keyOf(txn);
+    const entry = byTag.get(name) ?? { income: 0, spending: 0 };
+    if (txn.amount > 0) entry.income = roundMoney(entry.income + txn.amount);
+    else entry.spending = roundMoney(entry.spending + Math.abs(txn.amount));
+    byTag.set(name, entry);
+  }
+
+  const totalAbs = [...byTag.values()].reduce((sum, entry) => sum + Math.abs(entry.income - entry.spending), 0);
+  return [...byTag.entries()]
+    .map(([name, entry]) => {
+      const amount = roundMoney(entry.income - entry.spending);
+      return {
+        name,
+        amount,
+        income: entry.income,
+        spending: entry.spending,
+        share: totalAbs > 0 ? Math.round((Math.abs(amount) / totalAbs) * 100) : 0,
+      };
+    })
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount) || a.name.localeCompare(b.name));
 }
 
 function directed(transactions: InterpretedTransaction[], direction: TagFlowDirection): InterpretedTransaction[] {
