@@ -5,7 +5,7 @@ import { TagEditor, TagList } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
-import { allTags, tagsOf } from "@/lib/money-flow/tags";
+import { allTags, hasTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 type Direction = "all" | "in" | "out";
@@ -22,12 +22,15 @@ export function TransactionTable({
   tag?: string;
   onTagChange?: (tag: string) => void;
 }) {
-  const { setTransactionTags } = useMoneyFlow();
+  const { allTransactions, setMerchantTags, setTransactionTags } = useMoneyFlow();
   const [query, setQuery] = useState("");
   const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  // Raised after a tag edit when the same merchant appears on other movements, so the edit
+  // can be carried across without the reader hunting them down one at a time.
+  const [spread, setSpread] = useState<{ id: string; merchant: string; tags: string[]; others: number } | null>(null);
   const tagOptions = useMemo(() => ["All", ...allTags(transactions)], [transactions]);
   const selectedTag = tag ?? internalTag;
   const activeTag = tagOptions.includes(selectedTag) ? selectedTag : "All";
@@ -134,7 +137,10 @@ export function TransactionTable({
                     type="button"
                     aria-expanded={editing}
                     aria-controls={`tag-editor-${txn.id}`}
-                    onClick={() => setEditingId(editing ? null : txn.id)}
+                    onClick={() => {
+                      setSpread(null);
+                      setEditingId(editing ? null : txn.id);
+                    }}
                     className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
                       editing ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
                     }`}
@@ -151,8 +157,47 @@ export function TransactionTable({
                     tags={tagsOf(txn)}
                     suggestions={allTags(transactions)}
                     listId={`tag-suggestions-${txn.id}`}
-                    onChange={(next) => setTransactionTags(txn.id, next)}
+                    onChange={(next) => {
+                      // The row the reader is on changes now; the rest is offered, not assumed.
+                      setTransactionTags(txn.id, next);
+                      // Only the movements the edit would actually change are worth offering.
+                      const others = merchantRows(allTransactions, txn.merchant).filter(
+                        (row) => row.id !== txn.id && !hasTags(row, next),
+                      ).length;
+                      setSpread(others > 0 ? { id: txn.id, merchant: txn.merchant, tags: next, others } : null);
+                    }}
                   />
+                  {spread?.id === txn.id ? (
+                    <div
+                      aria-live="polite"
+                      className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-[#f4f8ec] px-3 py-2"
+                    >
+                      <p className="text-xs text-[#355a3f]">
+                        {spread.others === 1
+                          ? `One other ${spread.merchant} movement is tagged differently.`
+                          : `${formatCount(spread.others)} other ${spread.merchant} movements are tagged differently.`}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMerchantTags(spread.merchant, spread.tags);
+                            setSpread(null);
+                          }}
+                          className="rounded-full bg-[#173b31] px-2.5 py-1 text-xs font-semibold text-white"
+                        >
+                          Apply to those {formatCount(spread.others)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSpread(null)}
+                          className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f]"
+                        >
+                          Just this one
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );

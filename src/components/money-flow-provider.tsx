@@ -16,7 +16,7 @@ import {
 } from "@/lib/money-flow/ledger";
 import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
-import { removeTag, renameTag, tagsOf, withTags } from "@/lib/money-flow/tags";
+import { removeTag, renameTag, tagMerchant, tagsOf, withTags } from "@/lib/money-flow/tags";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 import { createLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
 
@@ -56,6 +56,8 @@ type MoneyFlowState = {
   removeStatement: (key: string) => void;
   clearInterpretation: () => void;
   setTransactionTags: (id: string, tags: string[]) => void;
+  /** The same tags on every movement of one merchant, however far back it goes. */
+  setMerchantTags: (merchant: string, tags: string[]) => void;
   renameTagEverywhere: (from: string, to: string) => void;
   removeTagEverywhere: (name: string) => void;
 };
@@ -88,6 +90,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       removeStatement,
       clearInterpretation: clearLedger,
       setTransactionTags,
+      setMerchantTags,
       renameTagEverywhere,
       removeTagEverywhere,
     };
@@ -187,6 +190,10 @@ function writePeriod(period: PeriodFilter) {
 
 function setTransactionTags(id: string, tags: string[]) {
   edit((rows) => rows.map((txn) => (txn.id === id ? withTags(txn, tags) : txn)));
+}
+
+function setMerchantTags(merchant: string, tags: string[]) {
+  edit((rows) => tagMerchant(rows, merchant, tags));
 }
 
 function renameTagEverywhere(from: string, to: string) {
