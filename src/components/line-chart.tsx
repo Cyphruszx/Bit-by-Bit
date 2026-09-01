@@ -22,10 +22,12 @@ export function LineChart({
   series,
   height = 240,
   ariaLabel,
+  showPoints = true,
 }: {
   series: LineChartSeries[];
   height?: number;
   ariaLabel: string;
+  showPoints?: boolean;
 }) {
   const labels = sharedLabels(series);
   if (labels.length === 0) {
@@ -106,18 +108,20 @@ export function LineChart({
                   strokeDasharray={item.dashed ? "6 6" : undefined}
                 />
               ) : null}
-              {aligned.map((point, index) =>
-                point ? (
-                  <circle
-                    key={`${item.id}-${point.key}`}
-                    cx={x(index)}
-                    cy={y(point.value)}
-                    r="3.5"
-                    fill={item.color}
-                    aria-label={`${item.label}: ${formatAud(point.value)} · ${point.label}`}
-                  />
-                ) : null,
-              )}
+              {showPoints
+                ? aligned.map((point, index) =>
+                    point ? (
+                      <circle
+                        key={`${item.id}-${point.key}`}
+                        cx={x(index)}
+                        cy={y(point.value)}
+                        r="3.5"
+                        fill={item.color}
+                        aria-label={`${item.label}: ${formatAud(point.value)} · ${point.label}`}
+                      />
+                    ) : null,
+                  )
+                : null}
             </g>
           );
         })}
