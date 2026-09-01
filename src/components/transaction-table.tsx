@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TagEditor } from "@/components/tag-editor";
+import { TagEditor, TagList } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatSignedAud } from "@/lib/format";
 import { allTags, tagsOf } from "@/lib/money-flow/tags";
@@ -22,6 +22,7 @@ export function TransactionTable({
   const [query, setQuery] = useState("");
   const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const tagOptions = useMemo(() => ["All", ...allTags(transactions)], [transactions]);
   const selectedTag = tag ?? internalTag;
   const activeTag = tagOptions.includes(selectedTag) ? selectedTag : "All";
@@ -49,19 +50,19 @@ export function TransactionTable({
 
   return (
     <div>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search merchants, tags, or files"
-          className="w-full rounded-full border border-[#dce4df] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#173b31] sm:max-w-xs"
+          className="w-full rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31] sm:max-w-xs"
         />
         <select
           value={activeTag}
           onChange={(event) => selectTag(event.target.value)}
           aria-label="Filter by tag"
-          className="rounded-full border border-[#dce4df] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#173b31]"
+          className="rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31]"
         >
           {tagOptions.map((name) => (
             <option key={name} value={name}>
@@ -73,15 +74,16 @@ export function TransactionTable({
           {(
             [
               ["all", "All"],
-              ["in", "Money in"],
-              ["out", "Money out"],
+              ["in", "In"],
+              ["out", "Out"],
             ] as const
           ).map(([value, label]) => (
             <button
               key={value}
               type="button"
+              aria-label={value === "all" ? "All directions" : value === "in" ? "Money in" : "Money out"}
               onClick={() => setDirection(value)}
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                 direction === value ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
               }`}
             >
@@ -90,30 +92,56 @@ export function TransactionTable({
           ))}
         </div>
       </div>
-      <div className="mt-5 divide-y divide-[#edf0ee]">
+      <div className="mt-3 divide-y divide-[#edf0ee]">
         {rows.length === 0 ? (
-          <p className="py-8 text-sm text-[#60716a]">
+          <p className="py-5 text-sm text-[#60716a]">
             {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
           </p>
         ) : (
-          rows.map((txn) => (
-            <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between" key={txn.id}>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold">{txn.merchant}</p>
-                <p className="mt-1 text-sm text-[#77857f]">{txn.date}</p>
-                <TagEditor
-                  tags={tagsOf(txn)}
-                  aiSuggested={txn.tagSource === "ai"}
-                  suggestions={allTags(transactions)}
-                  listId={`tag-suggestions-${txn.id}`}
-                  onChange={(next) => setTransactionTags(txn.id, next)}
-                />
+          rows.map((txn) => {
+            const editing = editingId === txn.id;
+            return (
+              <div className="py-2" key={txn.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+                      <p className="text-sm font-semibold">{txn.merchant}</p>
+                      <p className={`text-sm font-semibold tabular-nums ${txn.amount > 0 ? "text-[#257155]" : ""}`}>
+                        {formatSignedAud(txn.amount)}
+                      </p>
+                      <p className="text-[11px] text-[#77857f]">{txn.date}</p>
+                    </div>
+                    <div className="mt-1">
+                      <TagList tags={tagsOf(txn)} aiSuggested={txn.tagSource === "ai"} />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    aria-expanded={editing}
+                    aria-controls={`tag-editor-${txn.id}`}
+                    onClick={() => setEditingId(editing ? null : txn.id)}
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      editing ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
+                    }`}
+                  >
+                    {editing ? "Done" : "Edit tags"}
+                  </button>
+                </div>
+                <div
+                  id={`tag-editor-${txn.id}`}
+                  hidden={!editing}
+                  className="mt-2 border-t border-dashed border-[#dce4df] pt-2"
+                >
+                  <TagEditor
+                    tags={tagsOf(txn)}
+                    suggestions={allTags(transactions)}
+                    listId={`tag-suggestions-${txn.id}`}
+                    onChange={(next) => setTransactionTags(txn.id, next)}
+                  />
+                </div>
               </div>
-              <p className={`font-semibold sm:pt-0.5 ${txn.amount > 0 ? "text-[#257155]" : ""}`}>
-                {formatSignedAud(txn.amount)}
-              </p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
