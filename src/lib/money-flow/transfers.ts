@@ -65,7 +65,13 @@ export function matchTransfers(
   const names = new Set(
     [...account.values()].map(accountName).filter((name) => name.length >= 3),
   );
-  const credits = transactions.filter((txn) => txn.amount > 0).sort(byDateThenId);
+  // Indexed by amount, because equal amounts are the only pairs worth considering and
+  // a ledger holds years of movements a summary should not have to walk twice.
+  const byAmount = new Map<string, InterpretedTransaction[]>();
+  for (const credit of transactions.filter((txn) => txn.amount > 0).sort(byDateThenId)) {
+    const key = amountKey(credit.amount);
+    byAmount.set(key, [...(byAmount.get(key) ?? []), credit]);
+  }
   const debits = transactions.filter((txn) => txn.amount < 0).sort(byDateThenId);
 
   const claimed = new Set<string>();
@@ -73,9 +79,8 @@ export function matchTransfers(
   const contested: ContestedTransfer[] = [];
 
   for (const debit of debits) {
-    const candidates = credits.filter((credit) => {
+    const candidates = (byAmount.get(amountKey(-debit.amount)) ?? []).filter((credit) => {
       if (claimed.has(credit.id)) return false;
-      if (Math.abs(credit.amount + debit.amount) >= CENT) return false;
       // The same money cannot leave and arrive in the same account.
       if (account.get(credit.id) === account.get(debit.id)) return false;
       // A credit may lag its debit while the money settles, but never precede it.
@@ -165,11 +170,44 @@ function alike(a: InterpretedTransaction, b: InterpretedTransaction): boolean {
   );
 }
 
+/**
+ * Writes each pair onto its two legs, so every total, chart and card downstream reads
+ * the same verdict without being handed the match. Legs of a pair that no longer holds
+ * — a statement removed, an account renamed — lose the mark rather than keeping a
+ * decision nothing supports any more.
+ */
+export function markTransferLegs(
+  transactions: InterpretedTransaction[],
+  options: MatchOptions = {},
+): InterpretedTransaction[] {
+  const match = matchTransfers(transactions, options);
+  const pairOf = new Map<string, string>();
+  for (const pair of match.pairs) {
+    const id = `${pair.debit.id}~${pair.credit.id}`;
+    pairOf.set(pair.debit.id, id);
+    pairOf.set(pair.credit.id, id);
+  }
+
+  return transactions.map((txn) => {
+    const pair = pairOf.get(txn.id);
+    if (pair) return txn.transferPair === pair ? txn : { ...txn, transferPair: pair };
+    if (!txn.transferPair) return txn;
+    const forgotten = { ...txn };
+    delete forgotten.transferPair;
+    return forgotten;
+  });
+}
+
 export function withoutMatchedLegs(
   transactions: InterpretedTransaction[],
   match: TransferMatch,
 ): InterpretedTransaction[] {
   return transactions.filter((txn) => !match.matched.has(txn.id));
+}
+
+/** Money to the cent, so equal amounts land in the same bucket. */
+function amountKey(amount: number): string {
+  return Math.round(Math.abs(amount) * 100).toString();
 }
 
 /** Ordered so the same movements always produce the same pairs. */

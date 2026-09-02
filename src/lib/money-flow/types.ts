@@ -38,6 +38,12 @@ export type InterpretedTransaction = {
    * when a movement is first seen, while this may improve as the reader does.
    */
   accountId?: string;
+  /**
+   * Set when the other leg of this transfer was found in another account, which is the
+   * only thing that makes a movement the person's own money rather than income or
+   * spending. Both legs carry the same value.
+   */
+  transferPair?: string;
   /** Raw statement wording, kept because it identifies a movement more reliably than the tidied merchant. */
   description?: string;
   tags?: string[];
@@ -69,7 +75,10 @@ export type MoneyFlowSummary = {
   cashIn: number;
   cashOut: number;
   cashNet: number;
+  /** Money moved between the person's own accounts, counted once rather than twice. */
   transfers: number;
+  /** Movements a bank calls internal that have no partner here, so they still count. */
+  unmatchedInternal: number;
   refunds: number;
   transactionCount: number;
   categories: CategorySpend[];
