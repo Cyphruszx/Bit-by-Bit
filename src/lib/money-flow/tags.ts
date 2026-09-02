@@ -55,13 +55,6 @@ export function merchantRows(
   return transactions.filter((txn) => sameMerchant(txn.merchant, merchant));
 }
 
-/** Whether these tags would leave the movement exactly as it already is. */
-export function hasTags(txn: InterpretedTransaction, tags: string[]): boolean {
-  const current = tagsOf(txn);
-  const next = tagsOf(withTags(txn, tags));
-  return current.length === next.length && current.every((tag, index) => tag === next[index]);
-}
-
 /** The same tags on every movement of one merchant, leaving every other movement alone. */
 export function tagMerchant(
   transactions: InterpretedTransaction[],

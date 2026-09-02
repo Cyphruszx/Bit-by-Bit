@@ -5,7 +5,7 @@ import { TagEditor, TagList } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
-import { allTags, hasTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
+import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 type Direction = "all" | "in" | "out";
@@ -28,8 +28,8 @@ export function TransactionTable({
   const [direction, setDirection] = useState<Direction>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  // Raised after a tag edit when the same merchant appears on other movements, so the edit
-  // can be carried across without the reader hunting them down one at a time.
+  // Raised after every tag edit where the merchant appears more than once, so the edit can be
+  // carried across without the reader hunting the rest down one at a time.
   const [spread, setSpread] = useState<{ id: string; merchant: string; tags: string[]; others: number } | null>(null);
   const tagOptions = useMemo(() => ["All", ...allTags(transactions)], [transactions]);
   const selectedTag = tag ?? internalTag;
@@ -160,9 +160,8 @@ export function TransactionTable({
                     onChange={(next) => {
                       // The row the reader is on changes now; the rest is offered, not assumed.
                       setTransactionTags(txn.id, next);
-                      // Only the movements the edit would actually change are worth offering.
                       const others = merchantRows(allTransactions, txn.merchant).filter(
-                        (row) => row.id !== txn.id && !hasTags(row, next),
+                        (row) => row.id !== txn.id,
                       ).length;
                       setSpread(others > 0 ? { id: txn.id, merchant: txn.merchant, tags: next, others } : null);
                     }}
@@ -174,8 +173,8 @@ export function TransactionTable({
                     >
                       <p className="text-xs text-[#355a3f]">
                         {spread.others === 1
-                          ? `One other ${spread.merchant} movement is tagged differently.`
-                          : `${formatCount(spread.others)} other ${spread.merchant} movements are tagged differently.`}
+                          ? `${spread.merchant} appears on one other movement.`
+                          : `${spread.merchant} appears on ${formatCount(spread.others)} other movements.`}
                       </p>
                       <div className="flex gap-2">
                         <button
@@ -186,7 +185,7 @@ export function TransactionTable({
                           }}
                           className="rounded-full bg-[#173b31] px-2.5 py-1 text-xs font-semibold text-white"
                         >
-                          Apply to those {formatCount(spread.others)}
+                          Apply to all {formatCount(spread.others + 1)}
                         </button>
                         <button
                           type="button"

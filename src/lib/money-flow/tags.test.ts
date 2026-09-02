@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { allPrimaryTags, allSubTags, hasTags, makePrimary, merchantRows, primaryTag, removeTag, renameTag, sameMerchant, subTags, tagMerchant, tagsOf, tidyTag, withPrimary, withTags } from "./tags";
+import { allPrimaryTags, allSubTags, makePrimary, merchantRows, primaryTag, removeTag, renameTag, sameMerchant, subTags, tagMerchant, tagsOf, tidyTag, withPrimary, withTags } from "./tags";
 import type { InterpretedTransaction } from "./types";
 
 function txn(category: string, tags?: string[]): InterpretedTransaction {
@@ -84,16 +84,6 @@ describe("tagging every movement of a merchant", () => {
     const untouched = next.find((r) => r.id === "3");
     assert.deepEqual(untouched?.tags, ["Groceries"]);
     assert.equal(untouched, rows[2], "an unrelated row should not be rebuilt");
-  });
-
-  it("knows which movements the tags would actually change", () => {
-    const tagged = row("5", "Woolworths", ["Food", "Weekly Shop"]);
-    assert.ok(hasTags(tagged, ["Food", "Weekly Shop"]));
-    // Case and spacing are tidied before comparing, so neither counts as a change.
-    assert.ok(hasTags(tagged, ["food", " weekly shop "]));
-    assert.ok(!hasTags(tagged, ["Food"]));
-    assert.ok(!hasTags(tagged, ["Weekly Shop", "Food"]), "order sets the primary, so it matters");
-    assert.ok(!hasTags(row("6", "Woolworths"), ["Food"]));
   });
 
   it("leaves the list alone when no movement carries that merchant", () => {
