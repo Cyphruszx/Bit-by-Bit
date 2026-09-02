@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { accountIdOf, accountLabel, accountsFrom, identifyAccounts } from "./accounts";
+import {
+  accountIdOf,
+  accountLabel,
+  accountsByInstitution,
+  accountsFrom,
+  identifyAccounts,
+  observedAccountKey,
+  suggestNameForKey,
+} from "./accounts";
 import type { InterpretedTransaction } from "./types";
 
 function txn(over: Partial<InterpretedTransaction> = {}): InterpretedTransaction {
@@ -35,13 +43,23 @@ describe("naming an account", () => {
     assert.notEqual(accountIdOf(nab), accountIdOf(anz));
   });
 
-  it("leaves the account alone when nothing names the bank or the account", () => {
-    assert.equal(identifyAccounts([txn()], undefined)[0].accountId, undefined);
+  it("takes the account off the letterhead when the movements name none", () => {
+    const [row] = identifyAccounts([txn()], "NAB", { number: "100200300" });
+    assert.equal(row.accountId, "NAB · 100200300");
   });
 
-  it("falls back to the bank, then the statement, so a movement always belongs somewhere", () => {
-    assert.equal(accountIdOf(txn({ institution: "NAB" })), "NAB");
-    assert.equal(accountIdOf(txn()), "statement.csv");
+  it("gives a statement that names no account one of its own", () => {
+    // Two statements from one bank stay two accounts, so a transfer between them can
+    // still be found. Merging them is the person's call, not a guess.
+    const first = identifyAccounts([txn({ sourceFile: "cba-may.csv" })], "Commonwealth Bank")[0];
+    const second = identifyAccounts([txn({ sourceFile: "cba-june.csv" })], "Commonwealth Bank")[0];
+
+    assert.equal(first.accountId, "Commonwealth Bank · cba-may.csv");
+    assert.notEqual(accountIdOf(first), accountIdOf(second));
+  });
+
+  it("still files a movement somewhere when nothing names the bank either", () => {
+    assert.equal(observedAccountKey(txn()), "Unknown source · statement.csv");
   });
 
   it("shortens an account number rather than reciting it", () => {
@@ -78,6 +96,52 @@ describe("account totals", () => {
     assert.equal(
       accounts.reduce((sum, account) => sum + account.transactions.length, 0),
       rows.length,
+    );
+  });
+});
+
+describe("naming and merging accounts", () => {
+  const nabNumber = txn({ accountId: "NAB · 100200300", institution: "NAB", amount: -50 });
+  const nabMasked = txn({ accountId: "NAB · ···300", institution: "NAB", amount: -20 });
+
+  it("shows the name a person gave in place of the number", () => {
+    const named = { "NAB · 100200300": "Everyday" };
+    assert.equal(accountIdOf(nabNumber, { names: named }), "NAB · Everyday");
+  });
+
+  it("makes two keys one account when both are given the same name", () => {
+    const named = { "NAB · 100200300": "Everyday", "NAB · ···300": "Everyday" };
+    const accounts = accountsFrom([nabNumber, nabMasked], { names: named });
+
+    assert.equal(accounts.length, 1);
+    assert.equal(accounts[0].transactions.length, 2);
+    assert.deepEqual(accounts[0].keys.sort(), ["NAB · 100200300", "NAB · ···300"]);
+    assert.equal(accounts[0].named, true);
+  });
+
+  it("keeps them apart until someone says otherwise", () => {
+    assert.equal(accountsFrom([nabNumber, nabMasked]).length, 2);
+  });
+
+  it("suggests a name worth accepting", () => {
+    assert.equal(suggestNameForKey("NAB · 100200300", "nab.csv"), "NAB ···300");
+    assert.equal(suggestNameForKey("Up · Tax", "up.txt"), "Tax");
+    assert.equal(
+      suggestNameForKey("Commonwealth Bank · cba-may.csv", "cba-may.csv"),
+      "Commonwealth Bank · cba may",
+    );
+  });
+
+  it("sorts accounts under the bank they belong to", () => {
+    const grouped = accountsByInstitution([
+      nabNumber,
+      txn({ accountId: "Up · Tax", institution: "Up", amount: 5 }),
+      txn({ accountId: "Up · Spending", institution: "Up", amount: -5 }),
+    ]);
+
+    assert.deepEqual(
+      grouped.map((row) => [row.institution, row.accounts.length]),
+      [["NAB", 1], ["Up", 2]],
     );
   });
 });

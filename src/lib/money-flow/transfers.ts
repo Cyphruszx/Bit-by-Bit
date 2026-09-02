@@ -1,4 +1,4 @@
-import { accountIdOf } from "@/lib/money-flow/accounts";
+import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/accounts";
 import { institutionOf, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -38,6 +38,8 @@ export type MatchOptions = {
   /** And between two, where the money travels over slower rails. */
   acrossBanks?: number;
   institutions?: InstitutionOverrides;
+  /** Accounts a person has named or merged, so a merged pair stops looking like two. */
+  accounts?: AccountRegistry["names"];
 };
 
 export const EMPTY_MATCH: TransferMatch = { pairs: [], contested: [], matched: new Set() };
@@ -59,7 +61,8 @@ export function matchTransfers(
   const acrossBanks = options.acrossBanks ?? 2;
   const overrides = options.institutions ?? {};
 
-  const account = new Map(transactions.map((txn) => [txn.id, accountIdOf(txn, overrides)]));
+  const registry: AccountRegistry = { institutions: overrides, ...(options.accounts ? { names: options.accounts } : {}) };
+  const account = new Map(transactions.map((txn) => [txn.id, accountIdOf(txn, registry)]));
   const bank = new Map(transactions.map((txn) => [txn.id, institutionOf(txn, overrides)]));
 
   const names = new Set(

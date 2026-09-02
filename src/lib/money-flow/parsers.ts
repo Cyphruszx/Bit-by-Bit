@@ -1,6 +1,7 @@
 import { type MoneyFlowAi, visionMime } from "@/lib/money-flow/ai";
 import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
 import { detectFileKind } from "@/lib/money-flow/detect";
+import { accountRefFromText } from "@/lib/money-flow/account-identity";
 import { identifyAccounts } from "@/lib/money-flow/accounts";
 import { detectInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
@@ -113,8 +114,11 @@ function stamped(
   result: { transactions: InterpretedTransaction[]; notes: string[] },
   signals: InstitutionSignals,
 ): { transactions: InterpretedTransaction[]; notes: string[] } {
+  // The letterhead names the account for every movement that did not name its own,
+  // which is how a PDF statement and a CSV export of the same account become one.
+  const documentRef = signals.text ? accountRefFromText(signals.text) : {};
   return {
-    transactions: identifyAccounts(result.transactions, detectInstitution(signals)),
+    transactions: identifyAccounts(result.transactions, detectInstitution(signals), documentRef),
     notes: result.notes,
   };
 }
