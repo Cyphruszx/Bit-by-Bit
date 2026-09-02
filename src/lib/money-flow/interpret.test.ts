@@ -8,6 +8,7 @@ import { totalsByInstitution } from "./documents";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate, roundMoney } from "./parse-values";
 import { summarizeMoneyFlow, chartTagFlowSeries, tagFlowOverTime } from "./summary";
+import { matchTransfers, withoutMatchedLegs } from "./transfers";
 import type { InterpretedTransaction, TransactionType } from "./types";
 
 let flowRowCount = 0;
@@ -889,5 +890,107 @@ describe("splitting the samples into accounts", () => {
     assert.equal(accounts.length, 11);
     assert.equal(roundMoney(accounts.reduce((sum, account) => sum + account.flow.cashNet, 0)), whole.cashNet);
     assert.equal(whole.cashNet, -507.51);
+  });
+});
+
+describe("matching the samples' transfers", () => {
+  const nabFiles = ["nab-medicare.csv", "nab-rent.csv"];
+
+  async function interpretEverySample() {
+    return interpretDocuments([
+      ...nabFiles.map((filename) => file(filename, "text/csv", readFileSync(path.join(samples, filename)))),
+      file("up-2025-07-to-2026-06.txt", "text/plain", readFileSync(upSample)),
+    ]);
+  }
+
+  function routeTotals(pairs: ReturnType<typeof matchTransfers>["pairs"], from: string, to: string) {
+    const matching = pairs.filter(
+      (pair) =>
+        (pair.fromAccount.startsWith(from) && pair.toAccount.startsWith(to)) ||
+        (pair.fromAccount.startsWith(to) && pair.toAccount.startsWith(from)),
+    );
+    return {
+      count: matching.length,
+      value: roundMoney(matching.reduce((sum, pair) => sum + Math.abs(pair.debit.amount), 0)),
+    };
+  }
+
+  it("finds the transfers between the two NAB accounts", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+
+    assert.deepEqual(routeTotals(match.pairs, "NAB", "NAB"), { count: 27, value: 41842.82 });
+  });
+
+  it("finds the transfers between NAB and Up, in both directions", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+    const toUp = match.pairs.filter((pair) => pair.fromAccount.startsWith("NAB") && pair.toAccount.startsWith("Up"));
+    const toNab = match.pairs.filter((pair) => pair.fromAccount.startsWith("Up") && pair.toAccount.startsWith("NAB"));
+
+    assert.deepEqual(routeTotals(match.pairs, "NAB", "Up"), { count: 100, value: 61894.45 });
+    assert.equal(toUp.length, 97);
+    assert.equal(toNab.length, 3, "money runs both ways, and a one-directional pass cannot see it");
+  });
+
+  it("finds the transfers between Up's spending account and its savers", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+    const inside = match.pairs.filter(
+      (pair) => pair.fromAccount.startsWith("Up") && pair.toAccount.startsWith("Up"),
+    );
+
+    assert.equal(inside.length, 42);
+    assert.equal(roundMoney(inside.reduce((sum, pair) => sum + Math.abs(pair.debit.amount), 0)), 14446.6);
+  });
+
+  it("leaves nothing it had to guess at", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+
+    assert.equal(match.pairs.length, 169);
+    assert.equal(match.contested.length, 0);
+    assert.equal(match.matched.size, 338);
+  });
+
+  it("matches legs that cancel each other out", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+
+    assert.equal(
+      roundMoney(match.pairs.reduce((sum, pair) => sum + pair.debit.amount + pair.credit.amount, 0)),
+      0,
+    );
+  });
+
+  it("leaves true income and true spending that agree with the money that moved", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+    const counted = withoutMatchedLegs(result.transactions, match);
+
+    const income = roundMoney(counted.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0));
+    const spending = roundMoney(
+      counted.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    );
+
+    assert.equal(income, 171051.61);
+    assert.equal(spending, 171559.12);
+    assert.equal(roundMoney(income - spending), summarizeMoneyFlow(result.transactions).cashNet);
+    assert.equal(roundMoney(income - spending), -507.51);
+  });
+
+  it("re-decides every pair when another statement arrives, without losing the totals", async () => {
+    const result = await interpretEverySample();
+    const nabOnly = result.transactions.filter((txn) => txn.institution === "NAB");
+
+    const alone = matchTransfers(nabOnly);
+    const together = matchTransfers(result.transactions);
+
+    assert.equal(alone.pairs.length, 27);
+    assert.deepEqual(routeTotals(together.pairs, "NAB", "NAB"), { count: 27, value: 41842.82 });
+    assert.ok(
+      alone.pairs.every((pair) => together.matched.has(pair.debit.id)),
+      "a debit matched from one statement stays matched once the next arrives",
+    );
   });
 });
