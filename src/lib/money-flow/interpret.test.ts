@@ -63,9 +63,21 @@ describe("value parsing", () => {
 });
 
 describe("document interpretation", () => {
-  it("interprets a Commonwealth Bank CSV into money flow", async () => {
-    const csv = readFileSync(path.join(samples, "commonwealth-bank.csv"));
-    const result = await interpretDocuments([file("commonwealth-bank.csv", "text/csv", csv)]);
+  it("interprets a debit and credit column CSV into money flow", async () => {
+    const csv = [
+      "Date,Description,Debit,Credit,Balance",
+      "25/08/2026,WOOLWORTHS 3120 BONDI,86.40,,2184.20",
+      "24/08/2026,NETFLIX.COM,18.99,,2270.60",
+      "18/08/2026,SALARY ACME PTY LTD,,2620.00,2289.59",
+      "17/08/2026,OPAL TAP OFF,42.00,,-330.41",
+      "15/08/2026,RENT PAYMENT SMITH,980.00,,-288.41",
+      "14/08/2026,BUNNINGS 3090,64.50,,691.59",
+      "12/08/2026,TRANSFER TO SAVINGS 082,400.00,,756.09",
+      "04/08/2026,SALARY ACME PTY LTD,,2620.00,1156.09",
+      "03/08/2026,COLES 0782,72.15,,-1463.91",
+      "02/08/2026,CAFE SYDNEY,28.40,,-1391.76",
+    ].join("\n");
+    const result = await interpretDocuments([file("everyday.csv", "text/csv", csv)]);
     assert.equal(result.files[0].processingStatus, "completed");
     assert.equal(result.flow.income, 5240);
     // One account on its own cannot show where the $400 went, so it counts as spending
@@ -81,16 +93,38 @@ describe("document interpretation", () => {
   });
 
   it("interprets OFX credit and debit tags", async () => {
-    const ofx = readFileSync(path.join(samples, "activity.ofx"));
-    const result = await interpretDocuments([file("activity.ofx", "application/x-ofx", ofx)]);
+    const ofx = `OFXHEADER:100
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT
+<DTPOSTED>20260825000000
+<TRNAMT>-86.40
+<NAME>WOOLWORTHS BONDI
+</STMTTRN>
+<STMTTRN><TRNTYPE>CREDIT
+<DTPOSTED>20260818000000
+<TRNAMT>2620.00
+<NAME>SALARY ACME PTY LTD
+</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT
+<DTPOSTED>20260815000000
+<TRNAMT>-980.00
+<NAME>RENT PAYMENT SMITH
+</STMTTRN>
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+    const result = await interpretDocuments([file("export.ofx", "application/x-ofx", ofx)]);
     assert.equal(result.flow.income, 2620);
     assert.equal(result.flow.spending, 1066.4);
     assert.equal(result.transactions.length, 3);
   });
 
   it("interprets unstructured receipt notes", async () => {
-    const text = readFileSync(path.join(samples, "receipt-notes.txt"));
-    const result = await interpretDocuments([file("receipt-notes.txt", "text/plain", text)]);
+    const text = [
+      "25 Aug 2026  Woolworths Bondi  $86.40 DR",
+      "18 Aug 2026  Salary Acme Pty Ltd  $2,620.00 CR",
+      "15 Aug 2026  Rent Payment Smith  $980.00 DR",
+      "02 Aug 2026  Cafe Sydney  $28.40 DR",
+    ].join("\n");
+    const result = await interpretDocuments([file("notes.txt", "text/plain", text)]);
     assert.ok(result.transactions.length >= 3);
     assert.equal(result.flow.income, 2620);
   });
