@@ -5,6 +5,7 @@ import { TagEditor, TagList } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
+import { accountIdOf, accountLabel } from "@/lib/money-flow/accounts";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -22,7 +23,17 @@ export function TransactionTable({
   tag?: string;
   onTagChange?: (tag: string) => void;
 }) {
-  const { allTransactions, setMerchantTags, setTransactionTags } = useMoneyFlow();
+  const { accountNames, allTransactions, institutionOverrides, setMerchantTags, setTransactionTags } = useMoneyFlow();
+  const registry = useMemo(
+    () => ({ names: accountNames, institutions: institutionOverrides }),
+    [accountNames, institutionOverrides],
+  );
+  const accountOf = useMemo(
+    () => new Map(transactions.map((txn) => [txn.id, accountLabel(accountIdOf(txn, registry))])),
+    [registry, transactions],
+  );
+  // Saying which account every movement is in only helps once there is more than one.
+  const showAccount = new Set(accountOf.values()).size > 1;
   const [query, setQuery] = useState("");
   const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
@@ -51,10 +62,11 @@ export function TransactionTable({
         needle.length === 0 ||
         txn.merchant.toLowerCase().includes(needle) ||
         tags.some((name) => name.toLowerCase().includes(needle)) ||
-        txn.sourceFile.toLowerCase().includes(needle);
+        txn.sourceFile.toLowerCase().includes(needle) ||
+        (accountOf.get(txn.id) ?? "").toLowerCase().includes(needle);
       return matchesTag && matchesDirection && matchesQuery;
     });
-  }, [activeTag, direction, query, transactions]);
+  }, [accountOf, activeTag, direction, query, transactions]);
 
   // Going back to the first page whenever the filter changes, so narrowing the list does not
   // leave the reader parked on a page of it that no longer means anything.
@@ -73,7 +85,7 @@ export function TransactionTable({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search merchants, tags, or files"
+          placeholder="Search merchants, tags, or accounts"
           className="w-full rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31] sm:max-w-xs"
         />
         <select
@@ -128,6 +140,11 @@ export function TransactionTable({
                         {formatSignedAud(txn.amount)}
                       </p>
                       <p className="text-[11px] text-[#77857f]">{txn.date}</p>
+                      {showAccount ? (
+                        <p className="rounded-full bg-[#f0f4f1] px-2 py-0.5 text-[11px] text-[#60716a]">
+                          {accountOf.get(txn.id)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="mt-1">
                       <TagList tags={tagsOf(txn)} aiSuggested={txn.tagSource === "ai"} />

@@ -1,50 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
-import { DocumentScopeBar } from "@/components/document-scope";
+import { useMemo, useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { ScopeBar } from "@/components/scope-bar";
+import { useScope, writeScope } from "@/components/scope-store";
 import { SavingsPathChart } from "@/components/savings-charts";
 import { useSavingsPots } from "@/components/savings-store";
 import { TagChartCard } from "@/components/tag-charts";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
-import {
-  ALL_DOCUMENTS,
-  filterByDocument,
-  parseDocumentScope,
-  parseDocumentView,
-  sourceFilesFrom,
-  totalsByDocument,
-  type DocumentScope,
-  type DocumentTotals,
-  type DocumentView,
-} from "@/lib/money-flow/documents";
+import { accountsByInstitution, type InstitutionAccounts } from "@/lib/money-flow/accounts";
+import { describeScope, filterByScope } from "@/lib/money-flow/scope";
 import { potsInTotal } from "@/lib/money-flow/savings";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import type { ChartKind } from "@/lib/money-flow/tag-charts";
 import type { MoneyFlowSummary } from "@/lib/money-flow/types";
 
-const DOC_VIEW_KEY = "bitbybit.dashboard-documents-v1";
-
 export function DashboardView() {
-  const { files, flow, hasUploads, transactions, usingDemo } = useMoneyFlow();
+  const { accountNames, flow, hasUploads, institutionOverrides, transactions, usingDemo } = useMoneyFlow();
   const { pots, snapshots } = useSavingsPots();
   const included = potsInTotal(pots);
   const hiddenCount = pots.length - included.length;
   const [chart, setChart] = useState<ChartKind>("bar");
-  const docs = useSyncExternalStore(subscribeDocs, getDocs, () => defaultDocs);
-  const sourceFiles = useMemo(() => sourceFilesFrom(transactions), [transactions]);
-  const scope = parseDocumentScope(docs.scope, sourceFiles);
-  const view = sourceFiles.length > 1 ? docs.view : "together";
-  const scopeKey = `${view}:${scope.kind === "file" ? scope.sourceFile : "all"}`;
+  const registry = useMemo(
+    () => ({ names: accountNames, institutions: institutionOverrides }),
+    [accountNames, institutionOverrides],
+  );
+  const groups = useMemo(() => accountsByInstitution(transactions, registry), [registry, transactions]);
+  const known = useMemo(
+    () => ({
+      institutions: groups.map((group) => group.institution),
+      accounts: groups.flatMap((group) => group.accounts.map((account) => account.id)),
+    }),
+    [groups],
+  );
+  const held = useScope(known);
+  const scope = held.scope;
+  const view = groups.length > 1 ? held.view : "together";
+  const scopeKey = `${view}:${JSON.stringify(scope)}`;
   const [chartTag, setChartTag] = useState({ key: scopeKey, tag: "All" });
   const selectedTag = chartTag.key === scopeKey ? chartTag.tag : "All";
   const setSelectedTag = (tag: string) => setChartTag({ key: scopeKey, tag });
   const scopedTransactions = useMemo(
-    () => (view === "together" ? filterByDocument(transactions, scope) : transactions),
-    [scope, transactions, view],
+    () => (view === "together" ? filterByScope(transactions, scope, registry) : transactions),
+    [registry, scope, transactions, view],
   );
   const scopedFlow = useMemo(() => {
     if (view !== "together" || scope.kind === "all") return flow;
@@ -52,7 +53,6 @@ export function DashboardView() {
     next.periodLabel = flow.periodLabel;
     return next;
   }, [flow, scope.kind, scopedTransactions, view]);
-  const separate = useMemo(() => totalsByDocument(files, transactions), [files, transactions]);
 
   return (
     <>
@@ -62,22 +62,20 @@ export function DashboardView() {
         {usingDemo
           ? "Sample activity until you upload a statement, spreadsheet, PDF, or photo of a document."
           : view === "separate"
-            ? "Totals for each uploaded document, still using the period filter above."
-            : scope.kind === "file"
-              ? `Money flow from ${scope.sourceFile}.`
-              : "Money flow interpreted from the documents you uploaded."}
+            ? "Each bank on its own, and the accounts inside it, still using the period filter above."
+            : describeScope(scope)}
       </p>
-      <DocumentScopeBar
-        sourceFiles={sourceFiles}
+      <ScopeBar
+        groups={groups}
         view={view}
         scope={scope}
-        onView={(next) => writeDocs({ view: next, scope })}
-        onScope={(next) => writeDocs({ view: "together", scope: next })}
+        onView={(next) => writeScope({ view: next, scope })}
+        onScope={(next) => writeScope({ view: "together", scope: next })}
       />
-      {view === "separate" && sourceFiles.length > 1 ? (
+      {view === "separate" && groups.length > 1 ? (
         <div className="mt-8 space-y-6">
-          {separate.map((entry) => (
-            <DocumentSnapshot key={entry.sourceFile} entry={entry} periodLabel={flow.periodLabel} />
+          {groups.map((group) => (
+            <InstitutionSnapshot key={group.institution} group={group} periodLabel={flow.periodLabel} />
           ))}
         </div>
       ) : (
@@ -179,62 +177,28 @@ function CashCards({ flow, hasUploads, compact = false }: { flow: MoneyFlowSumma
   );
 }
 
-function DocumentSnapshot({ entry, periodLabel }: { entry: DocumentTotals; periodLabel: string }) {
+function InstitutionSnapshot({ group, periodLabel }: { group: InstitutionAccounts; periodLabel: string }) {
   return (
     <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{periodLabel}</p>
-      <h2 className="mt-1 truncate text-lg font-bold">{entry.label}</h2>
-      {entry.processingError ? <p className="mt-2 text-sm text-[#9b3b32]">{entry.processingError}</p> : null}
+      <h2 className="mt-1 truncate text-lg font-bold">{group.institution}</h2>
       <p className="mt-1 text-sm text-[#60716a]">
-        {entry.flow.transactionCount} movement{entry.flow.transactionCount === 1 ? "" : "s"} in this document.
+        {group.flow.transactionCount} movement{group.flow.transactionCount === 1 ? "" : "s"} across{" "}
+        {group.accounts.length} account{group.accounts.length === 1 ? "" : "s"}.
       </p>
-      <CashCards flow={entry.flow} hasUploads compact />
-      {entry.flow.insights.length > 0 ? (
-        <ul className="mt-4 space-y-1 text-sm text-[#52625c]">
-          {entry.flow.insights.slice(0, 2).map((insight) => (
-            <li key={insight}>{insight}</li>
-          ))}
-        </ul>
-      ) : null}
+      <CashCards flow={group.flow} hasUploads compact />
+      <div className="mt-4 divide-y divide-[#edf0ee]">
+        {group.accounts.map((account) => (
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2" key={account.id}>
+            <p className="text-sm font-semibold">{account.label}</p>
+            <p className="text-sm text-[#60716a]">
+              <span className="tabular-nums">{formatAud(account.flow.cashIn)}</span> in ·{" "}
+              <span className="tabular-nums">{formatAud(account.flow.cashOut)}</span> out ·{" "}
+              <span className="font-semibold tabular-nums text-[#17211e]">{formatAud(account.flow.cashNet)}</span> net
+            </p>
+          </div>
+        ))}
+      </div>
     </article>
   );
-}
-
-const listeners = new Set<() => void>();
-const defaultDocs: { view: DocumentView; scope: DocumentScope } = { view: "together", scope: ALL_DOCUMENTS };
-let cachedRaw: string | null | undefined;
-let cachedDocs = defaultDocs;
-
-function subscribeDocs(onChange: () => void) {
-  listeners.add(onChange);
-  return () => listeners.delete(onChange);
-}
-
-function getDocs() {
-  try {
-    const raw = localStorage.getItem(DOC_VIEW_KEY);
-    if (raw === cachedRaw) return cachedDocs;
-    cachedRaw = raw;
-    if (!raw) {
-      cachedDocs = defaultDocs;
-      return defaultDocs;
-    }
-    const parsed = JSON.parse(raw) as { view?: unknown; scope?: unknown };
-    cachedDocs = {
-      view: parseDocumentView(parsed.view),
-      scope: typeof parsed.scope === "object" && parsed.scope ? (parsed.scope as DocumentScope) : ALL_DOCUMENTS,
-    };
-    return cachedDocs;
-  } catch {
-    cachedDocs = defaultDocs;
-    return defaultDocs;
-  }
-}
-
-function writeDocs(next: { view: DocumentView; scope: DocumentScope }) {
-  const raw = JSON.stringify(next);
-  localStorage.setItem(DOC_VIEW_KEY, raw);
-  cachedRaw = raw;
-  cachedDocs = next;
-  listeners.forEach((listener) => listener());
 }

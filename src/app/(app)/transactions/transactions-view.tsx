@@ -1,19 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { TransactionTable } from "@/components/transaction-table";
 import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { ScopeBar } from "@/components/scope-bar";
+import { useScope, writeScope } from "@/components/scope-store";
 import { formatAud } from "@/lib/format";
+import { accountsByInstitution } from "@/lib/money-flow/accounts";
+import { describeScope, filterByScope } from "@/lib/money-flow/scope";
+import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import { allPrimaryTags, allSubTags, tagsOf } from "@/lib/money-flow/tags";
 import type { ChartKind } from "@/lib/money-flow/tag-charts";
 
 export function TransactionsView() {
-  const { allTransactions, flow, hasUploads, removeTagEverywhere, renameTagEverywhere, transactions, usingDemo } =
-    useMoneyFlow();
+  const {
+    accountNames,
+    allTransactions,
+    flow,
+    hasUploads,
+    institutionOverrides,
+    removeTagEverywhere,
+    renameTagEverywhere,
+    transactions,
+    usingDemo,
+  } = useMoneyFlow();
   const [chart, setChart] = useState<ChartKind>("bar");
   const [selectedTag, setSelectedTag] = useState("All");
+  const registry = useMemo(
+    () => ({ names: accountNames, institutions: institutionOverrides }),
+    [accountNames, institutionOverrides],
+  );
+  const groups = useMemo(() => accountsByInstitution(transactions, registry), [registry, transactions]);
+  const known = useMemo(
+    () => ({
+      institutions: groups.map((group) => group.institution),
+      accounts: groups.flatMap((group) => group.accounts.map((account) => account.id)),
+    }),
+    [groups],
+  );
+  const { scope } = useScope(known);
+  const scoped = useMemo(() => filterByScope(transactions, scope, registry), [registry, scope, transactions]);
+  const scopedFlow = useMemo(() => {
+    if (scope.kind === "all") return flow;
+    const next = summarizeMoneyFlow(scoped);
+    next.periodLabel = flow.periodLabel;
+    return next;
+  }, [flow, scope.kind, scoped]);
 
   return (
     <>
@@ -26,21 +60,29 @@ export function TransactionsView() {
             ? "Money in and out from your uploaded documents. Charts use the primary tag so sub-tags never double-count."
             : "Sample activity with your tag edits, saved in this browser."}
       </p>
+      <ScopeBar
+        groups={groups}
+        view="together"
+        scope={scope}
+        onView={() => undefined}
+        onScope={(next) => writeScope({ view: "together", scope: next })}
+      />
+      {hasUploads ? <p className="mt-3 text-sm text-[#60716a]">{describeScope(scope)}</p> : null}
       <section className="mt-4 grid gap-3 sm:grid-cols-3">
-        <SummaryCard label="Money in" value={formatAud(flow.cashIn)} detail="Every credit on the statement" positive compact />
-        <SummaryCard label="Money out" value={formatAud(flow.cashOut)} detail="Every debit on the statement" compact />
+        <SummaryCard label="Money in" value={formatAud(scopedFlow.cashIn)} detail="Every credit on the statement" positive compact />
+        <SummaryCard label="Money out" value={formatAud(scopedFlow.cashOut)} detail="Every debit on the statement" compact />
         <SummaryCard
           label="Net"
-          value={formatAud(flow.cashNet)}
-          detail={`${flow.transactionCount} movements`}
-          positive={flow.cashNet >= 0}
+          value={formatAud(scopedFlow.cashNet)}
+          detail={`${scopedFlow.transactionCount} movements`}
+          positive={scopedFlow.cashNet >= 0}
           compact
         />
       </section>
       <div className="mt-4">
         <TagChartCard
-          categories={flow.categories}
-          transactions={transactions}
+          categories={scopedFlow.categories}
+          transactions={scoped}
           selectedTag={selectedTag}
           onSelectTag={setSelectedTag}
           chart={chart}
@@ -54,7 +96,7 @@ export function TransactionsView() {
           Every movement in this period. Search or filter the list, then tag each merchant.
         </p>
         <div className="mt-3">
-          <TransactionTable transactions={transactions} tag={selectedTag} onTagChange={setSelectedTag} />
+          <TransactionTable transactions={scoped} tag={selectedTag} onTagChange={setSelectedTag} />
         </div>
       </article>
       <TagManager
