@@ -1,6 +1,7 @@
 import { formatAud } from "@/lib/format";
 import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { monthLabelFromKey } from "@/lib/money-flow/savings";
+import { observedAccountKey } from "@/lib/money-flow/account-identity";
 import { primaryTag, subTags, tagsOf } from "@/lib/money-flow/tags";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
@@ -309,10 +310,14 @@ export function uniqueTransactions(rows: InterpretedTransaction[]): InterpretedT
   // each of eight savers. Counting how often a description has already appeared *within its
   // own file* tells them apart. A second copy of a file repeats occurrence 0 and is dropped,
   // while a genuine repeat is occurrence 1 and survives.
+  //
+  // The account is part of a movement's identity: an $86.40 shop on the same day in two
+  // different accounts is two payments, not one seen twice. Only the same account can
+  // describe the same movement twice.
   const withinFile = new Map<string, number>();
   const seen = new Set<string>();
   return rows.filter((row) => {
-    const body = `${row.dateIso}|${row.amount}|${row.merchant.toLowerCase()}`;
+    const body = `${observedAccountKey(row)}|${row.dateIso}|${row.amount}|${row.merchant.toLowerCase()}`;
     const counter = `${row.sourceFile}|${body}`;
     const occurrence = withinFile.get(counter) ?? 0;
     withinFile.set(counter, occurrence + 1);

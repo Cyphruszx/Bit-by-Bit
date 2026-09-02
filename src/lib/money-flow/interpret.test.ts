@@ -1027,3 +1027,57 @@ describe("matching the samples' transfers", () => {
     );
   });
 });
+
+describe("recognising one account across two statement formats", () => {
+  it("joins a CSV export and a printed statement of the same account", async () => {
+    // The CSV names the account in a column; the statement prints it on the letterhead.
+    const printed = `National Australia Bank
+Jordan Lee
+BSB 083-004
+Account Number: 100200300
+Statement period 1 Jul 2026 to 31 Jul 2026
+
+05 Jul 2026  Woolworths Wagga  $54.20 DR
+08 Jul 2026  Salary Acme Pty Ltd  $2,620.00 CR
+`;
+
+    const result = await interpretDocuments([
+      file("nab-medicare.csv", "text/csv", readFileSync(path.join(samples, "nab-medicare.csv"))),
+      file("nab-statement.txt", "text/plain", printed),
+    ]);
+    const nab = accountsFrom(result.transactions).filter((account) => account.institution === "NAB");
+
+    assert.equal(nab.length, 1, "one account, not one per file");
+    assert.equal(nab[0].id, "NAB · 100200300");
+    assert.deepEqual(
+      [...new Set(nab[0].transactions.map((txn) => txn.sourceFile))].sort(),
+      ["nab-medicare.csv", "nab-statement.txt"],
+    );
+  });
+
+  it("keeps two statements that name no account apart", async () => {
+    const may = "05 May 2026  Woolworths Bondi  $54.20 DR";
+    const june = "05 Jun 2026  Woolworths Bondi  $54.20 DR";
+
+    const result = await interpretDocuments([
+      file("statement-may.txt", "text/plain", may),
+      file("statement-june.txt", "text/plain", june),
+    ]);
+
+    assert.equal(accountsFrom(result.transactions).length, 2);
+  });
+
+  it("does not mistake the same purchase in two accounts for one movement", async () => {
+    // Same day, same amount, same shop, two different accounts: two payments.
+    const one = "05 May 2026  Woolworths Bondi  $54.20 DR";
+    const two = "05 May 2026  Woolworths Bondi  $54.20 DR";
+
+    const result = await interpretDocuments([
+      file("everyday.txt", "text/plain", one),
+      file("partner.txt", "text/plain", two),
+    ]);
+
+    assert.equal(result.transactions.length, 2);
+    assert.equal(result.flow.cashOut, 108.4);
+  });
+});
