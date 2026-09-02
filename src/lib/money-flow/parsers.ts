@@ -1,7 +1,8 @@
 import { type MoneyFlowAi, visionMime } from "@/lib/money-flow/ai";
 import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
 import { detectFileKind } from "@/lib/money-flow/detect";
-import { detectInstitution, withInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
+import { identifyAccounts } from "@/lib/money-flow/accounts";
+import { detectInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import { interpretTable, rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
 import { looksLikeUpStatement, transactionsFromUpStatement } from "@/lib/money-flow/up-statement";
@@ -67,7 +68,7 @@ export async function parseDocument(
       const sheet = interpretTable(rows, `${filename} · ${name}`);
       return {
         ...sheet,
-        transactions: withInstitution(
+        transactions: identifyAccounts(
           sheet.transactions,
           detectInstitution({ headers: sheet.headers, filename }),
         ),
@@ -113,7 +114,7 @@ function stamped(
   signals: InstitutionSignals,
 ): { transactions: InterpretedTransaction[]; notes: string[] } {
   return {
-    transactions: withInstitution(result.transactions, detectInstitution(signals)),
+    transactions: identifyAccounts(result.transactions, detectInstitution(signals)),
     notes: result.notes,
   };
 }

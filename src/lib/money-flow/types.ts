@@ -32,6 +32,12 @@ export type InterpretedTransaction = {
   accountKey?: string;
   /** The bank the statement came from. Absent when nothing in the file names one. */
   institution?: string;
+  /**
+   * Which of the person's accounts this belongs to, for grouping and for matching a
+   * transfer's two legs. Deliberately separate from accountKey: identity is frozen
+   * when a movement is first seen, while this may improve as the reader does.
+   */
+  accountId?: string;
   /** Raw statement wording, kept because it identifies a movement more reliably than the tidied merchant. */
   description?: string;
   tags?: string[];
