@@ -8,12 +8,14 @@ import {
   heldStatements,
   importedFiles,
   ledgerTransactions,
+  nameInstitution,
   removeStatement as dropStatement,
   replaceTransactions,
   type HeldStatement,
   type ImportReport,
   type Ledger,
 } from "@/lib/money-flow/ledger";
+import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { removeTag, renameTag, tagMerchant, tagsOf, withTags } from "@/lib/money-flow/tags";
@@ -54,6 +56,10 @@ type MoneyFlowState = {
   ready: boolean;
   importDocuments: (result: InterpretationResult, hashes?: Record<string, string>) => ImportReport;
   removeStatement: (key: string) => void;
+  /** The institution a person named for a statement, keyed by that statement. */
+  institutionOverrides: InstitutionOverrides;
+  /** Names the bank a statement came from, or clears the name to let detection decide. */
+  setStatementInstitution: (statementKey: string, institution: string) => void;
   clearInterpretation: () => void;
   setTransactionTags: (id: string, tags: string[]) => void;
   /** The same tags on every movement of one merchant, however far back it goes. */
@@ -83,6 +89,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       flow: summarizePeriod(allTransactions, period),
       period,
       setPeriod: writePeriod,
+      institutionOverrides: held.ledger.institutions ?? {},
+      setStatementInstitution,
       hasUploads: held.ledger.imports.length > 0,
       usingDemo: stored.length === 0,
       ready: held.ready,
@@ -159,6 +167,10 @@ function importDocuments(result: InterpretationResult, hashes?: Record<string, s
 
 function removeStatement(key: string) {
   commit(dropStatement(snapshot.ledger, key));
+}
+
+function setStatementInstitution(statementKey: string, institution: string) {
+  commit(nameInstitution(snapshot.ledger, statementKey, institution));
 }
 
 function clearLedger() {
@@ -257,6 +269,7 @@ function toInterpreted(txn: (typeof demoTransactions)[number]): InterpretedTrans
     amount: txn.amount,
     type: txn.amount > 0 ? "income" : txn.category === "Goals" ? "transfer" : "expense",
     sourceFile: "demo",
+    institution: demoAccounts[0].institution,
     confidence: 1,
   };
 }
