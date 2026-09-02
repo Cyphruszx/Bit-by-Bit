@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { detectFileKind } from "./detect";
+import { totalsByInstitution } from "./documents";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate, roundMoney } from "./parse-values";
 import { summarizeMoneyFlow, chartTagFlowSeries, tagFlowOverTime } from "./summary";
@@ -760,3 +761,62 @@ function minimalPdf(text: string): Uint8Array {
   body += `${xref}trailer << /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
   return new TextEncoder().encode(body);
 }
+
+describe("grouping the samples by institution", () => {
+  const nabFiles = ["nab-medicare.csv", "nab-rent.csv"];
+
+  async function interpretEverySample() {
+    return interpretDocuments([
+      ...nabFiles.map((filename) => file(filename, "text/csv", readFileSync(path.join(samples, filename)))),
+      file("up-2025-07-to-2026-06.txt", "text/plain", readFileSync(upSample)),
+    ]);
+  }
+
+  it("names the bank on every movement it reads", async () => {
+    const result = await interpretEverySample();
+    const nab = result.transactions.filter((txn) => nabFiles.includes(txn.sourceFile));
+    const up = result.transactions.filter((txn) => txn.sourceFile.startsWith("up-"));
+
+    assert.ok(nab.every((txn) => txn.institution === "NAB"), "every NAB movement names NAB");
+    assert.ok(up.every((txn) => txn.institution === "Up"), "every Up movement names Up");
+  });
+
+  it("reads the two NAB statements as one bank, on the statements' own numbers", async () => {
+    const result = await interpretEverySample();
+    const nab = totalsByInstitution(result.files, result.transactions).find((group) => group.label === "NAB");
+
+    assert.equal(nab?.transactions.length, 437);
+    assert.equal(nab?.flow.cashIn, 204214.49);
+    assert.equal(nab?.flow.cashOut, 203665.05);
+    assert.equal(nab?.flow.cashNet, 549.44);
+    assert.deepEqual(
+      nab?.documents.map((document) => document.sourceFile),
+      nabFiles,
+    );
+  });
+
+  it("keeps Up's own money in and out once its movements are grouped", async () => {
+    const result = await interpretEverySample();
+    const up = totalsByInstitution(result.files, result.transactions).find((group) => group.label === "Up");
+
+    assert.equal(up?.transactions.length, 1267);
+    assert.equal(up?.flow.income, 70574.39);
+    assert.equal(up?.flow.spending, 71631.34);
+  });
+
+  it("loses no movement and no dollar to the grouping", async () => {
+    const result = await interpretEverySample();
+    const groups = totalsByInstitution(result.files, result.transactions);
+    const whole = summarizeMoneyFlow(result.transactions);
+
+    assert.deepEqual(groups.map((group) => group.label), ["NAB", "Up"]);
+    assert.equal(
+      groups.reduce((sum, group) => sum + group.transactions.length, 0),
+      result.transactions.length,
+    );
+    assert.equal(
+      roundMoney(groups.reduce((sum, group) => sum + group.flow.cashNet, 0)),
+      whole.cashNet,
+    );
+  });
+});

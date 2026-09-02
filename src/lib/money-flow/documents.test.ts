@@ -3,11 +3,14 @@ import { describe, it } from "node:test";
 import {
   documentLabel,
   filterByDocument,
+  institutionsFrom,
   parseDocumentScope,
   parseDocumentView,
   sourceFilesFrom,
   totalsByDocument,
+  totalsByInstitution,
 } from "./documents";
+import { UNKNOWN_INSTITUTION } from "./institution";
 import { summarizeMoneyFlow } from "./summary";
 import type { FileInterpretation, InterpretedTransaction } from "./types";
 
@@ -107,5 +110,64 @@ describe("NAB documents on the dashboard", () => {
     assert.equal(separate[1]?.flow.cashIn, 39869.59);
     assert.equal(separate[1]?.flow.cashOut, 42989.17);
     assert.equal(separate[1]?.flow.cashNet, -3119.58);
+  });
+});
+
+function fromBank(sourceFile: string, amount: number, id: string, institution?: string): InterpretedTransaction {
+  const row = txn(sourceFile, amount, id);
+  return institution ? { ...row, institution } : row;
+}
+
+describe("institution totals", () => {
+  const rows = [
+    fromBank("nab-medicare.csv", 500, "n1", "NAB"),
+    fromBank("nab-medicare.csv", -120, "n2", "NAB"),
+    fromBank("nab-rent.csv", -380, "n3", "NAB"),
+    fromBank("up.txt", 60, "u1", "Up"),
+    fromBank("mystery.csv", -15, "m1"),
+  ];
+
+  it("reads two statements from one bank as one source", () => {
+    const groups = totalsByInstitution([everyday, rent], rows);
+    const nab = groups.find((group) => group.label === "NAB");
+
+    assert.equal(nab?.transactions.length, 3);
+    assert.equal(nab?.flow.cashIn, 500);
+    assert.equal(nab?.flow.cashOut, 500);
+    assert.equal(nab?.flow.cashNet, 0);
+    assert.deepEqual(
+      nab?.documents.map((document) => document.sourceFile),
+      ["nab-medicare.csv", "nab-rent.csv"],
+    );
+  });
+
+  it("keeps a statement that names no bank rather than dropping it", () => {
+    const groups = totalsByInstitution([], rows);
+    const unknown = groups.find((group) => group.label === UNKNOWN_INSTITUTION);
+
+    assert.equal(unknown?.transactions.length, 1);
+    assert.deepEqual(institutionsFrom(rows), ["NAB", "Up", UNKNOWN_INSTITUTION]);
+  });
+
+  it("moves a statement to the bank a person named", () => {
+    const named = { "mystery.csv": "Great Southern" };
+    const groups = totalsByInstitution([], rows, named);
+
+    assert.equal(groups.find((group) => group.label === UNKNOWN_INSTITUTION), undefined);
+    assert.equal(groups.find((group) => group.label === "Great Southern")?.flow.cashOut, 15);
+  });
+
+  it("sums to the same money as the ungrouped movements", () => {
+    const groups = totalsByInstitution([everyday, rent], rows);
+    const total = summarizeMoneyFlow(rows);
+
+    assert.equal(
+      groups.reduce((sum, group) => sum + group.flow.cashNet, 0),
+      total.cashNet,
+    );
+    assert.equal(
+      groups.reduce((sum, group) => sum + group.transactions.length, 0),
+      rows.length,
+    );
   });
 });
