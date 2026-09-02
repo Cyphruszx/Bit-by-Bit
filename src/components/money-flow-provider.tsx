@@ -8,6 +8,7 @@ import {
   heldStatements,
   importedFiles,
   ledgerTransactions,
+  nameAccount,
   nameInstitution,
   removeStatement as dropStatement,
   replaceTransactions,
@@ -15,6 +16,7 @@ import {
   type ImportReport,
   type Ledger,
 } from "@/lib/money-flow/ledger";
+import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
@@ -61,6 +63,10 @@ type MoneyFlowState = {
   institutionOverrides: InstitutionOverrides;
   /** Names the bank a statement came from, or clears the name to let detection decide. */
   setStatementInstitution: (statementKey: string, institution: string) => void;
+  /** What the person calls each account, against the key its statement filed it under. */
+  accountNames: AccountNames;
+  /** Names an account. Two keys given the same name become one account. */
+  setAccountName: (accountKey: string, name: string) => void;
   clearInterpretation: () => void;
   setTransactionTags: (id: string, tags: string[]) => void;
   /** The same tags on every movement of one merchant, however far back it goes. */
@@ -83,10 +89,10 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const stored = ledgerTransactions(held.ledger);
     // Decided over everything held rather than per statement, because the leg that
     // settles a transfer usually arrives in a statement uploaded weeks later.
-    const allTransactions = markTransferLegs(
-      stored.length > 0 ? stored : demoRows(held.demoTags),
-      { institutions: held.ledger.institutions ?? {} },
-    );
+    const allTransactions = markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), {
+      institutions: held.ledger.institutions ?? {},
+      accounts: held.ledger.accounts ?? {},
+    });
     return {
       files: importedFiles(held.ledger),
       statements: heldStatements(held.ledger),
@@ -97,6 +103,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       setPeriod: writePeriod,
       institutionOverrides: held.ledger.institutions ?? {},
       setStatementInstitution,
+      accountNames: held.ledger.accounts ?? {},
+      setAccountName,
       hasUploads: held.ledger.imports.length > 0,
       usingDemo: stored.length === 0,
       ready: held.ready,
@@ -177,6 +185,10 @@ function removeStatement(key: string) {
 
 function setStatementInstitution(statementKey: string, institution: string) {
   commit(nameInstitution(snapshot.ledger, statementKey, institution));
+}
+
+function setAccountName(accountKey: string, name: string) {
+  commit(nameAccount(snapshot.ledger, accountKey, name));
 }
 
 function clearLedger() {

@@ -1,3 +1,4 @@
+import type { AccountNames } from "@/lib/money-flow/accounts";
 import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -39,6 +40,11 @@ export type Ledger = {
    * a movement's identity.
    */
   institutions?: InstitutionOverrides;
+  /**
+   * The name a person gave each account, against the key its statement filed movements
+   * under. Two keys sharing a name are one account, which is how a merge is recorded.
+   */
+  accounts?: AccountNames;
 };
 
 export type ImportReport = {
@@ -232,6 +238,19 @@ export function removeImport(ledger: Ledger, importId: string): Ledger {
 }
 
 /**
+ * Records what a person calls an account. Giving two keys the same name merges them;
+ * an empty name forgets the naming, and the account goes back to the key its statement
+ * filed it under.
+ */
+export function nameAccount(ledger: Ledger, accountKey: string, name: string): Ledger {
+  const called = tidyInstitutionName(name);
+  const accounts = { ...ledger.accounts };
+  if (called) accounts[accountKey] = called;
+  else delete accounts[accountKey];
+  return { ...ledger, accounts };
+}
+
+/**
  * Records the institution a person named for a statement. An empty name forgets
  * it again, so detection takes back over.
  */
@@ -304,6 +323,7 @@ export function parseLedger(value: unknown): Ledger | null {
     entries: sortEntries(entries),
     imports: raw.imports,
     ...(raw.institutions && typeof raw.institutions === "object" ? { institutions: namesOnly(raw.institutions) } : {}),
+    ...(raw.accounts && typeof raw.accounts === "object" ? { accounts: namesOnly(raw.accounts) } : {}),
   };
 }
 
