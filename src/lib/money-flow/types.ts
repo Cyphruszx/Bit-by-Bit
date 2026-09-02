@@ -30,6 +30,8 @@ export type InterpretedTransaction = {
   confidence: number;
   /** The account the statement says this belongs to. Absent when the export never names one. */
   accountKey?: string;
+  /** The bank the statement came from. Absent when nothing in the file names one. */
+  institution?: string;
   /** Raw statement wording, kept because it identifies a movement more reliably than the tidied merchant. */
   description?: string;
   tags?: string[];

@@ -1,6 +1,7 @@
 import { type MoneyFlowAi, visionMime } from "@/lib/money-flow/ai";
 import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
 import { detectFileKind } from "@/lib/money-flow/detect";
+import { detectInstitution, withInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import { interpretTable, rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
 import { looksLikeUpStatement, transactionsFromUpStatement } from "@/lib/money-flow/up-statement";
@@ -21,16 +22,18 @@ export async function parseDocument(
   const notes: string[] = [];
 
   if (kind === "csv") {
-    return interpretTable(rowsFromCsv(decodeText(bytes)), filename);
+    const table = interpretTable(rowsFromCsv(decodeText(bytes)), filename);
+    return stamped(table, { headers: table.headers, filename });
   }
   if (kind === "json") {
-    return parseJson(decodeText(bytes), filename);
+    return stamped(parseJson(decodeText(bytes), filename), { filename });
   }
   if (kind === "ofx") {
-    return { transactions: parseOfx(decodeText(bytes), filename), notes };
+    const text = decodeText(bytes);
+    return stamped({ transactions: parseOfx(text, filename), notes }, { org: ofxOrg(text), filename });
   }
   if (kind === "qif") {
-    return { transactions: parseQif(decodeText(bytes), filename), notes };
+    return stamped({ transactions: parseQif(decodeText(bytes), filename), notes }, { filename });
   }
   if (kind === "html") {
     const html = decodeText(bytes);
@@ -38,21 +41,37 @@ export async function parseDocument(
     const fromTables = tableRows.map((rows) => interpretTable(rows, filename));
     const tableTransactions = fromTables.flatMap((result) => result.transactions);
     if (tableTransactions.length > 0) {
-      return { transactions: tableTransactions, notes: fromTables.flatMap((result) => result.notes) };
+      return stamped(
+        { transactions: tableTransactions, notes: fromTables.flatMap((result) => result.notes) },
+        { text: html, headers: fromTables.flatMap((result) => result.headers), filename },
+      );
     }
-    return { transactions: transactionsFromExtractedText(stripTags(html), filename), notes: notesForText(html) };
+    return stamped(
+      { transactions: transactionsFromExtractedText(stripTags(html), filename), notes: notesForText(html) },
+      { text: html, filename },
+    );
   }
   if (kind === "text") {
     const text = decodeText(bytes);
-    return { transactions: transactionsFromExtractedText(text, filename), notes: notesForText(text) };
+    return stamped(
+      { transactions: transactionsFromExtractedText(text, filename), notes: notesForText(text) },
+      { text, filename },
+    );
   }
   if (kind === "xlsx") {
     const XLSX = await import("xlsx");
     const workbook = XLSX.read(bytes, { type: "array", cellDates: true });
     const sheets = workbook.SheetNames.map((name) => {
-      const sheet = workbook.Sheets[name];
-      const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, { header: 1, raw: true, defval: "" });
-      return interpretTable(rows, `${filename} · ${name}`);
+      const worksheet = workbook.Sheets[name];
+      const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(worksheet, { header: 1, raw: true, defval: "" });
+      const sheet = interpretTable(rows, `${filename} · ${name}`);
+      return {
+        ...sheet,
+        transactions: withInstitution(
+          sheet.transactions,
+          detectInstitution({ headers: sheet.headers, filename }),
+        ),
+      };
     });
     const transactions = sheets.flatMap((sheet) => sheet.transactions);
     const sheetNotes = sheets.flatMap((sheet) => sheet.notes);
@@ -67,19 +86,41 @@ export async function parseDocument(
       notes.push("This PDF looks scanned. BitbyBit will try OCR next if you upload a photo of the page.");
       return { transactions: [], notes };
     }
-    return { transactions: transactionsFromExtractedText(text, filename), notes: notesForText(text) };
+    return stamped({ transactions: transactionsFromExtractedText(text, filename), notes: notesForText(text) }, { text, filename });
   }
   if (kind === "docx") {
     const mammoth = await import("mammoth");
     const result = await mammoth.extractRawText({ buffer: Buffer.from(bytes) });
-    return { transactions: transactionsFromExtractedText(result.value, filename), notes: notesForText(result.value) };
+    return stamped(
+      { transactions: transactionsFromExtractedText(result.value, filename), notes: notesForText(result.value) },
+      { text: result.value, filename },
+    );
   }
   if (kind === "image") {
-    return readImageDocument(filename, mime, bytes, options.ai);
+    return stamped(await readImageDocument(filename, mime, bytes, options.ai), { filename });
   }
 
   const fallback = decodeText(bytes);
-  return { transactions: transactionsFromExtractedText(fallback, filename), notes: notesForText(fallback) };
+  return stamped(
+    { transactions: transactionsFromExtractedText(fallback, filename), notes: notesForText(fallback) },
+    { text: fallback, filename },
+  );
+}
+
+/** Names the bank once per document, from whatever that document happened to reveal. */
+function stamped(
+  result: { transactions: InterpretedTransaction[]; notes: string[] },
+  signals: InstitutionSignals,
+): { transactions: InterpretedTransaction[]; notes: string[] } {
+  return {
+    transactions: withInstitution(result.transactions, detectInstitution(signals)),
+    notes: result.notes,
+  };
+}
+
+function ofxOrg(text: string): string {
+  const block = text.split(/<STMTTRN>/i)[0] ?? text;
+  return ofxField(block, "ORG");
 }
 
 export async function readImageDocument(
