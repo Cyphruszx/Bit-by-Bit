@@ -8,7 +8,7 @@ import { totalsByInstitution } from "./documents";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate, roundMoney } from "./parse-values";
 import { summarizeMoneyFlow, chartTagFlowSeries, tagFlowOverTime } from "./summary";
-import { matchTransfers, withoutMatchedLegs } from "./transfers";
+import { markTransferLegs, matchTransfers, withoutMatchedLegs } from "./transfers";
 import type { InterpretedTransaction, TransactionType } from "./types";
 
 let flowRowCount = 0;
@@ -68,7 +68,10 @@ describe("document interpretation", () => {
     const result = await interpretDocuments([file("commonwealth-bank.csv", "text/csv", csv)]);
     assert.equal(result.files[0].processingStatus, "completed");
     assert.equal(result.flow.income, 5240);
-    assert.equal(result.flow.transfers, 400);
+    // One account on its own cannot show where the $400 went, so it counts as spending
+    // and is flagged until the account that received it is uploaded too.
+    assert.equal(result.flow.transfers, 0);
+    assert.equal(result.flow.unmatchedInternal, 400);
     assert.ok(result.transactions.some((txn) => txn.merchant.includes("Woolworths")));
     assert.ok(result.transactions.some((txn) => txn.category === "Housing"));
     assert.equal(result.flow.net, result.flow.income - result.flow.spending);
@@ -269,8 +272,10 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.equal(result.transactions.find((txn) => txn.merchant === "Transfer From Tax")?.type, "transfer");
     assert.equal(result.flow.spending, 10.5);
     assert.equal(result.flow.refunds, 7.9);
-    assert.equal(result.flow.transfers, 75);
-    assert.equal(result.flow.income, 307.9);
+    // The Tax saver's own leg is not in this excerpt, so the $75 is not yet a transfer.
+    assert.equal(result.flow.transfers, 0);
+    assert.equal(result.flow.unmatchedInternal, 75);
+    assert.equal(result.flow.income, 382.9);
   });
 
   async function readUpSample() {
@@ -356,8 +361,8 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
 });
 
 describe("money flow summary", () => {
-  it("treats savings transfers as set-aside money, not spending", () => {
-    const summary = summarizeMoneyFlow([
+  it("counts a savings transfer until the account it landed in is here too", () => {
+    const rows: InterpretedTransaction[] = [
       {
         id: "1",
         merchant: "Salary",
@@ -391,18 +396,46 @@ describe("money flow summary", () => {
         sourceFile: "demo",
         confidence: 1,
       },
-    ]);
+    ];
+    const summary = summarizeMoneyFlow(rows);
+    // Nothing here shows the $400 arriving anywhere, so it counts and is flagged.
     assert.equal(summary.income, 2000);
-    assert.equal(summary.spending, 80);
-    assert.equal(summary.transfers, 400);
-    assert.equal(summary.net, 1920);
+    assert.equal(summary.spending, 480);
+    assert.equal(summary.transfers, 0);
+    assert.equal(summary.unmatchedInternal, 400);
+    assert.equal(summary.net, 1520);
     assert.equal(summary.cashIn, 2000);
     assert.equal(summary.cashOut, 480);
     assert.equal(summary.cashNet, 1520);
     assert.deepEqual(
       summary.categories.map((category) => category.name),
-      ["Groceries"],
+      ["Goals", "Groceries"],
     );
+
+    // Upload the savings account and the same $400 stops being spending, because both
+    // ends of the movement can now be seen.
+    const settled = summarizeMoneyFlow(
+      markTransferLegs([
+        ...rows,
+        {
+          id: "4",
+          merchant: "Transfer From Everyday",
+          category: "Goals",
+          date: "12 Aug",
+          dateIso: "2026-08-12",
+          amount: 400,
+          type: "transfer",
+          sourceFile: "savings.csv",
+          accountId: "NAB · Savings",
+          confidence: 1,
+        },
+      ]),
+    );
+
+    assert.equal(settled.spending, 80);
+    assert.equal(settled.transfers, 400);
+    assert.equal(settled.unmatchedInternal, 0);
+    assert.equal(settled.income, 2000);
   });
 
   it("counts spending on the primary tag only, so sub-tags do not double-count", () => {
@@ -559,7 +592,7 @@ describe("money flow summary", () => {
   });
 
   it("tracks a three month run of money in and out", () => {
-    // July: in 4200 + 180 refund = 4380, out 1450 + 260.75 = 1710.75, net 2669.25
+    // July: in 4200 + 180 refund = 4380, out 1450 + 260.75 + 700 = 2410.75, net 1969.25
     // August: in 4200, out 1450 + 612.40 + 87.60 = 2150, net 2050
     // September: in 900, out 1450 + 330.20 = 1780.20, net -880.20
     const rows = [
@@ -588,7 +621,7 @@ describe("money flow summary", () => {
     assert.equal(byLabel.get("3 July")?.net, 4200);
     assert.equal(byLabel.get("11 July")?.net, -1450);
     assert.equal(byLabel.get("27 July")?.net, 180);
-    assert.equal(byLabel.get("30 July")?.net, 0, "the savings transfer is not spending");
+    assert.equal(byLabel.get("30 July")?.net, -700, "a transfer with no partner still counts");
     assert.equal(byLabel.get("16 Aug")?.net, -612.4);
     assert.equal(byLabel.get("24 Sept")?.net, -330.2);
 
@@ -601,7 +634,7 @@ describe("money flow summary", () => {
     assert.deepEqual(
       [...monthly.entries()],
       [
-        ["2026-07", 2669.25],
+        ["2026-07", 1969.25],
         ["2026-08", 2050],
         ["2026-09", -880.2],
       ],

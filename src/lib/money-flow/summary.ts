@@ -2,6 +2,7 @@ import { formatAud } from "@/lib/format";
 import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { monthLabelFromKey } from "@/lib/money-flow/savings";
 import { primaryTag, subTags, tagsOf } from "@/lib/money-flow/tags";
+
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
 export type TagFlowDirection = "out" | "in";
@@ -33,14 +34,19 @@ export type FlowOverTimePoint = {
   runningNet: number;
 };
 
+/**
+ * Money in and money out, with the person's own transfers counted once.
+ *
+ * A movement leaves income and spending only when the other leg of the transfer was
+ * found in another account — markTransferLegs decides that over the whole ledger, so a
+ * transfer sent in January and received in February is still one movement of the same
+ * money. A bank writing "transfer" on a movement is not enough on its own.
+ */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
-  const income = roundMoney(
-    transactions.filter((txn) => txn.amount > 0 && txn.type !== "transfer").reduce((sum, txn) => sum + txn.amount, 0),
-  );
+  const counted = countedMovements(transactions);
+  const income = roundMoney(counted.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0));
   const spending = roundMoney(
-    transactions
-      .filter((txn) => txn.amount < 0 && txn.type !== "transfer")
-      .reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    counted.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   const cashIn = roundMoney(
     transactions.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
@@ -48,8 +54,13 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const cashOut = roundMoney(
     transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
+  // One side of each pair held here: the money that moved, not the two rows for it.
+  const paired = transactions.filter((txn) => !counted.includes(txn));
   const transfers = roundMoney(
-    transactions.filter((txn) => txn.type === "transfer").reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    paired.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+  );
+  const unmatchedInternal = roundMoney(
+    counted.filter((txn) => txn.type === "transfer").reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   const refunds = roundMoney(
     transactions.filter((txn) => txn.type === "refund").reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
@@ -66,20 +77,35 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
     cashOut,
     cashNet,
     transfers,
+    unmatchedInternal,
     refunds,
     transactionCount: transactions.length,
     categories,
     periodLabel: periodLabel(transactions),
-    insights: insights(transactions, { income, spending, net, cashNet, transfers, categories }),
+    insights: insights(transactions, { income, spending, net, cashNet, transfers, unmatchedInternal, categories }),
   };
 }
 
+/**
+ * The movements a total should count, which is everything except a transfer whose two
+ * legs are both in front of us. One leg on its own still counts: seen from inside NAB
+ * alone, money sent to Up did leave, and the NAB card has to tie to NAB's statement.
+ * Only a view holding both accounts can see that the money never left the household.
+ */
+export function countedMovements(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
+  const legs = new Map<string, number>();
+  for (const txn of transactions) {
+    if (txn.transferPair) legs.set(txn.transferPair, (legs.get(txn.transferPair) ?? 0) + 1);
+  }
+  return transactions.filter((txn) => !txn.transferPair || (legs.get(txn.transferPair) ?? 0) < 2);
+}
+
 export function isOutflow(txn: InterpretedTransaction): boolean {
-  return txn.amount < 0 && txn.type !== "transfer";
+  return txn.amount < 0 && !txn.transferPair;
 }
 
 export function isInflow(txn: InterpretedTransaction): boolean {
-  return txn.amount > 0 && txn.type !== "transfer";
+  return txn.amount > 0 && !txn.transferPair;
 }
 
 export function spendByTags(transactions: InterpretedTransaction[]): CategorySpend[] {
@@ -94,7 +120,7 @@ export function amountByPrimaryTags(
 }
 
 export function chartTagFlowSeries(transactions: InterpretedTransaction[], selectedTag: string): TagFlowSeries {
-  const rows = transactions.filter((txn) => txn.type !== "transfer" && txn.amount !== 0);
+  const rows = countedMovements(transactions).filter((txn) => txn.amount !== 0);
   const selectedIsPrimary = rows.some((txn) => primaryTag(txn) === selectedTag);
 
   if (selectedTag !== "All" && selectedIsPrimary) {
@@ -127,9 +153,8 @@ export function tagFlowOverTime(
   transactions: InterpretedTransaction[],
   selectedTag = "All",
 ): FlowOverTimePoint[] {
-  const rows = transactions.filter(
+  const rows = countedMovements(transactions).filter(
     (txn) =>
-      txn.type !== "transfer" &&
       txn.amount !== 0 &&
       Boolean(txn.dateIso) &&
       (selectedTag === "All" || tagsOf(txn).includes(selectedTag)),
@@ -251,7 +276,7 @@ function netByTag(
 }
 
 function directed(transactions: InterpretedTransaction[], direction: TagFlowDirection): InterpretedTransaction[] {
-  return transactions.filter((txn) => (direction === "out" ? isOutflow(txn) : isInflow(txn)));
+  return countedMovements(transactions).filter((txn) => (direction === "out" ? txn.amount < 0 : txn.amount > 0));
 }
 
 function signedTotal(transactions: InterpretedTransaction[]): number {
@@ -316,6 +341,7 @@ function insights(
     net: number;
     cashNet: number;
     transfers: number;
+    unmatchedInternal: number;
     categories: MoneyFlowSummary["categories"];
   },
 ): string[] {
@@ -331,7 +357,12 @@ function insights(
   }
   if (summary.transfers > 0) {
     lines.push(
-      `${formatAud(summary.transfers)} moved between accounts or into savings — that is included in money in and out, but it is not spending.`,
+      `${formatAud(summary.transfers)} moved between your own accounts, counted once rather than as both income and spending.`,
+    );
+  }
+  if (summary.unmatchedInternal > 0) {
+    lines.push(
+      `${formatAud(summary.unmatchedInternal)} looks like a transfer but its other leg is not here, so it still counts. Upload the other account to settle it.`,
     );
   }
   lines.push(

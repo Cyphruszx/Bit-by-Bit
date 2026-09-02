@@ -19,6 +19,7 @@ import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { removeTag, renameTag, tagMerchant, tagsOf, withTags } from "@/lib/money-flow/tags";
+import { markTransferLegs } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 import { createLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
 
@@ -80,7 +81,12 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<MoneyFlowState>(() => {
     const stored = ledgerTransactions(held.ledger);
-    const allTransactions = stored.length > 0 ? stored : demoRows(held.demoTags);
+    // Decided over everything held rather than per statement, because the leg that
+    // settles a transfer usually arrives in a statement uploaded weeks later.
+    const allTransactions = markTransferLegs(
+      stored.length > 0 ? stored : demoRows(held.demoTags),
+      { institutions: held.ledger.institutions ?? {} },
+    );
     return {
       files: importedFiles(held.ledger),
       statements: heldStatements(held.ledger),
