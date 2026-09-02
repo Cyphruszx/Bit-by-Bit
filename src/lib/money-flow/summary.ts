@@ -279,9 +279,19 @@ function aggregateByTag(
 }
 
 export function uniqueTransactions(rows: InterpretedTransaction[]): InterpretedTransaction[] {
+  // Two files can describe the same movement, but one file can also hold the same movement
+  // twice and mean it: two identical purchases in a day, or a cent of interest paid into
+  // each of eight savers. Counting how often a description has already appeared *within its
+  // own file* tells them apart. A second copy of a file repeats occurrence 0 and is dropped,
+  // while a genuine repeat is occurrence 1 and survives.
+  const withinFile = new Map<string, number>();
   const seen = new Set<string>();
   return rows.filter((row) => {
-    const key = `${row.dateIso}|${row.amount}|${row.merchant.toLowerCase()}`;
+    const body = `${row.dateIso}|${row.amount}|${row.merchant.toLowerCase()}`;
+    const counter = `${row.sourceFile}|${body}`;
+    const occurrence = withinFile.get(counter) ?? 0;
+    withinFile.set(counter, occurrence + 1);
+    const key = `${body}|${occurrence}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

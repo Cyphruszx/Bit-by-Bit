@@ -3,11 +3,15 @@
 import { useMemo, useState } from "react";
 import { TagEditor, TagList } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
-import { formatSignedAud } from "@/lib/format";
-import { allTags, tagsOf } from "@/lib/money-flow/tags";
+import { formatCount, formatSignedAud } from "@/lib/format";
+import { paginate } from "@/lib/paging";
+import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 type Direction = "all" | "in" | "out";
+
+/** A statement year runs to well over a thousand movements, which is more than anyone scrolls. */
+const PAGE_SIZE = 25;
 
 export function TransactionTable({
   transactions,
@@ -18,11 +22,15 @@ export function TransactionTable({
   tag?: string;
   onTagChange?: (tag: string) => void;
 }) {
-  const { setTransactionTags } = useMoneyFlow();
+  const { allTransactions, setMerchantTags, setTransactionTags } = useMoneyFlow();
   const [query, setQuery] = useState("");
   const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  // Raised after every tag edit where the merchant appears more than once, so the edit can be
+  // carried across without the reader hunting the rest down one at a time.
+  const [spread, setSpread] = useState<{ id: string; merchant: string; tags: string[]; others: number } | null>(null);
   const tagOptions = useMemo(() => ["All", ...allTags(transactions)], [transactions]);
   const selectedTag = tag ?? internalTag;
   const activeTag = tagOptions.includes(selectedTag) ? selectedTag : "All";
@@ -47,6 +55,16 @@ export function TransactionTable({
       return matchesTag && matchesDirection && matchesQuery;
     });
   }, [activeTag, direction, query, transactions]);
+
+  // Going back to the first page whenever the filter changes, so narrowing the list does not
+  // leave the reader parked on a page of it that no longer means anything.
+  const filterKey = `${activeTag}|${direction}|${query.trim().toLowerCase()}|${transactions.length}`;
+  const [shownFor, setShownFor] = useState(filterKey);
+  if (shownFor !== filterKey) {
+    setShownFor(filterKey);
+    setPage(1);
+  }
+  const { items: visible, page: currentPage, pageCount, firstIndex: firstOnPage } = paginate(rows, page, PAGE_SIZE);
 
   return (
     <div>
@@ -98,7 +116,7 @@ export function TransactionTable({
             {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
           </p>
         ) : (
-          rows.map((txn) => {
+          visible.map((txn) => {
             const editing = editingId === txn.id;
             return (
               <div className="py-2" key={txn.id}>
@@ -119,7 +137,10 @@ export function TransactionTable({
                     type="button"
                     aria-expanded={editing}
                     aria-controls={`tag-editor-${txn.id}`}
-                    onClick={() => setEditingId(editing ? null : txn.id)}
+                    onClick={() => {
+                      setSpread(null);
+                      setEditingId(editing ? null : txn.id);
+                    }}
                     className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
                       editing ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
                     }`}
@@ -136,14 +157,84 @@ export function TransactionTable({
                     tags={tagsOf(txn)}
                     suggestions={allTags(transactions)}
                     listId={`tag-suggestions-${txn.id}`}
-                    onChange={(next) => setTransactionTags(txn.id, next)}
+                    onChange={(next) => {
+                      // The row the reader is on changes now; the rest is offered, not assumed.
+                      setTransactionTags(txn.id, next);
+                      const others = merchantRows(allTransactions, txn.merchant).filter(
+                        (row) => row.id !== txn.id,
+                      ).length;
+                      setSpread(others > 0 ? { id: txn.id, merchant: txn.merchant, tags: next, others } : null);
+                    }}
                   />
+                  {spread?.id === txn.id ? (
+                    <div
+                      aria-live="polite"
+                      className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-[#f4f8ec] px-3 py-2"
+                    >
+                      <p className="text-xs text-[#355a3f]">
+                        {spread.others === 1
+                          ? `${spread.merchant} appears on one other movement.`
+                          : `${spread.merchant} appears on ${formatCount(spread.others)} other movements.`}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMerchantTags(spread.merchant, spread.tags);
+                            setSpread(null);
+                          }}
+                          className="rounded-full bg-[#173b31] px-2.5 py-1 text-xs font-semibold text-white"
+                        >
+                          Apply to all {formatCount(spread.others + 1)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSpread(null)}
+                          className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f]"
+                        >
+                          Just this one
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );
           })
         )}
       </div>
+      {rows.length > PAGE_SIZE ? (
+        <nav
+          aria-label="Merchant pages"
+          className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#edf0ee] pt-3"
+        >
+          <p className="text-xs text-[#60716a]" aria-live="polite">
+            Showing {formatCount(firstOnPage + 1)}–{formatCount(firstOnPage + visible.length)} of{" "}
+            {formatCount(rows.length)}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <p className="text-xs font-semibold text-[#60716a]">
+              Page {formatCount(currentPage)} of {formatCount(pageCount)}
+            </p>
+            <button
+              type="button"
+              onClick={() => setPage(currentPage + 1)}
+              disabled={currentPage === pageCount}
+              className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </nav>
+      ) : null}
     </div>
   );
 }

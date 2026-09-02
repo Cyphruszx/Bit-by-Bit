@@ -1,24 +1,48 @@
 "use client";
 
-import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import { accounts as demoAccounts, budgets as demoBudgets, goals as demoGoals, transactions as demoTransactions } from "@/lib/demo-data";
+import {
+  appendToLedger,
+  EMPTY_LEDGER,
+  heldStatements,
+  importedFiles,
+  ledgerTransactions,
+  removeStatement as dropStatement,
+  replaceTransactions,
+  type HeldStatement,
+  type ImportReport,
+  type Ledger,
+} from "@/lib/money-flow/ledger";
 import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
-import { removeTag, renameTag, withTags } from "@/lib/money-flow/tags";
+import { removeTag, renameTag, tagMerchant, tagsOf, withTags } from "@/lib/money-flow/tags";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
+import { createLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
 
-const STORAGE_KEY = "bitbybit.interpreted-v1";
 const PERIOD_KEY = "bitbybit.period-v1";
-const empty = { files: [] as FileInterpretation[], transactions: [] as InterpretedTransaction[] };
+const DEMO_TAGS_KEY = "bitbybit.demo-tags-v1";
+
+type Snapshot = {
+  ledger: Ledger;
+  /** Tag edits made against the sample activity, which never enters the ledger. */
+  demoTags: Record<string, string[]>;
+  ready: boolean;
+};
+
+const EMPTY_SNAPSHOT: Snapshot = { ledger: EMPTY_LEDGER, demoTags: {}, ready: false };
+
 const listeners = new Set<() => void>();
 const periodListeners = new Set<() => void>();
-let cachedRaw: string | null = null;
-let cachedSnapshot = empty;
+let snapshot: Snapshot = EMPTY_SNAPSHOT;
+let store: LedgerStore | null = null;
+let loading: Promise<void> | null = null;
 let cachedPeriodRaw: string | null = null;
 let cachedPeriod: PeriodFilter = ALL_PERIOD;
 
 type MoneyFlowState = {
   files: FileInterpretation[];
+  statements: HeldStatement[];
   allTransactions: InterpretedTransaction[];
   transactions: InterpretedTransaction[];
   flow: MoneyFlowSummary;
@@ -26,9 +50,14 @@ type MoneyFlowState = {
   setPeriod: (period: PeriodFilter) => void;
   hasUploads: boolean;
   usingDemo: boolean;
-  applyInterpretation: (result: InterpretationResult) => void;
+  /** False until the stored ledger has been read, so the UI can wait instead of flashing samples. */
+  ready: boolean;
+  importDocuments: (result: InterpretationResult, hashes?: Record<string, string>) => ImportReport;
+  removeStatement: (key: string) => void;
   clearInterpretation: () => void;
   setTransactionTags: (id: string, tags: string[]) => void;
+  /** The same tags on every movement of one merchant, however far back it goes. */
+  setMerchantTags: (merchant: string, tags: string[]) => void;
   renameTagEverywhere: (from: string, to: string) => void;
   removeTagEverywhere: (name: string) => void;
 };
@@ -36,30 +65,36 @@ type MoneyFlowState = {
 const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
 
 export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
-  const stored = useSyncExternalStore(subscribe, getSnapshot, () => empty);
+  const held = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_SNAPSHOT);
   const period = useSyncExternalStore(subscribePeriod, getPeriod, () => ALL_PERIOD);
 
+  useEffect(() => {
+    void hydrate();
+  }, []);
+
   const value = useMemo<MoneyFlowState>(() => {
-    const hasUploads = stored.files.length > 0;
-    const hasStoredTxns = stored.transactions.length > 0;
-    const allTransactions = hasStoredTxns ? stored.transactions : demoTransactions.map(toInterpreted);
-    const transactions = filterByPeriod(allTransactions, period);
+    const stored = ledgerTransactions(held.ledger);
+    const allTransactions = stored.length > 0 ? stored : demoRows(held.demoTags);
     return {
-      files: stored.files,
+      files: importedFiles(held.ledger),
+      statements: heldStatements(held.ledger),
       allTransactions,
-      transactions,
+      transactions: filterByPeriod(allTransactions, period),
       flow: summarizePeriod(allTransactions, period),
       period,
       setPeriod: writePeriod,
-      hasUploads,
-      usingDemo: !hasStoredTxns,
-      applyInterpretation: writeStore,
-      clearInterpretation: clearStore,
+      hasUploads: held.ledger.imports.length > 0,
+      usingDemo: stored.length === 0,
+      ready: held.ready,
+      importDocuments,
+      removeStatement,
+      clearInterpretation: clearLedger,
       setTransactionTags,
+      setMerchantTags,
       renameTagEverywhere,
       removeTagEverywhere,
     };
-  }, [stored, period]);
+  }, [held, period]);
 
   return <MoneyFlowContext.Provider value={value}>{children}</MoneyFlowContext.Provider>;
 }
@@ -82,22 +117,54 @@ function subscribePeriod(onChange: () => void) {
   return () => periodListeners.delete(onChange);
 }
 
-function getSnapshot() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === cachedRaw) return cachedSnapshot;
-    cachedRaw = raw;
-    if (!raw) {
-      cachedSnapshot = empty;
-      return empty;
-    }
-    const parsed = JSON.parse(raw) as { files?: FileInterpretation[]; transactions?: InterpretedTransaction[] };
-    cachedSnapshot = { files: parsed.files ?? [], transactions: parsed.transactions ?? [] };
-    return cachedSnapshot;
-  } catch {
-    cachedSnapshot = empty;
-    return empty;
-  }
+function getSnapshot(): Snapshot {
+  return snapshot;
+}
+
+function update(patch: Partial<Snapshot>) {
+  snapshot = { ...snapshot, ...patch };
+  listeners.forEach((listener) => listener());
+}
+
+function hydrate(): Promise<void> {
+  if (loading) return loading;
+  store = store ?? createLedgerStore();
+  loading = store
+    .load()
+    .then((stored) => {
+      // A statement imported while the read was in flight must not be thrown away.
+      update({
+        ledger: snapshot.ledger.imports.length > 0 ? snapshot.ledger : stored,
+        demoTags: readDemoTags(),
+        ready: true,
+      });
+    })
+    .catch(() => update({ demoTags: readDemoTags(), ready: true }));
+  return loading;
+}
+
+function commit(next: Ledger) {
+  update({ ledger: next });
+  store = store ?? createLedgerStore();
+  void store.save(next);
+}
+
+function importDocuments(result: InterpretationResult, hashes?: Record<string, string>): ImportReport {
+  const { ledger: next, report } = appendToLedger(snapshot.ledger, result, { hashes });
+  commit(next);
+  // A new statement usually lands outside whatever month was being viewed.
+  if (report.added > 0) writePeriod(ALL_PERIOD);
+  return report;
+}
+
+function removeStatement(key: string) {
+  commit(dropStatement(snapshot.ledger, key));
+}
+
+function clearLedger() {
+  update({ ledger: EMPTY_LEDGER });
+  store = store ?? createLedgerStore();
+  void store.clear();
 }
 
 function getPeriod(): PeriodFilter {
@@ -121,48 +188,62 @@ function writePeriod(period: PeriodFilter) {
   periodListeners.forEach((listener) => listener());
 }
 
-function writeStore(result: InterpretationResult) {
-  persist(result.files, result.transactions);
-  writePeriod(ALL_PERIOD);
-}
-
-function persist(files: FileInterpretation[], transactions: InterpretedTransaction[]) {
-  const raw = JSON.stringify({ files, transactions });
-  localStorage.setItem(STORAGE_KEY, raw);
-  cachedRaw = raw;
-  cachedSnapshot = { files, transactions };
-  listeners.forEach((listener) => listener());
-}
-
-function clearStore() {
-  localStorage.removeItem(STORAGE_KEY);
-  cachedRaw = null;
-  cachedSnapshot = empty;
-  listeners.forEach((listener) => listener());
-}
-
-function workingCopy() {
-  const stored = getSnapshot();
-  if (stored.transactions.length > 0) return stored;
-  return { files: stored.files, transactions: demoTransactions.map(toInterpreted) };
-}
-
 function setTransactionTags(id: string, tags: string[]) {
-  const base = workingCopy();
-  persist(
-    base.files,
-    base.transactions.map((txn) => (txn.id === id ? withTags(txn, tags) : txn)),
-  );
+  edit((rows) => rows.map((txn) => (txn.id === id ? withTags(txn, tags) : txn)));
+}
+
+function setMerchantTags(merchant: string, tags: string[]) {
+  edit((rows) => tagMerchant(rows, merchant, tags));
 }
 
 function renameTagEverywhere(from: string, to: string) {
-  const base = workingCopy();
-  persist(base.files, renameTag(base.transactions, from, to));
+  edit((rows) => renameTag(rows, from, to));
 }
 
 function removeTagEverywhere(name: string) {
-  const base = workingCopy();
-  persist(base.files, removeTag(base.transactions, name));
+  edit((rows) => removeTag(rows, name));
+}
+
+/** Tag edits land on the ledger once statements are held, and on the samples until then. */
+function edit(change: (rows: InterpretedTransaction[]) => InterpretedTransaction[]) {
+  const stored = ledgerTransactions(snapshot.ledger);
+  if (stored.length > 0) {
+    commit(replaceTransactions(snapshot.ledger, change(stored)));
+    return;
+  }
+  const next = change(demoRows(snapshot.demoTags));
+  writeDemoTags(Object.fromEntries(next.map((txn) => [txn.id, tagsOf(txn)])));
+}
+
+function demoRows(overrides: Record<string, string[]>): InterpretedTransaction[] {
+  return demoTransactions.map((txn) => {
+    const row = toInterpreted(txn);
+    const tags = overrides[txn.id];
+    return tags ? { ...row, tags: [...tags] } : row;
+  });
+}
+
+function readDemoTags(): Record<string, string[]> {
+  try {
+    const raw = localStorage.getItem(DEMO_TAGS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter(([, tags]) => Array.isArray(tags) && tags.every((tag) => typeof tag === "string"))
+        .map(([id, tags]) => [id, tags as string[]]),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeDemoTags(next: Record<string, string[]>) {
+  try {
+    localStorage.setItem(DEMO_TAGS_KEY, JSON.stringify(next));
+  } catch {
+    // Losing a sample tag edit is not worth interrupting the page for.
+  }
+  update({ demoTags: next });
 }
 
 function toInterpreted(txn: (typeof demoTransactions)[number]): InterpretedTransaction {

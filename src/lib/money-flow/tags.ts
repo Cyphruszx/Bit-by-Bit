@@ -43,6 +43,27 @@ export function makePrimary(txn: InterpretedTransaction, name: string): Interpre
   return withTags(txn, next ? [next, ...others] : others);
 }
 
+/** Statements name a merchant inconsistently in case, so match on the tidied name. */
+export function sameMerchant(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+export function merchantRows(
+  transactions: InterpretedTransaction[],
+  merchant: string,
+): InterpretedTransaction[] {
+  return transactions.filter((txn) => sameMerchant(txn.merchant, merchant));
+}
+
+/** The same tags on every movement of one merchant, leaving every other movement alone. */
+export function tagMerchant(
+  transactions: InterpretedTransaction[],
+  merchant: string,
+  tags: string[],
+): InterpretedTransaction[] {
+  return transactions.map((txn) => (sameMerchant(txn.merchant, merchant) ? withTags(txn, tags) : txn));
+}
+
 export function renameTag(transactions: InterpretedTransaction[], from: string, to: string): InterpretedTransaction[] {
   const nextName = tidyTag(to);
   if (!nextName) return transactions;

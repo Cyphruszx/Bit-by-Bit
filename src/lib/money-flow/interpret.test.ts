@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { detectFileKind } from "./detect";
@@ -238,7 +238,7 @@ describe("NAB CSV exports", () => {
   });
 });
 
-const uploadedUpPdf = "/home/ubuntu/.cursor/projects/workspace/uploads/statement-2026-07_a358.pdf";
+const upSample = path.join(samples, "up-2025-07-to-2026-06.txt");
 
 describe("Up Bank statement backend", () => {
   it("interprets an Up-style statement layout, including page-broken amounts", async () => {
@@ -270,37 +270,85 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.equal(result.flow.income, 307.9);
   });
 
-  it("interprets the uploaded July 2026 Up PDF through interpretDocuments", { skip: !existsSync(uploadedUpPdf) }, async () => {
-    const bytes = new Uint8Array(readFileSync(uploadedUpPdf));
-    const result = await interpretDocuments([{ filename: "statement-2026-07.pdf", mime: "application/pdf", bytes }]);
+  async function readUpSample() {
+    return interpretDocuments([
+      { filename: "up-2025-07-to-2026-06.txt", mime: "text/plain", bytes: new Uint8Array(readFileSync(upSample)) },
+    ]);
+  }
+
+  it("reads the year sample as an Up statement", async () => {
+    const result = await readUpSample();
     const fileResult = result.files[0];
     assert.equal(fileResult.processingStatus, "completed");
-    assert.equal(fileResult.kind, "pdf");
     assert.ok(fileResult.notes.includes("Read as an Up / Bendigo bank statement."));
-    assert.equal(result.flow.spending, 5619.59);
-    assert.ok(Math.abs(result.flow.income - 5418.24) < 0.05, `income ${result.flow.income}`);
-    assert.ok(result.transactions.length >= 120, `txn count ${result.transactions.length}`);
-    assert.match(result.flow.periodLabel, /1 Jul.*31 Jul/);
-    assert.ok(
-      result.transactions.some((txn) => txn.merchant === "Woolworths" && txn.amount === -10.5 && txn.dateIso === "2026-07-31"),
-    );
-    assert.ok(result.transactions.some((txn) => txn.merchant === "Osko Payment Received" && txn.amount === 1000));
+    assert.ok(result.transactions.length > 1000, `txn count ${result.transactions.length}`);
     assert.ok(result.transactions.some((txn) => txn.merchant === "Zambrero"));
-    assert.ok(result.transactions.some((txn) => txn.merchant === "Soul Origin" && txn.type === "refund"));
   });
 
-  it("runs the server action against the uploaded Up PDF", { skip: !existsSync(uploadedUpPdf) }, async () => {
+  it("counts day headings back through the year they belong to", async () => {
+    const result = await readUpSample();
+    const dates = result.transactions.map((txn) => txn.dateIso).sort();
+    // The statement heads itself "01 Jul 2025 to 30 Jun 2026" and its day headings carry no year.
+    assert.ok(dates[0] >= "2025-07-01", `earliest ${dates[0]}`);
+    assert.ok(dates[dates.length - 1] <= "2026-06-30", `latest ${dates[dates.length - 1]}`);
+    assert.ok(dates.some((date) => date.startsWith("2025-")), "the first half of the year should be dated 2025");
+    assert.ok(dates.some((date) => date.startsWith("2026-")), "the second half should be dated 2026");
+  });
+
+  it("reads the money coming in from the other bank", async () => {
+    const result = await readUpSample();
+    const osko = result.transactions.filter((txn) => txn.merchant === "Osko Payment Received");
+    assert.ok(osko.length > 50, `osko receipts ${osko.length}`);
+    assert.ok(osko.every((txn) => txn.amount > 0));
+  });
+
+  it("reconciles the year sample to the summary the statement prints", async () => {
+    const result = await readUpSample();
+    // The statement heads itself "Money In +$70,574.39 Money Out $71,631.34". Those count
+    // money entering and leaving Up, so they exclude the movements the holder makes between
+    // their own Spending account and their savers.
+    assert.equal(result.flow.income, 70574.39);
+    assert.equal(result.flow.spending, 71631.34);
+  });
+
+  it("keeps money moved between the holder's own Up accounts out of the totals", async () => {
+    const result = await readUpSample();
+    const internal = result.transactions.filter((txn) => txn.type === "transfer");
+    const intoSavers = roundMoney(
+      internal.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    );
+    const backToSpending = roundMoney(
+      internal.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
+    );
+    // Every leg is written twice, once in the Spending account and once in the saver, so the
+    // two sides carry the same money and cancel. Counting either side as income or spending
+    // is what made the statement read high.
+    assert.equal(internal.length, 84);
+    assert.equal(intoSavers, 14446.6);
+    assert.equal(backToSpending, 14446.6);
+    assert.equal(roundMoney(backToSpending - intoSavers), 0);
+  });
+
+  it("runs the server action against the year sample", async () => {
     const { interpretUploadedDocuments } = await import("../../app/actions/interpret-documents");
-    const bytes = readFileSync(uploadedUpPdf);
     const form = new FormData();
-    form.append("files", new File([bytes], "statement-2026-07.pdf", { type: "application/pdf" }));
+    form.append("files", new File([readFileSync(upSample)], "up-2025-07-to-2026-06.txt", { type: "text/plain" }));
     const result = await interpretUploadedDocuments(form);
     assert.equal(result.ok, true);
     if (!result.ok) return;
-    assert.equal(result.flow.spending, 5619.59);
-    assert.ok(Math.abs(result.flow.income - 5418.24) < 0.05, `income ${result.flow.income}`);
-    assert.ok(result.transactions.length >= 120);
-    assert.equal(result.files[0].kind, "pdf");
+    assert.ok(result.transactions.length > 1000);
+    assert.equal(result.files[0].kind, "text");
+  });
+
+  it("carries no personal detail into the shared sample", () => {
+    const text = readFileSync(upSample, "utf8");
+    assert.match(text, /Jordan Lee/, "the sample should use the same pseudonym as the NAB samples");
+    for (const pattern of [/steven/i, /taehyun/i, /nellie/i, /mitchell park/i]) {
+      assert.doesNotMatch(text, pattern);
+    }
+    // Account and reference numbers are kept in shape but blanked after the first digit.
+    const unmasked = (text.match(/\b\d{7,}\b/g) ?? []).filter((digits) => digits.replace(/0/g, "").length > 1);
+    assert.deepEqual(unmasked, []);
   });
 });
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { allPrimaryTags, allSubTags, makePrimary, primaryTag, removeTag, renameTag, subTags, tagsOf, tidyTag, withPrimary, withTags } from "./tags";
+import { allPrimaryTags, allSubTags, makePrimary, merchantRows, primaryTag, removeTag, renameTag, sameMerchant, subTags, tagMerchant, tagsOf, tidyTag, withPrimary, withTags } from "./tags";
 import type { InterpretedTransaction } from "./types";
 
 function txn(category: string, tags?: string[]): InterpretedTransaction {
@@ -51,5 +51,43 @@ describe("transaction tags", () => {
     const removed = removeTag(renamed, "eating out");
     assert.deepEqual(tagsOf(removed[1]), ["Weekend"]);
     assert.deepEqual(tagsOf(removeTag([txn("Groceries")], "Groceries")[0]), ["Other"]);
+  });
+});
+
+describe("tagging every movement of a merchant", () => {
+  function row(id: string, merchant: string, tags?: string[]): InterpretedTransaction {
+    return { ...txn("Groceries", tags), id, merchant };
+  }
+
+  const rows = [
+    row("1", "Woolworths"),
+    row("2", "WOOLWORTHS"),
+    row("3", "Coles", ["Groceries"]),
+    row("4", "woolworths "),
+  ];
+
+  it("matches a merchant whatever case the statement used", () => {
+    assert.ok(sameMerchant("Woolworths", "WOOLWORTHS"));
+    assert.ok(sameMerchant("woolworths ", " Woolworths"));
+    assert.ok(!sameMerchant("Woolworths", "Woolworths Metro"));
+    assert.equal(merchantRows(rows, "woolworths").length, 3);
+  });
+
+  it("applies the tags to that merchant and to nothing else", () => {
+    const next = tagMerchant(rows, "Woolworths", ["Food", "Weekly Shop"]);
+    for (const id of ["1", "2", "4"]) {
+      const changed = next.find((r) => r.id === id);
+      assert.deepEqual(changed?.tags, ["Food", "Weekly Shop"], `row ${id}`);
+      assert.equal(changed?.category, "Food");
+      assert.equal(changed?.tagSource, "user");
+    }
+    const untouched = next.find((r) => r.id === "3");
+    assert.deepEqual(untouched?.tags, ["Groceries"]);
+    assert.equal(untouched, rows[2], "an unrelated row should not be rebuilt");
+  });
+
+  it("leaves the list alone when no movement carries that merchant", () => {
+    assert.deepEqual(tagMerchant(rows, "Aldi", ["Food"]), rows);
+    assert.equal(merchantRows(rows, "Aldi").length, 0);
   });
 });
