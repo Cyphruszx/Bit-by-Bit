@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { accountsFrom } from "./accounts";
 import { detectFileKind } from "./detect";
 import { totalsByInstitution } from "./documents";
 import { interpretDocuments } from "./interpret";
@@ -818,5 +819,75 @@ describe("grouping the samples by institution", () => {
       roundMoney(groups.reduce((sum, group) => sum + group.flow.cashNet, 0)),
       whole.cashNet,
     );
+  });
+});
+
+describe("splitting the samples into accounts", () => {
+  const nabFiles = ["nab-medicare.csv", "nab-rent.csv"];
+
+  async function interpretEverySample() {
+    return interpretDocuments([
+      ...nabFiles.map((filename) => file(filename, "text/csv", readFileSync(path.join(samples, filename)))),
+      file("up-2025-07-to-2026-06.txt", "text/plain", readFileSync(upSample)),
+    ]);
+  }
+
+  it("reads the Up statement as its spending account and its eight savers", async () => {
+    const result = await interpretEverySample();
+    const up = accountsFrom(result.transactions).filter((account) => account.institution === "Up");
+
+    assert.deepEqual(
+      up.map((account) => account.label).sort(),
+      [
+        "Up · Bday",
+        "Up · Food and gifts",
+        "Up · No Touchy",
+        "Up · Presents",
+        "Up · Save!!",
+        "Up · Savings 2",
+        "Up · Spending",
+        "Up · Tax",
+        "Up · Tech",
+      ],
+    );
+    assert.equal(
+      up.reduce((sum, account) => sum + account.transactions.length, 0),
+      1267,
+    );
+  });
+
+  it("draws the savers down by what the statement says they fell", async () => {
+    const result = await interpretEverySample();
+    const savers = accountsFrom(result.transactions).filter(
+      (account) => account.institution === "Up" && account.label !== "Up · Spending",
+    );
+
+    assert.equal(roundMoney(savers.reduce((sum, account) => sum + account.flow.cashNet, 0)), -836.34);
+  });
+
+  it("lands the spending account on the closing balance the statement prints", async () => {
+    const result = await interpretEverySample();
+    const spending = accountsFrom(result.transactions).find((account) => account.label === "Up · Spending");
+
+    assert.equal(roundMoney(398.25 + (spending?.flow.cashNet ?? 0)), 177.64);
+  });
+
+  it("names both NAB accounts without reciting their numbers", async () => {
+    const result = await interpretEverySample();
+    const nab = accountsFrom(result.transactions).filter((account) => account.institution === "NAB");
+
+    assert.deepEqual(nab.map((account) => account.label).sort(), ["NAB · ···300", "NAB · ···600"]);
+    assert.equal(nab.find((account) => account.label === "NAB · ···300")?.flow.cashNet, 3669.02);
+    assert.equal(nab.find((account) => account.label === "NAB · ···600")?.flow.cashNet, -3119.58);
+  });
+
+  it("adds every account up to the money the household actually moved", async () => {
+    const result = await interpretEverySample();
+    const accounts = accountsFrom(result.transactions);
+    const whole = summarizeMoneyFlow(result.transactions);
+
+    assert.equal(accounts.length, 11);
+    assert.equal(roundMoney(accounts.reduce((sum, account) => sum + account.flow.cashNet, 0)), whole.cashNet);
+    assert.equal(whole.cashNet, -507.51);
   });
 });

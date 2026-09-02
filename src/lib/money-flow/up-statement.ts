@@ -20,6 +20,10 @@ const MONTHS: Record<string, number> = {
 const DATE_HEADER =
   /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?$/i;
 const TIME_LINE = /^(\d{1,2}:\d{2}\s*(?:am|pm))\s*(.*)$/i;
+/** Each saver opens with its balances and is named at the end of that same line. */
+const SAVER_HEADER = /Opening Balance:.*Closing Balance:\s*\$[\d,.]+\s*(.*)$/i;
+/** Up's own name for the transaction account the savers transfer to and from. */
+const SPENDING_ACCOUNT = "Spending";
 
 export function looksLikeUpStatement(text: string): boolean {
   return (
@@ -37,7 +41,9 @@ export function transactionsFromUpStatement(text: string, sourceFile: string): I
     .split("\n")
     .map((line) => line.replace(/\s+/g, " ").trim())
     .filter(Boolean)
-    .filter((line) => !shouldSkip(line));
+    // A saver's opening line is boilerplate everywhere else, but it is the only
+    // place the statement says which saver the movements below it belong to.
+    .filter((line) => !shouldSkip(line) || SAVER_HEADER.test(line));
 
   const results: InterpretedTransaction[] = [];
   let currentDate: string | null = null;
@@ -46,17 +52,20 @@ export function transactionsFromUpStatement(text: string, sourceFile: string): I
   // year each time the month climbs instead of falling.
   let year = latestYear;
   let previousMonth: number | null = null;
+  let account = SPENDING_ACCOUNT;
 
   const flush = () => {
-    const txn = transactionFromBlock(pending, currentDate, sourceFile, results.length);
+    const txn = transactionFromBlock(pending, currentDate, sourceFile, results.length, account);
     if (txn) results.push(txn);
     pending = [];
   };
 
   for (const line of lines) {
-    // Each saver account restarts at the newest day.
-    if (/Opening Balance:/i.test(line)) {
+    // Each saver account restarts at the newest day, and names itself as it opens.
+    const saver = line.match(SAVER_HEADER);
+    if (saver) {
       flush();
+      account = saver[1].trim() || account;
       year = latestYear;
       previousMonth = null;
       continue;
@@ -177,6 +186,7 @@ function transactionFromBlock(
   dateIso: string | null,
   sourceFile: string,
   index: number,
+  account: string,
 ): InterpretedTransaction | null {
   if (!dateIso || lines.length === 0) return null;
   const block = lines.join(" ");
@@ -215,6 +225,7 @@ function transactionFromBlock(
     amount,
     type,
     sourceFile,
+    accountId: account,
     confidence: 0.9,
   };
 }
