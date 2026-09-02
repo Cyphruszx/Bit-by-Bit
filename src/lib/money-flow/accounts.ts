@@ -107,19 +107,26 @@ export function accountsFrom(
     grouped.set(id, held);
   }
 
-  return [...grouped.entries()].map(([id, held]) => ({
-    id,
-    label: accountLabel(id),
-    institution: institutionOf(held.rows[0], registry.institutions ?? {}),
-    keys: [...held.keys],
-    named: [...held.keys].some((key) => Boolean(registry.names?.[key]?.trim())),
-    transactions: held.rows,
-    flow: summarizeMoneyFlow(held.rows),
-  }));
+  return [...grouped.entries()]
+    .map(([id, held]) => ({
+      id,
+      label: accountLabel(id),
+      institution: institutionOf(held.rows[0], registry.institutions ?? {}),
+      keys: [...held.keys],
+      named: [...held.keys].some((key) => Boolean(registry.names?.[key]?.trim())),
+      transactions: held.rows,
+      flow: summarizeMoneyFlow(held.rows),
+    }))
+    .sort(bySizeThenName);
 }
 
 export type InstitutionAccounts = {
   institution: string;
+  /**
+   * The bank's own money in and out, which is not the sum of its accounts': a transfer
+   * between two of them cancels here and counts inside each account on its own.
+   */
+  flow: MoneyFlowSummary;
   accounts: AccountTotals[];
 };
 
@@ -132,5 +139,22 @@ export function accountsByInstitution(
   for (const account of accountsFrom(transactions, registry)) {
     grouped.set(account.institution, [...(grouped.get(account.institution) ?? []), account]);
   }
-  return [...grouped.entries()].map(([institution, accounts]) => ({ institution, accounts }));
+  return [...grouped.entries()]
+    .map(([institution, accounts]) => ({
+      institution,
+      flow: summarizeMoneyFlow(accounts.flatMap((account) => account.transactions)),
+      accounts,
+    }))
+    .sort(
+      (a, b) =>
+        b.flow.transactionCount - a.flow.transactionCount || a.institution.localeCompare(b.institution),
+    );
+}
+
+/**
+ * Busiest first, and alphabetical between equals. Grouping by whichever movement happened
+ * to be read first would reshuffle the accounts every time a statement arrived.
+ */
+function bySizeThenName(a: AccountTotals, b: AccountTotals): number {
+  return b.transactions.length - a.transactions.length || a.label.localeCompare(b.label);
 }

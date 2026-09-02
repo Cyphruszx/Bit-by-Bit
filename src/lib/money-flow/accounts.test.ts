@@ -139,9 +139,10 @@ describe("naming and merging accounts", () => {
       txn({ accountId: "Up · Spending", institution: "Up", amount: -5 }),
     ]);
 
+    // Busiest bank first, so a new statement cannot reshuffle the row of chips.
     assert.deepEqual(
       grouped.map((row) => [row.institution, row.accounts.length]),
-      [["NAB", 1], ["Up", 2]],
+      [["Up", 2], ["NAB", 1]],
     );
   });
 });
