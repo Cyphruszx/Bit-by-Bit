@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { IncomeRhythm } from "@/components/income-rhythm";
 import { demoAccounts, useMoneyFlow } from "@/components/money-flow-provider";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
@@ -75,6 +76,8 @@ export function AccountsView() {
           detail="CSV, Excel, PDF, OFX, images, and more"
         />
       </section>
+
+      <IncomeRhythm />
 
       {suggestions.length > 0 ? (
         <section className="mt-8 rounded-2xl border border-[#d8c3a8] bg-[#fdf6ec] p-6">
