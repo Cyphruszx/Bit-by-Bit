@@ -11,6 +11,7 @@ import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
 import { accountsByInstitution, type AccountTotals, type InstitutionAccounts } from "@/lib/money-flow/accounts";
+import { incomeSources, type IncomeSource } from "@/lib/money-flow/income";
 import { potsInTotal } from "@/lib/money-flow/savings";
 import type { ChartKind } from "@/lib/money-flow/tag-charts";
 import type { MoneyFlowSummary } from "@/lib/money-flow/types";
@@ -26,6 +27,7 @@ export function DashboardView() {
     [accountNames, institutionOverrides],
   );
   const groups = useMemo(() => accountsByInstitution(transactions, registry), [registry, transactions]);
+  const sources = useMemo(() => incomeSources(transactions), [transactions]);
   const hidden = useHiddenInstitutions();
   const [chartTag, setChartTag] = useState({ key: "All", tag: "All" });
   const selectedTag = chartTag.tag;
@@ -43,6 +45,8 @@ export function DashboardView() {
       </p>
 
       <FlowCards flow={flow} hasUploads={hasUploads} />
+
+      <IncomeBreakdown sources={sources} income={flow.income} />
 
       {groups.length > 0 ? (
         <section className="mt-8 space-y-4">
@@ -158,6 +162,43 @@ export function DashboardView() {
  * the thing this app exists to stop. The statement's own credits and debits stay
  * underneath, because that is what ties a figure back to the bank.
  */
+/**
+ * What the money-in figure is made of. A single number cannot be argued with: a person who
+ * knows what they earn can see a total is wrong but not which part of it, and the part
+ * that is wrong is usually one a bank mislabelled or an account they have not added yet.
+ */
+function IncomeBreakdown({ sources, income }: { sources: IncomeSource[]; income: number }) {
+  // One source is the whole figure, and saying so twice explains nothing.
+  if (sources.length < 2) return null;
+
+  return (
+    <section className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="text-base font-bold">What&apos;s in money in</h2>
+        <p className="text-sm text-[#60716a]">
+          <span className="tabular-nums">{formatAud(income)}</span> from {sources.length} places
+        </p>
+      </div>
+      <ul className="mt-4 space-y-3">
+        {sources.map((source) => (
+          <li key={source.kind}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+              <p className="text-sm font-semibold">
+                {source.label}
+                <span className="ml-2 font-normal text-[#60716a]">
+                  {source.count} movement{source.count === 1 ? "" : "s"}
+                </span>
+              </p>
+              <p className="text-sm font-semibold tabular-nums text-[#257155]">{formatAud(source.amount)}</p>
+            </div>
+            <p className="mt-0.5 max-w-2xl text-sm text-[#60716a]">{source.detail}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function FlowCards({
   flow,
   hasUploads,
