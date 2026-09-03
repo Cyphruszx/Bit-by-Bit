@@ -1,98 +1,95 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
-import { DocumentScopeBar } from "@/components/document-scope";
+import { useMemo, useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { showEveryInstitution, toggleInstitution, useHiddenInstitutions } from "@/components/scope-store";
 import { SavingsPathChart } from "@/components/savings-charts";
 import { useSavingsPots } from "@/components/savings-store";
 import { TagChartCard } from "@/components/tag-charts";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
-import {
-  ALL_DOCUMENTS,
-  filterByDocument,
-  parseDocumentScope,
-  parseDocumentView,
-  sourceFilesFrom,
-  totalsByDocument,
-  type DocumentScope,
-  type DocumentTotals,
-  type DocumentView,
-} from "@/lib/money-flow/documents";
+import { accountsByInstitution, type AccountTotals, type InstitutionAccounts } from "@/lib/money-flow/accounts";
 import { potsInTotal } from "@/lib/money-flow/savings";
-import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import type { ChartKind } from "@/lib/money-flow/tag-charts";
 import type { MoneyFlowSummary } from "@/lib/money-flow/types";
 
-const DOC_VIEW_KEY = "bitbybit.dashboard-documents-v1";
-
 export function DashboardView() {
-  const { files, flow, hasUploads, transactions, usingDemo } = useMoneyFlow();
+  const { accountNames, flow, hasUploads, institutionOverrides, transactions, usingDemo } = useMoneyFlow();
   const { pots, snapshots } = useSavingsPots();
   const included = potsInTotal(pots);
   const hiddenCount = pots.length - included.length;
   const [chart, setChart] = useState<ChartKind>("bar");
-  const docs = useSyncExternalStore(subscribeDocs, getDocs, () => defaultDocs);
-  const sourceFiles = useMemo(() => sourceFilesFrom(transactions), [transactions]);
-  const scope = parseDocumentScope(docs.scope, sourceFiles);
-  const view = sourceFiles.length > 1 ? docs.view : "together";
-  const scopeKey = `${view}:${scope.kind === "file" ? scope.sourceFile : "all"}`;
-  const [chartTag, setChartTag] = useState({ key: scopeKey, tag: "All" });
-  const selectedTag = chartTag.key === scopeKey ? chartTag.tag : "All";
-  const setSelectedTag = (tag: string) => setChartTag({ key: scopeKey, tag });
-  const scopedTransactions = useMemo(
-    () => (view === "together" ? filterByDocument(transactions, scope) : transactions),
-    [scope, transactions, view],
+  const registry = useMemo(
+    () => ({ names: accountNames, institutions: institutionOverrides }),
+    [accountNames, institutionOverrides],
   );
-  const scopedFlow = useMemo(() => {
-    if (view !== "together" || scope.kind === "all") return flow;
-    const next = summarizeMoneyFlow(scopedTransactions);
-    next.periodLabel = flow.periodLabel;
-    return next;
-  }, [flow, scope.kind, scopedTransactions, view]);
-  const separate = useMemo(() => totalsByDocument(files, transactions), [files, transactions]);
+  const groups = useMemo(() => accountsByInstitution(transactions, registry), [registry, transactions]);
+  const hidden = useHiddenInstitutions();
+  const [chartTag, setChartTag] = useState({ key: "All", tag: "All" });
+  const selectedTag = chartTag.tag;
+  const setSelectedTag = (tag: string) => setChartTag({ key: "All", tag });
+  const shown = groups.filter((group) => !hidden.includes(group.institution));
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{scopedFlow.periodLabel}</p>
+      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Your financial snapshot</h1>
       <p className="mt-2 text-[#60716a]">
         {usingDemo
           ? "Sample activity until you upload a statement, spreadsheet, PDF, or photo of a document."
-          : view === "separate"
-            ? "Totals for each uploaded document, still using the period filter above."
-            : scope.kind === "file"
-              ? `Money flow from ${scope.sourceFile}.`
-              : "Money flow interpreted from the documents you uploaded."}
+          : "What actually came in and went out across every account, with money you moved between them counted once."}
       </p>
-      <DocumentScopeBar
-        sourceFiles={sourceFiles}
-        view={view}
-        scope={scope}
-        onView={(next) => writeDocs({ view: next, scope })}
-        onScope={(next) => writeDocs({ view: "together", scope: next })}
-      />
-      {view === "separate" && sourceFiles.length > 1 ? (
-        <div className="mt-8 space-y-6">
-          {separate.map((entry) => (
-            <DocumentSnapshot key={entry.sourceFile} entry={entry} periodLabel={flow.periodLabel} />
+
+      <FlowCards flow={flow} hasUploads={hasUploads} />
+
+      {groups.length > 0 ? (
+        <section className="mt-8 space-y-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-lg font-bold">Where it sits</h2>
+            {hidden.length > 0 ? (
+              <p className="text-sm text-[#60716a]">
+                {hidden.length} bank{hidden.length === 1 ? "" : "s"} hidden, still counted above.{" "}
+                <button type="button" onClick={showEveryInstitution} className="font-semibold text-[#355a3f] underline">
+                  Show all
+                </button>
+              </p>
+            ) : null}
+          </div>
+          {shown.map((group) => (
+            <InstitutionSection
+              key={group.institution}
+              group={group}
+              onHide={() => toggleInstitution(group.institution)}
+            />
           ))}
-        </div>
-      ) : (
-        <CashCards flow={scopedFlow} hasUploads={hasUploads} />
-      )}
-      {view === "together" ? (
-        <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
-          <h2 className="text-lg font-bold">How the money moved</h2>
-          <ul className="mt-4 space-y-2 text-[#52625c]">
-            {scopedFlow.insights.map((insight) => (
-              <li key={insight}>{insight}</li>
-            ))}
-          </ul>
-        </article>
+          {hidden.map((institution) => (
+            <div
+              key={institution}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[#c3d2ca] px-6 py-4"
+            >
+              <p className="text-sm font-semibold text-[#60716a]">{institution} · hidden</p>
+              <button
+                type="button"
+                onClick={() => toggleInstitution(institution)}
+                className="rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm font-semibold text-[#355a3f]"
+              >
+                Show
+              </button>
+            </div>
+          ))}
+        </section>
       ) : null}
+
+      <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+        <h2 className="text-lg font-bold">How the money moved</h2>
+        <ul className="mt-4 space-y-2 text-[#52625c]">
+          {flow.insights.map((insight) => (
+            <li key={insight}>{insight}</li>
+          ))}
+        </ul>
+      </article>
       <section className="mt-8">
         <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
           <div className="flex items-center justify-between">
@@ -141,100 +138,120 @@ export function DashboardView() {
           </div>
         </article>
       </section>
-      {view === "together" ? (
-        <section className="mt-8">
-          <TagChartCard
-            categories={scopedFlow.categories}
-            transactions={scopedTransactions}
-            selectedTag={selectedTag}
-            onSelectTag={setSelectedTag}
-            chart={chart}
-            onChartChange={setChart}
-          />
-        </section>
+      <section className="mt-8">
+        <TagChartCard
+          categories={flow.categories}
+          transactions={transactions}
+          selectedTag={selectedTag}
+          onSelectTag={setSelectedTag}
+          chart={chart}
+          onChartChange={setChart}
+        />
+      </section>
+    </>
+  );
+}
+
+/**
+ * Money in is what came in, not every credit on the statement: moving $500 from one of
+ * your accounts to another is not income, and counting it as both income and spending is
+ * the thing this app exists to stop. The statement's own credits and debits stay
+ * underneath, because that is what ties a figure back to the bank.
+ */
+function FlowCards({
+  flow,
+  hasUploads,
+  compact = false,
+}: {
+  flow: MoneyFlowSummary;
+  hasUploads: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <>
+      <section className={`grid gap-4 sm:grid-cols-3 ${compact ? "mt-4" : "mt-8"}`}>
+        <SummaryCard
+          label="Money in"
+          value={formatAud(flow.income)}
+          detail="Income, not counting money from your own accounts"
+          positive
+          compact={compact}
+        />
+        <SummaryCard
+          label="Money out"
+          value={formatAud(flow.spending)}
+          detail="What you actually spent"
+          compact={compact}
+        />
+        <SummaryCard
+          label="Net"
+          value={formatAud(flow.net)}
+          detail={hasUploads ? `${flow.transactionCount} movements` : "Money in minus money out"}
+          positive={flow.net >= 0}
+          compact={compact}
+        />
+      </section>
+      {flow.transfers > 0 ? (
+        <p className={`${compact ? "mt-2" : "mt-3"} text-sm text-[#60716a]`}>
+          {formatAud(flow.transfers)} moved between these accounts, counted once. The statements
+          themselves show {formatAud(flow.cashIn)} in and {formatAud(flow.cashOut)} out.
+        </p>
       ) : null}
     </>
   );
 }
 
-function CashCards({ flow, hasUploads, compact = false }: { flow: MoneyFlowSummary; hasUploads: boolean; compact?: boolean }) {
-  return (
-    <section className={`grid gap-4 sm:grid-cols-3 ${compact ? "mt-4" : "mt-8"}`}>
-      <SummaryCard label="Money in" value={formatAud(flow.cashIn)} detail="Every credit on the statement" positive compact={compact} />
-      <SummaryCard label="Money out" value={formatAud(flow.cashOut)} detail="Every debit on the statement" compact={compact} />
-      <SummaryCard
-        label="Net cash flow"
-        value={formatAud(flow.cashNet)}
-        detail={
-          flow.transfers > 0
-            ? `Spending ${formatAud(flow.spending)} · transfers ${formatAud(flow.transfers)}`
-            : hasUploads
-              ? `${flow.transactionCount} interpreted movements`
-              : "Credits minus debits"
-        }
-        positive={flow.cashNet >= 0}
-        compact={compact}
-      />
-    </section>
-  );
-}
-
-function DocumentSnapshot({ entry, periodLabel }: { entry: DocumentTotals; periodLabel: string }) {
+/**
+ * A bank, its own income and spending, and the accounts inside it. The bank's figures are
+ * not the sum of its accounts': money moved between two of them cancels here and counts
+ * in each account on its own, because from inside one account it really did leave.
+ */
+function InstitutionSection({ group, onHide }: { group: InstitutionAccounts; onHide: () => void }) {
   return (
     <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{periodLabel}</p>
-      <h2 className="mt-1 truncate text-lg font-bold">{entry.label}</h2>
-      {entry.processingError ? <p className="mt-2 text-sm text-[#9b3b32]">{entry.processingError}</p> : null}
-      <p className="mt-1 text-sm text-[#60716a]">
-        {entry.flow.transactionCount} movement{entry.flow.transactionCount === 1 ? "" : "s"} in this document.
-      </p>
-      <CashCards flow={entry.flow} hasUploads compact />
-      {entry.flow.insights.length > 0 ? (
-        <ul className="mt-4 space-y-1 text-sm text-[#52625c]">
-          {entry.flow.insights.slice(0, 2).map((insight) => (
-            <li key={insight}>{insight}</li>
-          ))}
-        </ul>
-      ) : null}
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-bold">{group.institution}</h3>
+          <p className="mt-0.5 text-sm text-[#60716a]">
+            {group.flow.transactionCount} movement{group.flow.transactionCount === 1 ? "" : "s"} across{" "}
+            {group.accounts.length} account{group.accounts.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-[#60716a]">
+            <span className="tabular-nums text-[#257155]">{formatAud(group.flow.income)}</span> in ·{" "}
+            <span className="tabular-nums">{formatAud(group.flow.spending)}</span> out ·{" "}
+            <span className="font-semibold tabular-nums text-[#17211e]">{formatAud(group.flow.net)}</span> net
+          </p>
+          <button
+            type="button"
+            onClick={onHide}
+            className="rounded-full border border-[#dce4df] px-3 py-1.5 text-sm font-semibold text-[#355a3f]"
+          >
+            Hide
+          </button>
+        </div>
+      </div>
+      <div className="mt-4 divide-y divide-[#edf0ee]">
+        {group.accounts.map((account) => (
+          <AccountRow key={account.id} account={account} institution={group.institution} />
+        ))}
+      </div>
     </article>
   );
 }
 
-const listeners = new Set<() => void>();
-const defaultDocs: { view: DocumentView; scope: DocumentScope } = { view: "together", scope: ALL_DOCUMENTS };
-let cachedRaw: string | null | undefined;
-let cachedDocs = defaultDocs;
-
-function subscribeDocs(onChange: () => void) {
-  listeners.add(onChange);
-  return () => listeners.delete(onChange);
-}
-
-function getDocs() {
-  try {
-    const raw = localStorage.getItem(DOC_VIEW_KEY);
-    if (raw === cachedRaw) return cachedDocs;
-    cachedRaw = raw;
-    if (!raw) {
-      cachedDocs = defaultDocs;
-      return defaultDocs;
-    }
-    const parsed = JSON.parse(raw) as { view?: unknown; scope?: unknown };
-    cachedDocs = {
-      view: parseDocumentView(parsed.view),
-      scope: typeof parsed.scope === "object" && parsed.scope ? (parsed.scope as DocumentScope) : ALL_DOCUMENTS,
-    };
-    return cachedDocs;
-  } catch {
-    cachedDocs = defaultDocs;
-    return defaultDocs;
-  }
-}
-
-function writeDocs(next: { view: DocumentView; scope: DocumentScope }) {
-  const raw = JSON.stringify(next);
-  localStorage.setItem(DOC_VIEW_KEY, raw);
-  cachedRaw = raw;
-  cachedDocs = next;
-  listeners.forEach((listener) => listener());
+function AccountRow({ account, institution }: { account: AccountTotals; institution: string }) {
+  const prefix = `${institution} · `;
+  const name = account.label.startsWith(prefix) ? account.label.slice(prefix.length) : account.label;
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
+      <p className="text-sm font-semibold">{name}</p>
+      <p className="text-sm text-[#60716a]">
+        <span className="tabular-nums text-[#257155]">{formatAud(account.flow.income)}</span> in ·{" "}
+        <span className="tabular-nums">{formatAud(account.flow.spending)}</span> out ·{" "}
+        <span className="font-semibold tabular-nums text-[#17211e]">{formatAud(account.flow.net)}</span> net
+      </p>
+    </div>
+  );
 }

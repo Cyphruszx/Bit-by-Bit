@@ -6,24 +6,36 @@ import { useMoneyFlow } from "@/components/money-flow-provider";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { acceptedDropTypes } from "@/lib/money-flow/accept";
+import { accountsFrom, suggestNameForKey, type AccountNames } from "@/lib/money-flow/accounts";
+import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
 import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
 import { primaryTag, subTags } from "@/lib/money-flow/tags";
+import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const SAMPLES: Array<{ paths: string[]; label: string }> = [
-  { paths: ["/samples/commonwealth-bank.csv"], label: "CSV statement" },
   { paths: ["/samples/nab-medicare.csv", "/samples/nab-rent.csv"], label: "NAB both accounts" },
   { paths: ["/samples/nab-medicare.csv"], label: "NAB everyday account" },
   { paths: ["/samples/nab-rent.csv"], label: "NAB rent and offset account" },
   { paths: ["/samples/up-2025-07-to-2026-06.txt"], label: "Up financial year" },
-  { paths: ["/samples/activity.ofx"], label: "OFX export" },
-  { paths: ["/samples/receipt-notes.txt"], label: "Text / receipt notes" },
 ];
 
 export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { clearInterpretation, flow, hasUploads, importDocuments, removeStatement, statements, transactions } = useMoneyFlow();
+  const {
+    accountNames,
+    allTransactions,
+    clearInterpretation,
+    flow,
+    hasUploads,
+    importDocuments,
+    institutionOverrides,
+    removeStatement,
+    setAccountName,
+    statements,
+    transactions,
+  } = useMoneyFlow();
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
@@ -116,6 +128,16 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
         {error ? <p className="mt-4 text-sm text-[#9b3b32]">{error}</p> : null}
         {report ? <p className="mt-4 text-sm text-[#355a3f]">{describeImport(report)}</p> : null}
       </section>
+
+      {report ? (
+        <NameArrivedAccounts
+          statements={report.imports.map((record) => record.label)}
+          transactions={allTransactions}
+          names={accountNames}
+          institutions={institutionOverrides}
+          onName={setAccountName}
+        />
+      ) : null}
 
       {hasUploads ? (
         <>
@@ -247,4 +269,81 @@ async function hashFiles(list: File[]): Promise<Record<string, string>> {
     }),
   );
   return Object.fromEntries(entries);
+}
+
+/**
+ * Naming an account once is what lets the next statement from it be recognised, so the
+ * moment after an import is when to ask. The reader's own suggestion is filled in, and
+ * a person who skips loses nothing: the account keeps the key its statement gave it.
+ */
+function NameArrivedAccounts({
+  statements,
+  transactions,
+  names,
+  institutions,
+  onName,
+}: {
+  statements: string[];
+  transactions: InterpretedTransaction[];
+  names: AccountNames;
+  institutions: InstitutionOverrides;
+  onName: (accountKey: string, name: string) => void;
+}) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const arrived = new Set(statements);
+  const pending = accountsFrom(
+    transactions.filter((txn) => arrived.has(txn.sourceFile)),
+    { names, institutions },
+  ).filter((account) => !account.named);
+
+  if (pending.length === 0) return null;
+
+  return (
+    <section className="rounded-3xl border border-[#dce4df] bg-white p-6">
+      <h2 className="text-lg font-bold">What should these accounts be called?</h2>
+      <p className="mt-1 text-sm text-[#60716a]">
+        Naming one now means the next statement from it lands in the same place, whichever
+        format it arrives in. Skip and it keeps the name its statement gave it.
+      </p>
+      <div className="mt-4 space-y-3">
+        {pending.map((account) => {
+          const suggestion =
+            drafts[account.id] ??
+            suggestNameForKey(account.keys[0], account.transactions[0]?.sourceFile ?? account.keys[0]);
+          return (
+            <div key={account.id} className="flex flex-wrap items-center gap-3 border-b border-[#edf0ee] pb-3 last:border-0">
+              <div className="min-w-40 flex-1">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">{account.institution}</p>
+                <p className="font-mono text-sm text-[#60716a]">{account.keys[0]}</p>
+                <p className="mt-1 text-sm text-[#77857f]">
+                  {account.transactions.length} movement{account.transactions.length === 1 ? "" : "s"} ·{" "}
+                  {formatAud(account.flow.cashNet)} net
+                </p>
+              </div>
+              <input
+                aria-label={`Name for ${account.keys[0]}`}
+                value={suggestion}
+                onChange={(event) => setDrafts((held) => ({ ...held, [account.id]: event.target.value }))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    for (const key of account.keys) onName(key, suggestion);
+                  }
+                }}
+                className="w-48 rounded-full border border-[#dce4df] px-3 py-1.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  for (const key of account.keys) onName(key, suggestion);
+                }}
+                className="rounded-full bg-[#173b31] px-4 py-1.5 text-sm font-semibold text-white"
+              >
+                Save
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }

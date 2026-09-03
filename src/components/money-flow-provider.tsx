@@ -8,15 +8,20 @@ import {
   heldStatements,
   importedFiles,
   ledgerTransactions,
+  nameAccount,
+  nameInstitution,
   removeStatement as dropStatement,
   replaceTransactions,
   type HeldStatement,
   type ImportReport,
   type Ledger,
 } from "@/lib/money-flow/ledger";
+import type { AccountNames } from "@/lib/money-flow/accounts";
+import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { removeTag, renameTag, tagMerchant, tagsOf, withTags } from "@/lib/money-flow/tags";
+import { markTransferLegs } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 import { createLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
 
@@ -54,6 +59,14 @@ type MoneyFlowState = {
   ready: boolean;
   importDocuments: (result: InterpretationResult, hashes?: Record<string, string>) => ImportReport;
   removeStatement: (key: string) => void;
+  /** The institution a person named for a statement, keyed by that statement. */
+  institutionOverrides: InstitutionOverrides;
+  /** Names the bank a statement came from, or clears the name to let detection decide. */
+  setStatementInstitution: (statementKey: string, institution: string) => void;
+  /** What the person calls each account, against the key its statement filed it under. */
+  accountNames: AccountNames;
+  /** Names an account. Two keys given the same name become one account. */
+  setAccountName: (accountKey: string, name: string) => void;
   clearInterpretation: () => void;
   setTransactionTags: (id: string, tags: string[]) => void;
   /** The same tags on every movement of one merchant, however far back it goes. */
@@ -74,7 +87,12 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<MoneyFlowState>(() => {
     const stored = ledgerTransactions(held.ledger);
-    const allTransactions = stored.length > 0 ? stored : demoRows(held.demoTags);
+    // Decided over everything held rather than per statement, because the leg that
+    // settles a transfer usually arrives in a statement uploaded weeks later.
+    const allTransactions = markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), {
+      institutions: held.ledger.institutions ?? {},
+      accounts: held.ledger.accounts ?? {},
+    });
     return {
       files: importedFiles(held.ledger),
       statements: heldStatements(held.ledger),
@@ -83,6 +101,10 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       flow: summarizePeriod(allTransactions, period),
       period,
       setPeriod: writePeriod,
+      institutionOverrides: held.ledger.institutions ?? {},
+      setStatementInstitution,
+      accountNames: held.ledger.accounts ?? {},
+      setAccountName,
       hasUploads: held.ledger.imports.length > 0,
       usingDemo: stored.length === 0,
       ready: held.ready,
@@ -159,6 +181,14 @@ function importDocuments(result: InterpretationResult, hashes?: Record<string, s
 
 function removeStatement(key: string) {
   commit(dropStatement(snapshot.ledger, key));
+}
+
+function setStatementInstitution(statementKey: string, institution: string) {
+  commit(nameInstitution(snapshot.ledger, statementKey, institution));
+}
+
+function setAccountName(accountKey: string, name: string) {
+  commit(nameAccount(snapshot.ledger, accountKey, name));
 }
 
 function clearLedger() {
@@ -257,6 +287,7 @@ function toInterpreted(txn: (typeof demoTransactions)[number]): InterpretedTrans
     amount: txn.amount,
     type: txn.amount > 0 ? "income" : txn.category === "Goals" ? "transfer" : "expense",
     sourceFile: "demo",
+    institution: demoAccounts[0].institution,
     confidence: 1,
   };
 }

@@ -101,8 +101,8 @@ export function rowsFromCsv(text: string): string[][] {
 export function interpretTable(
   rows: Array<Array<string | number | null>>,
   sourceFile: string,
-): { transactions: InterpretedTransaction[]; notes: string[] } {
-  if (rows.length === 0) return { transactions: [], notes: [] };
+): { transactions: InterpretedTransaction[]; notes: string[]; headers: string[] } {
+  if (rows.length === 0) return { transactions: [], notes: [], headers: [] };
   const headerIndex = rows.findIndex((row) => row.some((cell) => typeof cell === "string" && looksLikeHeader(String(cell))));
   const start = headerIndex >= 0 ? headerIndex : 0;
   const headers = (rows[start] ?? []).map((cell) => String(cell ?? ""));
@@ -170,7 +170,7 @@ export function interpretTable(
     );
   });
 
-  return { transactions: results, notes: tableInterpretationNotes(headers) };
+  return { transactions: results, notes: tableInterpretationNotes(headers), headers };
 }
 
 export function transactionsFromTable(

@@ -1,3 +1,5 @@
+import type { AccountNames } from "@/lib/money-flow/accounts";
+import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const LEDGER_VERSION = 1;
@@ -32,6 +34,17 @@ export type Ledger = {
   version: number;
   entries: LedgerEntry[];
   imports: LedgerImport[];
+  /**
+   * The institution a person named for a statement, keyed by that statement. Kept
+   * beside the movements rather than on them, so correcting a name never rewrites
+   * a movement's identity.
+   */
+  institutions?: InstitutionOverrides;
+  /**
+   * The name a person gave each account, against the key its statement filed movements
+   * under. Two keys sharing a name are one account, which is how a merge is recorded.
+   */
+  accounts?: AccountNames;
 };
 
 export type ImportReport = {
@@ -130,6 +143,7 @@ export function appendToLedger(
 
   return {
     ledger: {
+      ...ledger,
       version: LEDGER_VERSION,
       entries: sortEntries(entries),
       imports: [...ledger.imports, ...imports],
@@ -202,9 +216,10 @@ export function heldStatements(ledger: Ledger): HeldStatement[] {
 
 /** Removes a statement however many times it was uploaded. */
 export function removeStatement(ledger: Ledger, key: string): Ledger {
-  return ledger.imports
+  const dropped = ledger.imports
     .filter((record) => record.label === key)
     .reduce((next, record) => removeImport(next, record.id), ledger);
+  return nameInstitution(dropped, key, "");
 }
 
 export function removeImport(ledger: Ledger, importId: string): Ledger {
@@ -215,10 +230,36 @@ export function removeImport(ledger: Ledger, importId: string): Ledger {
     entries.push(importIds.length === entry.importIds.length ? entry : { ...entry, importIds });
   }
   return {
+    ...ledger,
     version: LEDGER_VERSION,
     entries,
     imports: ledger.imports.filter((record) => record.id !== importId),
   };
+}
+
+/**
+ * Records what a person calls an account. Giving two keys the same name merges them;
+ * an empty name forgets the naming, and the account goes back to the key its statement
+ * filed it under.
+ */
+export function nameAccount(ledger: Ledger, accountKey: string, name: string): Ledger {
+  const called = tidyInstitutionName(name);
+  const accounts = { ...ledger.accounts };
+  if (called) accounts[accountKey] = called;
+  else delete accounts[accountKey];
+  return { ...ledger, accounts };
+}
+
+/**
+ * Records the institution a person named for a statement. An empty name forgets
+ * it again, so detection takes back over.
+ */
+export function nameInstitution(ledger: Ledger, statementKey: string, institution: string): Ledger {
+  const named = tidyInstitutionName(institution);
+  const institutions = { ...ledger.institutions };
+  if (named) institutions[statementKey] = named;
+  else delete institutions[statementKey];
+  return { ...ledger, institutions };
 }
 
 export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {
@@ -277,7 +318,13 @@ export function parseLedger(value: unknown): Ledger | null {
     (entry): entry is LedgerEntry =>
       Boolean(entry) && typeof entry.fingerprint === "string" && Array.isArray(entry.importIds) && typeof entry.amount === "number",
   );
-  return { version: LEDGER_VERSION, entries: sortEntries(entries), imports: raw.imports };
+  return {
+    version: LEDGER_VERSION,
+    entries: sortEntries(entries),
+    imports: raw.imports,
+    ...(raw.institutions && typeof raw.institutions === "object" ? { institutions: namesOnly(raw.institutions) } : {}),
+    ...(raw.accounts && typeof raw.accounts === "object" ? { accounts: namesOnly(raw.accounts) } : {}),
+  };
 }
 
 type Group = { label: string; file?: FileInterpretation; rows: InterpretedTransaction[] };
@@ -312,6 +359,14 @@ function grouped(result: { files: FileInterpretation[]; transactions: Interprete
   }
   for (const [label, rows] of groups) ordered.push({ label, rows });
   return ordered;
+}
+
+function namesOnly(raw: Record<string, unknown>): InstitutionOverrides {
+  return Object.fromEntries(
+    Object.entries(raw)
+      .filter((pair): pair is [string, string] => typeof pair[1] === "string" && pair[1].trim().length > 0)
+      .map(([key, value]) => [key, tidyInstitutionName(value)]),
+  );
 }
 
 function describe(txn: InterpretedTransaction): string {

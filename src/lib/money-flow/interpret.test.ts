@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { accountsByInstitution, accountsFrom } from "./accounts";
 import { detectFileKind } from "./detect";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate, roundMoney } from "./parse-values";
 import { summarizeMoneyFlow, chartTagFlowSeries, tagFlowOverTime } from "./summary";
+import { filterByScope } from "./scope";
+import { markTransferLegs, matchTransfers, withoutMatchedLegs } from "./transfers";
 import type { InterpretedTransaction, TransactionType } from "./types";
 
 let flowRowCount = 0;
@@ -65,12 +68,27 @@ describe("value parsing", () => {
 });
 
 describe("document interpretation", () => {
-  it("interprets a Commonwealth Bank CSV into money flow", async () => {
-    const csv = readFileSync(path.join(samples, "commonwealth-bank.csv"));
-    const result = await interpretDocuments([file("commonwealth-bank.csv", "text/csv", csv)]);
+  it("interprets a debit and credit column CSV into money flow", async () => {
+    const csv = [
+      "Date,Description,Debit,Credit,Balance",
+      "25/08/2026,WOOLWORTHS 3120 BONDI,86.40,,2184.20",
+      "24/08/2026,NETFLIX.COM,18.99,,2270.60",
+      "18/08/2026,SALARY ACME PTY LTD,,2620.00,2289.59",
+      "17/08/2026,OPAL TAP OFF,42.00,,-330.41",
+      "15/08/2026,RENT PAYMENT SMITH,980.00,,-288.41",
+      "14/08/2026,BUNNINGS 3090,64.50,,691.59",
+      "12/08/2026,TRANSFER TO SAVINGS 082,400.00,,756.09",
+      "04/08/2026,SALARY ACME PTY LTD,,2620.00,1156.09",
+      "03/08/2026,COLES 0782,72.15,,-1463.91",
+      "02/08/2026,CAFE SYDNEY,28.40,,-1391.76",
+    ].join("\n");
+    const result = await interpretDocuments([file("everyday.csv", "text/csv", csv)]);
     assert.equal(result.files[0].processingStatus, "completed");
     assert.equal(result.flow.income, 5240);
-    assert.equal(result.flow.transfers, 400);
+    // One account on its own cannot show where the $400 went, so it counts as spending
+    // and is flagged until the account that received it is uploaded too.
+    assert.equal(result.flow.transfers, 0);
+    assert.equal(result.flow.unmatchedInternal, 400);
     assert.ok(result.transactions.some((txn) => txn.merchant.includes("Woolworths")));
     assert.ok(result.transactions.some((txn) => txn.category === "Housing"));
     assert.equal(result.flow.net, result.flow.income - result.flow.spending);
@@ -80,16 +98,38 @@ describe("document interpretation", () => {
   });
 
   it("interprets OFX credit and debit tags", async () => {
-    const ofx = readFileSync(path.join(samples, "activity.ofx"));
-    const result = await interpretDocuments([file("activity.ofx", "application/x-ofx", ofx)]);
+    const ofx = `OFXHEADER:100
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT
+<DTPOSTED>20260825000000
+<TRNAMT>-86.40
+<NAME>WOOLWORTHS BONDI
+</STMTTRN>
+<STMTTRN><TRNTYPE>CREDIT
+<DTPOSTED>20260818000000
+<TRNAMT>2620.00
+<NAME>SALARY ACME PTY LTD
+</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT
+<DTPOSTED>20260815000000
+<TRNAMT>-980.00
+<NAME>RENT PAYMENT SMITH
+</STMTTRN>
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+    const result = await interpretDocuments([file("export.ofx", "application/x-ofx", ofx)]);
     assert.equal(result.flow.income, 2620);
     assert.equal(result.flow.spending, 1066.4);
     assert.equal(result.transactions.length, 3);
   });
 
   it("interprets unstructured receipt notes", async () => {
-    const text = readFileSync(path.join(samples, "receipt-notes.txt"));
-    const result = await interpretDocuments([file("receipt-notes.txt", "text/plain", text)]);
+    const text = [
+      "25 Aug 2026  Woolworths Bondi  $86.40 DR",
+      "18 Aug 2026  Salary Acme Pty Ltd  $2,620.00 CR",
+      "15 Aug 2026  Rent Payment Smith  $980.00 DR",
+      "02 Aug 2026  Cafe Sydney  $28.40 DR",
+    ].join("\n");
+    const result = await interpretDocuments([file("notes.txt", "text/plain", text)]);
     assert.ok(result.transactions.length >= 3);
     assert.equal(result.flow.income, 2620);
   });
@@ -319,8 +359,10 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.equal(result.transactions.find((txn) => txn.merchant === "Transfer From Tax")?.type, "transfer");
     assert.equal(result.flow.spending, 10.5);
     assert.equal(result.flow.refunds, 7.9);
-    assert.equal(result.flow.transfers, 75);
-    assert.equal(result.flow.income, 307.9);
+    // The Tax saver's own leg is not in this excerpt, so the $75 is not yet a transfer.
+    assert.equal(result.flow.transfers, 0);
+    assert.equal(result.flow.unmatchedInternal, 75);
+    assert.equal(result.flow.income, 382.9);
   });
 
   async function readUpSample() {
@@ -406,8 +448,8 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
 });
 
 describe("money flow summary", () => {
-  it("treats savings transfers as set-aside money, not spending", () => {
-    const summary = summarizeMoneyFlow([
+  it("counts a savings transfer until the account it landed in is here too", () => {
+    const rows: InterpretedTransaction[] = [
       {
         id: "1",
         merchant: "Salary",
@@ -441,18 +483,46 @@ describe("money flow summary", () => {
         sourceFile: "demo",
         confidence: 1,
       },
-    ]);
+    ];
+    const summary = summarizeMoneyFlow(rows);
+    // Nothing here shows the $400 arriving anywhere, so it counts and is flagged.
     assert.equal(summary.income, 2000);
-    assert.equal(summary.spending, 80);
-    assert.equal(summary.transfers, 400);
-    assert.equal(summary.net, 1920);
+    assert.equal(summary.spending, 480);
+    assert.equal(summary.transfers, 0);
+    assert.equal(summary.unmatchedInternal, 400);
+    assert.equal(summary.net, 1520);
     assert.equal(summary.cashIn, 2000);
     assert.equal(summary.cashOut, 480);
     assert.equal(summary.cashNet, 1520);
     assert.deepEqual(
       summary.categories.map((category) => category.name),
-      ["Groceries"],
+      ["Goals", "Groceries"],
     );
+
+    // Upload the savings account and the same $400 stops being spending, because both
+    // ends of the movement can now be seen.
+    const settled = summarizeMoneyFlow(
+      markTransferLegs([
+        ...rows,
+        {
+          id: "4",
+          merchant: "Transfer From Everyday",
+          category: "Goals",
+          date: "12 Aug",
+          dateIso: "2026-08-12",
+          amount: 400,
+          type: "transfer",
+          sourceFile: "savings.csv",
+          accountId: "NAB · Savings",
+          confidence: 1,
+        },
+      ]),
+    );
+
+    assert.equal(settled.spending, 80);
+    assert.equal(settled.transfers, 400);
+    assert.equal(settled.unmatchedInternal, 0);
+    assert.equal(settled.income, 2000);
   });
 
   it("counts spending on the primary tag only, so sub-tags do not double-count", () => {
@@ -609,7 +679,7 @@ describe("money flow summary", () => {
   });
 
   it("tracks a three month run of money in and out", () => {
-    // July: in 4200 + 180 refund = 4380, out 1450 + 260.75 = 1710.75, net 2669.25
+    // July: in 4200 + 180 refund = 4380, out 1450 + 260.75 + 700 = 2410.75, net 1969.25
     // August: in 4200, out 1450 + 612.40 + 87.60 = 2150, net 2050
     // September: in 900, out 1450 + 330.20 = 1780.20, net -880.20
     const rows = [
@@ -638,7 +708,7 @@ describe("money flow summary", () => {
     assert.equal(byLabel.get("3 July")?.net, 4200);
     assert.equal(byLabel.get("11 July")?.net, -1450);
     assert.equal(byLabel.get("27 July")?.net, 180);
-    assert.equal(byLabel.get("30 July")?.net, 0, "the savings transfer is not spending");
+    assert.equal(byLabel.get("30 July")?.net, -700, "a transfer with no partner still counts");
     assert.equal(byLabel.get("16 Aug")?.net, -612.4);
     assert.equal(byLabel.get("24 Sept")?.net, -330.2);
 
@@ -651,7 +721,7 @@ describe("money flow summary", () => {
     assert.deepEqual(
       [...monthly.entries()],
       [
-        ["2026-07", 2669.25],
+        ["2026-07", 1969.25],
         ["2026-08", 2050],
         ["2026-09", -880.2],
       ],
@@ -813,3 +883,348 @@ function minimalPdf(text: string): Uint8Array {
   body += `${xref}trailer << /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
   return new TextEncoder().encode(body);
 }
+
+describe("grouping the samples by institution", () => {
+  const nabFiles = ["nab-medicare.csv", "nab-rent.csv"];
+
+  async function interpretEverySample() {
+    return interpretDocuments([
+      ...nabFiles.map((filename) => file(filename, "text/csv", readFileSync(path.join(samples, filename)))),
+      file("up-2025-07-to-2026-06.txt", "text/plain", readFileSync(upSample)),
+    ]);
+  }
+
+  it("names the bank on every movement it reads", async () => {
+    const result = await interpretEverySample();
+    const nab = result.transactions.filter((txn) => nabFiles.includes(txn.sourceFile));
+    const up = result.transactions.filter((txn) => txn.sourceFile.startsWith("up-"));
+
+    assert.ok(nab.every((txn) => txn.institution === "NAB"), "every NAB movement names NAB");
+    assert.ok(up.every((txn) => txn.institution === "Up"), "every Up movement names Up");
+  });
+
+  it("reads the two NAB statements as one bank, on the statements' own numbers", async () => {
+    const result = await interpretEverySample();
+    const nab = accountsByInstitution(result.transactions).find((group) => group.institution === "NAB");
+
+    assert.equal(nab?.flow.transactionCount, 437);
+    assert.equal(nab?.flow.cashIn, 204214.49);
+    assert.equal(nab?.flow.cashOut, 203665.05);
+    assert.equal(nab?.flow.cashNet, 549.44);
+    // Two statements, two accounts, one bank.
+    assert.equal(nab?.accounts.length, 2);
+  });
+
+  it("keeps Up's own money in and out once its movements are grouped", async () => {
+    const result = await interpretEverySample();
+    const up = accountsByInstitution(result.transactions).find((group) => group.institution === "Up");
+
+    assert.equal(up?.flow.transactionCount, 1267);
+    assert.equal(up?.flow.income, 70574.39);
+    assert.equal(up?.flow.spending, 71631.34);
+  });
+
+  it("loses no movement and no dollar to the grouping", async () => {
+    const result = await interpretEverySample();
+    const groups = accountsByInstitution(result.transactions);
+    const whole = summarizeMoneyFlow(result.transactions);
+
+    // Busiest bank first: Up's 1267 movements against NAB's 437.
+    assert.deepEqual(groups.map((group) => group.institution), ["Up", "NAB"]);
+    assert.equal(
+      groups.reduce((sum, group) => sum + group.flow.transactionCount, 0),
+      result.transactions.length,
+    );
+    assert.equal(
+      roundMoney(groups.reduce((sum, group) => sum + group.flow.cashNet, 0)),
+      whole.cashNet,
+    );
+  });
+});
+
+describe("splitting the samples into accounts", () => {
+  const nabFiles = ["nab-medicare.csv", "nab-rent.csv"];
+
+  async function interpretEverySample() {
+    return interpretDocuments([
+      ...nabFiles.map((filename) => file(filename, "text/csv", readFileSync(path.join(samples, filename)))),
+      file("up-2025-07-to-2026-06.txt", "text/plain", readFileSync(upSample)),
+    ]);
+  }
+
+  it("reads the Up statement as its spending account and its eight savers", async () => {
+    const result = await interpretEverySample();
+    const up = accountsFrom(result.transactions).filter((account) => account.institution === "Up");
+
+    assert.deepEqual(
+      up.map((account) => account.label).sort(),
+      [
+        "Up · Bday",
+        "Up · Food and gifts",
+        "Up · No Touchy",
+        "Up · Presents",
+        "Up · Save!!",
+        "Up · Savings 2",
+        "Up · Spending",
+        "Up · Tax",
+        "Up · Tech",
+      ],
+    );
+    assert.equal(
+      up.reduce((sum, account) => sum + account.transactions.length, 0),
+      1267,
+    );
+  });
+
+  it("draws the savers down by what the statement says they fell", async () => {
+    const result = await interpretEverySample();
+    const savers = accountsFrom(result.transactions).filter(
+      (account) => account.institution === "Up" && account.label !== "Up · Spending",
+    );
+
+    assert.equal(roundMoney(savers.reduce((sum, account) => sum + account.flow.cashNet, 0)), -836.34);
+  });
+
+  it("lands the spending account on the closing balance the statement prints", async () => {
+    const result = await interpretEverySample();
+    const spending = accountsFrom(result.transactions).find((account) => account.label === "Up · Spending");
+
+    assert.equal(roundMoney(398.25 + (spending?.flow.cashNet ?? 0)), 177.64);
+  });
+
+  it("names both NAB accounts without reciting their numbers", async () => {
+    const result = await interpretEverySample();
+    const nab = accountsFrom(result.transactions).filter((account) => account.institution === "NAB");
+
+    assert.deepEqual(nab.map((account) => account.label).sort(), ["NAB · ···300", "NAB · ···600"]);
+    assert.equal(nab.find((account) => account.label === "NAB · ···300")?.flow.cashNet, 3669.02);
+    assert.equal(nab.find((account) => account.label === "NAB · ···600")?.flow.cashNet, -3119.58);
+  });
+
+  it("adds every account up to the money the household actually moved", async () => {
+    const result = await interpretEverySample();
+    const accounts = accountsFrom(result.transactions);
+    const whole = summarizeMoneyFlow(result.transactions);
+
+    assert.equal(accounts.length, 11);
+    assert.equal(roundMoney(accounts.reduce((sum, account) => sum + account.flow.cashNet, 0)), whole.cashNet);
+    assert.equal(whole.cashNet, -507.51);
+  });
+});
+
+describe("matching the samples' transfers", () => {
+  const nabFiles = ["nab-medicare.csv", "nab-rent.csv"];
+
+  async function interpretEverySample() {
+    return interpretDocuments([
+      ...nabFiles.map((filename) => file(filename, "text/csv", readFileSync(path.join(samples, filename)))),
+      file("up-2025-07-to-2026-06.txt", "text/plain", readFileSync(upSample)),
+    ]);
+  }
+
+  function routeTotals(pairs: ReturnType<typeof matchTransfers>["pairs"], from: string, to: string) {
+    const matching = pairs.filter(
+      (pair) =>
+        (pair.fromAccount.startsWith(from) && pair.toAccount.startsWith(to)) ||
+        (pair.fromAccount.startsWith(to) && pair.toAccount.startsWith(from)),
+    );
+    return {
+      count: matching.length,
+      value: roundMoney(matching.reduce((sum, pair) => sum + Math.abs(pair.debit.amount), 0)),
+    };
+  }
+
+  it("finds the transfers between the two NAB accounts", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+
+    assert.deepEqual(routeTotals(match.pairs, "NAB", "NAB"), { count: 27, value: 41842.82 });
+  });
+
+  it("finds the transfers between NAB and Up, in both directions", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+    const toUp = match.pairs.filter((pair) => pair.fromAccount.startsWith("NAB") && pair.toAccount.startsWith("Up"));
+    const toNab = match.pairs.filter((pair) => pair.fromAccount.startsWith("Up") && pair.toAccount.startsWith("NAB"));
+
+    assert.deepEqual(routeTotals(match.pairs, "NAB", "Up"), { count: 100, value: 61894.45 });
+    assert.equal(toUp.length, 97);
+    assert.equal(toNab.length, 3, "money runs both ways, and a one-directional pass cannot see it");
+  });
+
+  it("finds the transfers between Up's spending account and its savers", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+    const inside = match.pairs.filter(
+      (pair) => pair.fromAccount.startsWith("Up") && pair.toAccount.startsWith("Up"),
+    );
+
+    assert.equal(inside.length, 42);
+    assert.equal(roundMoney(inside.reduce((sum, pair) => sum + Math.abs(pair.debit.amount), 0)), 14446.6);
+  });
+
+  it("leaves nothing it had to guess at", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+
+    assert.equal(match.pairs.length, 169);
+    assert.equal(match.contested.length, 0);
+    assert.equal(match.matched.size, 338);
+  });
+
+  it("matches legs that cancel each other out", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+
+    assert.equal(
+      roundMoney(match.pairs.reduce((sum, pair) => sum + pair.debit.amount + pair.credit.amount, 0)),
+      0,
+    );
+  });
+
+  it("leaves true income and true spending that agree with the money that moved", async () => {
+    const result = await interpretEverySample();
+    const match = matchTransfers(result.transactions);
+    const counted = withoutMatchedLegs(result.transactions, match);
+
+    const income = roundMoney(counted.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0));
+    const spending = roundMoney(
+      counted.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    );
+
+    assert.equal(income, 171051.61);
+    assert.equal(spending, 171559.12);
+    assert.equal(roundMoney(income - spending), summarizeMoneyFlow(result.transactions).cashNet);
+    assert.equal(roundMoney(income - spending), -507.51);
+  });
+
+  it("re-decides every pair when another statement arrives, without losing the totals", async () => {
+    const result = await interpretEverySample();
+    const nabOnly = result.transactions.filter((txn) => txn.institution === "NAB");
+
+    const alone = matchTransfers(nabOnly);
+    const together = matchTransfers(result.transactions);
+
+    assert.equal(alone.pairs.length, 27);
+    assert.deepEqual(routeTotals(together.pairs, "NAB", "NAB"), { count: 27, value: 41842.82 });
+    assert.ok(
+      alone.pairs.every((pair) => together.matched.has(pair.debit.id)),
+      "a debit matched from one statement stays matched once the next arrives",
+    );
+  });
+});
+
+describe("recognising one account across two statement formats", () => {
+  it("joins a CSV export and a printed statement of the same account", async () => {
+    // The CSV names the account in a column; the statement prints it on the letterhead.
+    const printed = `National Australia Bank
+Jordan Lee
+BSB 083-004
+Account Number: 100200300
+Statement period 1 Jul 2026 to 31 Jul 2026
+
+05 Jul 2026  Woolworths Wagga  $54.20 DR
+08 Jul 2026  Salary Acme Pty Ltd  $2,620.00 CR
+`;
+
+    const result = await interpretDocuments([
+      file("nab-medicare.csv", "text/csv", readFileSync(path.join(samples, "nab-medicare.csv"))),
+      file("nab-statement.txt", "text/plain", printed),
+    ]);
+    const nab = accountsFrom(result.transactions).filter((account) => account.institution === "NAB");
+
+    assert.equal(nab.length, 1, "one account, not one per file");
+    assert.equal(nab[0].id, "NAB · 100200300");
+    assert.deepEqual(
+      [...new Set(nab[0].transactions.map((txn) => txn.sourceFile))].sort(),
+      ["nab-medicare.csv", "nab-statement.txt"],
+    );
+  });
+
+  it("keeps two statements that name no account apart", async () => {
+    const may = "05 May 2026  Woolworths Bondi  $54.20 DR";
+    const june = "05 Jun 2026  Woolworths Bondi  $54.20 DR";
+
+    const result = await interpretDocuments([
+      file("statement-may.txt", "text/plain", may),
+      file("statement-june.txt", "text/plain", june),
+    ]);
+
+    assert.equal(accountsFrom(result.transactions).length, 2);
+  });
+
+  it("does not mistake the same purchase in two named accounts for one movement", async () => {
+    // Same day, same amount, same shop, but each statement names a different account,
+    // so these are two payments rather than one statement downloaded twice.
+    const statement = (account: string) =>
+      `National Australia Bank\nAccount Number: ${account}\n\n05 May 2026  Woolworths Bondi  $54.20 DR`;
+
+    const result = await interpretDocuments([
+      file("nab-everyday.txt", "text/plain", statement("100200300")),
+      file("nab-rent.txt", "text/plain", statement("400500600")),
+    ]);
+
+    assert.equal(result.transactions.length, 2);
+    assert.equal(result.flow.cashOut, 108.4);
+  });
+});
+
+describe("what each scope reports", () => {
+  const nabFiles = ["nab-medicare.csv", "nab-rent.csv"];
+
+  async function ledger() {
+    const result = await interpretDocuments([
+      ...nabFiles.map((filename) => file(filename, "text/csv", readFileSync(path.join(samples, filename)))),
+      file("up-2025-07-to-2026-06.txt", "text/plain", readFileSync(upSample)),
+    ]);
+    return markTransferLegs(result.transactions);
+  }
+
+  it("reports the household's own figures across everything", async () => {
+    const flow = summarizeMoneyFlow(await ledger());
+
+    assert.equal(flow.income, 171051.61);
+    assert.equal(flow.spending, 171559.12);
+    assert.equal(flow.net, -507.51);
+    assert.equal(flow.net, flow.cashNet);
+  });
+
+  it("reports each bank's own figures, which tie to its statements", async () => {
+    const rows = await ledger();
+    const nab = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "NAB" }));
+    const up = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "Up" }));
+
+    assert.equal(nab.income, 162371.67);
+    assert.equal(nab.spending, 161822.23);
+    assert.equal(nab.cashNet, 549.44);
+    assert.equal(up.income, 70574.39);
+    assert.equal(up.spending, 71631.34);
+    assert.equal(up.cashNet, -1056.95);
+  });
+
+  it("reports one account on the numbers its own statement prints", async () => {
+    const rows = await ledger();
+    const everyday = summarizeMoneyFlow(
+      filterByScope(rows, { kind: "account", accountId: "NAB · 100200300" }),
+    );
+
+    assert.equal(everyday.income, 164344.9);
+    assert.equal(everyday.spending, 160675.88);
+    assert.equal(everyday.cashNet, 3669.02);
+  });
+
+  it("adds more money in one bank than the household, and that is correct", async () => {
+    const rows = await ledger();
+    const household = summarizeMoneyFlow(rows);
+    const nab = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "NAB" }));
+    const up = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "Up" }));
+
+    // Money NAB sent to Up left NAB, so both banks count it; only a view holding both
+    // can see it never left the household.
+    assert.ok(nab.income + up.income > household.income);
+    assert.equal(
+      roundMoney(nab.income + up.income - household.income),
+      roundMoney(nab.spending + up.spending - household.spending),
+    );
+  });
+});

@@ -1,4 +1,0 @@
-25 Aug 2026  Woolworths Bondi  $86.40 DR
-18 Aug 2026  Salary Acme Pty Ltd  $2,620.00 CR
-15 Aug 2026  Rent Payment Smith  $980.00 DR
-02 Aug 2026  Cafe Sydney  $28.40 DR
