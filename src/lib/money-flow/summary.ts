@@ -1,7 +1,7 @@
 import { formatAud } from "@/lib/format";
 import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { monthLabelFromKey } from "@/lib/money-flow/savings";
-import { namesItsOwnAccount, observedAccountKey } from "@/lib/money-flow/account-identity";
+import { accountIdOf, namesItsOwnAccount, type AccountRegistry } from "@/lib/money-flow/account-identity";
 import { primaryTag, subTags, tagsOf } from "@/lib/money-flow/tags";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
@@ -304,7 +304,10 @@ function aggregateByTag(
     .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
 }
 
-export function uniqueTransactions(rows: InterpretedTransaction[]): InterpretedTransaction[] {
+export function uniqueTransactions(
+  rows: InterpretedTransaction[],
+  registry: AccountRegistry = {},
+): InterpretedTransaction[] {
   // Two files can describe the same movement, but one file can also hold the same movement
   // twice and mean it: two identical purchases in a day, or a cent of interest paid into
   // each of eight savers. Counting how often a description has already appeared *within its
@@ -315,10 +318,13 @@ export function uniqueTransactions(rows: InterpretedTransaction[]): InterpretedT
   // one: an $86.40 shop on the same day in two named accounts is two payments, while two
   // statements that name no account are more likely one account downloaded twice over
   // overlapping periods, where the repeat is the same movement seen again.
+  //
+  // The account is asked for by the name it currently goes by, so saying two statements
+  // are one account makes their overlap fold away without anything being re-imported.
   const withinFile = new Map<string, number>();
   const seen = new Set<string>();
   return rows.filter((row) => {
-    const account = namesItsOwnAccount(row) ? observedAccountKey(row) : "";
+    const account = namesItsOwnAccount(row) ? accountIdOf(row, registry) : "";
     const body = `${account}|${row.dateIso}|${row.amount}|${row.merchant.toLowerCase()}`;
     const counter = `${row.sourceFile}|${body}`;
     const occurrence = withinFile.get(counter) ?? 0;

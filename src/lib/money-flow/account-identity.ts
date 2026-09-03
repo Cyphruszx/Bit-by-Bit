@@ -127,6 +127,36 @@ export function namesItsOwnAccount(txn: InterpretedTransaction): boolean {
   return withinPart(key) !== txn.sourceFile;
 }
 
+const SEPARATOR = " · ";
+
+/** The name a person gave an account, against the key the statement filed it under. */
+export type AccountNames = Record<string, string>;
+
+export type AccountRegistry = {
+  names?: AccountNames;
+  institutions?: InstitutionOverrides;
+};
+
+/**
+ * Where a movement's money actually sits. Two keys given the same name are the same
+ * account, which is how a statement that prints the number and one that hides all but
+ * the last digits become one account once the person says they are.
+ */
+export function accountIdOf(txn: InterpretedTransaction, registry: AccountRegistry = {}): string {
+  const key = observedAccountKey(txn, registry.institutions ?? {});
+  const named = registry.names?.[key]?.trim();
+  if (!named) return key;
+  return `${institutionOf(txn, registry.institutions ?? {})}${SEPARATOR}${named}`;
+}
+
+/** "NAB · 100200300" reads as "NAB · ···300", because the digits are not the point. */
+export function accountLabel(id: string): string {
+  return id
+    .split(SEPARATOR)
+    .map((part) => (/^\d{6,}$/.test(part) ? `···${part.slice(-3)}` : part))
+    .join(SEPARATOR);
+}
+
 export type MergeSuggestion = {
   /** The account that would remain, which is the one identified most precisely. */
   keep: string;

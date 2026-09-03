@@ -1,26 +1,17 @@
 import {
+  accountIdOf,
   accountKeyFrom,
+  accountLabel,
   observedAccountKey,
   suggestAccountName,
   type AccountRef,
+  type AccountRegistry,
 } from "@/lib/money-flow/account-identity";
-import {
-  institutionOf,
-  withInstitution,
-  type InstitutionOverrides,
-} from "@/lib/money-flow/institution";
+import { institutionOf, withInstitution } from "@/lib/money-flow/institution";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
 const SEPARATOR = " · ";
-
-/** The name a person gave an account, against the key the statement filed it under. */
-export type AccountNames = Record<string, string>;
-
-export type AccountRegistry = {
-  names?: AccountNames;
-  institutions?: InstitutionOverrides;
-};
 
 export type AccountTotals = {
   /** Stable across statements: the same account keeps this id however it was named. */
@@ -57,27 +48,10 @@ export function identifyAccounts(
   });
 }
 
-export { observedAccountKey };
-
-/**
- * Where a movement's money actually sits. Two keys given the same name are the same
- * account, which is how a statement that prints the number and one that hides all but
- * the last digits become one account once the person says they are.
- */
-export function accountIdOf(txn: InterpretedTransaction, registry: AccountRegistry = {}): string {
-  const key = observedAccountKey(txn, registry.institutions ?? {});
-  const named = registry.names?.[key]?.trim();
-  if (!named) return key;
-  return `${institutionOf(txn, registry.institutions ?? {})}${SEPARATOR}${named}`;
-}
-
-/** "NAB · 100200300" reads as "NAB · ···300", because the digits are not the point. */
-export function accountLabel(id: string): string {
-  return id
-    .split(SEPARATOR)
-    .map((part) => (/^\d{6,}$/.test(part) ? `···${part.slice(-3)}` : part))
-    .join(SEPARATOR);
-}
+// Identity lives with the rest of identity, so a summary can ask which account a
+// movement belongs to without waiting on the totals this file computes.
+export { accountIdOf, accountLabel, observedAccountKey };
+export type { AccountNames, AccountRegistry } from "@/lib/money-flow/account-identity";
 
 /** What to offer when asking the person to name an account nobody has named yet. */
 export function suggestNameForKey(key: string, statement: string): string {

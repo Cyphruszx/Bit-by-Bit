@@ -1,5 +1,6 @@
-import type { AccountNames } from "@/lib/money-flow/accounts";
+import type { AccountNames } from "@/lib/money-flow/account-identity";
 import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
+import { uniqueTransactions } from "@/lib/money-flow/summary";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const LEDGER_VERSION = 1;
@@ -264,6 +265,23 @@ export function nameInstitution(ledger: Ledger, statementKey: string, institutio
 
 export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {
   return ledger.entries;
+}
+
+/**
+ * The movements to show, which is not always every movement held. A fingerprint is
+ * decided once, at import, from what that statement said about itself; two downloads of
+ * one account that overlap by a week arrive under two filenames, so the shared week is
+ * held twice and neither copy can be dropped without losing the statement it came with.
+ *
+ * Reading past the overlap instead of rewriting it keeps every stored movement intact and
+ * lets the answer improve as identity does: name two statements as one account and their
+ * overlap folds away here, with nothing re-imported and no stored row disturbed.
+ */
+export function visibleTransactions(ledger: Ledger): InterpretedTransaction[] {
+  return uniqueTransactions(ledger.entries, {
+    ...(ledger.accounts ? { names: ledger.accounts } : {}),
+    ...(ledger.institutions ? { institutions: ledger.institutions } : {}),
+  });
 }
 
 /** Every statement the ledger holds, described the way the document views expect. */

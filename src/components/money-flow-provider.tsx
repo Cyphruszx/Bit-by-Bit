@@ -12,6 +12,7 @@ import {
   nameInstitution,
   removeStatement as dropStatement,
   replaceTransactions,
+  visibleTransactions,
   type HeldStatement,
   type ImportReport,
   type Ledger,
@@ -86,7 +87,9 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<MoneyFlowState>(() => {
-    const stored = ledgerTransactions(held.ledger);
+    // Read past the overlap two downloads of one account share, so a week covered by both
+    // is one movement here while both statements keep every row they brought.
+    const stored = visibleTransactions(held.ledger);
     // Decided over everything held rather than per statement, because the leg that
     // settles a transfer usually arrives in a statement uploaded weeks later.
     const allTransactions = markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), {
