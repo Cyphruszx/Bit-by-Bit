@@ -14,8 +14,6 @@ export type LedgerScope =
   | { kind: "institution"; institution: string }
   | { kind: "account"; accountId: string };
 
-export type ScopeView = "together" | "separate";
-
 export const EVERYTHING: LedgerScope = { kind: "all" };
 
 export function filterByScope(
@@ -47,10 +45,6 @@ export function describeScope(scope: LedgerScope): string {
   return `${name} on its own. Money sent to your other accounts still counts as leaving here, so these figures tie to ${
     scope.kind === "institution" ? "the statements" : "the statement"
   } ${name} sent you.`;
-}
-
-export function parseScopeView(value: unknown): ScopeView {
-  return value === "separate" ? "separate" : "together";
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { InstitutionAccounts } from "@/lib/money-flow/accounts";
-import { EVERYTHING, type LedgerScope, type ScopeView } from "@/lib/money-flow/scope";
+import { EVERYTHING, type LedgerScope } from "@/lib/money-flow/scope";
 
 /**
  * Banks on the first row, and the accounts inside the chosen bank on the second. Eleven
@@ -11,15 +11,11 @@ import { EVERYTHING, type LedgerScope, type ScopeView } from "@/lib/money-flow/s
  */
 export function ScopeBar({
   groups,
-  view,
   scope,
-  onView,
   onScope,
 }: {
   groups: InstitutionAccounts[];
-  view: ScopeView;
   scope: LedgerScope;
-  onView: (view: ScopeView) => void;
   onScope: (scope: LedgerScope) => void;
 }) {
   const institutions = groups.map((group) => group.institution);
@@ -34,24 +30,10 @@ export function ScopeBar({
         ? groups.find((group) => group.accounts.some((account) => account.id === scope.accountId))?.institution
         : undefined;
   const openAccounts = groups.find((group) => group.institution === openInstitution)?.accounts ?? [];
-  const worthSplitting = institutions.length > 1;
 
   return (
     <div className="mt-5 space-y-3">
-      {worthSplitting ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">Showing</p>
-          <Chip active={view === "together"} onClick={() => onView("together")}>
-            Together
-          </Chip>
-          <Chip active={view === "separate"} onClick={() => onView("separate")}>
-            Separate
-          </Chip>
-        </div>
-      ) : null}
-
-      {view === "together" ? (
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
           <Chip active={scope.kind === "all"} onClick={() => onScope(EVERYTHING)}>
             Everything
           </Chip>
@@ -64,10 +46,9 @@ export function ScopeBar({
               {institution}
             </Chip>
           ))}
-        </div>
-      ) : null}
+      </div>
 
-      {view === "together" && openInstitution && openAccounts.length > 1 ? (
+      {openInstitution && openAccounts.length > 1 ? (
         <div className="flex flex-wrap items-center gap-2">
           <p className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">In {openInstitution}</p>
           <Chip

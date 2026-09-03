@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { describeScope, EVERYTHING, filterByScope, parseScope, parseScopeView, scopeLabel } from "./scope";
+import { describeScope, EVERYTHING, filterByScope, parseScope, scopeLabel } from "./scope";
 import type { InterpretedTransaction } from "./types";
 
 let made = 0;
@@ -85,7 +85,5 @@ describe("remembering what to look at", () => {
     assert.deepEqual(parseScope({ kind: "file", sourceFile: "nab.csv" }, known), EVERYTHING);
     assert.deepEqual(parseScope(null, known), EVERYTHING);
     assert.deepEqual(parseScope("nonsense", known), EVERYTHING);
-    assert.equal(parseScopeView("file"), "together");
-    assert.equal(parseScopeView("separate"), "separate");
   });
 });
