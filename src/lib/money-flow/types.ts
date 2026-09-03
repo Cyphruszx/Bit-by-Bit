@@ -15,6 +15,8 @@ export type FileKind =
 
 export type TransactionType = "income" | "expense" | "transfer" | "refund";
 
+import type { Verdict } from "@/lib/money-flow/verdicts";
+
 export type TagSource = "rules" | "ai" | "user";
 export type ExtractionSource = "ai" | "ocr" | "parser";
 
@@ -50,6 +52,12 @@ export type InterpretedTransaction = {
    * together — but only on the evidence of the pair, never on a bank's own wording.
    */
   refundPair?: string;
+  /**
+   * What the person said about money the reader could not settle from the statements
+   * alone: a lender's drawdown that looks like income, a transfer from an account they
+   * have not uploaded. Written on from the ledger's own record, never stored on the row.
+   */
+  verdict?: Verdict;
   /** Raw statement wording, kept because it identifies a movement more reliably than the tidied merchant. */
   description?: string;
   tags?: string[];

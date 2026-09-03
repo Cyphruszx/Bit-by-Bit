@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { incomeSources, unsettledIncome } from "./income";
+import { incomeSources, unsettledGroups, unsettledIncome } from "./income";
 import { interpretDocuments } from "./interpret";
+import { roundMoney } from "./parse-values";
 import { summarizeMoneyFlow } from "./summary";
 import { markTransferLegs } from "./transfers";
+import { applyVerdicts, likeKey, verdictFor } from "./verdicts";
 import type { InterpretedTransaction, TransactionType } from "./types";
 
 let made = 0;
@@ -83,7 +85,7 @@ describe("saying where money in came from", () => {
 });
 
 describe("the samples, split up", () => {
-  it("shows the household its Medicare billing and its loan separately", async () => {
+  async function sampleLedger() {
     const dir = path.join(process.cwd(), "public/samples");
     const names = ["nab-medicare.csv", "nab-rent.csv", "up-2025-07-to-2026-06.txt"];
     const result = await interpretDocuments(
@@ -94,7 +96,11 @@ describe("the samples, split up", () => {
       })),
       { ai: null },
     );
-    const rows = markTransferLegs(result.transactions);
+    return markTransferLegs(result.transactions);
+  }
+
+  it("shows the household its Medicare billing and its loan separately", async () => {
+    const rows = await sampleLedger();
     const sources = incomeSources(rows);
     const of = (kind: string) => sources.find((source) => source.kind === kind);
 
@@ -109,5 +115,40 @@ describe("the samples, split up", () => {
       summarizeMoneyFlow(rows).income,
     );
     assert.equal(unsettledIncome(rows), 150313.93);
+  });
+
+  it("puts a year of unplaced money to the person as seven questions", async () => {
+    const rows = await sampleLedger();
+    const groups = unsettledGroups(rows);
+
+    // Biggest first, because the top two are 97% of it and both are one click.
+    assert.equal(groups.length, 7);
+    assert.equal(groups[0].count, 172, "a year of Medicare billing asked about once");
+    assert.equal(groups[0].amount, 120844.2);
+    assert.match(groups[0].label, /MCARE BENEFITS/);
+    assert.equal(groups[1].amount, 25000);
+    assert.match(groups[1].label, /SocietyOne/);
+    assert.equal(
+      roundMoney(groups.reduce((sum, group) => sum + group.amount, 0)),
+      unsettledIncome(rows),
+    );
+  });
+
+  it("reaches the household's real position once those two are answered", async () => {
+    const rows = await sampleLedger();
+    const groups = unsettledGroups(rows);
+    const at = "2026-09-03T00:00:00.000Z";
+    // The practice's billing is revenue; the SocietyOne drawdown is borrowed.
+    const settled = applyVerdicts(rows, {
+      [likeKey(groups[0].example)]: verdictFor("earned", at),
+      [likeKey(groups[1].example)]: verdictFor("borrowed", at),
+    });
+    const flow = summarizeMoneyFlow(settled);
+
+    assert.equal(flow.income, 142796.02, "the loan is out, the billing stays");
+    assert.equal(flow.spending, 168303.53, "no payment changed");
+    assert.equal(flow.net, -25507.51, "which is what living on a $25,000 loan looks like");
+    assert.equal(flow.cashNet, -507.51, "and the cash that moved is untouched");
+    assert.equal(unsettledIncome(settled), 4469.73);
   });
 });

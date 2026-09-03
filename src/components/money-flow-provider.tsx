@@ -11,6 +11,7 @@ import {
   nameAccount,
   nameInstitution,
   removeStatement as dropStatement,
+  recordVerdict,
   replaceTransactions,
   visibleTransactions,
   type HeldStatement,
@@ -23,6 +24,14 @@ import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { removeTag, renameTag, tagMerchant, tagsOf, withTags } from "@/lib/money-flow/tags";
 import { markRefundLegs } from "@/lib/money-flow/refunds";
+import {
+  applyVerdicts,
+  likeKey,
+  oneKey,
+  verdictFor,
+  type VerdictReason,
+  type Verdicts,
+} from "@/lib/money-flow/verdicts";
 import { markTransferLegs } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 import { createLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
@@ -69,6 +78,17 @@ type MoneyFlowState = {
   accountNames: AccountNames;
   /** Names an account. Two keys given the same name become one account. */
   setAccountName: (accountKey: string, name: string) => void;
+  /** What the person says a movement really is, keyed by wording rather than by row. */
+  verdicts: Verdicts;
+  /**
+   * Settles one movement, or every movement that reads like it. A null reason takes the
+   * verdict back and lets the reader's own reading return.
+   */
+  setVerdict: (
+    txn: InterpretedTransaction,
+    reason: VerdictReason | null,
+    scope?: "one" | "like",
+  ) => void;
   clearInterpretation: () => void;
   setTransactionTags: (id: string, tags: string[]) => void;
   /** The same tags on every movement of one merchant, however far back it goes. */
@@ -99,8 +119,14 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     };
     // Transfers first, so money that went to another of the person's own accounts is
     // already accounted for and cannot also read as a payment being reversed.
-    const allTransactions = markRefundLegs(
-      markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), settings),
+    // What the person said last: a verdict settles what the statements could not, so it is
+    // applied over the reader's own pairing rather than under it.
+    const allTransactions = applyVerdicts(
+      markRefundLegs(
+        markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), settings),
+        settings,
+      ),
+      held.ledger.verdicts ?? {},
       settings,
     );
     return {
@@ -115,6 +141,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       setStatementInstitution,
       accountNames: held.ledger.accounts ?? {},
       setAccountName,
+      verdicts: held.ledger.verdicts ?? {},
+      setVerdict,
       hasUploads: held.ledger.imports.length > 0,
       usingDemo: stored.length === 0,
       ready: held.ready,
@@ -230,6 +258,24 @@ function writePeriod(period: PeriodFilter) {
 
 function setTransactionTags(id: string, tags: string[]) {
   edit((rows) => rows.map((txn) => (txn.id === id ? withTags(txn, tags) : txn)));
+}
+
+function setVerdict(
+  txn: InterpretedTransaction,
+  reason: VerdictReason | null,
+  scope: "one" | "like" = "one",
+) {
+  const settings = {
+    institutions: snapshot.ledger.institutions ?? {},
+    accounts: snapshot.ledger.accounts ?? {},
+  };
+  const key = scope === "like" ? likeKey(txn, settings) : oneKey(txn, settings);
+  const held = snapshot.ledger.verdicts ?? {};
+  // Taking back a verdict on one row should not leave the rule that covered it standing,
+  // and taking back the rule should not leave a stray row settled.
+  const cleared = scope === "like" ? { ...held } : held;
+  if (scope === "like") delete cleared[oneKey(txn, settings)];
+  commit(recordVerdict({ ...snapshot.ledger, verdicts: cleared }, key, reason ? verdictFor(reason, new Date().toISOString()) : null));
 }
 
 function setMerchantTags(merchant: string, tags: string[]) {

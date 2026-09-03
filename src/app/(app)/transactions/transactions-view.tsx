@@ -6,6 +6,7 @@ import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { ScopeBar } from "@/components/scope-bar";
+import { SettledMoney, UnsettledMoney } from "@/components/unsettled-money";
 import { setScope, useScope } from "@/components/scope-store";
 import { formatAud } from "@/lib/format";
 import { accountsByInstitution } from "@/lib/money-flow/accounts";
@@ -84,6 +85,8 @@ export function TransactionsView() {
           compact
         />
       </section>
+      <UnsettledMoney transactions={scoped} />
+      <SettledMoney transactions={scoped} />
       <div className="mt-4">
         <TagChartCard
           categories={scopedFlow.categories}

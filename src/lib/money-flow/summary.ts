@@ -105,7 +105,9 @@ export function countedMovements(transactions: InterpretedTransaction[]): Interp
   // money in when the payment it reverses is not in view.
   const settled = (txn: InterpretedTransaction) =>
     [txn.transferPair, txn.refundPair].some((pair) => pair && (legs.get(pair) ?? 0) >= 2);
-  return transactions.filter((txn) => !settled(txn));
+  // A person saying a movement is not their own money in or out is the last word: they
+  // can see what the statements cannot say, and nothing here should argue with them.
+  return transactions.filter((txn) => txn.verdict?.counts !== false && !settled(txn));
 }
 
 export function isOutflow(txn: InterpretedTransaction): boolean {

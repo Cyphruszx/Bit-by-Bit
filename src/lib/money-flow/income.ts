@@ -12,6 +12,9 @@
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { countedMovements } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
+import { likeKey } from "@/lib/money-flow/verdicts";
+import type { AccountRegistry } from "@/lib/money-flow/account-identity";
+import { accountIdOf } from "@/lib/money-flow/account-identity";
 
 export type IncomeSourceKind = "earned" | "returned" | "arrived";
 
@@ -39,12 +42,16 @@ export type IncomeSource = {
 export function incomeSources(transactions: InterpretedTransaction[]): IncomeSource[] {
   const credits = countedMovements(transactions).filter((txn) => txn.amount > 0);
 
-  const earned = credits.filter((txn) => txn.type === "income");
-  const returned = credits.filter((txn) => txn.type === "refund");
-  const arrived = credits.filter((txn) => txn.type === "transfer");
+  // A person who has said "this is money I earned" has settled it, whatever the bank
+  // called it, so it stops being asked about.
+  const confirmed = credits.filter((txn) => txn.verdict?.counts === true);
+  const open = credits.filter((txn) => !txn.verdict);
+  const earned = [...confirmed, ...open.filter((txn) => txn.type === "income")];
+  const returned = open.filter((txn) => txn.type === "refund");
+  const arrived = open.filter((txn) => txn.type === "transfer");
   // Anything the reader could not type at all is money the person earned as far as the
   // totals are concerned, so it is counted with earnings rather than quietly dropped.
-  const rest = credits.filter((txn) => !["income", "refund", "transfer"].includes(txn.type));
+  const rest = open.filter((txn) => !["income", "refund", "transfer"].includes(txn.type));
 
   const sources: IncomeSource[] = [
     {
@@ -92,4 +99,47 @@ export function unsettledIncome(transactions: InterpretedTransaction[]): number 
 
 function total(rows: InterpretedTransaction[]): number {
   return roundMoney(rows.reduce((sum, txn) => sum + txn.amount, 0));
+}
+
+export type UnsettledGroup = {
+  /** The key a verdict would be recorded under, covering every movement in the group. */
+  key: string;
+  /** One of them, to read the wording and the account off. */
+  example: InterpretedTransaction;
+  label: string;
+  account: string;
+  count: number;
+  amount: number;
+  kind: IncomeSourceKind;
+};
+
+/**
+ * Money in the reader could not settle, gathered by wording so a run is one question
+ * rather than a hundred. Biggest first, because that is the one worth answering: on the
+ * sample statements the top two rows are a year of Medicare billing and a loan drawdown.
+ */
+export function unsettledGroups(
+  transactions: InterpretedTransaction[],
+  registry: AccountRegistry = {},
+): UnsettledGroup[] {
+  const open = countedMovements(transactions).filter(
+    (txn) => txn.amount > 0 && !txn.verdict && (txn.type === "refund" || txn.type === "transfer"),
+  );
+
+  const grouped = new Map<string, UnsettledGroup>();
+  for (const txn of open) {
+    const key = likeKey(txn, registry);
+    const held = grouped.get(key);
+    grouped.set(key, {
+      key,
+      example: held?.example ?? txn,
+      label: held?.label ?? (txn.description?.trim() || txn.merchant),
+      account: held?.account ?? accountIdOf(txn, registry),
+      count: (held?.count ?? 0) + 1,
+      amount: roundMoney((held?.amount ?? 0) + txn.amount),
+      kind: txn.type === "refund" ? "returned" : "arrived",
+    });
+  }
+
+  return [...grouped.values()].sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label));
 }

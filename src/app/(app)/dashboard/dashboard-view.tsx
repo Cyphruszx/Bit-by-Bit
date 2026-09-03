@@ -191,7 +191,17 @@ function IncomeBreakdown({ sources, income }: { sources: IncomeSource[]; income:
               </p>
               <p className="text-sm font-semibold tabular-nums text-[#257155]">{formatAud(source.amount)}</p>
             </div>
-            <p className="mt-0.5 max-w-2xl text-sm text-[#60716a]">{source.detail}</p>
+            <p className="mt-0.5 max-w-2xl text-sm text-[#60716a]">
+              {source.detail}
+              {source.askable ? (
+                <>
+                  {" "}
+                  <Link href="/transactions" className="font-semibold text-[#355a3f] underline">
+                    Tell us what these are
+                  </Link>
+                </>
+              ) : null}
+            </p>
           </li>
         ))}
       </ul>

@@ -1,6 +1,7 @@
 import type { AccountNames } from "@/lib/money-flow/account-identity";
 import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import { uniqueTransactions } from "@/lib/money-flow/summary";
+import type { Verdict, Verdicts } from "@/lib/money-flow/verdicts";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const LEDGER_VERSION = 1;
@@ -46,6 +47,12 @@ export type Ledger = {
    * under. Two keys sharing a name are one account, which is how a merge is recorded.
    */
   accounts?: AccountNames;
+  /**
+   * What the person said about movements the statements cannot settle — a lender's
+   * drawdown that reads as income, money from an account they have not uploaded. Keyed by
+   * wording rather than by row, so a verdict survives re-importing the statement.
+   */
+  verdicts?: Verdicts;
 };
 
 export type ImportReport = {
@@ -263,6 +270,17 @@ export function nameInstitution(ledger: Ledger, statementKey: string, institutio
   return { ...ledger, institutions };
 }
 
+/**
+ * Records what a person says a movement really is. An empty reason takes the verdict
+ * back, and the reader's own reading takes over again.
+ */
+export function recordVerdict(ledger: Ledger, key: string, verdict: Verdict | null): Ledger {
+  const verdicts = { ...ledger.verdicts };
+  if (verdict) verdicts[key] = verdict;
+  else delete verdicts[key];
+  return { ...ledger, verdicts };
+}
+
 export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {
   return ledger.entries;
 }
@@ -342,6 +360,7 @@ export function parseLedger(value: unknown): Ledger | null {
     imports: raw.imports,
     ...(raw.institutions && typeof raw.institutions === "object" ? { institutions: namesOnly(raw.institutions) } : {}),
     ...(raw.accounts && typeof raw.accounts === "object" ? { accounts: namesOnly(raw.accounts) } : {}),
+    ...(raw.verdicts && typeof raw.verdicts === "object" ? { verdicts: verdictsOnly(raw.verdicts) } : {}),
   };
 }
 
@@ -377,6 +396,21 @@ function grouped(result: { files: FileInterpretation[]; transactions: Interprete
   }
   for (const [label, rows] of groups) ordered.push({ label, rows });
   return ordered;
+}
+
+/** Keeps only what reads as a verdict, so a hand-edited or older store cannot skew a total. */
+function verdictsOnly(raw: Record<string, unknown>): Verdicts {
+  return Object.fromEntries(
+    Object.entries(raw).filter((pair): pair is [string, Verdict] => {
+      if (!pair[1] || typeof pair[1] !== "object") return false;
+      const value = pair[1] as Partial<Verdict>;
+      return (
+        typeof value.counts === "boolean" &&
+        typeof value.because === "string" &&
+        typeof value.at === "string"
+      );
+    }),
+  );
 }
 
 function namesOnly(raw: Record<string, unknown>): InstitutionOverrides {
