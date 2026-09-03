@@ -44,6 +44,12 @@ export type InterpretedTransaction = {
    * spending. Both legs carry the same value.
    */
   transferPair?: string;
+  /**
+   * Set when the payment this credit reverses was found in the same account. A refund is
+   * not income and the payment it cancels is not spending, so both legs leave the totals
+   * together — but only on the evidence of the pair, never on a bank's own wording.
+   */
+  refundPair?: string;
   /** Raw statement wording, kept because it identifies a movement more reliably than the tidied merchant. */
   description?: string;
   tags?: string[];

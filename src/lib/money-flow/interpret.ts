@@ -2,6 +2,7 @@ import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFl
 import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
 import { parseDocument } from "@/lib/money-flow/parsers";
 import { summarizeMoneyFlow, uniqueTransactions } from "@/lib/money-flow/summary";
+import { markRefundLegs } from "@/lib/money-flow/refunds";
 import { markTransferLegs } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -99,6 +100,9 @@ export async function interpretDocuments(
   // Whatever arrived together can already be paired. The ledger decides again over
   // everything it holds, because the other leg often lands in a later statement.
   merged = markTransferLegs(merged);
+  // After transfers, so money that went to another of the person's own accounts is
+  // already accounted for and cannot also read as a payment being reversed.
+  merged = markRefundLegs(merged);
 
   const flow = summarizeMoneyFlow(merged);
   if (taggedCount > 0) {

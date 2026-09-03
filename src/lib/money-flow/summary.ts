@@ -96,9 +96,16 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
 export function countedMovements(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
   const legs = new Map<string, number>();
   for (const txn of transactions) {
-    if (txn.transferPair) legs.set(txn.transferPair, (legs.get(txn.transferPair) ?? 0) + 1);
+    for (const pair of [txn.transferPair, txn.refundPair]) {
+      if (pair) legs.set(pair, (legs.get(pair) ?? 0) + 1);
+    }
   }
-  return transactions.filter((txn) => !txn.transferPair || (legs.get(txn.transferPair) ?? 0) < 2);
+  // A pair only cancels when both its legs are in the set being summarised: one account's
+  // own figures still show money leaving it for another, and a refund still counts as
+  // money in when the payment it reverses is not in view.
+  const settled = (txn: InterpretedTransaction) =>
+    [txn.transferPair, txn.refundPair].some((pair) => pair && (legs.get(pair) ?? 0) >= 2);
+  return transactions.filter((txn) => !settled(txn));
 }
 
 export function isOutflow(txn: InterpretedTransaction): boolean {

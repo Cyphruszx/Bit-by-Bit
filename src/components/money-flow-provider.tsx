@@ -22,6 +22,7 @@ import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { removeTag, renameTag, tagMerchant, tagsOf, withTags } from "@/lib/money-flow/tags";
+import { markRefundLegs } from "@/lib/money-flow/refunds";
 import { markTransferLegs } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 import { createLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
@@ -92,10 +93,16 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const stored = visibleTransactions(held.ledger);
     // Decided over everything held rather than per statement, because the leg that
     // settles a transfer usually arrives in a statement uploaded weeks later.
-    const allTransactions = markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), {
+    const settings = {
       institutions: held.ledger.institutions ?? {},
       accounts: held.ledger.accounts ?? {},
-    });
+    };
+    // Transfers first, so money that went to another of the person's own accounts is
+    // already accounted for and cannot also read as a payment being reversed.
+    const allTransactions = markRefundLegs(
+      markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), settings),
+      settings,
+    );
     return {
       files: importedFiles(held.ledger),
       statements: heldStatements(held.ledger),

@@ -402,8 +402,14 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     // The statement heads itself "Money In +$70,574.39 Money Out $71,631.34". Those count
     // money entering and leaving Up, so they exclude the movements the holder makes between
     // their own Spending account and their savers.
-    assert.equal(result.flow.income, 70574.39);
-    assert.equal(result.flow.spending, 71631.34);
+    //
+    // Income and spending sit $448.89 under the bank's own figures, and deliberately: a
+    // Bunnings charge of $418.94 and a Domino's one of $29.95 were reversed, and money
+    // handed back is neither earned nor spent. The bank counts the cash both ways.
+    const reversed = 418.94 + 29.95;
+    assert.equal(result.flow.income, roundMoney(70574.39 - reversed));
+    assert.equal(result.flow.spending, roundMoney(71631.34 - reversed));
+    assert.equal(roundMoney(result.flow.income - result.flow.spending), -1056.95);
   });
 
   it("keeps money moved between the holder's own Up accounts out of the totals", async () => {
@@ -920,8 +926,10 @@ describe("grouping the samples by institution", () => {
     const up = accountsByInstitution(result.transactions).find((group) => group.institution === "Up");
 
     assert.equal(up?.flow.transactionCount, 1267);
-    assert.equal(up?.flow.income, 70574.39);
-    assert.equal(up?.flow.spending, 71631.34);
+    // The statement's own $70,574.39 and $71,631.34, less the $448.89 of charges Bunnings
+    // and Domino's reversed, which neither earned nor cost the holder anything.
+    assert.equal(up?.flow.income, 70125.5);
+    assert.equal(up?.flow.spending, 71182.45);
   });
 
   it("loses no movement and no dollar to the grouping", async () => {
@@ -1183,8 +1191,11 @@ describe("what each scope reports", () => {
   it("reports the household's own figures across everything", async () => {
     const flow = summarizeMoneyFlow(await ledger());
 
-    assert.equal(flow.income, 171051.61);
-    assert.equal(flow.spending, 171559.12);
+    // $3,255.59 of reversed charges are on neither side: an optical charge NAB reversed
+    // the next day, and two Up purchases refunded. Cash still counts them both ways, so
+    // net is untouched — which is what says nothing was lost rather than moved.
+    assert.equal(flow.income, 167796.02);
+    assert.equal(flow.spending, 168303.53);
     assert.equal(flow.net, -507.51);
     assert.equal(flow.net, flow.cashNet);
   });
@@ -1194,11 +1205,13 @@ describe("what each scope reports", () => {
     const nab = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "NAB" }));
     const up = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "Up" }));
 
-    assert.equal(nab.income, 162371.67);
-    assert.equal(nab.spending, 161822.23);
+    // Each bank's figures fall by the reversals inside it and no more: NAB's $2,806.70
+    // optical charge, Up's $448.89. Neither bank's cash position moves.
+    assert.equal(nab.income, 159564.97);
+    assert.equal(nab.spending, 159015.53);
     assert.equal(nab.cashNet, 549.44);
-    assert.equal(up.income, 70574.39);
-    assert.equal(up.spending, 71631.34);
+    assert.equal(up.income, 70125.5);
+    assert.equal(up.spending, 71182.45);
     assert.equal(up.cashNet, -1056.95);
   });
 
