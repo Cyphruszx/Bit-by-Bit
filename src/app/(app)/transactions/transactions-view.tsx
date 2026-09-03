@@ -6,7 +6,7 @@ import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { ScopeBar } from "@/components/scope-bar";
-import { useScope, writeScope } from "@/components/scope-store";
+import { setScope, useScope } from "@/components/scope-store";
 import { formatAud } from "@/lib/format";
 import { accountsByInstitution } from "@/lib/money-flow/accounts";
 import { describeScope, filterByScope } from "@/lib/money-flow/scope";
@@ -40,7 +40,7 @@ export function TransactionsView() {
     }),
     [groups],
   );
-  const { scope } = useScope(known);
+  const scope = useScope(known);
   const scoped = useMemo(() => filterByScope(transactions, scope, registry), [registry, scope, transactions]);
   const scopedFlow = useMemo(() => {
     if (scope.kind === "all") return flow;
@@ -60,22 +60,27 @@ export function TransactionsView() {
             ? "Money in and out from your uploaded documents. Charts use the primary tag so sub-tags never double-count."
             : "Sample activity with your tag edits, saved in this browser."}
       </p>
-      <ScopeBar
-        groups={groups}
-        view="together"
-        scope={scope}
-        onView={() => undefined}
-        onScope={(next) => writeScope({ view: "together", scope: next })}
-      />
+      <ScopeBar groups={groups} scope={scope} onScope={setScope} />
       {hasUploads ? <p className="mt-3 text-sm text-[#60716a]">{describeScope(scope)}</p> : null}
       <section className="mt-4 grid gap-3 sm:grid-cols-3">
-        <SummaryCard label="Money in" value={formatAud(scopedFlow.cashIn)} detail="Every credit on the statement" positive compact />
-        <SummaryCard label="Money out" value={formatAud(scopedFlow.cashOut)} detail="Every debit on the statement" compact />
+        <SummaryCard
+          label="Money in"
+          value={formatAud(scopedFlow.income)}
+          detail="Income, not counting money from your own accounts"
+          positive
+          compact
+        />
+        <SummaryCard
+          label="Money out"
+          value={formatAud(scopedFlow.spending)}
+          detail="What you actually spent"
+          compact
+        />
         <SummaryCard
           label="Net"
-          value={formatAud(scopedFlow.cashNet)}
+          value={formatAud(scopedFlow.net)}
           detail={`${scopedFlow.transactionCount} movements`}
-          positive={scopedFlow.cashNet >= 0}
+          positive={scopedFlow.net >= 0}
           compact
         />
       </section>
