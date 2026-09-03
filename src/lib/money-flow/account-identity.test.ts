@@ -29,6 +29,12 @@ Summary`;
     assert.deepEqual(accountRefFromText("Card ending 4321"), { mask: "4321" });
   });
 
+  it("stops the number at the end of its own line", () => {
+    // A statement whose movements start on the next line: "15 May" is not more account.
+    const statement = "Account Number: 100200300\n15 May 2026  Woolworths Bondi  $86.40 DR";
+    assert.deepEqual(accountRefFromText(statement), { number: "100200300" });
+  });
+
   it("reads nothing rather than guessing from a page of movements", () => {
     assert.deepEqual(accountRefFromText("25 Aug Woolworths 86.40\n24 Aug Netflix 18.99"), {});
     // A number too short to be an account is not one.

@@ -19,7 +19,9 @@ const HEADER_WINDOW = 1500;
 const MIN_DIGITS = 5;
 const MAX_DIGITS = 16;
 
-const ACCOUNT_LINE = /\baccount\s*(?:number|no\.?|#)?\s*:?\s*((?:\d[\d\s-]{3,20}))/gi;
+// The number must not run past the end of its own line: a statement whose next line
+// opens with a date would otherwise have "15 May" read as more of the account number.
+const ACCOUNT_LINE = /\baccount[^\S\n]*(?:number|no\.?|#)?[^\S\n]*:?[^\S\n]*((?:\d[\d -]{3,20}))/gi;
 const BSB_LINE = /\bbsb\s*:?\s*(\d{3}[\s-]?\d{3})\b/gi;
 const MASKED = /(?:[*x·•]{2,}|\bending(?:\s+in)?)\s*(\d{3,4})\b/gi;
 
