@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { interpretMovement } from "./interpret-row";
+import { describeSpan } from "./parse-values";
 import { tableInterpretationNotes, tagFromBankCategory } from "./statement-category";
 
 describe("statement category mapping", () => {
@@ -87,5 +88,19 @@ describe("movement interpretation", () => {
     assert.equal(txn.amount, 25000);
     assert.equal(txn.type, "transfer");
     assert.equal(txn.category, "Goals");
+  });
+});
+
+describe("saying when a run of movements happened", () => {
+  it("always names the year, because a ledger holds several", () => {
+    assert.equal(describeSpan("2026-06-30", "2026-06-30"), "30 June 2026");
+  });
+
+  it("says the year once when a span stays inside one", () => {
+    assert.equal(describeSpan("2026-03-05", "2026-05-29"), "5 Mar – 29 May 2026");
+  });
+
+  it("says both when a span crosses new year, which would otherwise read backwards", () => {
+    assert.equal(describeSpan("2025-07-01", "2026-06-29"), "1 July 2025 – 29 June 2026");
   });
 });

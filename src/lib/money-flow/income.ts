@@ -111,6 +111,9 @@ export type UnsettledGroup = {
   count: number;
   amount: number;
   kind: IncomeSourceKind;
+  /** The stretch these movements cover, so a run can be recognised by when it happened. */
+  from: string;
+  to: string;
 };
 
 /**
@@ -138,6 +141,8 @@ export function unsettledGroups(
       count: (held?.count ?? 0) + 1,
       amount: roundMoney((held?.amount ?? 0) + txn.amount),
       kind: txn.type === "refund" ? "returned" : "arrived",
+      from: held && held.from < txn.dateIso ? held.from : txn.dateIso,
+      to: held && held.to > txn.dateIso ? held.to : txn.dateIso,
     });
   }
 

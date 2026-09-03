@@ -125,6 +125,18 @@ export function formatDisplayDate(iso: string): string {
   return date.toLocaleDateString("en-AU", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
+/**
+ * The stretch a run of movements covers, always saying which year. A ledger holds several,
+ * so a bare "30 June" names no day in particular; a span crossing new year needs both
+ * years or it reads backwards, and one that does not needs the year said only once.
+ */
+export function describeSpan(from: string, to: string): string {
+  const [fromYear, toYear] = [from.slice(0, 4), to.slice(0, 4)];
+  if (from === to) return `${formatDisplayDate(from)} ${fromYear}`;
+  if (fromYear === toYear) return `${formatDisplayDate(from)} – ${formatDisplayDate(to)} ${toYear}`;
+  return `${formatDisplayDate(from)} ${fromYear} – ${formatDisplayDate(to)} ${toYear}`;
+}
+
 export function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }

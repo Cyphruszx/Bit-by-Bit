@@ -9,7 +9,7 @@ import { acceptedDropTypes } from "@/lib/money-flow/accept";
 import { accountsFrom, suggestNameForKey, type AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { formatAud, formatSignedAud } from "@/lib/format";
-import { formatDisplayDate } from "@/lib/money-flow/parse-values";
+import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
 import { primaryTag, subTags } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
@@ -247,15 +247,6 @@ function describeStatement(statement: HeldStatement): string {
   parts.push(`${statement.movements} movement${statement.movements === 1 ? "" : "s"}`);
   if (statement.uploads > 1) parts.push(`uploaded ${statement.uploads} times`);
   return parts.join(" · ");
-}
-
-/** A statement can run across new year, where bare days and months read backwards. */
-function describeSpan(from: string, to: string): string {
-  if (from === to) return formatDisplayDate(from);
-  const sameYear = from.slice(0, 4) === to.slice(0, 4);
-  const start = sameYear ? formatDisplayDate(from) : `${formatDisplayDate(from)} ${from.slice(0, 4)}`;
-  const end = sameYear ? formatDisplayDate(to) : `${formatDisplayDate(to)} ${to.slice(0, 4)}`;
-  return `${start} – ${end}`;
 }
 
 /** Recognises the same file coming back under a different name. */

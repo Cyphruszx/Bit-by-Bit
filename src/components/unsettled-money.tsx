@@ -5,6 +5,7 @@ import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud } from "@/lib/format";
 import { accountLabel } from "@/lib/money-flow/accounts";
 import { unsettledGroups, type UnsettledGroup } from "@/lib/money-flow/income";
+import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import { reasonsFor, type VerdictReason } from "@/lib/money-flow/verdicts";
 
@@ -77,7 +78,8 @@ function UnsettledRow({
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{group.label}</p>
           <p className="mt-0.5 text-xs text-[#60716a]">
-            {accountLabel(group.account)} · {group.count} movement{group.count === 1 ? "" : "s"} ·{" "}
+            {describeSpan(group.from, group.to)} · {accountLabel(group.account)} · {group.count} movement
+            {group.count === 1 ? "" : "s"} ·{" "}
             {group.kind === "returned" ? "your bank calls this a refund" : "your bank calls this a transfer"}
           </p>
         </div>
