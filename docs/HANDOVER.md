@@ -1,14 +1,25 @@
 # BitbyBit handover
 
-Written 1 September 2026, at the end of the session that built the ledger. Read this before touching the money-flow code.
+Rewritten 4 September 2026. Read this before touching the money-flow code. Everything below was
+checked against the code and the samples on the day it was written; where a figure is quoted, it is
+measured.
 
 ## What the product is trying to do
 
-BitbyBit reads bank statements a person uploads and tells them where their money went. The owner's words: data interpretation is the core function of the app. The thing that matters most to them is that **money is never counted twice** — not when the same statement is uploaded again, and not when they move their own money between their own accounts.
+BitbyBit reads bank statements a person uploads and tells them where their money went. The owner's
+words: data interpretation is the core function of the app. The thing that matters most is that
+**money is never counted twice** — not when the same statement is uploaded again, and not when the
+person moves their own money between their own accounts.
+
+A second rule now sits beside it, because the app is about numbers a person can trust: **the app
+never shows a figure that is not the person's own.** There is no sample data anywhere in `src/`. An
+empty ledger renders an empty state, never a plausible number.
 
 ## Ground truth you can rely on
 
-Three anonymised statements live in `public/samples/`. Every number below is measured, not estimated, and any change to the interpretation should be checked against them.
+Three anonymised statements live in `public/samples/`. They are fixtures for the tests and for the
+"try a sample" buttons on the upload page — a person has to ask for them, and they arrive through the
+real import path as real statements they can then remove.
 
 | Sample | Account | Covers | Movements |
 |---|---|---|---|
@@ -16,93 +27,137 @@ Three anonymised statements live in `public/samples/`. Every number below is mea
 | `nab-rent.csv` | NAB rent/offset, `400500600` | 2 Jul 2025 – 30 Jun 2026 | 59 |
 | `up-2025-07-to-2026-06.txt` | Up transaction account plus 8 savers | 1 Jul 2025 – 30 Jun 2026 | 1267 |
 
-The NAB pair reads correctly and reconciles: money in **$204,214.49**, money out **$203,665.05**, net **$549.44**. Everyday alone is $164,344.90 / $160,675.88 / $3,669.02; rent alone is $39,869.59 / $42,989.17 / −$3,119.58. These are asserted in `ledger.test.ts` and `interpret.test.ts`. If you break them, you have broken the reader.
+The NAB pair reconciles: money in **$204,214.49**, money out **$203,665.05**, net **$549.44**.
+Everyday alone is $164,344.90 / $160,675.88 / $3,669.02; rent alone is $39,869.59 / $42,989.17 /
+−$3,119.58. The Up file heads itself **Money In $70,574.39, Money Out $71,631.34** and the reader
+produces exactly that across 1267 movements. All asserted in `ledger.test.ts` and `interpret.test.ts`.
+Break these and you have broken the reader.
 
-Two measurements drive the whole roadmap. Both were re-measured after the dedupe fix, and the cross-bank one moved a long way, so use these and not the figures the first draft carried:
+Across all three, read together: income **$167,796.02**, spending **$168,303.53**, net **−$507.51**,
+with **$118,183.87** of it being the person's own money moving between their own accounts —
+$41,842.82 NAB↔NAB across 27 transfers, $61,894.45 NAB↔Up across 100, and $14,446.60 inside Up
+across 42. That is **169 pairs, 338 legs, and nothing contested**: an earlier measurement found 18
+cross-bank debits with more than one equal-amount candidate, and scoring plus the wording tie-break
+now resolves every one of them. `interpret.test.ts` asserts the zero, so if a change starts making
+the matcher guess, that test says so.
 
-- **Between the two NAB accounts**: 27 transfers, **$41,842.82 on each side**, every one same-day with no ambiguity. Unchanged by the fix, and widening the window to a business day adds nothing, so the same-day characterisation holds. That is a fifth of the reported money in and out being the same dollars counted twice.
-- **Between NAB and Up**: **100 transfers, $61,894.45 on each side**, matching on equal amount within two business days with the credit not preceding the debit. **18 of the 100 were chosen from more than one candidate** (19 debits have a tie somewhere), which is why the matcher must score candidates and refuse to guess.
-
-The first draft recorded 91 transfers and $52,440.06 here. That figure is reproducible, but only under the old dedupe *and* only by counting one direction, NAB to Up, at a one-business-day window — not the two-day rule the text claimed. Both departures matter:
-
-- **Money flows both ways.** Three transfers worth **$7,070.00** run Up to NAB and a one-directional pass cannot see them.
-- **Ambiguity was understated roughly fourfold.** The old measurement found 12 contested pairs; the same rule now finds 18, because restoring the dropped repeat movements put more equal-amount candidates in the window. The matcher's scoring requirement is more load-bearing than the plan assumed, not less.
-
-The samples are anonymised with a shared pseudonym: the account holder is **Jordan Lee** in all three files, so the transfers between banks still line up. Never commit a real statement. `interpret.test.ts` has a test that fails if personal detail reappears in a sample.
+The samples are anonymised with a shared pseudonym: the account holder is **Jordan Lee** in all three
+files, so the transfers between banks still line up. Never commit a real statement.
+`interpret.test.ts` fails if personal detail reappears in a sample.
 
 ## Where the work has got to
 
-`main` has the interpretation module, the dashboard cash totals, the Together/Separate document view, and the compact transactions UI — [#15](https://github.com/Cyphruszx/Bit-by-Bit/pull/15), [#16](https://github.com/Cyphruszx/Bit-by-Bit/pull/16).
+Everything below is on `claude/app-feature-prioritization-j74puw`, which is 30+ commits ahead of
+`main` and has no PR open. `npm run typecheck`, `npm run lint`, `npm test` (**287 tests, 61 suites,
+none skipped**) and `npm run build` are all clean.
 
-[#17](https://github.com/Cyphruszx/Bit-by-Bit/pull/17) on `cursor/ledger-accumulation-c20d` is open and is the first slice of the interpretation plan. It adds:
+Of the six stages the owner agreed to, **five are built**:
 
-- `src/lib/money-flow/ledger.ts` — movement fingerprints, append-and-merge, import records, statement grouping, removal.
-- `src/lib/store/ledger-store.ts` — IndexedDB behind a three-call interface, migrating the old localStorage blob.
-- Account capture in `tabular.ts` / `interpret-row.ts`, so a movement knows which account it came from.
-- The Up sample and the year fix described below.
+1. **Ledger accumulation** — done. `ledger.ts` fingerprints each movement as
+   `account | dateIso | amount | normalised description | occurrence-within-file`, so a genuine
+   same-day repeat survives while a re-uploaded file collapses. `ledger-store.ts` holds it in
+   IndexedDB behind a three-call interface.
+2. **Account identity** — done. `institution.ts` names the bank from the statement's own wording,
+   `account-identity.ts` reads an account ref from the letterhead (number beats masked tail beats
+   name), `accounts.ts` groups by account and bank, and the Up savers each get an account of their
+   own. A shared number merges; a shared last-four is only ever *offered*.
+3. **Bank profiles** — **not started.** This is the one gap. See below.
+4. **The transfer matcher** — done in `transfers.ts`. Pairs a debit with a credit of equal cent in a
+   different account, within 1 business day same-bank or 2 cross-bank, credit not before debit,
+   nearest calendar day wins. Genuinely tied candidates are recorded as `contested` and left counted
+   rather than guessed. Idempotent over the whole ledger. The bank's own wording is deliberately not
+   trusted — NAB calls 212 movements a transfer and only 54 of them are.
+5. **Confidence tiers** — done via `verdicts.ts`. Six reasons (earned / money-back / own-account /
+   borrowed / spent / not-mine), keyed by **wording rather than by row**, so settling a payer settles
+   all 172 of its movements at once and survives a re-import. Every verdict can be taken back, and
+   `counts` is always recomputed from the reason rather than trusted from storage.
+6. **Totals that cannot double count** — done in `summary.ts`. `income`/`spending`/`net` exclude a
+   transfer pair only when **both** legs are in the set being summarised, so scoping to one bank
+   produces that bank's own figures rather than a subset of the household's. `cashIn`/`cashOut` stay
+   raw so a single account still ties to its statement.
 
-Verified in a browser: uploading one NAB account then both accumulates to the combined totals, a deliberate duplicate upload reports "Nothing new" and moves nothing, the ledger survives a reload, and removing a statement takes its movements with it.
+Built beyond the plan: **refund pairing** (`refunds.ts` — only ever by finding the payment a credit
+reverses, because NAB files a year of Medicare benefits under the category "Refund"), **payer name
+merging** (`payers.ts`), **income rhythm** (`rhythm.ts` — what a stream is worth a week, with breaks
+set aside), **income composition** (`income.ts`), **scoping** (`scope.ts`), and a **balance-chain
+statement reader** (`text-lines.ts`) that recovers each amount's direction from the running balance
+and refuses to publish a reading that does not reconcile.
 
-## The Up statement bug, now fixed
+## What was just removed, and why
 
-`up-2025-07-to-2026-06.txt` reconciles. The statement heads itself **Money In $70,574.39, Money Out $71,631.34**, and the reader now produces exactly that across **1267 movements**.
+The app used to substitute `src/lib/demo-data.ts` whenever the ledger was empty. Dashboard,
+Transactions and Recurring showed sample money with only their prose hinting at it; Savings seeded
+itself from the same file's goals, so a new user saw "Emergency fund $8,400 / $12,000" and "Japan
+trip" as if they were their own, with no label anywhere; and the tag chart's `fallbackSeries` negated
+every category, drawing income as spending.
 
-The diagnosis in the first draft of this handover was wrong on both counts, so do not build on it:
+`demo-data.ts` is **deleted**, along with `usingDemo`, the `bitbybit.demo-tags-v1` store, and
+`seedSavingsPots()`. Dashboard, Transactions and Accounts now render `components/empty-ledger.tsx`
+until a statement exists; Savings starts with no pots; Recurring keeps its manual add form, which
+works without any upload. The header pill reads "No statements yet" instead of "Demo data".
 
-- **The amounts were never over-read.** Every Up line carries an amount followed by a running balance, and those balances form an unbroken chain within each account. Walking each chain from its opening to its closing balance reproduces all 1267 stated amounts to the cent, with no mismatches, so `transactionFromBlock` was taking the right value all along.
-- **The reader was losing movements, not inventing them.** The 1247 figure was the count *after* the pipeline had silently deleted 20 rows.
+## The one stage still open
 
-What was actually wrong:
+**Bank profiles.** Per-bank handling is spread across at least five files with no shared shape:
+`up-statement.ts` (Up's whole layout), a hardcoded `looksLikeUpStatement` branch in `parsers.ts`, a
+NAB header-triple note in `statement-category.ts`, nine pooled header vocabularies in `tabular.ts`,
+and merchant rules in `categorize.ts` visibly seeded from the samples. `institution.ts` has a
+`PROFILES` list, but it only *names* the bank — no parser, no fixture, no golden totals. Adding a
+third bank today means editing four files separately.
 
-- **`uniqueTransactions` in `summary.ts` keyed on date, amount and merchant alone**, so a movement that legitimately repeats was discarded — 20 rows carrying $2,184.45 in and $501.05 out. The savers show it most plainly: several are paid a cent of interest on the same morning under an identical description, and only the first cent survived. It now counts how often a description has already appeared *within its own file*, the same occurrence rule `fingerprintOf` uses in `ledger.ts`, so a re-uploaded file still collapses while a genuine repeat is kept.
-- **Up's Money In and Money Out exclude the holder's own internal transfers.** The file holds nine accounts — the Spending account and eight savers — and 84 rows move money between them, $14,446.60 in each direction, every leg written twice. `inferType` already types these as `transfer` and `income`/`spending` already exclude transfers, so once the dropped rows came back the totals landed on the statement's own figures with no further change.
+## Other known gaps
 
-The arithmetic closes end to end: opening $398.25 + $70,574.39 in − $71,631.34 out + $836.34 drawn down out of the savers = the closing balance of $177.64, and the savers' own balances fall by exactly that $836.34.
-
-Two tests in `interpret.test.ts` pin the reconciliation and the mirrored transfer legs, so this cannot drift again unnoticed.
-
-Note that the savers are still merged into one file's worth of movements rather than carrying an account of their own. That is stage 2 below, and it is unfinished — the totals are right, but the app cannot yet say which account a saver movement belongs to.
-
-## The plan the owner agreed to
-
-Stages, in order. Only the ledger is done.
-
-1. **Ledger accumulation** — done in #17.
-2. **Account identity** — give every movement an `accountId` with an institution and a display label, group by account rather than by file, and split the Up savers into their own accounts. `accountKey` already exists on `InterpretedTransaction` and is populated for NAB; this stage builds on it. Nothing else can be correct before this.
-3. **Bank profiles** — turn the ad-hoc handling into a profile per bank and format, each with a fixture and golden totals. NAB and Up already have bespoke pieces in `statement-category.ts` and `up-statement.ts`; today's heuristics become the fallback profile.
-4. **The transfer matcher** — pair a debit with a credit of equal amount in a different account. Requirements the owner asked for explicitly, and the measurements that justify them:
-   - Count **business days, not calendar days**. All 437 NAB movements fall Monday to Friday — none on a weekend — so a Friday transfer landing Monday is one business day, not three.
-   - Size the window to the route: same bank stays at one business day, cross-institution gets two or three, slower rails get more but demand corroboration.
-   - **Respect the arrow of time** — a credit may lag the debit by the whole window but lead it by at most a day.
-   - **Score candidates and require a clear winner**, because across NAB and Up $500 appears 33 times as an outgoing amount, $300 twenty-six times and $200 twenty-seven times. Where two candidates tie, leave it unmatched and ask. 18 of the 100 cross-bank pairs are in this position.
-   - **Match recurring series** rather than single legs where a repeated amount runs on a cadence.
-   - **Re-match when new statements arrive**, over the whole ledger, idempotently — a transfer sent at the end of one statement lands in the next.
-   - Also collapse **pending-then-settled** duplicates within one account, which is the other face of delay.
-5. **Confidence tiers** — a matched pair between two accounts we hold is certain and both legs leave income and spending. A leg the bank labels internal whose partner is missing stays in the totals but is flagged. A counterparty the user confirms is their own account elsewhere is treated as a transfer on their say-so and remembered, which is how the 119 payments to "Jordan Lee" get resolved before the Up statement is uploaded.
-6. **Totals that cannot double count** — add true income, true spending and internal transfers to `MoneyFlowSummary`, keeping `cashIn`/`cashOut` for per-account reconciliation. Any figure spanning more than one account excludes matched legs; any single-account figure keeps them so it still ties to the bank. Assert three invariants: per-account nets sum to the household net, matched legs sum to zero, and true income minus true spending equals net.
+- **Goals does not exist.** `app/(app)/goals/page.tsx` is a five-line redirect to `/savings` and is
+  not in the nav. Savings pots are hand-typed; nothing derives a pot from a statement, though the
+  engine now computes everything a real goal projection would need.
+- **Destructive actions are unconfirmed.** "Clear uploads" wipes the ledger with no dialog and there
+  is no backup anywhere. Same for tag Remove, pot Remove, and Stop tracking.
+- **Test coverage holes.** The `.docx` (mammoth), JSON and HTML read paths have no tests; the live
+  `tesseract.js` call is never exercised (`ai.test.ts` injects a stub); `ledger-store.ts` is untested.
+- **`accept.ts` has drifted from `detect.ts`.** `.bmp` and `.xlsm` are detected but not offered in the
+  file picker.
+- **The transfer matcher is missing two agreed requirements**: matching a recurring *series* rather
+  than single legs, and collapsing pending-then-settled duplicates within one account.
+- **AI is off by default and is OpenAI.** `ai.ts` calls the Chat Completions API (`gpt-4o-mini` by
+  default) for photo extraction and tag suggestions, gated on `OPENAI_API_KEY`. Without a key, photos
+  fall back to on-device OCR and the upload page says so.
 
 ## Decisions already taken with the owner
 
-- **Storage is local-first for now.** IndexedDB, no sign-in. Supabase is the agreed destination and `main` already carries `supabase/migrations/202608210001_initial_finance_schema.sql` with an `accounts` table and RLS. [#9](https://github.com/Cyphruszx/Bit-by-Bit/pull/9) has the client, cookie auth and a `unique (user_id, client_key)` constraint that suits idempotent import; it is behind `main` and conflicts only in `AGENTS.md`. The owner wants sign-in made mandatory **later**, once everything is set up.
-- When Supabase does land, **never store raw account numbers** — a salted hash plus a friendly label. `src/lib/persist/redact.ts` on #9 already masks identifiers in descriptions.
-- Unmatched transfer legs count as spending **with a flag**, not quarantined, unless the owner revisits it.
-- Still unanswered: whether "Casey Lee Offset", which receives $35,500 across 11 payments from the NAB everyday account, is the owner's own account or another person's.
+- **Storage is local-first for now.** IndexedDB, no sign-in. `supabase/migrations/` carries a full
+  multi-tenant schema with RLS, but **no code reads or writes Supabase and there is no `@supabase/*`
+  dependency**. The owner wants sign-in made mandatory later, once everything is set up.
+- When Supabase lands, **never store raw account numbers** — a salted hash plus a friendly label.
+- Unmatched transfer legs count as spending **with a flag**, not quarantined.
+- Still unanswered: whether "Casey Lee Offset", which receives $35,500 across 11 payments from the NAB
+  everyday account, is the owner's own account or another person's.
 
 ## How to work in this repo
 
 `AGENTS.md` is short and binding. Two rules matter most:
 
-- **Ask first.** Do not start a feature, architecture change or extra slice until the owner confirms. They are specific about scope and will say no.
-- **Skip screenshots and screen recordings.** The owner verifies on the Vercel preview. Run `npm run typecheck`, `npm run lint` and `npm test`, then commit and push. When a change affects how a statement is read, verify against a file in `public/samples/` and quote the numbers.
+- **Ask first.** Do not start a feature, architecture change or extra slice until the owner confirms.
+- **Skip screenshots and screen recordings.** The owner verifies on the Vercel preview. Run
+  `npm run typecheck`, `npm run lint` and `npm test`, then commit and push. When a change affects how
+  a statement is read, verify it against a file in `public/samples/` and quote the numbers.
 
-Everything is currently green: **112 tests, none skipped**, lint, typecheck and build clean.
-
-Commits are small and single-purpose, with a plain-English subject in the imperative and a body explaining why, not what. Branches are `cursor/<name>-c20d`. Never merge a PR — the owner does that. Stacked PRs need their base retargeted by hand before merging, because the repo does not delete head branches on merge; that mistake already sent one PR into the wrong branch and needed [#16](https://github.com/Cyphruszx/Bit-by-Bit/pull/16) to fix.
-
-For manual checks, the dev server runs from `/workspace` in the tmux session `bitbybit-dev` on port 3000. Use `http://localhost:3000`, never `127.0.0.1` — the dev server blocks cross-origin dev resources from that host and the JavaScript silently fails to load.
+Commits are small and single-purpose, with a plain-English subject in the imperative and a body
+explaining why, not what. Never merge a PR — the owner does that.
 
 ## Where the code lives
 
-`src/lib/money-flow/` holds the interpretation: `interpret.ts` orchestrates, `parsers.ts` dispatches by file kind, `tabular.ts` reads CSV and spreadsheet tables, `up-statement.ts` reads Up's layout, `text-lines.ts` handles loose text, `interpret-row.ts` turns a raw row into a signed, typed, tagged movement, `categorize.ts` and `statement-category.ts` do the labelling, `summary.ts` totals everything, `ledger.ts` accumulates, `documents.ts` groups by file for the dashboard, and `period.ts` filters by month or range.
+`src/lib/money-flow/` holds the interpretation. `interpret.ts` orchestrates a batch (8 files, 12 MB
+each); `parsers.ts` dispatches by file kind; `detect.ts` sniffs that kind from magic bytes, extension,
+MIME and content shape; `tabular.ts` reads CSV and spreadsheet tables; `up-statement.ts` reads Up's
+layout; `text-lines.ts` reads loose text and PDF text by the balance chain; `parse-values.ts` turns
+strings into money and dates; `interpret-row.ts` signs, types and tags one movement; `categorize.ts`
+and `statement-category.ts` label it; `ledger.ts` accumulates; `summary.ts` totals; `period.ts` filters
+by month or range; and `accounts.ts`, `institution.ts`, `account-identity.ts`, `transfers.ts`,
+`refunds.ts`, `verdicts.ts`, `payers.ts`, `rhythm.ts`, `income.ts`, `scope.ts`, `recurring.ts`,
+`savings.ts`, `tags.ts` and `tag-charts.ts` do the jobs their names suggest.
 
-`src/components/money-flow-provider.tsx` is the single client-side store: it holds the ledger, hydrates it from IndexedDB, and exposes imports, statements and tag edits. Sample-data tag edits deliberately live in their own localStorage key so the ledger only ever holds real statements.
+`src/components/money-flow-provider.tsx` is the single client-side store: it holds the ledger,
+hydrates it from IndexedDB, and exposes imports, statements, verdicts, payer merges and tag edits.
+
+Note there is no `documents.ts` — an earlier draft of this file claimed one. `heldStatements()` and
+`importedFiles()` in `ledger.ts` do that job.
