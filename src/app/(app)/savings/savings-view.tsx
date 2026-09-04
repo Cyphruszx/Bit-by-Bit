@@ -29,8 +29,8 @@ export function SavingsView() {
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Savings</h1>
       <p className="mt-2 max-w-2xl text-[#60716a]">
-        Track pots toward the things you are saving for. Hide a pot to keep it off the combined total and charts so
-        you can watch one goal at a time. Edits stay in this browser.
+        Track pots toward the things you are saving for. Add one below to start. Hide a pot to keep it
+        off the combined total and charts so you can watch one goal at a time. Edits stay in this browser.
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <SummaryCard

@@ -1,4 +1,3 @@
-import { goals as demoGoals } from "@/lib/demo-data";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -28,17 +27,6 @@ export type NamedChartSeries = {
   name: string;
   points: ChartPoint[];
 };
-
-export function seedSavingsPots(): SavingsPot[] {
-  return demoGoals.map((goal) => ({
-    id: goal.id,
-    name: goal.name,
-    detail: goal.detail,
-    saved: goal.saved,
-    target: goal.target,
-    monthlyContribution: goal.monthlyContribution,
-  }));
-}
 
 export function monthsToPot(pot: SavingsPot): number | null {
   const remaining = pot.target - pot.saved;

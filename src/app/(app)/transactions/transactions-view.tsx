@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { TransactionTable } from "@/components/transaction-table";
 import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
+import { EmptyLedger } from "@/components/empty-ledger";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { ScopeBar } from "@/components/scope-bar";
 import { SettledMoney, UnsettledMoney } from "@/components/unsettled-money";
@@ -26,7 +27,6 @@ export function TransactionsView() {
     removeTagEverywhere,
     renameTagEverywhere,
     transactions,
-    usingDemo,
   } = useMoneyFlow();
   const [chart, setChart] = useState<ChartKind>("bar");
   const [selectedTag, setSelectedTag] = useState("All");
@@ -51,19 +51,28 @@ export function TransactionsView() {
     return next;
   }, [flow, scope.kind, scoped]);
 
+  if (!hasUploads) {
+    return (
+      <>
+        <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
+        <EmptyLedger>
+          Every movement BitbyBit reads will be listed here, searchable and taggable, with a primary
+          tag driving the totals and sub-tags for detail.
+        </EmptyLedger>
+      </>
+    );
+  }
+
   return (
     <>
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight">Transactions</h1>
       <p className="mt-1 max-w-2xl text-sm text-[#60716a]">
-        {usingDemo
-          ? "Track money in and out on sample activity, or upload documents to interpret your own. Set a primary tag for totals, then an optional sub-tag for detail."
-          : hasUploads
-            ? "Money in and out from your uploaded documents. Charts use the primary tag so sub-tags never double-count."
-            : "Sample activity with your tag edits, saved in this browser."}
+        Money in and out from your uploaded documents. Charts use the primary tag so sub-tags never
+        double-count.
       </p>
       <ScopeBar groups={groups} scope={scope} onScope={setScope} />
-      {hasUploads ? <p className="mt-3 text-sm text-[#60716a]">{describeScope(scope)}</p> : null}
+      <p className="mt-3 text-sm text-[#60716a]">{describeScope(scope)}</p>
       <section className="mt-4 grid gap-3 sm:grid-cols-3">
         <SummaryCard
           label="Money in"
@@ -90,7 +99,6 @@ export function TransactionsView() {
       <SettledMoney transactions={scoped} />
       <div className="mt-4">
         <TagChartCard
-          categories={scopedFlow.categories}
           transactions={scoped}
           selectedTag={selectedTag}
           onSelectTag={setSelectedTag}

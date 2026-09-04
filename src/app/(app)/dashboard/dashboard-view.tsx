@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { EmptyLedger } from "@/components/empty-ledger";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { showEveryInstitution, toggleInstitution, useHiddenInstitutions } from "@/components/scope-store";
 import { SavingsPathChart } from "@/components/savings-charts";
@@ -18,7 +19,7 @@ import type { MoneyFlowSummary } from "@/lib/money-flow/types";
 
 export function DashboardView() {
   const { accountNames, flow, hasUploads, institutionOverrides,
-    payers, transactions, usingDemo } = useMoneyFlow();
+    payers, transactions } = useMoneyFlow();
   const { pots, snapshots } = useSavingsPots();
   const included = potsInTotal(pots);
   const hiddenCount = pots.length - included.length;
@@ -35,14 +36,25 @@ export function DashboardView() {
   const setSelectedTag = (tag: string) => setChartTag({ key: "All", tag });
   const shown = groups.filter((group) => !hidden.includes(group.institution));
 
+  if (!hasUploads) {
+    return (
+      <>
+        <h1 className="text-3xl font-bold tracking-tight">Your financial snapshot</h1>
+        <EmptyLedger>
+          Once a statement is read, this page shows what actually came in and went out across every
+          account, with money you moved between your own accounts counted once.
+        </EmptyLedger>
+      </>
+    );
+  }
+
   return (
     <>
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Your financial snapshot</h1>
       <p className="mt-2 text-[#60716a]">
-        {usingDemo
-          ? "Sample activity until you upload a statement, spreadsheet, PDF, or photo of a document."
-          : "What actually came in and went out across every account, with money you moved between them counted once."}
+        What actually came in and went out across every account, with money you moved between them
+        counted once.
       </p>
 
       <FlowCards flow={flow} hasUploads={hasUploads} />
@@ -145,7 +157,6 @@ export function DashboardView() {
       </section>
       <section className="mt-8">
         <TagChartCard
-          categories={flow.categories}
           transactions={transactions}
           selectedTag={selectedTag}
           onSelectTag={setSelectedTag}

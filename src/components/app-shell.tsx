@@ -7,7 +7,7 @@ import { PeriodFilterBar } from "@/components/period-filter";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { hasUploads, ready, usingDemo } = useMoneyFlow();
+  const { hasUploads, ready } = useMoneyFlow();
 
   return (
     <main className="min-h-screen bg-[#f6f8f7] text-[#17211e]">
@@ -17,7 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AppNav />
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-[#edf4dc] px-3 py-1 text-sm font-medium text-[#355a3f]">
-              {!ready ? "Opening your ledger" : hasUploads ? "Interpreted from files" : usingDemo ? "Demo data" : "Edited in this browser"}
+              {!ready ? "Opening your ledger" : hasUploads ? "Interpreted from files" : "No statements yet"}
             </span>
             <Link href="/upload" className="rounded-full bg-[#d5f06c] px-4 py-2 text-sm font-bold text-[#173b31]">
               Upload
@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
       <PeriodFilterBar />
       <div className="mx-auto max-w-6xl px-6 py-10">
-        {/* Held back so a returning statement holder never sees sample figures as if they were theirs. */}
+        {/* Held back so a returning statement holder never sees an empty ledger flash before their own. */}
         {ready ? children : <p className="text-[#60716a]">Reading the statements you have already added…</p>}
       </div>
     </main>

@@ -5,15 +5,14 @@ import {
   localIsoDate,
   nextIncludedInTotal,
   recordSavingsSnapshot,
-  seedSavingsPots,
   type SavingsPot,
   type SavingsSnapshot,
 } from "@/lib/money-flow/savings";
 
 const STORAGE_KEY = "bitbybit.savings-v1";
 const listeners = new Set<() => void>();
-const seeded = seedSavingsPots();
-const emptyState: SavingsState = { pots: seeded, snapshots: [] };
+// A pot is something the person said they are saving for. Until they say so there are none.
+const emptyState: SavingsState = { pots: [], snapshots: [] };
 let cachedRaw: string | null = null;
 let cachedState = emptyState;
 
@@ -43,7 +42,7 @@ function getSnapshot(): SavingsState {
     }
     const parsed = JSON.parse(raw) as { pots?: SavingsPot[]; snapshots?: SavingsSnapshot[] };
     cachedState = {
-      pots: Array.isArray(parsed.pots) ? parsed.pots : seeded,
+      pots: Array.isArray(parsed.pots) ? parsed.pots : [],
       snapshots: Array.isArray(parsed.snapshots) ? parsed.snapshots : [],
     };
     return cachedState;
