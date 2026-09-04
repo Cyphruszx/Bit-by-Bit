@@ -199,14 +199,24 @@ function update(patch: Partial<Snapshot>) {
   listeners.forEach((listener) => listener());
 }
 
+/**
+ * Which read is the current one. A read started for one person must not paint the screen
+ * after somebody else has signed in — it would put their statements in front of the wrong
+ * person — so a read that is no longer the latest quietly drops what it found.
+ */
+let reading = 0;
+
 function hydrate(): Promise<void> {
   if (loading) return loading;
+  const mine = ++reading;
   loading = resolveLedgerStore()
     .then((resolved) => {
+      if (mine !== reading) return null;
       store = resolved;
       return resolved.load();
     })
     .then((stored) => {
+      if (mine !== reading || !stored) return;
       // Merged, not chosen. A statement imported while the read was in flight must not be
       // thrown away, and neither must what the read brought back — which after signing in
       // is the backup arriving. mergeLedgers is idempotent on fingerprints, so doing this
@@ -217,17 +227,25 @@ function hydrate(): Promise<void> {
         ready: true,
       });
     })
-    .catch(() => update({ demoTags: readDemoTags(), ready: true }));
+    .catch(() => {
+      if (mine === reading) update({ demoTags: readDemoTags(), ready: true });
+    });
   return loading;
 }
 
 /**
  * Re-reads the ledger, which is what signing in or out has to do: the store it should be
  * saving to has changed, and the two copies have not met yet.
+ *
+ * The screen is emptied first and refilled by whatever the new store returns, rather than
+ * being merged into. Signing out that way still shows everything, because the browser's copy
+ * is left alone and is what gets read back; signing in as somebody else shows their ledger
+ * and not the last person's.
  */
 export function rehydrateLedger(): Promise<void> {
   loading = null;
   store = null;
+  update({ ledger: EMPTY_LEDGER, ready: false });
   return hydrate();
 }
 

@@ -16,6 +16,8 @@ const DB_NAME = "bitbybit";
 const DB_VERSION = 1;
 const STORE_NAME = "ledger";
 const RECORD_KEY = "current";
+/** Who the browser's copy belongs to, so the next person to sign in does not inherit it. */
+const OWNER_KEY = "owner";
 
 /** The single-blob store the app used before statements accumulated. */
 const LEGACY_KEY = "bitbybit.interpreted-v1";
@@ -27,14 +29,59 @@ export function createLedgerStore(): LedgerStore {
 
 /**
  * The store the app should use. The browser one always, wrapped in a backup when this copy
- * of BitbyBit has an account to back up to. Unconfigured, this is exactly the store the app
- * has always used, and nothing reaches the network.
+ * of BitbyBit has an account to back up to and somebody is signed in. Unconfigured or signed
+ * out, this is exactly the store the app has always used and nothing reaches the network.
+ *
+ * The backup is made for one person and told which one. Everything it sends checks that the
+ * same person is still signed in, so work left over from before an account switch cannot
+ * land in the account that follows.
  */
 export async function resolveLedgerStore(): Promise<LedgerStore> {
   const local = createLedgerStore();
   if (!canSignIn()) return local;
   const { cloudLedgerStore } = await import("@/lib/store/cloud-ledger-store");
-  return cloudLedgerStore(local);
+  const { signedInUserId } = await import("@/lib/store/cloud-rows");
+  const userId = await signedInUserId();
+  return userId ? cloudLedgerStore(local, userId) : local;
+}
+
+/**
+ * The account the browser's copy was last saved under, or null while it belongs to nobody
+ * — which is every copy built before signing in, and the ordinary case.
+ *
+ * This is what tells "my own statements, waiting to be backed up" apart from "the last
+ * person's statements, still sitting in a shared browser". Only the first should be merged
+ * into an account on sign-in.
+ */
+export async function ledgerOwner(): Promise<string | null> {
+  if (!supportsIndexedDb()) return null;
+  try {
+    const db = await openDb();
+    const raw = await request<unknown>(
+      db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(OWNER_KEY),
+    );
+    db.close();
+    return typeof raw === "string" && raw ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Records who the browser's copy belongs to now. Null gives it back to nobody. */
+export async function setLedgerOwner(userId: string | null): Promise<void> {
+  if (!supportsIndexedDb()) return;
+  try {
+    const db = await openDb();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    if (userId) store.put(userId, OWNER_KEY);
+    else store.delete(OWNER_KEY);
+    await settled(tx);
+    db.close();
+  } catch {
+    // Same posture as every other write here: a browser that refuses to store must not
+    // take the movements on screen down with it.
+  }
 }
 
 export function supportsIndexedDb(): boolean {

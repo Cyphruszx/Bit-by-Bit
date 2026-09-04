@@ -129,7 +129,8 @@ export function SignInForm() {
       </button>
 
       <p className="mt-4 text-xs text-[#60716a]">
-        Statements already in this browser are kept and added to the account, not replaced.
+        Statements already in this browser are kept and added to the account, not replaced —
+        unless they belong to someone else who signed in here, which stay theirs.
       </p>
     </form>
   );
