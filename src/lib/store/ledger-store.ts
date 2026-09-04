@@ -1,5 +1,6 @@
 import { EMPTY_LEDGER, ledgerFromTransactions, parseLedger, type Ledger } from "@/lib/money-flow/ledger";
 import type { FileInterpretation, InterpretedTransaction } from "@/lib/money-flow/types";
+import { canSignIn } from "@/lib/supabase/config";
 
 /**
  * Where the ledger lives. IndexedDB today; a signed-in cloud store can implement
@@ -22,6 +23,18 @@ const MIGRATED_KEY = "bitbybit.ledger-migrated-v1";
 
 export function createLedgerStore(): LedgerStore {
   return supportsIndexedDb() ? indexedDbStore() : memoryStore();
+}
+
+/**
+ * The store the app should use. The browser one always, wrapped in a backup when this copy
+ * of BitbyBit has an account to back up to. Unconfigured, this is exactly the store the app
+ * has always used, and nothing reaches the network.
+ */
+export async function resolveLedgerStore(): Promise<LedgerStore> {
+  const local = createLedgerStore();
+  if (!canSignIn()) return local;
+  const { cloudLedgerStore } = await import("@/lib/store/cloud-ledger-store");
+  return cloudLedgerStore(local);
 }
 
 export function supportsIndexedDb(): boolean {

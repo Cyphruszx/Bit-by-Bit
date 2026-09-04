@@ -8,6 +8,7 @@ import {
   heldStatements,
   importedFiles,
   ledgerTransactions,
+  mergeLedgers,
   nameAccount,
   nameInstitution,
   removeStatement as dropStatement,
@@ -36,7 +37,7 @@ import {
 } from "@/lib/money-flow/verdicts";
 import { markTransferLegs } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
-import { createLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
+import { resolveLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
 
 const PERIOD_KEY = "bitbybit.period-v1";
 const DEMO_TAGS_KEY = "bitbybit.demo-tags-v1";
@@ -200,13 +201,18 @@ function update(patch: Partial<Snapshot>) {
 
 function hydrate(): Promise<void> {
   if (loading) return loading;
-  store = store ?? createLedgerStore();
-  loading = store
-    .load()
+  loading = resolveLedgerStore()
+    .then((resolved) => {
+      store = resolved;
+      return resolved.load();
+    })
     .then((stored) => {
-      // A statement imported while the read was in flight must not be thrown away.
+      // Merged, not chosen. A statement imported while the read was in flight must not be
+      // thrown away, and neither must what the read brought back — which after signing in
+      // is the backup arriving. mergeLedgers is idempotent on fingerprints, so doing this
+      // when the two are the same ledger costs nothing and changes nothing.
       update({
-        ledger: snapshot.ledger.imports.length > 0 ? snapshot.ledger : stored,
+        ledger: mergeLedgers(snapshot.ledger, stored),
         demoTags: readDemoTags(),
         ready: true,
       });
@@ -215,10 +221,22 @@ function hydrate(): Promise<void> {
   return loading;
 }
 
+/**
+ * Re-reads the ledger, which is what signing in or out has to do: the store it should be
+ * saving to has changed, and the two copies have not met yet.
+ */
+export function rehydrateLedger(): Promise<void> {
+  loading = null;
+  store = null;
+  return hydrate();
+}
+
 function commit(next: Ledger) {
   update({ ledger: next });
-  store = store ?? createLedgerStore();
-  void store.save(next);
+  // Saved through whichever store hydrate settled on. Before that resolves there is
+  // nothing on screen to save, because nothing has been read yet.
+  if (store) void store.save(next);
+  else void hydrate().then(() => store?.save(next));
 }
 
 function importDocuments(result: InterpretationResult, hashes?: Record<string, string>): ImportReport {
@@ -243,8 +261,10 @@ function setAccountName(accountKey: string, name: string) {
 
 function clearLedger() {
   update({ ledger: EMPTY_LEDGER });
-  store = store ?? createLedgerStore();
-  void store.clear();
+  // Clearing removes the backup too, so "start again" means it on every device rather
+  // than leaving a copy to sync straight back.
+  if (store) void store.clear();
+  else void hydrate().then(() => store?.clear());
 }
 
 function getPeriod(): PeriodFilter {
