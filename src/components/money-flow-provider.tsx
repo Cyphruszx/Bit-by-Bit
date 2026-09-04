@@ -11,6 +11,7 @@ import {
   nameAccount,
   nameInstitution,
   removeStatement as dropStatement,
+  recordPayerMerge,
   recordVerdict,
   replaceTransactions,
   visibleTransactions,
@@ -89,6 +90,10 @@ type MoneyFlowState = {
     reason: VerdictReason | null,
     scope?: "one" | "like",
   ) => void;
+  /** Wordings a person has said are one payer, against the wording each was filed under. */
+  payers: Record<string, string>;
+  /** Joins two wordings, or with a null target, separates them again. */
+  mergePayers: (from: string, into: string | null) => void;
   clearInterpretation: () => void;
   setTransactionTags: (id: string, tags: string[]) => void;
   /** The same tags on every movement of one merchant, however far back it goes. */
@@ -116,6 +121,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const settings = {
       institutions: held.ledger.institutions ?? {},
       accounts: held.ledger.accounts ?? {},
+      payers: held.ledger.payers ?? {},
     };
     // Transfers first, so money that went to another of the person's own accounts is
     // already accounted for and cannot also read as a payment being reversed.
@@ -143,6 +149,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       setAccountName,
       verdicts: held.ledger.verdicts ?? {},
       setVerdict,
+      payers: held.ledger.payers ?? {},
+      mergePayers,
       hasUploads: held.ledger.imports.length > 0,
       usingDemo: stored.length === 0,
       ready: held.ready,
@@ -268,6 +276,7 @@ function setVerdict(
   const settings = {
     institutions: snapshot.ledger.institutions ?? {},
     accounts: snapshot.ledger.accounts ?? {},
+    payers: snapshot.ledger.payers ?? {},
   };
   const key = scope === "like" ? likeKey(txn, settings) : oneKey(txn, settings);
   const held = snapshot.ledger.verdicts ?? {};
@@ -276,6 +285,10 @@ function setVerdict(
   const cleared = scope === "like" ? { ...held } : held;
   if (scope === "like") delete cleared[oneKey(txn, settings)];
   commit(recordVerdict({ ...snapshot.ledger, verdicts: cleared }, key, reason ? verdictFor(reason, new Date().toISOString()) : null));
+}
+
+function mergePayers(from: string, into: string | null) {
+  commit(recordPayerMerge(snapshot.ledger, from, into));
 }
 
 function setMerchantTags(merchant: string, tags: string[]) {

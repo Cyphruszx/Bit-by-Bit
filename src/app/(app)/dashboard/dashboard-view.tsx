@@ -17,14 +17,15 @@ import type { ChartKind } from "@/lib/money-flow/tag-charts";
 import type { MoneyFlowSummary } from "@/lib/money-flow/types";
 
 export function DashboardView() {
-  const { accountNames, flow, hasUploads, institutionOverrides, transactions, usingDemo } = useMoneyFlow();
+  const { accountNames, flow, hasUploads, institutionOverrides,
+    payers, transactions, usingDemo } = useMoneyFlow();
   const { pots, snapshots } = useSavingsPots();
   const included = potsInTotal(pots);
   const hiddenCount = pots.length - included.length;
   const [chart, setChart] = useState<ChartKind>("bar");
   const registry = useMemo(
-    () => ({ names: accountNames, institutions: institutionOverrides }),
-    [accountNames, institutionOverrides],
+    () => ({ names: accountNames, institutions: institutionOverrides, payers }),
+    [accountNames, institutionOverrides, payers],
   );
   const groups = useMemo(() => accountsByInstitution(transactions, registry), [registry, transactions]);
   const sources = useMemo(() => incomeSources(transactions), [transactions]);

@@ -53,6 +53,12 @@ export type Ledger = {
    * wording rather than by row, so a verdict survives re-importing the statement.
    */
   verdicts?: Verdicts;
+  /**
+   * Payers a person has said are one, against the wording each was filed under. A bank
+   * writes a payer's name more than one way, and no reading of the words alone can settle
+   * whether two wordings are one payer or two.
+   */
+  payers?: Record<string, string>;
 };
 
 export type ImportReport = {
@@ -281,6 +287,17 @@ export function recordVerdict(ledger: Ledger, key: string, verdict: Verdict | nu
   return { ...ledger, verdicts };
 }
 
+/**
+ * Records that two wordings are one payer. An empty target takes the merge back, and the
+ * wordings go back to being read as they were written.
+ */
+export function recordPayerMerge(ledger: Ledger, from: string, into: string | null): Ledger {
+  const payers = { ...ledger.payers };
+  if (into && into !== from) payers[from] = into;
+  else delete payers[from];
+  return { ...ledger, payers };
+}
+
 export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {
   return ledger.entries;
 }
@@ -299,6 +316,7 @@ export function visibleTransactions(ledger: Ledger): InterpretedTransaction[] {
   return uniqueTransactions(ledger.entries, {
     ...(ledger.accounts ? { names: ledger.accounts } : {}),
     ...(ledger.institutions ? { institutions: ledger.institutions } : {}),
+    ...(ledger.payers ? { payers: ledger.payers } : {}),
   });
 }
 
@@ -361,6 +379,7 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(raw.institutions && typeof raw.institutions === "object" ? { institutions: namesOnly(raw.institutions) } : {}),
     ...(raw.accounts && typeof raw.accounts === "object" ? { accounts: namesOnly(raw.accounts) } : {}),
     ...(raw.verdicts && typeof raw.verdicts === "object" ? { verdicts: verdictsOnly(raw.verdicts) } : {}),
+    ...(raw.payers && typeof raw.payers === "object" ? { payers: stringsOnly(raw.payers) } : {}),
   };
 }
 
@@ -396,6 +415,15 @@ function grouped(result: { files: FileInterpretation[]; transactions: Interprete
   }
   for (const [label, rows] of groups) ordered.push({ label, rows });
   return ordered;
+}
+
+/** Keeps only pairs of strings, so a hand-edited or older store cannot skew a total. */
+function stringsOnly(raw: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(raw).filter(
+      (pair): pair is [string, string] => typeof pair[1] === "string" && pair[1].trim().length > 0,
+    ),
+  );
 }
 
 /** Keeps only what reads as a verdict, so a hand-edited or older store cannot skew a total. */

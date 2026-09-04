@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { IncomeRhythm } from "@/components/income-rhythm";
+import { PayerSuggestions } from "@/components/payer-suggestions";
 import { demoAccounts, useMoneyFlow } from "@/components/money-flow-provider";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
@@ -21,12 +22,13 @@ export function AccountsView() {
     hasUploads,
     allTransactions,
     institutionOverrides,
+    payers,
     setStatementInstitution,
     accountNames,
     setAccountName,
   } = useMoneyFlow();
 
-  const registry = { names: accountNames, institutions: institutionOverrides };
+  const registry = { names: accountNames, institutions: institutionOverrides, payers };
   const groups = accountsByInstitution(allTransactions, registry);
   const accounts = groups.flatMap((group) => group.accounts);
   const suggestions = mergeSuggestions(accounts.flatMap((account) => account.keys));
@@ -76,6 +78,8 @@ export function AccountsView() {
           detail="CSV, Excel, PDF, OFX, images, and more"
         />
       </section>
+
+      <PayerSuggestions />
 
       <IncomeRhythm />
 

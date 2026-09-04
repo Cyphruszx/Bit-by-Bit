@@ -23,10 +23,11 @@ export function TransactionTable({
   tag?: string;
   onTagChange?: (tag: string) => void;
 }) {
-  const { accountNames, allTransactions, institutionOverrides, setMerchantTags, setTransactionTags } = useMoneyFlow();
+  const { accountNames, allTransactions, institutionOverrides,
+    payers, setMerchantTags, setTransactionTags } = useMoneyFlow();
   const registry = useMemo(
-    () => ({ names: accountNames, institutions: institutionOverrides }),
-    [accountNames, institutionOverrides],
+    () => ({ names: accountNames, institutions: institutionOverrides, payers }),
+    [accountNames, institutionOverrides, payers],
   );
   const accountOf = useMemo(
     () => new Map(transactions.map((txn) => [txn.id, accountLabel(accountIdOf(txn, registry))])),

@@ -135,6 +135,12 @@ export type AccountNames = Record<string, string>;
 export type AccountRegistry = {
   names?: AccountNames;
   institutions?: InstitutionOverrides;
+  /**
+   * Payers a person has said are one, against the wording each was filed under. A bank
+   * does not write a payer's name the same way every time, and no reading of the words
+   * alone can settle whether two wordings are one payer or two.
+   */
+  payers?: Record<string, string>;
 };
 
 /**

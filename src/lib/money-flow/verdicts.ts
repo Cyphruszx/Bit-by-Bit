@@ -68,9 +68,37 @@ export function oneKey(txn: InterpretedTransaction, registry: AccountRegistry = 
 /**
  * Every movement that reads the same way: the same account, the same direction, the same
  * wording. A practice billing Medicare 172 times should be settled once, not 172 times.
+ *
+ * Two payers a person has said are one are one here, because a bank does not write a
+ * payer's name the same way every time and nothing in the words can settle that alone.
  */
 export function likeKey(txn: InterpretedTransaction, registry: AccountRegistry = {}): string {
+  return throughMerges(rawLikeKey(txn, registry), registry.payers);
+}
+
+/** The key before any merge a person has recorded, which is what a merge is recorded against. */
+export function rawLikeKey(txn: InterpretedTransaction, registry: AccountRegistry = {}): string {
   return ["like", accountIdOf(txn, registry), txn.amount > 0 ? "in" : "out", wording(txn)].join("|");
+}
+
+/** The wording a movement was filed under before words were sorted. */
+function legacyLikeKey(txn: InterpretedTransaction, registry: AccountRegistry = {}): string {
+  return ["like", accountIdOf(txn, registry), txn.amount > 0 ? "in" : "out", asWritten(txn)].join("|");
+}
+
+/**
+ * Follows a merge to the payer it ends at. Merges can chain when three wordings are
+ * joined one after another, and a loop would be a bug rather than a thing to hang on.
+ */
+function throughMerges(key: string, merges: Record<string, string> | undefined): string {
+  if (!merges) return key;
+  const seen = new Set<string>();
+  let at = key;
+  while (merges[at] && !seen.has(at)) {
+    seen.add(at);
+    at = merges[at];
+  }
+  return at;
 }
 
 /**
@@ -103,7 +131,12 @@ export function applyVerdicts(
   }
 
   return transactions.map((txn) => {
-    const found = verdicts[oneKey(txn, registry)] ?? verdicts[likeKey(txn, registry)];
+    // A verdict recorded before the words were sorted still means what it meant.
+    const found =
+      verdicts[oneKey(txn, registry)] ??
+      verdicts[likeKey(txn, registry)] ??
+      verdicts[rawLikeKey(txn, registry)] ??
+      verdicts[legacyLikeKey(txn, registry)];
     if (!found) return txn.verdict ? withoutVerdict(txn) : txn;
     if (same(txn.verdict, found)) return txn;
     return { ...txn, verdict: found };
@@ -114,12 +147,28 @@ export function applyVerdicts(
  * The wording that identifies a movement, tidied so the same purchase written twice by
  * one bank reads as one thing. Reference numbers differ on rows that mean the same, so
  * anything carrying a digit is dropped.
+ *
+ * The words are sorted, because where a bank puts a name is not information. Medicare
+ * pays the same practice as "MCARE BENEFITS STEVEN OH" and as "STEVEN OH MCARE BENEFITS",
+ * and reading those as two payers splits a year of billing in half. Sorting cannot join
+ * two payers that are really different, because it leaves the words themselves untouched.
  */
-function wording(txn: InterpretedTransaction): string {
+export function wordsOf(txn: InterpretedTransaction): string[] {
   const text = (txn.description?.trim() || txn.merchant).toLowerCase();
-  const words = text.split(/[^a-z]+/).filter((word) => word.length >= 3);
+  return [...new Set(text.split(/[^a-z]+/).filter((word) => word.length >= 3))].sort();
+}
+
+function wording(txn: InterpretedTransaction): string {
+  const words = wordsOf(txn);
   // Nothing but reference numbers: fall back to the merchant so a key still means
   // something rather than collapsing every such row into one.
+  return words.length > 0 ? words.join(" ") : txn.merchant.toLowerCase();
+}
+
+/** The old wording, in the order the bank wrote it. Only for finding what it filed. */
+function asWritten(txn: InterpretedTransaction): string {
+  const text = (txn.description?.trim() || txn.merchant).toLowerCase();
+  const words = text.split(/[^a-z]+/).filter((word) => word.length >= 3);
   return words.length > 0 ? words.join(" ") : txn.merchant.toLowerCase();
 }
 
