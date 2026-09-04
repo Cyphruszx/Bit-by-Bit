@@ -53,8 +53,14 @@ export function reasonLabel(reason: VerdictReason): string {
   return REASONS[reason]?.label ?? reason;
 }
 
-export function verdictFor(reason: VerdictReason, at: string): Verdict {
-  return { counts: REASONS[reason]?.counts ?? true, because: reason, at };
+/**
+ * A verdict from a reason. Whether it counts is decided from the reason itself and never
+ * taken on trust, so a stored "borrowed" can never come back saying it was income.
+ * An unknown reason falls back to "earned", which changes no total.
+ */
+export function verdictFor(reason: string, at: string): Verdict {
+  const known = reason in REASONS ? (reason as VerdictReason) : "earned";
+  return { counts: REASONS[known].counts, because: known, at };
 }
 
 /**
@@ -115,6 +121,24 @@ export function countLike(
 }
 
 /**
+ * Every key a verdict on this movement could be filed under, in the order they win: the
+ * one row first because it was the more deliberate thing to say, then the payer it now
+ * belongs to, then the wording before any merge, then the wording before words were
+ * sorted. Taking a verdict back has to clear all of them or it comes straight back.
+ */
+export function verdictKeysFor(
+  txn: InterpretedTransaction,
+  registry: AccountRegistry = {},
+): string[] {
+  return [
+    oneKey(txn, registry),
+    likeKey(txn, registry),
+    rawLikeKey(txn, registry),
+    legacyLikeKey(txn, registry),
+  ];
+}
+
+/**
  * Writes each verdict onto the movements it settles, so every total, chart and card reads
  * it without being handed the record. A verdict on the one row wins over a verdict on
  * everything like it, because it was the more deliberate thing to say.
@@ -131,12 +155,9 @@ export function applyVerdicts(
   }
 
   return transactions.map((txn) => {
-    // A verdict recorded before the words were sorted still means what it meant.
-    const found =
-      verdicts[oneKey(txn, registry)] ??
-      verdicts[likeKey(txn, registry)] ??
-      verdicts[rawLikeKey(txn, registry)] ??
-      verdicts[legacyLikeKey(txn, registry)];
+    const found = verdictKeysFor(txn, registry)
+      .map((key) => verdicts[key])
+      .find(Boolean);
     if (!found) return txn.verdict ? withoutVerdict(txn) : txn;
     if (same(txn.verdict, found)) return txn;
     return { ...txn, verdict: found };

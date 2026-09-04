@@ -30,6 +30,7 @@ import {
   likeKey,
   oneKey,
   verdictFor,
+  verdictKeysFor,
   type VerdictReason,
   type Verdicts,
 } from "@/lib/money-flow/verdicts";
@@ -118,22 +119,25 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const stored = visibleTransactions(held.ledger);
     // Decided over everything held rather than per statement, because the leg that
     // settles a transfer usually arrives in a statement uploaded weeks later.
-    const settings = {
-      institutions: held.ledger.institutions ?? {},
-      accounts: held.ledger.accounts ?? {},
-      payers: held.ledger.payers ?? {},
-    };
+    // Two shapes, deliberately: the matchers take the account names as `accounts`, while
+    // everything that asks which account a movement belongs to takes them as `names`.
+    // Handing one to the other silently drops account naming and merging.
+    const names = held.ledger.accounts ?? {};
+    const institutions = held.ledger.institutions ?? {};
+    const payers = held.ledger.payers ?? {};
+    const matching = { institutions, accounts: names };
+    const registry = { institutions, names, payers };
     // Transfers first, so money that went to another of the person's own accounts is
     // already accounted for and cannot also read as a payment being reversed.
     // What the person said last: a verdict settles what the statements could not, so it is
     // applied over the reader's own pairing rather than under it.
     const allTransactions = applyVerdicts(
       markRefundLegs(
-        markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), settings),
-        settings,
+        markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), matching),
+        matching,
       ),
       held.ledger.verdicts ?? {},
-      settings,
+      registry,
     );
     return {
       files: importedFiles(held.ledger),
@@ -275,16 +279,22 @@ function setVerdict(
 ) {
   const settings = {
     institutions: snapshot.ledger.institutions ?? {},
-    accounts: snapshot.ledger.accounts ?? {},
+    names: snapshot.ledger.accounts ?? {},
     payers: snapshot.ledger.payers ?? {},
   };
+  const held = { ...(snapshot.ledger.verdicts ?? {}) };
+
+  // Taking a verdict back has to clear every key it could have been filed under — the row
+  // itself, the payer it belongs to now, and the wordings it was filed under before a
+  // merge or before words were sorted — or applyVerdicts finds one of the others and the
+  // verdict comes straight back.
+  for (const stale of verdictKeysFor(txn, settings)) delete held[stale];
+  // Settling a whole payer should not leave a single row's older verdict standing over it.
+  if (scope === "like") delete held[oneKey(txn, settings)];
+
   const key = scope === "like" ? likeKey(txn, settings) : oneKey(txn, settings);
-  const held = snapshot.ledger.verdicts ?? {};
-  // Taking back a verdict on one row should not leave the rule that covered it standing,
-  // and taking back the rule should not leave a stray row settled.
-  const cleared = scope === "like" ? { ...held } : held;
-  if (scope === "like") delete cleared[oneKey(txn, settings)];
-  commit(recordVerdict({ ...snapshot.ledger, verdicts: cleared }, key, reason ? verdictFor(reason, new Date().toISOString()) : null));
+  const next = reason ? verdictFor(reason, new Date().toISOString()) : null;
+  commit(recordVerdict({ ...snapshot.ledger, verdicts: held }, key, next));
 }
 
 function mergePayers(from: string, into: string | null) {

@@ -1,7 +1,7 @@
 import type { AccountNames } from "@/lib/money-flow/account-identity";
 import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import { uniqueTransactions } from "@/lib/money-flow/summary";
-import type { Verdict, Verdicts } from "@/lib/money-flow/verdicts";
+import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const LEDGER_VERSION = 1;
@@ -426,19 +426,25 @@ function stringsOnly(raw: Record<string, unknown>): Record<string, string> {
   );
 }
 
-/** Keeps only what reads as a verdict, so a hand-edited or older store cannot skew a total. */
+/**
+ * Keeps only what reads as a verdict, so a hand-edited or older store cannot skew a total.
+ *
+ * Whether a reason counts is decided here rather than trusted from storage. A stored
+ * `{ counts: true, because: "borrowed" }` would otherwise put a loan drawdown back into
+ * income, which is the one thing this guard exists to stop, and a reason nobody wrote
+ * would be rendered raw at the person.
+ */
 function verdictsOnly(raw: Record<string, unknown>): Verdicts {
-  return Object.fromEntries(
-    Object.entries(raw).filter((pair): pair is [string, Verdict] => {
-      if (!pair[1] || typeof pair[1] !== "object") return false;
-      const value = pair[1] as Partial<Verdict>;
-      return (
-        typeof value.counts === "boolean" &&
-        typeof value.because === "string" &&
-        typeof value.at === "string"
-      );
-    }),
-  );
+  const held: Verdicts = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!value || typeof value !== "object") continue;
+    const stored = value as Partial<Verdict>;
+    if (typeof stored.because !== "string" || typeof stored.at !== "string") continue;
+    const known = verdictFor(stored.because, stored.at);
+    if (known.because !== stored.because) continue;
+    held[key] = known;
+  }
+  return held;
 }
 
 function namesOnly(raw: Record<string, unknown>): InstitutionOverrides {

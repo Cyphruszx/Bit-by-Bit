@@ -30,6 +30,8 @@ export type PayerGroup = {
   key: string;
   label: string;
   account: string;
+  /** Money in or money out. Joining across the two would make one verdict settle both. */
+  direction: "in" | "out";
   words: string[];
   count: number;
   total: number;
@@ -65,6 +67,7 @@ export function payerGroups(
       key,
       label: held?.label ?? (txn.description?.trim() || txn.merchant),
       account: held?.account ?? accountIdOf(txn, registry),
+      direction: held?.direction ?? (txn.amount > 0 ? "in" : "out"),
       words: held?.words ?? wordsOf(txn),
       count: (held?.count ?? 0) + 1,
       total: roundMoney((held?.total ?? 0) + Math.abs(txn.amount)),
@@ -102,6 +105,7 @@ export function payerSuggestions(
         larger.key !== smaller.key &&
         !merged[larger.key] &&
         larger.account === smaller.account &&
+        larger.direction === smaller.direction &&
         larger.words.length > smaller.words.length &&
         smaller.words.every((word) => larger.words.includes(word)),
     );

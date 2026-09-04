@@ -49,8 +49,8 @@ export type RhythmBreak = {
   worth: number;
   /**
    * Whether the account carried on through the silence. A stream stopping while its
-   * account still moves is the work pausing; a whole account going quiet while others
-   * carry on is a statement that may be missing.
+   * account still moves is the work pausing; a whole account going quiet while another
+   * account carried on is a statement that may be missing.
    */
   accountKeptMoving: boolean;
   reading: "paused" | "may-be-missing";
@@ -94,6 +94,10 @@ export function incomeRhythms(
   const streams = new Map<string, InterpretedTransaction[]>();
   for (const txn of transactions) {
     if (txn.amount <= 0 || txn.transferPair || txn.refundPair) continue;
+    // A person who has said this is a loan, or their own money arriving, has taken it out
+    // of income. A panel meant to be checked against what they earn cannot then quote it
+    // back at them as an income stream.
+    if (txn.verdict?.counts === false) continue;
     const key = likeKey(txn, registry);
     streams.set(key, [...(streams.get(key) ?? []), txn]);
   }
@@ -124,6 +128,7 @@ function rhythmOf(
   const everyDays = median(gaps);
   const account = accountIdOf(rows[0], registry);
   const inAccount = everything.filter((txn) => accountIdOf(txn, registry) === account);
+  const elsewhere = everything.filter((txn) => accountIdOf(txn, registry) !== account);
 
   const total = roundMoney(rows.reduce((sum, row) => sum + row.amount, 0));
   const breaks: RhythmBreak[] = [];
@@ -137,13 +142,17 @@ function rhythmOf(
     const silence = gap - everyDays;
     quietDays += silence;
     const kept = inAccount.some((txn) => txn.dateIso > after && txn.dateIso < until);
+    // A missing statement is a hole in one account while life carried on somewhere else.
+    // Without another account to compare against there is nothing to compare, and calling
+    // every holiday a missing statement would be worse than saying nothing.
+    const livedOn = elsewhere.some((txn) => txn.dateIso > after && txn.dateIso < until);
     breaks.push({
       after,
       until,
       days: gap,
       worth: 0,
       accountKeptMoving: kept,
-      reading: kept ? "paused" : "may-be-missing",
+      reading: !kept && livedOn ? "may-be-missing" : "paused",
     });
   }
 

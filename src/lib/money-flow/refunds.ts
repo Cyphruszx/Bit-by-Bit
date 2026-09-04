@@ -17,8 +17,6 @@ import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/account-iden
 import { calendarDaysBetween } from "@/lib/money-flow/transfers";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
-const CENT = 0.005;
-
 /** A shop can take a couple of months to reverse a charge, but not a year. */
 const DEFAULT_WINDOW_DAYS = 90;
 
@@ -65,8 +63,6 @@ export type RefundOptions = {
   institutions?: AccountRegistry["institutions"];
 };
 
-export const EMPTY_REFUND_MATCH: RefundMatch = { pairs: [], matched: new Set() };
-
 /**
  * Runs over the whole ledger and claims nothing twice, so importing another statement
  * re-decides every pair and reaches the same answer from the same movements.
@@ -100,7 +96,7 @@ export function matchRefunds(
   const claimed = new Set<string>();
   const pairs: RefundPair[] = [];
 
-  for (const refund of open.filter((txn) => txn.amount > 0).sort(byDateThenId)) {
+  for (const refund of open.filter((txn) => txn.amount > 0 && comesBack(txn)).sort(byDateThenId)) {
     const shared = words.get(refund.id) ?? new Set<string>();
     if (shared.size === 0) continue;
 
@@ -201,15 +197,25 @@ function wordsOf(txn: InterpretedTransaction): string[] {
     .filter((word) => word.length >= 4 && !NOISE.has(word));
 }
 
+/**
+ * Whether a credit reads as money coming back at all.
+ *
+ * Same account, same amount and a shared word is not enough on its own: a landlord who
+ * receives $2,300 of rent and pays $2,300 to the same agent within the quarter shares a
+ * rare word and would have both legs cancelled, quietly claiming the money never moved.
+ * Something has to say this credit is a reversal, and the reader already decides that.
+ */
+function comesBack(txn: InterpretedTransaction): boolean {
+  if (txn.type === "refund") return true;
+  return /\b(refund|reversal|rebate|chargeback|returned)/i.test(
+    `${txn.description ?? ""} ${txn.merchant}`,
+  );
+}
+
 function bucket(account: string, amount: number): string {
   return `${account}|${Math.round(Math.abs(amount) * 100)}`;
 }
 
 function byDateThenId(a: InterpretedTransaction, b: InterpretedTransaction): number {
   return a.dateIso.localeCompare(b.dateIso) || a.id.localeCompare(b.id);
-}
-
-/** Amounts are money, so equality is to the cent and nothing finer. */
-export function sameAmount(a: number, b: number): boolean {
-  return Math.abs(Math.abs(a) - Math.abs(b)) < CENT;
 }

@@ -100,10 +100,24 @@ describe("a stream that stops", () => {
   });
 
   it("reads a whole account falling silent as a statement that may be missing", () => {
-    // Same silence, but nothing at all happens in the account through it.
-    const [rhythm] = incomeRhythms([...before, ...after]);
+    // Nothing at all happens in this account through the silence, while another account
+    // carries on spending. That is a hole in the documents, not a hole in the year.
+    const otherAccount = [
+      paid("2025-12-25", -120, "Qantas", { accountId: "Up · Spending" }),
+      paid("2026-01-02", -80, "Woolworths", { accountId: "Up · Spending" }),
+    ];
+    const [rhythm] = incomeRhythms([...before, ...after, ...otherAccount]);
+
     assert.equal(rhythm.breaks[0].accountKeptMoving, false);
     assert.equal(rhythm.breaks[0].reading, "may-be-missing");
+  });
+
+  it("says nothing about a silence it has nothing to compare against", () => {
+    // One account uploaded and no other. Every holiday would otherwise be reported as a
+    // missing statement, which is worse than saying nothing.
+    const [rhythm] = incomeRhythms([...before, ...after]);
+    assert.equal(rhythm.breaks[0].accountKeptMoving, false);
+    assert.equal(rhythm.breaks[0].reading, "paused");
   });
 
   it("does not call a monthly payment's ordinary month a break", () => {

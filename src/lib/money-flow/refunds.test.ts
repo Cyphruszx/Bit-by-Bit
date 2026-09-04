@@ -169,3 +169,29 @@ describe("recognising money that came back", () => {
     assert.equal(markRefundLegs([stale, ...filler()])[0].refundPair, undefined);
   });
 });
+
+describe("money that only looks like it came back", () => {
+  it("leaves two real movements alone when nothing says one reversed the other", () => {
+    // A landlord receiving rent and paying the same agent the same amount. Same account,
+    // same cent, inside the window, sharing the rare word "smith" — and both real.
+    const rows = [
+      move(ACCOUNT, 2300, "2026-03-01", "SMITH PROPERTY RENT RECEIVED", { type: "income" }),
+      move(ACCOUNT, -2300, "2026-03-20", "SMITH PROPERTY MANAGEMENT"),
+      ...filler(),
+    ];
+    const flow = summarizeMoneyFlow(markRefundLegs(rows));
+
+    assert.equal(matchRefunds(rows).pairs.length, 0);
+    assert.equal(flow.income, 2300, "the rent is still income");
+    assert.equal(flow.spending, 2300 + FILLER_SPENDING, "and the fee is still spending");
+  });
+
+  it("still takes one the bank marked as a reversal", () => {
+    const rows = [
+      move(ACCOUNT, -2300, "2026-03-01", "SMITH PROPERTY MANAGEMENT"),
+      move(ACCOUNT, 2300, "2026-03-20", "REVERSAL OF DEBIT SMITH PROPERTY", { type: "refund" }),
+      ...filler(),
+    ];
+    assert.equal(matchRefunds(rows).pairs.length, 1);
+  });
+});

@@ -110,3 +110,54 @@ describe("reading a statement with no balance to check against", () => {
     assert.ok(rows.every((row) => row.confidence < 0.9));
   });
 });
+
+describe("a balance column the chain cannot close", () => {
+  // A page break dropped a row, so the balances no longer join up.
+  const BROKEN = `Statement
+Opening Balance $1,000.00 CR
+Date Particulars Debits Credits Balance
+12 Mar 2026 Woolworths Bondi $100.00 $900.00 CR
+14 Mar 2026 Coles Wagga $50.00 $850.00 CR
+16 Mar 2026 Salary from Acme $500.00 $9,999.99 CR
+18 Mar 2026 Kmart Wagga $25.00 $1,875.00 CR`;
+
+  it("never reads the balance as the money that moved", () => {
+    const rows = transactionsFromText(BROKEN, "broken.pdf");
+    assert.ok(rows.every((row) => Math.abs(row.amount) < 1000), "no balance became an amount");
+    assert.ok(rows.every((row) => row.confidence < 0.9), "and none claims the chain closed");
+  });
+
+  it("still reads every row the surviving balances can settle", () => {
+    const rows = transactionsFromText(BROKEN, "broken.pdf");
+    // $100 was spent at Woolworths. The $900 beside it is what was left.
+    assert.equal(rows[0].amount, -100);
+    assert.equal(rows[1].amount, -50);
+    assert.equal(rows[0].confidence, 0.8, "one neighbouring balance, not a whole chain");
+    // The row after the corrupted balance has nothing sound to lean on, so it falls back
+    // to its wording and says so.
+    assert.equal(rows[3].confidence, 0.64);
+  });
+});
+
+describe("a statement that never prints its opening balance", () => {
+  const NO_OPENING = `Statement
+Date Particulars Debits Credits Balance
+12 Mar 2026 Woolworths Bondi $100.00 $900.00 CR
+14 Mar 2026 Coles Wagga $50.00 $850.00 CR
+16 Mar 2026 Kmart Wagga $25.00 $825.00 CR`;
+
+  it("will not guess where the chain starts", () => {
+    // Guessing cannot work: both guesses agree on every row but the first, and the closing
+    // balance cannot tell them apart because a chain always lands on its own last balance.
+    // Guessing made the first movement of every such statement read as money in.
+    const rows = transactionsFromText(NO_OPENING, "no-opening.pdf");
+    assert.ok(rows.every((row) => row.confidence < 0.9));
+  });
+
+  it("still settles every row that has a balance before it", () => {
+    const rows = transactionsFromText(NO_OPENING, "no-opening.pdf");
+    assert.equal(rows[1].amount, -50, "900 down to 850 is money out");
+    assert.equal(rows[2].amount, -25);
+    assert.equal(rows[0].confidence, 0.64, "the first row has nothing before it");
+  });
+});

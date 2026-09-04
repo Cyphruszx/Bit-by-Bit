@@ -133,11 +133,30 @@ describe("remembering a verdict", () => {
     assert.deepEqual(Object.keys(recordVerdict(b, "one|a", null).verdicts ?? {}), ["one|b"]);
   });
 
+  it("decides whether a reason counts rather than trusting what was stored", () => {
+    // A corrupted store claiming a loan drawdown was income is the one thing the guard
+    // exists to stop.
+    const loan = credit(25000, "SocietyOne");
+    const restored = parseLedger({
+      entries: [],
+      imports: [],
+      verdicts: { [oneKey(loan)]: { counts: true, because: "borrowed", at: AT } },
+    });
+
+    assert.equal(restored?.verdicts?.[oneKey(loan)].counts, false, "borrowed money is never income");
+    assert.equal(summarizeMoneyFlow(applyVerdicts([loan], restored?.verdicts)).income, 0);
+  });
+
   it("ignores anything stored that does not read as a verdict", () => {
     const restored = parseLedger({
       entries: [],
       imports: [],
-      verdicts: { good: { counts: false, because: "borrowed", at: AT }, bad: "yes", worse: null },
+      verdicts: {
+        good: { counts: false, because: "borrowed", at: AT },
+        unknown: { counts: false, because: "banana", at: AT },
+        bad: "yes",
+        worse: null,
+      },
     });
     assert.deepEqual(Object.keys(restored?.verdicts ?? {}), ["good"]);
   });

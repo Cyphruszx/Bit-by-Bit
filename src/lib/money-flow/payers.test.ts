@@ -110,6 +110,16 @@ describe("offering to join two wordings", () => {
     assert.deepEqual(payerSuggestions(rows), []);
   });
 
+  it("never joins money in to money out", () => {
+    // Rent received and a management fee paid, worded so one contains the other. Joining
+    // them would make one verdict settle both, in opposite directions.
+    const rows = [
+      ...run("2026-01-05", 20, 3, 2300, "SMITH PROPERTY RENT"),
+      ...run("2026-01-06", 20, 3, -180, "SMITH PROPERTY RENT MANAGEMENT FEE"),
+    ];
+    assert.deepEqual(payerSuggestions(rows), []);
+  });
+
   it("never reaches across accounts", () => {
     const rows = [
       ...run("2026-01-05", 20, 3, 500, "MC BBS### MCARE BENEFITS STEVEN OH"),

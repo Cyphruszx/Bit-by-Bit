@@ -140,7 +140,9 @@ export function unsettledGroups(
       account: held?.account ?? accountIdOf(txn, registry),
       count: (held?.count ?? 0) + 1,
       amount: roundMoney((held?.amount ?? 0) + txn.amount),
-      kind: txn.type === "refund" ? "returned" : "arrived",
+      // Held like every other field: one wording carrying both a refund and a transfer row
+      // should not change its caption depending on which came last in the array.
+      kind: held?.kind ?? (txn.type === "refund" ? "returned" : "arrived"),
       from: held && held.from < txn.dateIso ? held.from : txn.dateIso,
       to: held && held.to > txn.dateIso ? held.to : txn.dateIso,
     });

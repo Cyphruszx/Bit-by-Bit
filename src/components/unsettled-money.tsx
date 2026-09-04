@@ -7,7 +7,7 @@ import { accountLabel } from "@/lib/money-flow/accounts";
 import { unsettledGroups, type UnsettledGroup } from "@/lib/money-flow/income";
 import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
-import { reasonsFor, type VerdictReason } from "@/lib/money-flow/verdicts";
+import { reasonLabel, reasonsFor, type VerdictReason } from "@/lib/money-flow/verdicts";
 
 /**
  * The money the statements could not settle, put to the person one run at a time.
@@ -122,14 +122,16 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
 
   if (settled.length === 0) return null;
 
-  const groups = new Map<string, { rows: InterpretedTransaction[]; because: string }>();
+  const groups = new Map<string, { rows: InterpretedTransaction[]; because: VerdictReason }>();
   for (const txn of settled) {
     const label = txn.description?.trim() || txn.merchant;
-    const key = `${label}|${txn.verdict?.because}`;
+    // The account belongs in the key: one payer paying into two accounts is two verdicts,
+    // and a single Undo can only ever clear the one it was given.
+    const key = `${label}|${txn.verdict?.because}|${txn.accountId ?? txn.sourceFile}`;
     const held = groups.get(key);
     groups.set(key, {
       rows: [...(held?.rows ?? []), txn],
-      because: txn.verdict?.because ?? "",
+      because: txn.verdict?.because ?? "earned",
     });
   }
 
@@ -145,7 +147,7 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{label}</p>
                 <p className="mt-0.5 text-xs text-[#60716a]">
-                  {reasonText(held.because)} · {held.rows.length} movement
+                  {reasonLabel(held.because)} · {held.rows.length} movement
                   {held.rows.length === 1 ? "" : "s"} · <span className="tabular-nums">{formatAud(amount)}</span>
                 </p>
               </div>
@@ -162,9 +164,4 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
       </ul>
     </article>
   );
-}
-
-function reasonText(because: string): string {
-  const found = [...reasonsFor(1), ...reasonsFor(-1)].find((choice) => choice.reason === because);
-  return found?.label ?? because;
 }

@@ -72,10 +72,15 @@ export function transactionsFromText(text: string, sourceFile: string): Interpre
   });
 
   const chained = signByRunningBalance(rows, opening, closing);
+  // A statement whose chain will not close is usually a good statement with one bad row —
+  // a page break, a line the reader mangled. Every other row still sits beside a balance
+  // that says which way its money went, so those are read and only the rest are guessed.
+  const perRow = chained ? null : signByNeighbouringBalance(rows, opening);
 
   return rows.map((row, position) => {
     const category = categorize(row.description);
-    const amount = chained?.[position] ?? readWithoutBalance(row);
+    const fromBalance = chained?.[position] ?? perRow?.[position] ?? null;
+    const amount = fromBalance ?? readWithoutBalance(row);
     const type = inferType(row.description, amount, category);
 
     return {
@@ -88,18 +93,24 @@ export function transactionsFromText(text: string, sourceFile: string): Interpre
       type,
       sourceFile,
       // A balance the statement itself agrees with is stronger evidence than a guess at
-      // which way an amount was meant to go.
-      confidence: chained ? 0.92 : 0.64,
+      // which way an amount was meant to go; one neighbouring balance is weaker than a
+      // whole chain that closed, and stronger than the wording alone.
+      confidence: chained ? 0.92 : fromBalance != null ? 0.8 : 0.64,
     };
   });
 }
 
 /**
- * What a movement was, when the line carries no balance to check it against: the last
- * figure is the amount, and the wording has to say which way it went.
+ * What a movement was, when no balance could be checked against it: the wording has to
+ * say which way the money went.
+ *
+ * Which figure is the amount still matters. A line carrying two is a table with a balance
+ * column whose chain would not close, and the balance is the last figure written — taking
+ * it as the movement turns a $100 shop into $900 of income. What moved is the figure
+ * before it.
  */
 function readWithoutBalance(row: Row): number {
-  const amount = row.amounts[row.amounts.length - 1];
+  const amount = row.amounts.length >= 2 ? magnitude(row) : row.amounts[0];
   const type = inferType(row.description, amount, categorize(row.description));
   if (type === "income" || type === "refund") return Math.abs(amount);
   return type === "expense" && amount > 0 ? -amount : amount;
@@ -122,25 +133,42 @@ function signByRunningBalance(rows: Row[], opening: number | null, closing: numb
   const withBalance = rows.every((row) => row.amounts.length >= 2);
   if (!withBalance || rows.length < 3) return null;
 
-  // Without a stated opening balance, the first row's own two readings are the only two
-  // places the chain can start, so both are tried.
-  const first = rows[0];
-  const seeds =
-    opening != null
-      ? [opening]
-      : [last(first) - magnitude(first), last(first) + magnitude(first)];
+  // The chain needs somewhere to start, and only the statement can say where. Guessing the
+  // opening from the first row cannot work: both guesses agree on every row after the
+  // first and differ only on the first, and the closing balance cannot tell them apart
+  // because a chain always lands on its own last balance whatever it started from. So a
+  // statement that does not print its opening balance is read on its wording instead.
+  if (opening == null) return null;
 
-  for (const seed of seeds) {
-    const signed = walk(rows, seed);
-    if (!signed) continue;
-    // The statement's own closing balance is the last word on whether the walk was right.
-    if (closing != null && Math.abs(seed + signed.reduce((sum, value) => sum + value, 0) - closing) > CENT) {
-      continue;
-    }
-    return signed;
-  }
+  const signed = walk(rows, opening);
+  if (!signed) return null;
 
-  return null;
+  // The statement's own closing balance is the last word on whether the walk was right.
+  const ends = roundToCent(opening + signed.reduce((sum, value) => sum + value, 0));
+  if (closing != null && Math.abs(ends - closing) > CENT) return null;
+
+  return signed;
+}
+
+function roundToCent(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * Each row against the balance beside the one before it. Where the two agree on what
+ * moved, the difference says which way it went; where they do not, the row is left for
+ * the wording. Unlike the chain this survives a single bad row, and unlike the chain it
+ * proves nothing overall — so it is only ever the fallback.
+ */
+function signByNeighbouringBalance(rows: Row[], opening: number | null): (number | null)[] | null {
+  if (!rows.every((row) => row.amounts.length >= 2)) return null;
+
+  return rows.map((row, index) => {
+    const before = index === 0 ? opening : last(rows[index - 1]);
+    if (before == null) return null;
+    const change = last(row) - before;
+    return Math.abs(Math.abs(change) - magnitude(row)) > CENT ? null : roundToCent(change);
+  });
 }
 
 function walk(rows: Row[], opening: number): number[] | null {
@@ -164,7 +192,7 @@ function walk(rows: Row[], opening: number): number[] | null {
         const row = rows[index];
         const change = last(row) - balance;
         if (Math.abs(Math.abs(change) - magnitude(row)) > CENT) continue;
-        signed[index] = round(change);
+        signed[index] = roundToCent(change);
         balance = last(row);
         took = index;
         break;
@@ -197,6 +225,3 @@ function balanceIn(line: string, pattern: RegExp): number | null {
   return match[2]?.toUpperCase() === "DR" ? -Math.abs(value) : Math.abs(value);
 }
 
-function round(value: number): number {
-  return Math.round(value * 100) / 100;
-}

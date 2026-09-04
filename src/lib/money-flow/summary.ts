@@ -55,10 +55,17 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const cashOut = roundMoney(
     transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
-  // One side of each pair held here: the money that moved, not the two rows for it.
-  const paired = transactions.filter((txn) => !counted.includes(txn));
+  // One side of each transfer pair: the money that moved, not the two rows for it. A
+  // refund's two legs are settled the same way but are not money moving between the
+  // person's own accounts, so they are no part of this figure — it is rendered as
+  // "moved between these accounts" and as "set aside this period".
+  const settledTransfer = new Set(
+    transactions.filter((txn) => txn.transferPair && !counted.includes(txn)).map((txn) => txn.id),
+  );
   const transfers = roundMoney(
-    paired.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    transactions
+      .filter((txn) => txn.amount < 0 && settledTransfer.has(txn.id))
+      .reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   const unmatchedInternal = roundMoney(
     counted.filter((txn) => txn.type === "transfer").reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
