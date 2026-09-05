@@ -1,7 +1,7 @@
 import type { AccountNames } from "@/lib/money-flow/account-identity";
 import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import { uniqueTransactions } from "@/lib/money-flow/summary";
-import { upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
+import { persistStoredTransaction, upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
 import { forget, learn, type LearnedRule, type Rules } from "@/lib/money-flow/rules";
 import { isCategoryKey } from "@/lib/money-flow/taxonomy";
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
@@ -389,6 +389,27 @@ function mergedVerdicts(mine: Verdicts | undefined, theirs: Verdicts | undefined
     if (!other || verdict.at >= other.at) held[key] = verdict;
   }
   return Object.keys(held).length > 0 ? { verdicts: held } : {};
+}
+
+/**
+ * Writes the current category/tag model onto stored rows. Identity, source cells
+ * and what a person settled stay put. The same ledger object is returned when
+ * every row is already in the new shape, so a load can skip the write.
+ */
+export function persistTaxonomy(ledger: Ledger): Ledger {
+  let changed = false;
+  const entries = ledger.entries.map((entry) => {
+    const next = persistStoredTransaction(entry);
+    if (next === entry) return entry;
+    changed = true;
+    return {
+      ...next,
+      fingerprint: entry.fingerprint,
+      importIds: entry.importIds,
+      firstSeen: entry.firstSeen,
+    };
+  });
+  return changed ? { ...ledger, entries } : ledger;
 }
 
 export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {

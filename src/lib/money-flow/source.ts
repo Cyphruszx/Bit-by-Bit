@@ -34,3 +34,11 @@ export function sourceValue(source: SourceRow | undefined, header: string): stri
 export function normalizeHeader(header: string): string {
   return header.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
+
+/** Named cells, including empty values. The unused blank NAB column is dropped. */
+export function sourcePairs(source: SourceRow | undefined): Array<{ header: string; value: string }> {
+  if (!source) return [];
+  return source.headers
+    .map((header, index) => ({ header, value: source.values[index] ?? "" }))
+    .filter((cell) => cell.header.trim().length > 0);
+}

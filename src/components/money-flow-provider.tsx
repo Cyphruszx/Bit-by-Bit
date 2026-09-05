@@ -11,6 +11,7 @@ import {
   forgetCorrection,
   nameAccount,
   nameInstitution,
+  persistTaxonomy,
   recordCorrection,
   removeStatement as dropStatement,
   recordPayerMerge,
@@ -231,10 +232,15 @@ function hydrate(): Promise<void> {
       // thrown away, and neither must what the read brought back — which after signing in
       // is the backup arriving. mergeLedgers is idempotent on fingerprints, so doing this
       // when the two are the same ledger costs nothing and changes nothing.
+      const merged = mergeLedgers(snapshot.ledger, stored);
+      const persisted = persistTaxonomy(merged);
       update({
-        ledger: mergeLedgers(snapshot.ledger, stored),
+        ledger: persisted,
         ready: true,
       });
+      // Older rows are rewritten in the current shape once, so a backup or a later
+      // read sees categoryKey and tags rather than Food & Drink / food.groceries.
+      if (persisted !== merged && store) void store.save(persisted);
     })
     .catch(() => {
       if (mine === reading) update({ ready: true });
