@@ -1,8 +1,9 @@
-import { KNOWN_TAGS, snapTag, tidyMerchant } from "@/lib/money-flow/categorize";
+import { KNOWN_CATEGORIES, snapCategory, tidyMerchant } from "@/lib/money-flow/categorize";
 import { extensionOf } from "@/lib/money-flow/detect";
 import { formatDisplayDate, parseDate, roundMoney } from "@/lib/money-flow/parse-values";
-import { tagsOf } from "@/lib/money-flow/tags";
-import type { InterpretedTransaction, TransactionType } from "@/lib/money-flow/types";
+import { personalWords, redactMovement } from "@/lib/money-flow/redact";
+import { inflowType, isTransactionType, typeForCategory, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export type ImageExtractInput = {
   filename: string;
@@ -21,6 +22,7 @@ export type AiImageExtract = {
 
 export type AiTagSuggestion = {
   id: string;
+  /** A taxonomy key. Anything outside it is dropped rather than invented into existence. */
   category: string;
   confidence: number;
 };
@@ -32,10 +34,30 @@ export type MoneyFlowAi = {
 
 export type AiEnv = Record<string, string | undefined>;
 
-const TYPES = new Set<TransactionType>(["income", "expense", "transfer", "refund"]);
 const VISION_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 const TAG_BATCH = 40;
-const MIN_TAG_CONFIDENCE = 0.45;
+
+/**
+ * How sure a model has to be before its answer is used, by how much money is riding on it.
+ *
+ * A wrong category on a $13 lunch is a rounding error in a report. A wrong category on
+ * $24,800 moves the year, and the sample statements contain exactly that row. So the bar
+ * rises with the amount: below it the movement stays in the review queue, where a person
+ * decides in one click, rather than being quietly filed somewhere plausible.
+ *
+ * Tuned by moving the small-amount floor first once there is correction-rate data: it is
+ * the one that decides how much of a first import gets placed automatically.
+ */
+const CONFIDENCE_NEEDED: Array<[atLeast: number, confidence: number]> = [
+  [1000, 0.85],
+  [200, 0.7],
+  [0, 0.55],
+];
+
+export function confidenceNeededFor(amount: number): number {
+  const size = Math.abs(amount);
+  return CONFIDENCE_NEEDED.find(([atLeast]) => size >= atLeast)?.[1] ?? 0.55;
+}
 
 export function isAiConfigured(env: AiEnv = process.env): boolean {
   return Boolean(env.OPENAI_API_KEY?.trim());
@@ -82,21 +104,25 @@ export function transactionsFromAiExtract(raw: unknown, sourceFile: string): AiI
     const merchant = tidyMerchant(String(item.merchant ?? item.description ?? "").trim());
     if (amount == null || amount === 0 || merchant === "Unknown") return [];
     const dateIso = parseDate(String(item.date ?? "")) ?? todayIso();
-    const type = toType(item.type, amount, String(item.category ?? ""));
-    const category = snapTag(String(item.category ?? ""), true);
+    const answered = snapCategory(String(item.category ?? ""));
+    const categoryKey = answered?.categoryKey ?? UNCATEGORISED;
+    const signed = signedAmount(amount, item.type);
     const confidence = clamp01(item.confidence) ?? 0.72;
     return [
       {
         id: `${sourceFile}-ai-${index}`,
         merchant,
-        category,
-        tags: [category],
-        tagSource: category === "Other" ? "rules" : "ai",
+        categoryKey,
+        ...(answered?.tag ? { tags: [answered.tag] } : {}),
+        // The type is worked out from the category and the direction rather than taken
+        // from the model, so a model that answers "income" for a payment cannot put a
+        // negative number in the earnings figure.
+        type: typeForCategory(categoryKey, signed),
+        decidedBy: categoryKey === UNCATEGORISED ? ("unreviewed" as const) : ("ai" as const),
         extractedBy: "ai",
         date: formatDisplayDate(dateIso),
         dateIso,
-        amount: signedAmount(amount, type),
-        type,
+        amount: signed,
         sourceFile,
         confidence,
       } satisfies InterpretedTransaction,
@@ -108,33 +134,44 @@ export function transactionsFromAiExtract(raw: unknown, sourceFile: string): AiI
   return { transactions, notes };
 }
 
+/**
+ * Whether the model is worth asking about this movement at all.
+ *
+ * Only the ones nothing else could settle. A movement the rules recognised, a person
+ * corrected, or a pair proved is already decided by something cheaper and more reliable
+ * than a model call, and asking anyway is how a confident wrong answer overwrites a right
+ * one.
+ */
 export function needsInitialTag(txn: InterpretedTransaction): boolean {
-  return tagsOf(txn).every((tag) => tag === "Other");
+  return txn.categoryKey === UNCATEGORISED;
 }
 
 export function applyTagSuggestions(
   transactions: InterpretedTransaction[],
   suggestions: AiTagSuggestion[],
-  minConfidence = MIN_TAG_CONFIDENCE,
+  floor = 0,
 ): { transactions: InterpretedTransaction[]; taggedCount: number } {
-  const byId = new Map(
-    suggestions
-      .filter((suggestion) => suggestion.confidence >= minConfidence)
-      .map((suggestion) => [suggestion.id, suggestion]),
-  );
+  const byId = new Map(suggestions.map((suggestion) => [suggestion.id, suggestion]));
   let taggedCount = 0;
   const next = transactions.map((txn) => {
     if (!needsInitialTag(txn)) return txn;
     const suggestion = byId.get(txn.id);
     if (!suggestion) return txn;
-    const category = snapTag(suggestion.category, true);
-    if (category === "Other") return txn;
+    // The bar this movement has to clear, not a bar for the batch: the same answer that is
+    // good enough for a coffee is not good enough for a mortgage payment.
+    if (suggestion.confidence < Math.max(floor, confidenceNeededFor(txn.amount))) return txn;
+    const answered = snapCategory(suggestion.category);
+    // A model naming something outside the taxonomy has told us nothing usable, and the
+    // movement stays in the review queue rather than picking up an invented category.
+    if (!answered || answered.categoryKey === UNCATEGORISED) return txn;
     taggedCount += 1;
     return {
       ...txn,
-      category,
-      tags: [category],
-      tagSource: "ai" as const,
+      categoryKey: answered.categoryKey,
+      // The model's detail is kept as a tag, beside whatever the person already had.
+      ...(answered.tag ? { tags: [...new Set([...(txn.tags ?? []), answered.tag])] } : {}),
+      type: typeForCategory(answered.categoryKey, txn.amount),
+      decidedBy: "ai" as const,
       confidence: Math.max(txn.confidence, suggestion.confidence),
     };
   });
@@ -165,15 +202,26 @@ async function extractWithOpenAi(
 
 async function suggestWithOpenAi(input: TagSuggestInput, client: OpenAiClient): Promise<AiTagSuggestion[]> {
   const pending = input.transactions.filter(needsInitialTag);
+  // Worked out over the whole ledger rather than per batch, because a name is only
+  // recognisable as a name by how often it turns up across all of it.
+  const personal = personalWords(input.transactions);
   const suggestions: AiTagSuggestion[] = [];
   for (let i = 0; i < pending.length; i += TAG_BATCH) {
-    const batch = pending.slice(i, i + TAG_BATCH).map((txn) => ({
-      id: txn.id,
-      merchant: txn.merchant,
-      amount: txn.amount,
-      type: txn.type,
-      date: txn.dateIso,
-    }));
+    const batch = pending.slice(i, i + TAG_BATCH).flatMap((txn) => {
+      const merchant = redactMovement(txn, personal);
+      // Nothing recognisable survived redaction — the descriptor was a reference number
+      // and a name. There is no question to ask, so none is asked.
+      if (!merchant) return [];
+      return [{
+        id: txn.id,
+        merchant,
+        // Rounded, because the exact cents identify a person's movement and the size is
+        // all the model needs to tell a coffee from a rent payment.
+        amount: Math.round(txn.amount),
+        date: txn.dateIso.slice(0, 7),
+      }];
+    });
+    if (batch.length === 0) continue;
     const content = await completeJson(client, {
       system: tagSystemPrompt(),
       user: [{ type: "text", text: JSON.stringify({ transactions: batch }) }],
@@ -231,11 +279,11 @@ function extractSystemPrompt(): string {
   return [
     "You extract money movement from photos of receipts, invoices, and bank statements for an Australian personal-finance app.",
     "Reply with JSON only:",
-    '{ "documentType": "receipt" | "statement" | "invoice" | "other", "transactions": [{ "date": "YYYY-MM-DD", "merchant": "string", "description": "string", "amount": -12.5, "type": "expense" | "income" | "transfer" | "refund", "category": "Groceries", "confidence": 0.86 }], "notes": ["short note"] }',
+    '{ "documentType": "receipt" | "statement" | "invoice" | "other", "transactions": [{ "date": "YYYY-MM-DD", "merchant": "string", "description": "string", "amount": -12.5, "type": "expense" | "income" | "transfer" | "refund", "category": "food.groceries", "confidence": 0.86 }], "notes": ["short note"] }',
     "Amounts are AUD. Expenses and transfers out are negative. Income and refunds are positive.",
     "A shop receipt is usually ONE expense for the total paid, not every line item.",
     "A bank or card statement photo should list each transaction row.",
-    `Use only these category tags when possible: ${KNOWN_TAGS.join(", ")}.`,
+    `Use only these category keys: ${KNOWN_CATEGORIES.join(", ")}.`,
     "Do not invent amounts, dates, or merchants you cannot see.",
     "If the photo is not a financial document, return an empty transactions array.",
   ].join("\n");
@@ -243,11 +291,12 @@ function extractSystemPrompt(): string {
 
 function tagSystemPrompt(): string {
   return [
-    "You assign an initial tag when rule-based matching could not.",
-    `Allowed tags: ${KNOWN_TAGS.join(", ")}.`,
-    'Reply with JSON only: { "suggestions": [{ "id": "txn-id", "category": "Dining", "confidence": 0.8 }] }',
-    "If you are not reasonably sure, use Other with low confidence.",
-    "Prefer a specific tag over Other when the merchant is recognisable.",
+    "You assign a category to an Australian bank movement that no rule recognised. Answer with the category key only; the app works out whether it was earned, spent, borrowed or moved from the key and the direction, so never say.",
+    "Descriptors have had names, account numbers and reference numbers stripped out. Do not ask for them and do not guess at them.",
+    `Allowed category keys, and nothing else: ${KNOWN_CATEGORIES.join(", ")}.`,
+    'Reply with JSON only: { "suggestions": [{ "id": "txn-id", "category": "food.restaurants", "confidence": 0.8 }] }',
+    "If you are not reasonably sure, answer uncategorised with low confidence. A wrong category is worse than none: an unsorted movement is asked about, a wrong one is not.",
+    "Prefer the most specific key you are sure of. A group on its own, such as transport, is a fine answer when the child is a guess.",
   ].join("\n");
 }
 
@@ -284,17 +333,20 @@ function toAmount(value: unknown): number | null {
   return null;
 }
 
-function toType(value: unknown, amount: number, category: string): TransactionType {
-  if (typeof value === "string" && TYPES.has(value as TransactionType)) return value as TransactionType;
-  if (/\brefund|reversal|rebate\b/i.test(category)) return "refund";
-  if (category.toLowerCase() === "goals" || /\btransfer\b/i.test(category)) return "transfer";
-  if (amount > 0 || category.toLowerCase() === "income") return "income";
-  return "expense";
-}
-
-function signedAmount(amount: number, type: TransactionType): number {
-  if (type === "income" || type === "refund") return Math.abs(amount);
-  return amount > 0 ? -amount : amount;
+/**
+ * The direction a model meant, which is the only part of its type answer worth keeping.
+ *
+ * What kind of movement it is follows from the category and the sign, so the model never
+ * gets to put a figure in the wrong column by naming a type. It is still asked for one,
+ * because on a photo of a receipt the model is the only thing that can see whether money
+ * came or went.
+ */
+function signedAmount(amount: number, type: unknown): number {
+  const named = String(type ?? "");
+  const arriving = isTransactionType(named)
+    ? inflowType(named)
+    : /\b(income|refund|credit|earned|returned|borrowed)\b/i.test(named);
+  return arriving ? Math.abs(amount) : amount > 0 ? -amount : amount;
 }
 
 function clamp01(value: unknown): number | null {

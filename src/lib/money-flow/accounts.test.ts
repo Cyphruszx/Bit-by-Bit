@@ -15,11 +15,11 @@ function txn(over: Partial<InterpretedTransaction> = {}): InterpretedTransaction
   return {
     id: `t${Math.random()}`,
     merchant: "Cafe",
-    category: "Dining",
+    categoryKey: "food",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount: -4.5,
-    type: "expense",
+    type: "spent",
     sourceFile: "statement.csv",
     confidence: 1,
     ...over,
@@ -70,10 +70,10 @@ describe("naming an account", () => {
 
 describe("account totals", () => {
   const rows = [
-    txn({ id: "a", accountId: "NAB · 100200300", institution: "NAB", amount: 500, type: "income" }),
+    txn({ id: "a", accountId: "NAB · 100200300", institution: "NAB", amount: 500, type: "earned" }),
     txn({ id: "b", accountId: "NAB · 100200300", institution: "NAB", amount: -120 }),
     txn({ id: "c", accountId: "NAB · 400500600", institution: "NAB", amount: -380 }),
-    txn({ id: "d", accountId: "Up · Tax", institution: "Up", amount: 60, type: "income" }),
+    txn({ id: "d", accountId: "Up · Tax", institution: "Up", amount: 60, type: "earned" }),
   ];
 
   it("gives every account its own flow", () => {

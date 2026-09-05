@@ -11,11 +11,11 @@ function move(accountId: string, amount: number): InterpretedTransaction {
   return {
     id: `m${made}`,
     merchant: "Cafe",
-    category: "Dining",
+    categoryKey: "food",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount,
-    type: amount < 0 ? "expense" : "income",
+    type: amount < 0 ? "spent" : "earned",
     sourceFile: `${institution}.csv`,
     institution,
     accountId,

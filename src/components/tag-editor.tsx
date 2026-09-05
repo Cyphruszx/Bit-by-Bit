@@ -1,134 +1,176 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { tagsOf } from "@/lib/money-flow/tags";
+import {
+  categoryLabel,
+  categoryPath,
+  CATEGORY_KEYS,
+  tagsFor,
+  typeLabel,
+  UNCATEGORISED,
+} from "@/lib/money-flow/taxonomy";
+import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
-export function TagList({ tags, aiSuggested = false }: { tags: string[]; aiSuggested?: boolean }) {
-  const primary = tags[0] ?? "Other";
-  const subs = tags.slice(1);
+/**
+ * What a movement was, at a glance.
+ *
+ * The old control read `PRIMARY [tag] Change prim | Set [Existing] | SUB Optional`, which
+ * asked a person to understand a data model before they could correct a shop. There is one
+ * category now and it is picked from a list, so there is nothing to explain.
+ */
+export function ClassificationChips({ txn }: { txn: InterpretedTransaction }) {
+  const tags = tagsOf(txn);
+  const unsorted = txn.categoryKey === UNCATEGORISED;
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-      <TagChip name={primary} tone="primary" />
-      {subs.map((tag) => (
-        <TagChip key={tag} name={tag} tone="sub" />
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+          unsorted ? "bg-[#fdf2e3] text-[#8a5a1e]" : "bg-[#173b31] text-white"
+        }`}
+      >
+        {categoryPath(txn.categoryKey)}
+      </span>
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center rounded-full bg-[#edf4dc] px-2 py-0.5 text-[11px] font-semibold text-[#355a3f]"
+        >
+          {tag}
+        </span>
       ))}
-      {aiSuggested ? (
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-[#527166]">AI</span>
-      ) : null}
+      <Provenance txn={txn} />
     </div>
   );
 }
 
-export function TagEditor({
-  tags,
-  suggestions,
-  listId,
-  onChange,
-}: {
-  tags: string[];
-  suggestions: string[];
-  listId: string;
-  onChange: (tags: string[]) => void;
-}) {
-  const primary = tags[0] ?? "Other";
-  const subs = tags.slice(1);
-  const unused = suggestions.filter((name) => !tags.some((tag) => tag.toLowerCase() === name.toLowerCase()));
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <TagRow label="Primary">
-        <TagChip name={primary} tone="primary" onRemove={subs.length > 0 ? () => onChange(subs) : undefined} />
-        <TagNameForm
-          listId={`${listId}-primary`}
-          options={unused}
-          placeholder="Change primary"
-          submitLabel="Set"
-          onSubmit={(name) => onChange([name, ...subs.filter((tag) => tag.toLowerCase() !== name.toLowerCase())])}
-        />
-      </TagRow>
-      <TagRow label="Sub">
-        {subs.length === 0 ? <span className="text-[11px] text-[#77857f]">Optional</span> : null}
-        {subs.map((tag) => (
-          <TagChip
-            key={tag}
-            name={tag}
-            tone="sub"
-            onRemove={() => onChange([primary, ...subs.filter((name) => name !== tag)])}
-            onMakePrimary={() => onChange([tag, primary, ...subs.filter((name) => name !== tag)])}
-          />
-        ))}
-        <TagNameForm
-          listId={`${listId}-sub`}
-          options={unused}
-          placeholder="Add sub-tag"
-          submitLabel="Add"
-          onSubmit={(name) => {
-            if (name.toLowerCase() === primary.toLowerCase()) return;
-            onChange([primary, ...subs, name]);
-          }}
-        />
-      </TagRow>
-    </div>
-  );
+/**
+ * Where this classification came from, said plainly.
+ *
+ * A suggestion and a decision used to look identical, so a person had no way to tell what
+ * still needed their attention. Only the states that mean "somebody should look" are shown
+ * — a rule quietly getting it right needs no badge.
+ */
+function Provenance({ txn }: { txn: InterpretedTransaction }) {
+  if (txn.decidedBy === "said") {
+    return <Note tone="settled">You chose this</Note>;
+  }
+  if (txn.decidedBy === "ai") return <Note tone="offered">AI suggestion</Note>;
+  if (txn.decidedBy === "paired") {
+    return <Note tone="settled">{txn.transferPair ? "Matched to your other account" : "Matched to a payment"}</Note>;
+  }
+  if (txn.categoryKey === UNCATEGORISED) return <Note tone="offered">Needs a category</Note>;
+  return null;
 }
 
-function TagRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#77857f]">{label}</span>
-      {children}
-    </div>
-  );
-}
-
-function TagChip({
-  name,
-  tone,
-  onRemove,
-  onMakePrimary,
-}: {
-  name: string;
-  tone: "primary" | "sub";
-  onRemove?: () => void;
-  onMakePrimary?: () => void;
-}) {
+function Note({ tone, children }: { tone: "settled" | "offered"; children: ReactNode }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-        tone === "primary" ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
+      className={`text-[10px] font-semibold uppercase tracking-wide ${
+        tone === "settled" ? "text-[#527166]" : "text-[#8a5a1e]"
       }`}
     >
-      {name}
-      {onMakePrimary ? (
-        <button type="button" className="text-[10px] font-semibold uppercase tracking-wide opacity-80" onClick={onMakePrimary}>
-          Primary
-        </button>
-      ) : null}
-      {onRemove ? (
-        <button
-          type="button"
-          aria-label={`Remove ${name}`}
-          onClick={onRemove}
-          className={tone === "primary" ? "text-white/80 hover:text-white" : "text-[#527166] hover:text-[#173b31]"}
-        >
-          ×
-        </button>
-      ) : null}
+      {children}
     </span>
+  );
+}
+
+export function ClassificationEditor({
+  txn,
+  tagOptions,
+  listId,
+  onCategory,
+  onTags,
+}: {
+  txn: InterpretedTransaction;
+  tagOptions: string[];
+  listId: string;
+  onCategory: (categoryKey: string) => void;
+  onTags: (tags: string[]) => void;
+}) {
+  const tags = tagsOf(txn);
+  // The tags this category comes with, first, then whatever else is already in use. A
+  // person choosing Food & Drink is usually about to reach for Groceries or Takeaway, and
+  // the list should not make them remember the word.
+  const offered = [...new Set([...tagsFor(txn.categoryKey), ...tagOptions])];
+  const unused = offered.filter((name) => !tags.some((tag) => tag.toLowerCase() === name.toLowerCase()));
+
+  return (
+    <div className="space-y-2">
+      <Field label="Category">
+        <select
+          value={txn.categoryKey}
+          aria-label="Category"
+          onChange={(event) => onCategory(event.target.value)}
+          className="rounded-full border border-[#dce4df] bg-white px-2.5 py-1 text-[11px] outline-none focus:border-[#173b31]"
+        >
+          {CATEGORY_KEYS.map((key) => (
+            <option key={key} value={key}>
+              {categoryLabel(key)}
+            </option>
+          ))}
+        </select>
+        {/* The type is not a field. It follows from the category and which way the money
+            went, so showing it as editable would invite the two to disagree. */}
+        <span className="text-[11px] text-[#77857f]">
+          Counts as <strong className="font-semibold text-[#355a3f]">{typeLabel(txn.type).toLowerCase()}</strong>
+        </span>
+      </Field>
+
+      <Field label="Tags">
+        {tags.length === 0 ? <span className="text-[11px] text-[#77857f]">Optional</span> : null}
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 rounded-full bg-[#edf4dc] px-2 py-0.5 text-[11px] font-semibold text-[#355a3f]"
+          >
+            {tag}
+            <button
+              type="button"
+              aria-label={`Remove ${tag}`}
+              onClick={() => onTags(tags.filter((name) => name !== tag))}
+              className="text-[#527166] hover:text-[#173b31]"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <TagNameForm
+          listId={listId}
+          options={unused}
+          onSubmit={(name) => {
+            if (tags.some((tag) => tag.toLowerCase() === name.toLowerCase())) return;
+            onTags([...tags, name]);
+          }}
+        />
+      </Field>
+
+      {txn.bank?.category ? (
+        <p className="text-[11px] text-[#77857f]">
+          Your bank called this <span className="font-semibold">{txn.bank.category}</span>. Kept for reference only.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#77857f]">{label}</span>
+      {children}
+    </div>
   );
 }
 
 function TagNameForm({
   listId,
   options,
-  placeholder,
-  submitLabel,
   onSubmit,
 }: {
   listId: string;
   options: string[];
-  placeholder: string;
-  submitLabel: string;
   onSubmit: (name: string) => void;
 }) {
   const [draft, setDraft] = useState("");
@@ -152,22 +194,22 @@ function TagNameForm({
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         list={listId}
-        placeholder={placeholder}
+        placeholder="Add a tag"
         className="w-24 rounded-full border border-[#dce4df] bg-white px-2 py-0.5 text-[11px] outline-none focus:border-[#173b31]"
       />
       <button type="submit" className="text-xs font-semibold text-[#355a3f]">
-        {submitLabel}
+        Add
       </button>
       {options.length > 0 ? (
         <select
           value=""
-          aria-label={placeholder}
+          aria-label="Suggested tags"
           onChange={(event) => {
             if (event.target.value) submit(event.target.value);
           }}
           className="rounded-full border border-[#dce4df] bg-white px-1.5 py-0.5 text-[11px] outline-none focus:border-[#173b31]"
         >
-          <option value="">Existing</option>
+          <option value="">Suggested</option>
           {options.map((name) => (
             <option key={name} value={name}>
               {name}

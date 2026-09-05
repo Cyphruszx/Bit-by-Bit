@@ -1,7 +1,8 @@
 import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
-import { tagFromBankCategory } from "@/lib/money-flow/statement-category";
-import type { InterpretedTransaction, TransactionType } from "@/lib/money-flow/types";
+import { categoryFromBankLabel } from "@/lib/money-flow/statement-category";
+import { inflowType, splitSuggestion, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import type { BankWords, DecidedBy, InterpretedTransaction, TransactionType } from "@/lib/money-flow/types";
 
 export type RawMovement = {
   dateIso: string;
@@ -18,35 +19,93 @@ export type RawMovement = {
 };
 
 export function signFromType(amount: number, type: TransactionType): number {
-  if (type === "income" || type === "refund") return Math.abs(amount);
-  if (type === "transfer") return -Math.abs(amount);
-  return type === "expense" && amount > 0 ? -amount : amount;
+  if (inflowType(type)) return Math.abs(amount);
+  return amount > 0 ? -amount : amount;
+}
+
+/**
+ * Which way the money went, for a statement that gave an amount without a sign.
+ *
+ * Read before anything is categorised, because the category now depends on the direction
+ * rather than the other way round: the same merchant means one thing on a payment and
+ * another on a receipt, so the direction has to be settled first or the two swap places.
+ */
+const ARRIVING = /\b(refund|reversal|rebate|credit|received|deposit|salary|wage|payroll|benefits?)\b/i;
+
+export function directionFromWords(text: string): 1 | -1 {
+  // Interest both ways, and the word that separates them. "Interest charged" is a cost and
+  // "Interest" on its own is a payment in, which is two of the sample statement's rows.
+  if (/\binterest\b/i.test(text)) return /\bcharged?\b/i.test(text) ? -1 : 1;
+  return ARRIVING.test(text) ? 1 : -1;
+}
+
+export type Reading = {
+  /** Signed, so a negative amount is money leaving. */
+  amount: number;
+  categoryKey: string;
+  /** The detail the rule knew, when it knew one. Groceries rather than just Food & Drink. */
+  tag?: string;
+  type: TransactionType;
+  decidedBy: DecidedBy;
+};
+
+/**
+ * The one place a movement's direction, category and type are decided, and the order they
+ * have to be decided in.
+ *
+ * Direction first, because the category now depends on it — the same merchant means health
+ * spending on a payment and a benefit on a receipt. Then the merchant rules, then the
+ * bank's own label, and if neither has anything to say the movement is left unsorted
+ * rather than dropped in a bucket.
+ *
+ * Every reader shares this. The three that used to keep their own copy each ran the same
+ * three steps in the old order, so a fix to one of them fixed only that file's statements.
+ */
+export function readMovement(
+  text: string,
+  rawAmount: number,
+  directionKnown: boolean,
+  bankCategory?: string,
+): Reading {
+  const amount = directionKnown ? rawAmount : Math.abs(rawAmount) * directionFromWords(text);
+  const fromRules = categorize(text, amount);
+  const fromBank = fromRules ? null : categoryFromBankLabel(bankCategory, amount);
+  // A rule says `food.groceries` because that is the legible way to write a rule. It means
+  // a category and a tag, and this is where the two come apart.
+  const { categoryKey, tag } = splitSuggestion(fromRules ?? fromBank ?? UNCATEGORISED);
+  return {
+    amount,
+    categoryKey,
+    ...(tag ? { tag } : {}),
+    type: inferType(categoryKey, amount),
+    decidedBy: fromRules ? "rules" : fromBank ? "bank" : "unreviewed",
+  };
 }
 
 export function interpretMovement(raw: RawMovement): InterpretedTransaction {
-  const bankCategory = raw.bankCategory?.trim() ?? "";
-  const typeHint = raw.typeHint?.trim() ?? "";
-  const merchantLabel = raw.merchant?.trim() ?? "";
-  const text = [merchantLabel, raw.description, typeHint, bankCategory].filter(Boolean).join(" ");
-  const fromRules = categorize(text);
-  const category = fromRules !== "Other" ? fromRules : tagFromBankCategory(bankCategory, raw.amount);
-  const type = inferType(text, raw.amount, category);
-  const amount = raw.directionKnown ? raw.amount : signFromType(raw.amount, type);
+  const bank: BankWords = {
+    ...(raw.bankCategory?.trim() ? { category: raw.bankCategory.trim() } : {}),
+    ...(raw.typeHint?.trim() ? { type: raw.typeHint.trim() } : {}),
+    ...(raw.merchant?.trim() ? { merchant: raw.merchant.trim() } : {}),
+  };
+  const text = [bank.merchant, raw.description, bank.type, bank.category].filter(Boolean).join(" ");
+  const read = readMovement(text, raw.amount, raw.directionKnown, bank.category);
 
   const accountKey = raw.accountKey?.trim();
 
   return {
     id: raw.id,
-    merchant: tidyMerchant(merchantLabel || raw.description),
-    category,
-    tags: [category],
-    tagSource: "rules",
+    merchant: tidyMerchant(bank.merchant || raw.description),
+    categoryKey: read.categoryKey,
+    ...(read.tag ? { tags: [read.tag] } : {}),
+    decidedBy: read.decidedBy,
     extractedBy: "parser",
     date: formatDisplayDate(raw.dateIso),
     dateIso: raw.dateIso,
-    amount,
-    type,
+    amount: read.amount,
+    type: read.type,
     sourceFile: raw.sourceFile,
+    ...(Object.keys(bank).length > 0 ? { bank } : {}),
     ...(accountKey ? { accountKey } : {}),
     ...(raw.description.trim() ? { description: raw.description.trim() } : {}),
     confidence: raw.confidence,

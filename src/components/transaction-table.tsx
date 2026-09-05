@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TagEditor, TagList } from "@/components/tag-editor";
+import { ClassificationChips, ClassificationEditor } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
 import { accountIdOf, accountLabel } from "@/lib/money-flow/accounts";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
+import { categoryLabel, categoryPath } from "@/lib/money-flow/taxonomy";
+import { selectableKeys } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 type Direction = "all" | "in" | "out";
@@ -23,8 +25,8 @@ export function TransactionTable({
   tag?: string;
   onTagChange?: (tag: string) => void;
 }) {
-  const { accountNames, allTransactions, institutionOverrides,
-    payers, setMerchantTags, setTransactionTags } = useMoneyFlow();
+  const { accountNames, allTransactions, institutionOverrides, payers,
+    setTransactionCategory, setTransactionTags } = useMoneyFlow();
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers }),
     [accountNames, institutionOverrides, payers],
@@ -42,8 +44,13 @@ export function TransactionTable({
   const [page, setPage] = useState(1);
   // Raised after every tag edit where the merchant appears more than once, so the edit can be
   // carried across without the reader hunting the rest down one at a time.
-  const [spread, setSpread] = useState<{ id: string; merchant: string; tags: string[]; others: number } | null>(null);
-  const tagOptions = useMemo(() => ["All", ...allTags(transactions)], [transactions]);
+  const [spread, setSpread] = useState<{ id: string; merchant: string; categoryKey: string; others: number } | null>(
+    null,
+  );
+  const tagOptions = useMemo(
+    () => ["All", ...selectableKeys(transactions), ...allTags(transactions)],
+    [transactions],
+  );
   const selectedTag = tag ?? internalTag;
   const activeTag = tagOptions.includes(selectedTag) ? selectedTag : "All";
 
@@ -56,12 +63,16 @@ export function TransactionTable({
     const needle = query.trim().toLowerCase();
     return transactions.filter((txn) => {
       const tags = tagsOf(txn);
-      const matchesTag = activeTag === "All" || tags.some((name) => name === activeTag);
+      const matchesTag =
+        activeTag === "All" ||
+        txn.categoryKey === activeTag ||
+        tags.some((name) => name === activeTag);
       const matchesDirection =
         direction === "all" || (direction === "in" ? txn.amount > 0 : txn.amount < 0);
       const matchesQuery =
         needle.length === 0 ||
         txn.merchant.toLowerCase().includes(needle) ||
+        categoryPath(txn.categoryKey).toLowerCase().includes(needle) ||
         tags.some((name) => name.toLowerCase().includes(needle)) ||
         txn.sourceFile.toLowerCase().includes(needle) ||
         (accountOf.get(txn.id) ?? "").toLowerCase().includes(needle);
@@ -86,18 +97,18 @@ export function TransactionTable({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search merchants, tags, or accounts"
+          placeholder="Search merchants, categories, or accounts"
           className="w-full rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31] sm:max-w-xs"
         />
         <select
           value={activeTag}
           onChange={(event) => selectTag(event.target.value)}
-          aria-label="Filter by tag"
+          aria-label="Filter by category or tag"
           className="rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31]"
         >
           {tagOptions.map((name) => (
             <option key={name} value={name}>
-              {name === "All" ? "All tags" : name}
+              {name === "All" ? "Everything" : categoryLabel(name)}
             </option>
           ))}
         </select>
@@ -148,7 +159,7 @@ export function TransactionTable({
                       ) : null}
                     </div>
                     <div className="mt-1">
-                      <TagList tags={tagsOf(txn)} aiSuggested={txn.tagSource === "ai"} />
+                      <ClassificationChips txn={txn} />
                     </div>
                   </div>
                   <button
@@ -163,7 +174,7 @@ export function TransactionTable({
                       editing ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
                     }`}
                   >
-                    {editing ? "Done" : "Edit tags"}
+                    {editing ? "Done" : "Change"}
                   </button>
                 </div>
                 <div
@@ -171,49 +182,33 @@ export function TransactionTable({
                   hidden={!editing}
                   className="mt-2 border-t border-dashed border-[#dce4df] pt-2"
                 >
-                  <TagEditor
-                    tags={tagsOf(txn)}
-                    suggestions={allTags(transactions)}
+                  <ClassificationEditor
+                    txn={txn}
+                    tagOptions={allTags(transactions)}
                     listId={`tag-suggestions-${txn.id}`}
-                    onChange={(next) => {
-                      // The row the reader is on changes now; the rest is offered, not assumed.
-                      setTransactionTags(txn.id, next);
+                    onTags={(next) => setTransactionTags(txn.id, next)}
+                    onCategory={(categoryKey) => {
+                      // Told once, applied everywhere, and said out loud. The app used to
+                      // ask whether to carry a correction across — but the answer was
+                      // always yes, and asking on every edit made a person confirm the
+                      // same thing about the same shop over and over.
+                      setTransactionCategory(txn.id, categoryKey);
                       const others = merchantRows(allTransactions, txn.merchant).filter(
                         (row) => row.id !== txn.id,
                       ).length;
-                      setSpread(others > 0 ? { id: txn.id, merchant: txn.merchant, tags: next, others } : null);
+                      setSpread({ id: txn.id, merchant: txn.merchant, categoryKey, others });
                     }}
                   />
                   {spread?.id === txn.id ? (
-                    <div
-                      aria-live="polite"
-                      className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-[#f4f8ec] px-3 py-2"
-                    >
-                      <p className="text-xs text-[#355a3f]">
-                        {spread.others === 1
-                          ? `${spread.merchant} appears on one other movement.`
-                          : `${spread.merchant} appears on ${formatCount(spread.others)} other movements.`}
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMerchantTags(spread.merchant, spread.tags);
-                            setSpread(null);
-                          }}
-                          className="rounded-full bg-[#173b31] px-2.5 py-1 text-xs font-semibold text-white"
-                        >
-                          Apply to all {formatCount(spread.others + 1)}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSpread(null)}
-                          className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f]"
-                        >
-                          Just this one
-                        </button>
-                      </div>
-                    </div>
+                    <p aria-live="polite" className="mt-2 rounded-xl bg-[#f4f8ec] px-3 py-2 text-xs text-[#355a3f]">
+                      Saved.{" "}
+                      {spread.others === 0
+                        ? `${spread.merchant} will be filed here from now on.`
+                        : spread.others === 1
+                          ? `Also applied to one other ${spread.merchant} movement, and to any that arrive later.`
+                          : `Also applied to ${formatCount(spread.others)} other ${spread.merchant} movements, and to any that arrive later.`}{" "}
+                      <span className="text-[#60716a]">You can undo this under What BitbyBit has learned.</span>
+                    </p>
                   ) : null}
                 </div>
               </div>
@@ -223,7 +218,7 @@ export function TransactionTable({
       </div>
       {rows.length > PAGE_SIZE ? (
         <nav
-          aria-label="Merchant pages"
+          aria-label="Transaction pages"
           className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#edf0ee] pt-3"
         >
           <p className="text-xs text-[#60716a]" aria-live="polite">

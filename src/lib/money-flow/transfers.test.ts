@@ -16,11 +16,11 @@ function move(
   return {
     id: `m${made}`,
     merchant: amount < 0 ? "Payment" : "Deposit",
-    category: "Other",
+    categoryKey: "uncategorised",
     date: dateIso,
     dateIso,
     amount,
-    type: amount < 0 ? "expense" : "income",
+    type: amount < 0 ? "spent" : "earned",
     sourceFile: `${institution}.csv`,
     institution,
     accountId,

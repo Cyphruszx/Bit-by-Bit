@@ -1,60 +1,122 @@
-import { tidyTag } from "@/lib/money-flow/tags";
+import {
+  categoryLabel,
+  CATEGORY_KEYS,
+  isCategoryKey,
+  splitSuggestion,
+  SUGGESTIONS,
+  typeForCategory,
+  UNCATEGORISED,
+} from "@/lib/money-flow/taxonomy";
 import type { TransactionType } from "@/lib/money-flow/types";
 
-export const KNOWN_TAGS = [
-  "Housing",
-  "Groceries",
-  "Dining",
-  "Transport",
-  "Shopping",
-  "Entertainment",
-  "Utilities",
-  "Subscriptions",
-  "Health",
-  "Travel",
-  "Income",
-  "Goals",
-  "Other",
-] as const;
+/**
+ * A rule that recognises a merchant, and the direction it only holds in.
+ *
+ * Direction is the part the old table had no room for. One pattern used to have to answer
+ * for both a payment and a receipt, so `medicare` meant health spending whichever way the
+ * money went and a $662.40 benefit arrived wearing an expense category. Splitting the rule
+ * by direction is what lets one recognisable name mean two honest things.
+ */
+type Rule = [pattern: RegExp, category: string, when?: "in" | "out"];
 
-const RULES: Array<[RegExp, string]> = [
-  [/\b(woolworths|coles|aldi|iga|foodworks|harris farm|greengrocer|supermarket|wojia)\b/i, "Groceries"],
-  [/\b(netflix|spotify|disney|stan|youtube|google play|google one|amazon prime|discord|brave|apple\.com\/bill|prime video)\b/i, "Subscriptions"],
-  [/\b(opal|uber|transport|train|bus|petrol|fuel|shell|bp|caltex|ampol|7-eleven|wagga motors)\b/i, "Transport"],
-  [/\b(rent|landlord|mortgage|realestate|housing|strata)\b/i, "Housing"],
-  [/\b(cafe|coffee|restaurant|menulog|doordash|uber ?eats|dining|mcdonald|grill.?d|guzman|zambrero|sushia|soul origin|roll viet|domino|thaigga|uneke)\b/i, "Dining"],
-  [/\b(bunnings|kmart|target|myer|amazon|ikea|big w|the iconic|jb hi-fi|officeworks|shopify|kitchen antics)\b/i, "Shopping"],
-  [/\b(salary|wage|payroll|pay from|employer|osko payment received)\b/i, "Income"],
-  [/\b(transfer to|transfer from|savings|round.?up|goal)\b/i, "Goals"],
-  [/\b(origin|agl|energy|water|internet|exetel|telstra|optus|vodafone|utility|electric)\b/i, "Utilities"],
-  [/\b(medicare|chemist|pharmacy|priceline|blooms|doctor|hospital|health|glofox)\b/i, "Health"],
-  [/\b(qantas|jetstar|airbnb|hotel|booking\.com|travel|canberra airport)\b/i, "Travel"],
-  [/\b(event|cinema|ticketek|ticketmaster|entertainment|townhouse|ice zoo|bws)\b/i, "Entertainment"],
+const RULES: Rule[] = [
+  // Delivery before transport, or `uber` claims `UBER *EATS` on its way past — which is
+  // exactly what happened, and is why a year of takeaway read as travel costs.
+  [/\b(uber ?eats|menulog|doordash|deliveroo|hungry ?panda)\b/i, "food.takeaway"],
+  [/\b(woolworths|coles|aldi|iga|foodworks|harris farm|greengrocer|supermarket|wojia)\b/i, "food.groceries"],
+  [/\b(bws|dan murphy|liquorland|first choice liquor|bottle ?[o0])\b/i, "food.alcohol"],
+  [
+    /\b(cafe|coffee|restaurant|dining|mcdonald|kfc|hungry jack|red rooster|nando|subway|grill.?d|guzman|zambrero|sushia|soul origin|roll viet|domino|thaigga|uneke)\b/i,
+    "food.restaurants",
+  ],
+  [
+    /\b(netflix|spotify|disney|stan|youtube|google play|google one|amazon prime|discord|brave|apple\.com\/bill|prime video)\b/i,
+    "leisure.streaming",
+  ],
+  [/\b(event|cinema|ticketek|ticketmaster|entertainment|townhouse|ice zoo)\b/i, "leisure.events"],
+  [/\b(opal|uber|train|bus|petrol|fuel|shell|bp|caltex|ampol|7-eleven|wagga motors|transport)\b/i, "transport"],
+  // Rent going out is housing; rent arriving is income. The same word at opposite ends.
+  [/\brent\b/i, "income.rent-received", "in"],
+  [/\b(rent|landlord|mortgage|realestate|housing|strata)\b/i, "home"],
+  [
+    /\b(bunnings|kmart|target|myer|amazon|ikea|big w|the iconic|jb hi-fi|officeworks|shopify|kitchen antics)\b/i,
+    "shopping",
+  ],
+  [/\b(origin|agl|energy|water|internet|exetel|telstra|optus|vodafone|utility|electric)\b/i, "utilities"],
+  // Medicare, both ways. A payment to a practice is health spending; money arriving from
+  // Medicare is a benefit, and the old table filed $120,844.20 of it under Health.
+  [/\b(medicare|mcare benefits)\b/i, "income.rebate", "in"],
+  [/\b(medicare|chemist|pharmacy|priceline|blooms|doctor|hospital|health|glofox)\b/i, "health.gp-specialist"],
+  [/\b(qantas|jetstar|airbnb|hotel|booking\.com|travel|canberra airport)\b/i, "travel"],
+  // Consumer lenders. A drawdown is not income and a repayment is not spending, and the
+  // direction is the only thing that tells the two apart under one name.
+  [/\b(societyone|latitude fin|harmoney|plenti|wisr|now finance|moneyme|nimble loans)\b/i, "debt.drawdown", "in"],
+  [/\b(societyone|latitude fin|harmoney|plenti|wisr|now finance|moneyme|nimble loans)\b/i, "debt.loan-repayment"],
+  [/\binterest charged\b/i, "money.interest-charged", "out"],
+  [/\binterest\b/i, "income.interest", "in"],
+  [/\b(centrelink|services australia|veterans|vta benefits|dva)\b/i, "income.government-benefit", "in"],
+  // A payment to the ATO is tax; money from the ATO is a refund of it.
+  [/\b(australian taxation|ato|tax office)\b/i, "income.rebate", "in"],
+  [/\b(australian taxation|ato|tax office)\b/i, "govt.ato"],
+  [/\b(account fee|monthly fee|overdrawn|dishonour|card fee)\b/i, "money.bank-fees"],
+  [/\b(salary|wage|payroll|pay from|employer)\b/i, "income.salary", "in"],
 ];
 
-export function categorize(description: string): string {
-  for (const [pattern, category] of RULES) {
+/**
+ * The category a rule recognises, or null when none does.
+ *
+ * Null is deliberate and is not "Other". A movement nothing recognised has not been sorted
+ * into a bucket — it is waiting to be looked at, and only saying so separately keeps a
+ * genuine miss from hiding among the things a person filed under Other on purpose.
+ */
+export function categorize(description: string, amount: number): string | null {
+  const direction = amount > 0 ? "in" : "out";
+  for (const [pattern, category, when] of RULES) {
+    if (when && when !== direction) continue;
     if (pattern.test(description)) return category;
   }
-  return "Other";
+  return null;
 }
 
-export function snapTag(raw: string, allowNew = false): string {
-  const tidy = tidyTag(raw);
-  if (!tidy) return "Other";
-  const known = KNOWN_TAGS.find((tag) => tag.toLowerCase() === tidy.toLowerCase());
-  if (known) return known;
-  if (allowNew && /^[\p{L}\p{N}][\p{L}\p{N} &/'()-]{0,39}$/u.test(tidy)) return tidy;
-  return "Other";
+/** Everything a model may answer with: a category, or a category and one of its tags. */
+export const KNOWN_CATEGORIES = SUGGESTIONS;
+
+/**
+ * A loose answer onto a real category and, where it was specific enough, a tag.
+ *
+ * Accepts the key, the dotted form, a display name, or a bare tag slug, because a model
+ * asked for "food.groceries" will sometimes say "Groceries" and sometimes "Food & Drink"
+ * and both are usable.
+ */
+export function snapCategory(raw: string): { categoryKey: string; tag?: string } | null {
+  const written = raw.trim();
+  if (!written) return null;
+  const tidy = written.toLowerCase().replace(/\s*[·>/]\s*/g, ".").replace(/\s+/g, "-");
+
+  if (isCategoryKey(tidy)) return { categoryKey: tidy };
+  if (tidy.includes(".")) {
+    const split = splitSuggestion(tidy);
+    if (split.categoryKey !== UNCATEGORISED) return split;
+  }
+
+  const byLabel = CATEGORY_KEYS.find((key) => categoryLabel(key).toLowerCase() === written.toLowerCase());
+  if (byLabel) return { categoryKey: byLabel };
+
+  // A bare tag, where a model answered "groceries" rather than "food.groceries".
+  const bare = SUGGESTIONS.find((key) => key.endsWith(`.${tidy}`));
+  return bare ? splitSuggestion(bare) : null;
 }
 
-export function inferType(description: string, amount: number, category: string): TransactionType {
-  const text = description.toLowerCase();
-  if (/\b(refund|reversal|rebate)/.test(text)) return "refund";
-  if (/\b(transfer|tfr|sweep)\b/.test(text) || category === "Goals") return "transfer";
-  if (amount < 0) return "expense";
-  if (amount > 0 || category === "Income" || /\bosko payment received|\binterest\b/.test(text)) return "income";
-  return "expense";
+/**
+ * The type a movement takes, from its category and the way the money went.
+ *
+ * Nothing here reads the bank's wording any more. A bank saying "transfer" is a claim
+ * about two accounts, and the only thing that settles it is finding the other leg — which
+ * transfers.ts does over the whole ledger and writes back as `moved`. Guessing it from a
+ * word was how a $200 payment to a person and a $25,000 loan both stopped being real.
+ */
+export function inferType(categoryKey: string, amount: number): TransactionType {
+  return typeForCategory(isCategoryKey(categoryKey) ? categoryKey : UNCATEGORISED, amount);
 }
 
 export function tidyMerchant(description: string): string {

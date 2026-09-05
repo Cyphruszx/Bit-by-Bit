@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
+import { ledgerTransactions,
   appendToLedger,
   EMPTY_LEDGER,
   mergeLedgers,
@@ -22,11 +22,11 @@ function txn(overrides: Partial<InterpretedTransaction> = {}): InterpretedTransa
   return {
     id: `m${made}`,
     merchant: "Cafe",
-    category: "Dining",
+    categoryKey: "food",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount: -5,
-    type: "expense",
+    type: "spent",
     sourceFile: "statement.csv",
     confidence: 1,
     ...overrides,
@@ -65,7 +65,7 @@ describe("bringing two copies of a ledger together", () => {
 
     assert.equal(merged.entries.length, 3, "nothing either device imported is dropped");
     assert.equal(merged.imports.length, 2);
-    assert.equal(summarizeMoneyFlow(merged.entries).cashOut, 90);
+    assert.equal(summarizeMoneyFlow(ledgerTransactions(merged)).cashOut, 90);
   });
 
   it("counts a movement both copies already had exactly once", () => {
@@ -76,7 +76,7 @@ describe("bringing two copies of a ledger together", () => {
     const merged = mergeLedgers(laptop, phone);
 
     assert.equal(merged.entries.length, 1);
-    assert.equal(summarizeMoneyFlow(merged.entries).cashOut, 12);
+    assert.equal(summarizeMoneyFlow(ledgerTransactions(merged)).cashOut, 12);
   });
 
   it("remembers every import that carried a shared movement", () => {
@@ -194,8 +194,8 @@ describe("the samples, split across two devices", () => {
 
     assert.equal(merged.entries.length, 437);
     assert.equal(merged.entries.length, together.entries.length);
-    assert.equal(summarizeMoneyFlow(merged.entries).cashIn, 204214.49);
-    assert.equal(summarizeMoneyFlow(merged.entries).cashOut, 203665.05);
-    assert.equal(summarizeMoneyFlow(merged.entries).cashNet, 549.44);
+    assert.equal(summarizeMoneyFlow(ledgerTransactions(merged)).cashIn, 204214.49);
+    assert.equal(summarizeMoneyFlow(ledgerTransactions(merged)).cashOut, 203665.05);
+    assert.equal(summarizeMoneyFlow(ledgerTransactions(merged)).cashNet, 549.44);
   });
 });

@@ -2,20 +2,36 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { interpretMovement } from "./interpret-row";
 import { describeSpan } from "./parse-values";
-import { tableInterpretationNotes, tagFromBankCategory } from "./statement-category";
+import { categoryFromBankLabel, looksInternal, tableInterpretationNotes } from "./statement-category";
 
 describe("statement category mapping", () => {
-  it("maps NAB labels onto BitbyBit tags", () => {
-    assert.equal(tagFromBankCategory("Groceries", -12.8), "Groceries");
-    assert.equal(tagFromBankCategory("Fuel", -76.12), "Transport");
-    assert.equal(tagFromBankCategory("Restaurants & takeaway", -28.8), "Dining");
-    assert.equal(tagFromBankCategory("Medical", -376), "Health");
-    assert.equal(tagFromBankCategory("Government payments", 41.45), "Income");
-    assert.equal(tagFromBankCategory("Transfers out", -200), "Goals");
-    assert.equal(tagFromBankCategory("Internal transfers", 1), "Goals");
-    assert.equal(tagFromBankCategory("Uncategorised", -24800), "Other");
-    assert.equal(tagFromBankCategory("Interest", 0.1), "Income");
-    assert.equal(tagFromBankCategory("Interest", -0.61), "Other");
+  it("reads a NAB label as a hint, and answers with a real category", () => {
+    assert.equal(categoryFromBankLabel("Groceries", -12.8), "food.groceries");
+    assert.equal(categoryFromBankLabel("Fuel", -76.12), "transport.fuel");
+    assert.equal(categoryFromBankLabel("Restaurants & takeaway", -28.8), "food.restaurants");
+    assert.equal(categoryFromBankLabel("Medical", -376), "health.gp-specialist");
+    assert.equal(categoryFromBankLabel("Government payments", 41.45), "income.government-benefit");
+    // Interest both ways, from the one label. The old table sent the charge to Other.
+    assert.equal(categoryFromBankLabel("Interest", 0.1), "income.interest");
+    assert.equal(categoryFromBankLabel("Loans", -0.61), "money.interest-charged");
+  });
+
+  it("has no category for a label that says nothing, rather than a bucket", () => {
+    // Null is not Other. A movement nothing recognised is waiting to be looked at, and
+    // saying so separately is what keeps a genuine miss out of the pile a person chose.
+    assert.equal(categoryFromBankLabel("Uncategorised", -24800), null);
+    assert.equal(categoryFromBankLabel("Other", -12), null);
+    assert.equal(categoryFromBankLabel(undefined, -12), null);
+  });
+
+  it("refuses to turn a transfer label into a category at all", () => {
+    // These used to become "Goals", which counted a $200 payment to a person and a
+    // $25,000 loan as the person's own money moving. Whether money went to another of
+    // their accounts is settled by finding the other leg, never by a word.
+    assert.equal(categoryFromBankLabel("Transfers out", -200), null);
+    assert.equal(categoryFromBankLabel("Internal transfers", 1), null);
+    assert.ok(looksInternal({ bank: { category: "Transfers out" }, merchant: "Jordan Lee" }));
+    assert.ok(!looksInternal({ bank: { category: "Groceries" }, merchant: "Woolworths" }));
   });
 
   it("recognises a NAB header row", () => {
@@ -36,7 +52,7 @@ describe("statement category mapping", () => {
 });
 
 describe("movement interpretation", () => {
-  it("keeps a statement-supplied sign and fills the tag from the bank category", () => {
+  it("keeps a statement-supplied sign and falls back to the bank's label", () => {
     const txn = interpretMovement({
       dateIso: "2026-06-01",
       amount: -15.4,
@@ -49,8 +65,12 @@ describe("movement interpretation", () => {
       confidence: 0.92,
     });
     assert.equal(txn.amount, -15.4);
-    assert.equal(txn.type, "expense");
-    assert.equal(txn.category, "Groceries");
+    assert.equal(txn.type, "spent");
+    assert.equal(txn.categoryKey, "food");
+    assert.equal(txn.decidedBy, "bank");
+    // The bank's own words are kept beside the movement, never written over.
+    assert.deepEqual(txn.bank, { category: "Groceries", type: "EFTPOS DEBIT" });
+    // The detail the bank's label carried survives as a tag beside the category.
     assert.deepEqual(txn.tags, ["Groceries"]);
   });
 
@@ -68,12 +88,29 @@ describe("movement interpretation", () => {
       confidence: 0.92,
     });
     assert.equal(txn.merchant, "Medicare");
-    assert.equal(txn.category, "Health");
-    assert.equal(txn.type, "income");
+    // A benefit arriving is not health spending. One rule recognises Medicare and the
+    // direction decides which of the two it meant, which is the whole point of splitting
+    // the category from the type.
+    assert.equal(txn.categoryKey, "income");
+    assert.equal(txn.type, "earned");
     assert.equal(txn.amount, 662.4);
   });
 
-  it("does not flip an incoming transfer negative", () => {
+  it("reads the same merchant as health spending on the way out", () => {
+    const txn = interpretMovement({
+      dateIso: "2026-06-29",
+      amount: -376,
+      directionKnown: true,
+      description: "MEDICARE EASYCLAIM GAP",
+      sourceFile: "nab.csv",
+      id: "2b",
+      confidence: 0.92,
+    });
+    assert.equal(txn.categoryKey, "health");
+    assert.equal(txn.type, "spent");
+  });
+
+  it("reads a lender's drawdown as borrowing, not as income", () => {
     const txn = interpretMovement({
       dateIso: "2026-06-30",
       amount: 25000,
@@ -86,8 +123,11 @@ describe("movement interpretation", () => {
       confidence: 0.92,
     });
     assert.equal(txn.amount, 25000);
-    assert.equal(txn.type, "transfer");
-    assert.equal(txn.category, "Goals");
+    // $25,000 from a consumer lender is not money earned and never was. Counting it
+    // destroyed the month it landed in; the bank calling it a transfer did not help.
+    assert.equal(txn.categoryKey, "debt");
+    assert.equal(txn.type, "borrowed");
+    assert.equal(txn.bank?.category, "Transfers in");
   });
 });
 

@@ -17,11 +17,15 @@ function move(
   return {
     id: `m${made}`,
     merchant: description,
-    category: "Other",
+    categoryKey: "uncategorised",
     date: dateIso,
     dateIso,
     amount,
-    type: amount < 0 ? "expense" : "refund",
+    // A credit starts as earnings, as every credit does. What makes it worth looking for a
+    // reversed payment against is the statement saying so — and saying so is still not
+    // believed, because finding the payment is what settles it.
+    type: amount < 0 ? "spent" : "earned",
+    ...(amount > 0 ? { bank: { type: "Refund" } } : {}),
     sourceFile: `${accountId.split(" · ")[0]}.csv`,
     institution: accountId.split(" · ")[0],
     accountId,
@@ -61,7 +65,7 @@ describe("recognising money that came back", () => {
       move(ACCOUNT, -100, "2026-03-03", "Domino Pizza"),
       move(ACCOUNT, 100, "2026-03-04", "Domino Pizza"),
       move(ACCOUNT, -40, "2026-03-05", "Woolworths Bondi"),
-      move(ACCOUNT, 3000, "2026-03-06", "Acme Payroll", { type: "income" }),
+      move(ACCOUNT, 3000, "2026-03-06", "Acme Payroll", { type: "earned" }),
       ...filler(),
     ]);
     const flow = summarizeMoneyFlow(rows);
@@ -175,7 +179,7 @@ describe("money that only looks like it came back", () => {
     // A landlord receiving rent and paying the same agent the same amount. Same account,
     // same cent, inside the window, sharing the rare word "smith" — and both real.
     const rows = [
-      move(ACCOUNT, 2300, "2026-03-01", "SMITH PROPERTY RENT RECEIVED", { type: "income" }),
+      move(ACCOUNT, 2300, "2026-03-01", "SMITH PROPERTY RENT RECEIVED", { type: "earned" }),
       move(ACCOUNT, -2300, "2026-03-20", "SMITH PROPERTY MANAGEMENT"),
       ...filler(),
     ];
@@ -189,7 +193,7 @@ describe("money that only looks like it came back", () => {
   it("still takes one the bank marked as a reversal", () => {
     const rows = [
       move(ACCOUNT, -2300, "2026-03-01", "SMITH PROPERTY MANAGEMENT"),
-      move(ACCOUNT, 2300, "2026-03-20", "REVERSAL OF DEBIT SMITH PROPERTY", { type: "refund" }),
+      move(ACCOUNT, 2300, "2026-03-20", "REVERSAL OF DEBIT SMITH PROPERTY", { type: "returned" }),
       ...filler(),
     ];
     assert.equal(matchRefunds(rows).pairs.length, 1);

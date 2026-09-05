@@ -8,8 +8,10 @@ import {
   importedFiles,
   ledgerTransactions,
   mergeLedgers,
+  forgetCorrection,
   nameAccount,
   nameInstitution,
+  recordCorrection,
   removeStatement as dropStatement,
   recordPayerMerge,
   recordVerdict,
@@ -22,7 +24,7 @@ import {
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
-import { removeTag, renameTag, tagMerchant, withTags } from "@/lib/money-flow/tags";
+import { categorizeMerchant, removeTag, renameTag, sameMerchant, tagMerchant, withCategory, withTags } from "@/lib/money-flow/tags";
 import { markRefundLegs } from "@/lib/money-flow/refunds";
 import {
   applyVerdicts,
@@ -34,6 +36,8 @@ import {
   type Verdicts,
 } from "@/lib/money-flow/verdicts";
 import { markTransferLegs } from "@/lib/money-flow/transfers";
+import { classify } from "@/lib/money-flow/classify";
+import { whatWasLearned, type LearnedThing } from "@/lib/money-flow/rules";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 import { resolveLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
 
@@ -88,9 +92,17 @@ type MoneyFlowState = {
   ) => void;
   /** Wordings a person has said are one payer, against the wording each was filed under. */
   payers: Record<string, string>;
+  /** What the app has learned from being corrected, as sentences a person can undo. */
+  learned: LearnedThing[];
+  /** Takes one of them back, so the reader's own reading returns. */
+  forgetLearned: (key: string) => void;
   /** Joins two wordings, or with a null target, separates them again. */
   mergePayers: (from: string, into: string | null) => void;
   clearInterpretation: () => void;
+  /** What one movement was for. A person choosing settles it against every later re-read. */
+  setTransactionCategory: (id: string, categoryKey: string) => void;
+  /** The same category on every movement of one merchant, however far back it goes. */
+  setMerchantCategory: (merchant: string, categoryKey: string) => void;
   setTransactionTags: (id: string, tags: string[]) => void;
   /** The same tags on every movement of one merchant, however far back it goes. */
   setMerchantTags: (merchant: string, tags: string[]) => void;
@@ -126,8 +138,14 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     // already accounted for and cannot also read as a payment being reversed.
     // What the person said last: a verdict settles what the statements could not, so it is
     // applied over the reader's own pairing rather than under it.
+    // The ladder runs first, because what the person has corrected about a merchant is
+    // cheaper and better evidence than anything below it, and because the matchers need a
+    // settled category to fall back to when a pair stops holding.
+    //
+    // Then the pairs, which prove the type and leave the category alone. Then whatever the
+    // person said outright, which beats all of it.
     const allTransactions = applyVerdicts(
-      markRefundLegs(markTransferLegs(stored, matching), matching),
+      markRefundLegs(markTransferLegs(classify(stored, { rules: held.ledger.rules ?? {} }), matching), matching),
       held.ledger.verdicts ?? {},
       registry,
     );
@@ -147,11 +165,15 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       setVerdict,
       payers: held.ledger.payers ?? {},
       mergePayers,
+      learned: whatWasLearned(held.ledger.rules ?? {}, allTransactions),
+      forgetLearned,
       hasUploads: held.ledger.imports.length > 0,
       ready: held.ready,
       importDocuments,
       removeStatement,
       clearInterpretation: clearLedger,
+      setTransactionCategory,
+      setMerchantCategory,
       setTransactionTags,
       setMerchantTags,
       renameTagEverywhere,
@@ -293,6 +315,34 @@ function writePeriod(period: PeriodFilter) {
   periodListeners.forEach((listener) => listener());
 }
 
+/**
+ * Re-files one movement, and remembers why.
+ *
+ * The correction is learned from the first time, silently. A person who has told the app
+ * that KFC is a restaurant has told it; asking again next month, or on the next hundred
+ * KFC rows, is the app failing to listen rather than being careful. It is reversible from
+ * the learned list, which is the part that makes silence fair.
+ */
+function setTransactionCategory(id: string, categoryKey: string) {
+  const row = ledgerTransactions(snapshot.ledger).find((txn) => txn.id === id);
+  editWith(
+    row ? (ledger) => recordCorrection(ledger, row, categoryKey, new Date().toISOString()) : null,
+    (rows) => rows.map((txn) => (txn.id === id ? withCategory(txn, categoryKey) : txn)),
+  );
+}
+
+function setMerchantCategory(merchant: string, categoryKey: string) {
+  const row = ledgerTransactions(snapshot.ledger).find((txn) => sameMerchant(txn.merchant, merchant));
+  editWith(
+    row ? (ledger) => recordCorrection(ledger, row, categoryKey, new Date().toISOString()) : null,
+    (rows) => categorizeMerchant(rows, merchant, categoryKey),
+  );
+}
+
+function forgetLearned(key: string) {
+  commit(forgetCorrection(snapshot.ledger, key));
+}
+
 function setTransactionTags(id: string, tags: string[]) {
   edit((rows) => rows.map((txn) => (txn.id === id ? withTags(txn, tags) : txn)));
 }
@@ -340,7 +390,19 @@ function removeTagEverywhere(name: string) {
 
 /** A tag edit only ever lands on a statement the person actually uploaded. */
 function edit(change: (rows: InterpretedTransaction[]) => InterpretedTransaction[]) {
+  editWith(null, change);
+}
+
+/**
+ * Changes the movements and what the ledger remembers in one write, so a correction and
+ * the thing it taught can never be saved apart from each other.
+ */
+function editWith(
+  remember: ((ledger: Ledger) => Ledger) | null,
+  change: (rows: InterpretedTransaction[]) => InterpretedTransaction[],
+) {
   const stored = ledgerTransactions(snapshot.ledger);
   if (stored.length === 0) return;
-  commit(replaceTransactions(snapshot.ledger, change(stored)));
+  const taught = remember ? remember(snapshot.ledger) : snapshot.ledger;
+  commit(replaceTransactions(taught, change(stored)));
 }

@@ -13,11 +13,11 @@ function credit(amount: number, description: string, over: Partial<InterpretedTr
   return {
     id: `m${made}`,
     merchant: description,
-    category: "Other",
+    categoryKey: "uncategorised",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount,
-    type: amount > 0 ? "transfer" : "expense",
+    type: amount > 0 ? "moved" : "spent",
     sourceFile: "nab.csv",
     accountId: "NAB · 100200300",
     confidence: 1,
@@ -31,7 +31,7 @@ const AT = "2026-09-03T00:00:00.000Z";
 describe("settling what the statements cannot say", () => {
   it("takes borrowed money out of income, leaving the cash where it is", () => {
     const loan = credit(25000, "SOC-10000000001CT SocietyOne");
-    const rows = [loan, credit(3000, "Acme Payroll", { type: "income" })];
+    const rows = [loan, credit(3000, "Acme Payroll", { type: "earned" })];
     const settled = applyVerdicts(rows, { [oneKey(loan)]: verdictFor("borrowed", AT) });
     const flow = summarizeMoneyFlow(settled);
 
@@ -44,7 +44,7 @@ describe("settling what the statements cannot say", () => {
     const benefits = Array.from({ length: 172 }, (_, index) =>
       credit(500, "MC BBS 5550001X MCARE BENEFITS JORDAN LEE", {
         dateIso: `2026-0${(index % 9) + 1}-01`,
-        type: "refund",
+        type: "returned",
       }),
     );
 
@@ -68,7 +68,7 @@ describe("settling what the statements cannot say", () => {
 
   it("keeps a rule off movements it was never about", () => {
     const benefit = credit(500, "MCARE BENEFITS JORDAN LEE");
-    const wages = credit(500, "Acme Payroll", { type: "income" });
+    const wages = credit(500, "Acme Payroll", { type: "earned" });
     const away = credit(-500, "MCARE BENEFITS JORDAN LEE");
     const other = credit(500, "MCARE BENEFITS JORDAN LEE", { accountId: "NAB · 400500600" });
 

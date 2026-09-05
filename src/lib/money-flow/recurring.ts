@@ -3,6 +3,15 @@ import { inPeriod, monthBounds, type PeriodFilter } from "@/lib/money-flow/perio
 import { tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
+/**
+ * A payment that could be a bill. Money going out, and not money going somewhere the
+ * person still owns it: a standing transfer into a saver is as regular as a subscription
+ * and is not an outgoing.
+ */
+function looksLikeBillPayment(txn: InterpretedTransaction): boolean {
+  return txn.amount < 0 && txn.type !== "moved" && txn.type !== "invested" && !txn.transferPair;
+}
+
 export type Cadence = "weekly" | "fortnightly" | "monthly" | "unknown";
 
 export type DetectedRecurring = {
@@ -27,7 +36,7 @@ export function recurringFingerprint(merchant: string, amount: number): string {
 export function detectRecurringOutflows(transactions: InterpretedTransaction[]): DetectedRecurring[] {
   const groups = new Map<string, InterpretedTransaction[]>();
   for (const txn of transactions) {
-    if (txn.amount >= 0 || txn.type === "transfer") continue;
+    if (!looksLikeBillPayment(txn)) continue;
     const key = recurringFingerprint(txn.merchant, txn.amount);
     const list = groups.get(key) ?? [];
     list.push(txn);
@@ -138,7 +147,7 @@ export type TrackingSnapshot = {
 };
 
 export function paymentMatches(item: Pick<TrackablePayment, "fingerprint" | "name" | "amount">, txn: InterpretedTransaction): boolean {
-  if (txn.amount >= 0 || txn.type === "transfer") return false;
+  if (!looksLikeBillPayment(txn)) return false;
   const txnKey = recurringFingerprint(txn.merchant, txn.amount);
   return item.fingerprint === txnKey || recurringFingerprint(item.name, item.amount) === txnKey;
 }

@@ -13,21 +13,53 @@ export type FileKind =
   | "text"
   | "unknown";
 
-export type TransactionType = "income" | "expense" | "transfer" | "refund";
-
+import type { TransactionType } from "@/lib/money-flow/taxonomy";
 import type { Verdict } from "@/lib/money-flow/verdicts";
 
-export type TagSource = "rules" | "ai" | "user";
+export type { TransactionType };
+
+/**
+ * Which rung of the ladder decided a movement's type and category, so anything the reader
+ * worked out can be worked out again when the rules improve, while anything the person
+ * settled is left alone.
+ *
+ * In the order they win. `unreviewed` is not a failure to record — it is the state that
+ * fills the review queue, and it is the reason Other stopped having to mean two things.
+ */
+export type DecidedBy = "said" | "learned" | "paired" | "merchant" | "rules" | "bank" | "ai" | "unreviewed";
+
 export type ExtractionSource = "ai" | "ocr" | "parser";
+
+/**
+ * The statement's own words, kept exactly as they arrived and never written to.
+ *
+ * A bank's category is evidence, not an answer. NAB files a year of Medicare revenue under
+ * "Refund" and calls 212 movements a transfer when 54 of them are. Both readings are
+ * useful — they are the only thing that says which movements a bank *thought* were
+ * internal — and neither can be allowed to be the figure a person is shown.
+ */
+export type BankWords = {
+  category?: string;
+  type?: string;
+  merchant?: string;
+};
 
 export type InterpretedTransaction = {
   id: string;
   merchant: string;
-  category: string;
+  /**
+   * What the money was for, as a stable key like `food.groceries`. Stable because the
+   * display name used to be the identity, so renaming a tag rewrote every row that
+   * carried it and no report could be compared with one drawn a week earlier.
+   */
+  categoryKey: string;
   date: string;
   dateIso: string;
   amount: number;
   type: TransactionType;
+  /** The statement's own words. Read as a signal, never shown as the answer. */
+  bank?: BankWords;
+  decidedBy?: DecidedBy;
   sourceFile: string;
   confidence: number;
   /** The account the statement says this belongs to. Absent when the export never names one. */
@@ -60,8 +92,12 @@ export type InterpretedTransaction = {
   verdict?: Verdict;
   /** Raw statement wording, kept because it identifies a movement more reliably than the tidied merchant. */
   description?: string;
+  /**
+   * Anything else the person wants to find this by. Freeform, as many as they like, and
+   * never part of a total — a tag that moved a figure would be a second category wearing
+   * a different name, which is the mistake this layer exists to undo.
+   */
   tags?: string[];
-  tagSource?: TagSource;
   extractedBy?: ExtractionSource;
 };
 

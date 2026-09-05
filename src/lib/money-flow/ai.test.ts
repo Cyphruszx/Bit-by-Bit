@@ -11,7 +11,7 @@ import {
 } from "./ai";
 import { interpretDocuments } from "./interpret";
 import { readImageDocument } from "./parsers";
-import { snapTag } from "./categorize";
+import { snapCategory } from "./categorize";
 import type { InterpretedTransaction } from "./types";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -20,11 +20,11 @@ function txn(overrides: Partial<InterpretedTransaction> = {}): InterpretedTransa
   return {
     id: "1",
     merchant: "Mystery Shop",
-    category: "Other",
+    categoryKey: "uncategorised",
     date: "25 Aug",
     dateIso: "2026-08-25",
     amount: -42,
-    type: "expense",
+    type: "spent",
     sourceFile: "photo.jpg",
     confidence: 0.5,
     ...overrides,
@@ -47,8 +47,8 @@ describe("AI JSON helpers", () => {
             date: "25/08/2026",
             merchant: "woolworths bondi",
             amount: 86.4,
-            type: "expense",
-            category: "Groceries",
+            type: "spent",
+            category: "food.groceries",
             confidence: 0.91,
           },
         ],
@@ -58,8 +58,8 @@ describe("AI JSON helpers", () => {
     assert.equal(result.transactions.length, 1);
     assert.equal(result.transactions[0].merchant, "Woolworths Bondi");
     assert.equal(result.transactions[0].amount, -86.4);
-    assert.equal(result.transactions[0].category, "Groceries");
-    assert.equal(result.transactions[0].tagSource, "ai");
+    assert.equal(result.transactions[0].categoryKey, "food");
+    assert.equal(result.transactions[0].decidedBy, "ai");
     assert.equal(result.transactions[0].extractedBy, "ai");
     assert.equal(result.transactions[0].dateIso, "2026-08-25");
     assert.ok(result.notes.some((note) => note.includes("receipt")));
@@ -69,8 +69,8 @@ describe("AI JSON helpers", () => {
     const result = transactionsFromAiExtract(
       {
         transactions: [
-          { date: "2026-08-25", merchant: "", amount: -10, type: "expense", category: "Other" },
-          { date: "2026-08-25", merchant: "Cafe", amount: 0, type: "expense", category: "Dining" },
+          { date: "2026-08-25", merchant: "", amount: -10, type: "spent", category: "uncategorised" },
+          { date: "2026-08-25", merchant: "Cafe", amount: 0, type: "spent", category: "food.restaurants" },
         ],
       },
       "blurry.jpg",
@@ -78,39 +78,43 @@ describe("AI JSON helpers", () => {
     assert.equal(result.transactions.length, 0);
   });
 
-  it("snaps unknown labels to Other unless they look like a real tag", () => {
-    assert.equal(snapTag("groceries"), "Groceries");
-    assert.equal(snapTag("Pets", true), "Pets");
-    assert.equal(snapTag("???"), "Other");
+  it("snaps a loose label onto a real category, and refuses to invent one", () => {
+    // The detail a model gives comes back as a tag, not as a deeper category.
+    assert.deepEqual(snapCategory("groceries"), { categoryKey: "food", tag: "Groceries" });
+    assert.deepEqual(snapCategory("food.groceries"), { categoryKey: "food", tag: "Groceries" });
+    assert.deepEqual(snapCategory("Food & Drink"), { categoryKey: "food" });
+    // Nothing recognisable is null, not a bucket: the movement stays in the review queue
+    // rather than picking up a category a model invented.
+    assert.equal(snapCategory("???"), null);
   });
 });
 
 describe("initial AI tagging", () => {
-  it("only retags movements still sitting in Other", () => {
+  it("only retags movements nothing else could settle", () => {
     const { transactions, taggedCount } = applyTagSuggestions(
-      [txn(), txn({ id: "2", merchant: "Woolworths", category: "Groceries", tags: ["Groceries"] })],
+      [txn(), txn({ id: "2", merchant: "Woolworths", categoryKey: "food", tags: ["Groceries"] })],
       [
-        { id: "1", category: "Shopping", confidence: 0.8 },
-        { id: "2", category: "Dining", confidence: 0.9 },
+        { id: "1", category: "shopping", confidence: 0.8 },
+        { id: "2", category: "food.restaurants", confidence: 0.9 },
       ],
     );
     assert.equal(taggedCount, 1);
-    assert.equal(transactions[0].category, "Shopping");
-    assert.equal(transactions[0].tagSource, "ai");
-    assert.equal(transactions[1].category, "Groceries");
+    assert.equal(transactions[0].categoryKey, "shopping");
+    assert.equal(transactions[0].decidedBy, "ai");
+    assert.equal(transactions[1].categoryKey, "food");
     assert.equal(needsInitialTag(transactions[1]), false);
   });
 
-  it("ignores low-confidence or Other suggestions", () => {
+  it("ignores low-confidence suggestions and ones outside the taxonomy", () => {
     const { taggedCount, transactions } = applyTagSuggestions(
       [txn()],
       [
-        { id: "1", category: "Dining", confidence: 0.2 },
-        { id: "missing", category: "Health", confidence: 0.9 },
+        { id: "1", category: "food.restaurants", confidence: 0.2 },
+        { id: "missing", category: "health.gp-specialist", confidence: 0.9 },
       ],
     );
     assert.equal(taggedCount, 0);
-    assert.equal(transactions[0].category, "Other");
+    assert.equal(transactions[0].categoryKey, "uncategorised");
   });
 });
 
@@ -139,8 +143,8 @@ describe("OpenAI client", () => {
                       date: "2026-08-25",
                       merchant: "Soul Origin",
                       amount: -7.9,
-                      type: "expense",
-                      category: "Dining",
+                      type: "spent",
+                      category: "food.restaurants",
                       confidence: 0.88,
                     },
                   ],
@@ -180,8 +184,8 @@ describe("image interpretation with AI", () => {
                 date: "2026-08-02",
                 merchant: "Cafe Sydney",
                 amount: -28.4,
-                type: "expense",
-                category: "Dining",
+                type: "spent",
+                category: "food.restaurants",
                 confidence: 0.9,
               },
             ],
@@ -195,7 +199,7 @@ describe("image interpretation with AI", () => {
       return "";
     });
     assert.equal(ocrCalled, false);
-    assert.equal(parsed.transactions[0].category, "Dining");
+    assert.equal(parsed.transactions[0].categoryKey, "food");
     assert.ok(parsed.notes.some((note) => /AI vision/i.test(note)));
   });
 
@@ -227,16 +231,16 @@ describe("image interpretation with AI", () => {
                 date: "2026-08-25",
                 merchant: "Unknown Kiosk",
                 amount: -12,
-                type: "expense",
-                category: "Other",
+                type: "spent",
+                category: "uncategorised",
                 confidence: 0.6,
               },
               {
                 date: "2026-08-18",
                 merchant: "Salary Acme",
                 amount: 1500,
-                type: "income",
-                category: "Income",
+                type: "earned",
+                categoryKey: "income",
                 confidence: 0.95,
               },
             ],
@@ -244,13 +248,13 @@ describe("image interpretation with AI", () => {
           "statement.png",
         ),
       suggestTags: async ({ transactions }) =>
-        transactions.map((row) => ({ id: row.id, category: "Shopping", confidence: 0.81 })),
+        transactions.map((row) => ({ id: row.id, category: "shopping", confidence: 0.81 })),
     };
     const result = await interpretDocuments([{ filename: "statement.png", mime: "image/png", bytes: PNG }], { ai });
     assert.equal(result.files[0].processingStatus, "completed");
     const kiosk = result.transactions.find((row) => row.merchant === "Unknown Kiosk");
-    assert.equal(kiosk?.category, "Shopping");
-    assert.equal(kiosk?.tagSource, "ai");
+    assert.equal(kiosk?.categoryKey, "shopping");
+    assert.equal(kiosk?.decidedBy, "ai");
     assert.equal(result.flow.income, 1500);
     assert.equal(result.flow.spending, 12);
     assert.ok(result.flow.insights.some((line) => /AI suggested tags/i.test(line)));
@@ -273,7 +277,7 @@ describe("image interpretation with AI", () => {
       { ai },
     );
     assert.equal(suggested, false);
-    assert.equal(result.transactions[0].category, "Groceries");
+    assert.equal(result.transactions[0].categoryKey, "food");
   });
 
   it("asks AI to tag unknown merchants from a bank file", async () => {
@@ -282,7 +286,7 @@ describe("image interpretation with AI", () => {
       extractFromImage: async () => ({ transactions: [], notes: [] }),
       suggestTags: async ({ transactions }) => {
         asked = transactions.length;
-        return transactions.map((row) => ({ id: row.id, category: "Utilities", confidence: 0.7 }));
+        return transactions.map((row) => ({ id: row.id, category: "utilities", confidence: 0.7 }));
       },
     };
     const json = JSON.stringify({
@@ -293,7 +297,7 @@ describe("image interpretation with AI", () => {
       { ai },
     );
     assert.equal(asked, 1);
-    assert.equal(result.transactions[0].category, "Utilities");
-    assert.equal(result.transactions[0].tagSource, "ai");
+    assert.equal(result.transactions[0].categoryKey, "utilities");
+    assert.equal(result.transactions[0].decidedBy, "ai");
   });
 });

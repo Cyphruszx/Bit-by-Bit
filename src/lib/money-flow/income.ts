@@ -10,7 +10,8 @@
  */
 
 import { roundMoney } from "@/lib/money-flow/parse-values";
-import { countedMovements } from "@/lib/money-flow/summary";
+import { looksInternal, looksReturned } from "@/lib/money-flow/statement-category";
+import { countedMovements, isEarnings } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import { likeKey } from "@/lib/money-flow/verdicts";
 import type { AccountRegistry } from "@/lib/money-flow/account-identity";
@@ -40,26 +41,32 @@ export type IncomeSource = {
  * and they are not in the figure this explains.
  */
 export function incomeSources(transactions: InterpretedTransaction[]): IncomeSource[] {
-  const credits = countedMovements(transactions).filter((txn) => txn.amount > 0);
+  // Only what the money-in figure actually holds. A drawdown the reader has already typed
+  // as borrowing is not in that figure, so listing it here would explain a number nobody
+  // is being shown — and would leave the card and the headline disagreeing.
+  const credits = countedMovements(transactions).filter(isEarnings);
 
   // A person who has said "this is money I earned" has settled it, whatever the bank
   // called it, so it stops being asked about.
   const confirmed = credits.filter((txn) => txn.verdict?.counts === true);
   const open = credits.filter((txn) => !txn.verdict);
-  const earned = [...confirmed, ...open.filter((txn) => txn.type === "income")];
-  const returned = open.filter((txn) => txn.type === "refund");
-  const arrived = open.filter((txn) => txn.type === "transfer");
-  // Anything the reader could not type at all is money the person earned as far as the
-  // totals are concerned, so it is counted with earnings rather than quietly dropped.
-  const rest = open.filter((txn) => !["income", "refund", "transfer"].includes(txn.type));
+  // Split on what the *bank* claimed, not on what the reader concluded. These are the
+  // credits still sitting in the money-in figure precisely because no payment and no other
+  // leg was ever found for them, so the reader has nothing left to say — the only new
+  // information available is the label the bank put on them, and the person is the one who
+  // can tell whether it was right.
+  const returned = open.filter((txn) => looksReturned(txn));
+  const arrived = open.filter((txn) => !looksReturned(txn) && looksInternal(txn));
+  const claimed = new Set([...returned, ...arrived].map((txn) => txn.id));
+  const earned = [...confirmed, ...open.filter((txn) => !claimed.has(txn.id))];
 
   const sources: IncomeSource[] = [
     {
       kind: "earned",
       label: "Earned",
       detail: "Wages, interest and payments from other people",
-      amount: total([...earned, ...rest]),
-      count: earned.length + rest.length,
+      amount: total(earned),
+      count: earned.length,
       askable: false,
     },
     {
@@ -126,7 +133,7 @@ export function unsettledGroups(
   registry: AccountRegistry = {},
 ): UnsettledGroup[] {
   const open = countedMovements(transactions).filter(
-    (txn) => txn.amount > 0 && !txn.verdict && (txn.type === "refund" || txn.type === "transfer"),
+    (txn) => isEarnings(txn) && !txn.verdict && (looksReturned(txn) || looksInternal(txn)),
   );
 
   const grouped = new Map<string, UnsettledGroup>();
@@ -142,7 +149,7 @@ export function unsettledGroups(
       amount: roundMoney((held?.amount ?? 0) + txn.amount),
       // Held like every other field: one wording carrying both a refund and a transfer row
       // should not change its caption depending on which came last in the array.
-      kind: held?.kind ?? (txn.type === "refund" ? "returned" : "arrived"),
+      kind: held?.kind ?? (looksReturned(txn) ? "returned" : "arrived"),
       from: held && held.from < txn.dateIso ? held.from : txn.dateIso,
       to: held && held.to > txn.dateIso ? held.to : txn.dateIso,
     });

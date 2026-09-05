@@ -14,11 +14,11 @@ function txn(sourceFile: string, institution?: string): InterpretedTransaction {
   return {
     id: `${sourceFile}-1`,
     merchant: "Cafe",
-    category: "Dining",
+    categoryKey: "food",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount: -4.5,
-    type: "expense",
+    type: "spent",
     sourceFile,
     confidence: 1,
     ...(institution ? { institution } : {}),

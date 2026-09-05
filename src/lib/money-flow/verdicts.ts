@@ -12,9 +12,17 @@
  */
 
 import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/account-identity";
-import type { InterpretedTransaction } from "@/lib/money-flow/types";
+import { typeForCategory } from "@/lib/money-flow/taxonomy";
+import type { InterpretedTransaction, TransactionType } from "@/lib/money-flow/types";
 
-/** Why a person says a movement is or is not the household's own money in or out. */
+/**
+ * Why a person says a movement is or is not the household's own money in or out.
+ *
+ * These six were written before the type layer existed and turned out to be the type layer
+ * — a person saying "borrowed money" and the reader working out `borrowed` are the same
+ * statement, so they are now the same field. Each reason names the type it sets, which is
+ * what stops a verdict and a reading from disagreeing in language while agreeing in fact.
+ */
 export type VerdictReason =
   | "earned"
   | "money-back"
@@ -33,13 +41,16 @@ export type Verdict = {
 
 export type Verdicts = Record<string, Verdict>;
 
-const REASONS: Record<VerdictReason, { counts: boolean; label: string; forCredit: boolean }> = {
-  earned: { counts: true, label: "Money I earned", forCredit: true },
-  "money-back": { counts: false, label: "Money coming back to me", forCredit: true },
-  "own-account": { counts: false, label: "From another of my accounts", forCredit: true },
-  borrowed: { counts: false, label: "Borrowed money", forCredit: true },
-  spent: { counts: true, label: "Money I spent", forCredit: false },
-  "not-mine": { counts: false, label: "Moved to another of my accounts", forCredit: false },
+const REASONS: Record<
+  VerdictReason,
+  { counts: boolean; label: string; forCredit: boolean; type: TransactionType }
+> = {
+  earned: { counts: true, label: "Money I earned", forCredit: true, type: "earned" },
+  "money-back": { counts: false, label: "Money coming back to me", forCredit: true, type: "returned" },
+  "own-account": { counts: false, label: "From another of my accounts", forCredit: true, type: "moved" },
+  borrowed: { counts: false, label: "Borrowed money", forCredit: true, type: "borrowed" },
+  spent: { counts: true, label: "Money I spent", forCredit: false, type: "spent" },
+  "not-mine": { counts: false, label: "Moved to another of my accounts", forCredit: false, type: "moved" },
 };
 
 export function reasonsFor(amount: number): { reason: VerdictReason; label: string }[] {
@@ -47,6 +58,11 @@ export function reasonsFor(amount: number): { reason: VerdictReason; label: stri
   return Object.entries(REASONS)
     .filter(([, meaning]) => meaning.forCredit === wantCredit)
     .map(([reason, meaning]) => ({ reason: reason as VerdictReason, label: meaning.label }));
+}
+
+/** The type a verdict sets on the movements it settles. */
+export function typeForReason(reason: VerdictReason): TransactionType {
+  return REASONS[reason]?.type ?? "earned";
 }
 
 export function reasonLabel(reason: VerdictReason): string {
@@ -159,8 +175,12 @@ export function applyVerdicts(
       .map((key) => verdicts[key])
       .find(Boolean);
     if (!found) return txn.verdict ? withoutVerdict(txn) : txn;
-    if (same(txn.verdict, found)) return txn;
-    return { ...txn, verdict: found };
+    // The verdict sets the type as well as being recorded, because a person saying
+    // "borrowed money" is saying what kind of movement this is, and every total downstream
+    // reads the type rather than the record.
+    const type = typeForReason(found.because);
+    if (same(txn.verdict, found) && txn.type === type) return txn;
+    return { ...txn, verdict: found, type, decidedBy: "said" };
   });
 }
 
@@ -197,8 +217,13 @@ function same(held: Verdict | undefined, next: Verdict): boolean {
   return held?.counts === next.counts && held.because === next.because && held.at === next.at;
 }
 
+/**
+ * Taking a verdict back has to put the type back too, or the movement keeps the shape the
+ * person gave it after they have said to stop. The category is what the reader worked out
+ * on its own, so asking it again is the honest way to get there.
+ */
 function withoutVerdict(txn: InterpretedTransaction): InterpretedTransaction {
-  const forgotten = { ...txn };
+  const forgotten = { ...txn, type: typeForCategory(txn.categoryKey, txn.amount) };
   delete forgotten.verdict;
   return forgotten;
 }

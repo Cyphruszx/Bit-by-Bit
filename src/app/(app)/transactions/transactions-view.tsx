@@ -5,6 +5,8 @@ import { TransactionTable } from "@/components/transaction-table";
 import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
 import { EmptyLedger } from "@/components/empty-ledger";
+import { LearnedList } from "@/components/learned-list";
+import { ReviewQueue } from "@/components/review-queue";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { ScopeBar } from "@/components/scope-bar";
 import { SettledMoney, UnsettledMoney } from "@/components/unsettled-money";
@@ -13,7 +15,7 @@ import { formatAud } from "@/lib/format";
 import { accountsByInstitution } from "@/lib/money-flow/accounts";
 import { describeScope, filterByScope } from "@/lib/money-flow/scope";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
-import { allPrimaryTags, allSubTags, tagsOf } from "@/lib/money-flow/tags";
+import { allTags, tagsOf } from "@/lib/money-flow/tags";
 import type { ChartKind } from "@/lib/money-flow/tag-charts";
 
 export function TransactionsView() {
@@ -56,8 +58,8 @@ export function TransactionsView() {
       <>
         <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
         <EmptyLedger>
-          Every movement BitbyBit reads will be listed here, searchable and taggable, with a primary
-          tag driving the totals and sub-tags for detail.
+          Every movement BitbyBit reads will be listed here, searchable and sortable, each with one
+          category for what the money was for and any tags you want to find it by.
         </EmptyLedger>
       </>
     );
@@ -68,8 +70,8 @@ export function TransactionsView() {
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight">Transactions</h1>
       <p className="mt-1 max-w-2xl text-sm text-[#60716a]">
-        Money in and out from your uploaded documents. Charts use the primary tag so sub-tags never
-        double-count.
+        Money in and out from your uploaded documents. Charts group by category, so nothing is
+        counted twice and money you moved, borrowed or paid back stays out of the totals.
       </p>
       <ScopeBar groups={groups} scope={scope} onScope={setScope} />
       <p className="mt-3 text-sm text-[#60716a]">{describeScope(scope)}</p>
@@ -95,6 +97,7 @@ export function TransactionsView() {
           compact
         />
       </section>
+      <ReviewQueue transactions={scoped} />
       <UnsettledMoney transactions={scoped} />
       <SettledMoney transactions={scoped} />
       <div className="mt-4">
@@ -108,14 +111,16 @@ export function TransactionsView() {
         />
       </div>
       <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
-        <h2 className="text-base font-bold">Merchants</h2>
+        <h2 className="text-base font-bold">Transactions</h2>
         <p className="mt-0.5 text-xs text-[#60716a]">
-          Every movement in this period. Search or filter the list, then tag each merchant.
+          Every movement in this period — one row each, so the same shop appears as many times as you
+          paid it. Change one and you are offered the rest.
         </p>
         <div className="mt-3">
           <TransactionTable transactions={scoped} tag={selectedTag} onTagChange={setSelectedTag} />
         </div>
       </article>
+      <LearnedList />
       <TagManager
         transactions={allTransactions}
         onRename={renameTagEverywhere}
@@ -134,31 +139,24 @@ function TagManager({
   onRename: (from: string, to: string) => void;
   onRemove: (name: string) => void;
 }) {
-  const primaries = allPrimaryTags(transactions);
-  const subs = allSubTags(transactions);
-  const tags = [...primaries, ...subs.filter((tag) => !primaries.includes(tag))];
+  const tags = allTags(transactions);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
 
-  const primaryCounts = new Map<string, number>();
-  const subCounts = new Map<string, number>();
+  const counts = new Map<string, number>();
   for (const txn of transactions) {
-    const names = tagsOf(txn);
-    const primary = names[0];
-    if (primary) primaryCounts.set(primary, (primaryCounts.get(primary) ?? 0) + 1);
-    for (const tag of names.slice(1)) {
-      subCounts.set(tag, (subCounts.get(tag) ?? 0) + 1);
-    }
+    for (const tag of tagsOf(txn)) counts.set(tag, (counts.get(tag) ?? 0) + 1);
   }
 
   return (
     <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-base font-bold">Tags</h2>
+          <h2 className="text-base font-bold">Your tags</h2>
           <p className="mt-0.5 text-xs text-[#60716a]">
-            Primary tags drive spending and income totals. Sub-tags are extra detail and never add to those totals.
+            Tags are yours to invent — anything you want to find a movement by. They never change a
+            total; that is what the category on each movement is for.
           </p>
         </div>
         <button
@@ -178,6 +176,11 @@ function TagManager({
         </button>
       </div>
       <div id="tag-manager-list" hidden={!open} className="mt-3 divide-y divide-[#edf0ee]">
+        {tags.length === 0 ? (
+          <p className="py-2 text-sm text-[#60716a]">
+            No tags yet. Add one to any movement and it will show up here.
+          </p>
+        ) : null}
         {tags.map((tag) => (
           <div className="flex flex-wrap items-center justify-between gap-2 py-1.5" key={tag}>
             {editing === tag ? (
@@ -206,13 +209,7 @@ function TagManager({
               <div>
                 <p className="text-sm font-semibold">{tag}</p>
                 <p className="text-xs text-[#77857f]">
-                  {primaryCounts.get(tag)
-                    ? `Primary on ${primaryCounts.get(tag)} transaction${primaryCounts.get(tag) === 1 ? "" : "s"}`
-                    : null}
-                  {primaryCounts.get(tag) && subCounts.get(tag) ? " · " : null}
-                  {subCounts.get(tag)
-                    ? `Sub-tag on ${subCounts.get(tag)} transaction${subCounts.get(tag) === 1 ? "" : "s"}`
-                    : null}
+                  On {counts.get(tag) ?? 0} transaction{counts.get(tag) === 1 ? "" : "s"}
                 </p>
               </div>
             )}

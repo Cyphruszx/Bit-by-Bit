@@ -5,8 +5,8 @@ import { formatAud, formatAudCompact, formatSignedAud } from "@/lib/format";
 import { LineChart, type LineChartSeries } from "@/components/line-chart";
 import {
   chartTagFlowSeries,
+  selectableKeys,
   tagFlowOverTime,
-  NO_SUB_TAG,
   type FlowOverTimePoint,
 } from "@/lib/money-flow/summary";
 import {
@@ -20,7 +20,8 @@ import {
   withTagColors,
   type ChartKind,
 } from "@/lib/money-flow/tag-charts";
-import { allPrimaryTags, allSubTags } from "@/lib/money-flow/tags";
+import { allTags } from "@/lib/money-flow/tags";
+import { categoryLabel } from "@/lib/money-flow/taxonomy";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export function TagChartCard({
@@ -46,20 +47,19 @@ export function TagChartCard({
   const slices = useMemo(() => pieSlices(spend), [spend]);
   const timeline = useMemo(() => tagFlowOverTime(transactions, selectedTag), [selectedTag, transactions]);
   const scoped = useMemo(
-    () => transactions.filter((txn) => txn.type !== "transfer" && txn.amount !== 0),
+    () => transactions.filter((txn) => txn.type !== "moved" && txn.amount !== 0),
     [transactions],
   );
-  const primaries = allPrimaryTags(scoped);
-  const subs = allSubTags(scoped);
+  const primaries = useMemo(() => selectableKeys(scoped), [scoped]);
+  const subs = useMemo(() => allTags(scoped), [scoped]);
   const highlightAll = series.level === "sub" && series.parent === selectedTag;
   const title =
     series.level === "sub" && series.parent
-      ? `${series.parent} · sub-tags`
-      : "Money in and out by primary tag";
+      ? `Inside ${categoryLabel(series.parent)}`
+      : "Money in and out by category";
   const emptyLabel = "No money in or out in this period.";
 
   function selectChartTag(name: string) {
-    if (name === NO_SUB_TAG) return;
     onSelectTag(nextTagSelection(selectedTag, name));
   }
 
@@ -127,23 +127,23 @@ export function TagChartCard({
       )}
       {primaries.length > 0 || subs.length > 0 ? (
         <div className={`${compact ? "mt-3 space-y-2" : "mt-5 space-y-3"}`}>
-          <ChipRow label="Primary" compact={compact}>
+          <ChipRow label="Category" compact={compact}>
             <TagToggle active={selectedTag === "All"} onClick={() => onSelectTag("All")} compact={compact}>
               All
             </TagToggle>
-            {primaries.map((tag) => (
+            {primaries.map((key) => (
               <TagToggle
-                key={tag}
-                active={selectedTag === tag}
-                onClick={() => onSelectTag(nextTagSelection(selectedTag, tag))}
+                key={key}
+                active={selectedTag === key}
+                onClick={() => onSelectTag(nextTagSelection(selectedTag, key))}
                 compact={compact}
               >
-                {tag}
+                {categoryLabel(key)}
               </TagToggle>
             ))}
           </ChipRow>
           {subs.length > 0 ? (
-            <ChipRow label="Sub-tag" compact={compact}>
+            <ChipRow label="Tag" compact={compact}>
               {subs.map((tag) => (
                 <TagToggle
                   key={tag}
@@ -259,7 +259,7 @@ function BarGraph({
               <rect
                 role="button"
                 tabIndex={0}
-                aria-label={`${bar.name}: ${formatAud(Math.abs(bar.amount))} ${incoming ? "in" : "out"}`}
+                aria-label={`${categoryLabel(bar.name)}: ${formatAud(Math.abs(bar.amount))} ${incoming ? "in" : "out"}`}
                 aria-pressed={selected}
                 x={pad.left + bar.x}
                 y={pad.top + bar.y}
@@ -284,7 +284,7 @@ function BarGraph({
                 fill="#77857f"
                 fontSize="11"
               >
-                {bar.name}
+                {categoryLabel(bar.name)}
               </text>
             </g>
           );
@@ -362,7 +362,7 @@ function PieChart({
               key={slice.name}
               role="button"
               tabIndex={0}
-              aria-label={`${slice.name}: ${formatAud(Math.abs(slice.amount))} ${slice.direction}, ${slice.share}%`}
+              aria-label={`${categoryLabel(slice.name)}: ${formatAud(Math.abs(slice.amount))} ${slice.direction}, ${slice.share}%`}
               aria-pressed={selected}
               d={donutPath(cx, cy, outer, inner, slice.startAngle, slice.endAngle)}
               fill={slice.color}
@@ -415,7 +415,7 @@ function PieChart({
                       boxShadow: slice.direction === "in" ? "0 0 0 2px #257155" : undefined,
                     }}
                   />
-                  <span className="truncate font-medium">{slice.name}</span>
+                  <span className="truncate font-medium">{categoryLabel(slice.name)}</span>
                   <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#77857f]">
                     {slice.direction}
                   </span>

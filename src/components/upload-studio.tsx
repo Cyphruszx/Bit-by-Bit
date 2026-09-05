@@ -11,7 +11,8 @@ import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
-import { primaryTag, subTags } from "@/lib/money-flow/tags";
+import { tagsOf } from "@/lib/money-flow/tags";
+import { categoryPath } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const SAMPLES: Array<{ paths: string[]; label: string }> = [
@@ -215,9 +216,9 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
                     <div>
                       <p className="font-semibold">{txn.merchant}</p>
                       <p className="mt-1 text-sm text-[#77857f]">
-                        {primaryTag(txn)}
-                        {subTags(txn).length > 0 ? ` / ${subTags(txn).join(" · ")}` : ""}
-                        {txn.tagSource === "ai" ? " · AI tag" : ""} · {txn.date} · {txn.sourceFile}
+                        {categoryPath(txn.categoryKey)}
+                        {tagsOf(txn).length > 0 ? ` / ${tagsOf(txn).join(" · ")}` : ""}
+                        {txn.decidedBy === "ai" ? " · suggested by AI" : ""} · {txn.date} · {txn.sourceFile}
                       </p>
                     </div>
                     <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>

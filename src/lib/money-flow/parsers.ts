@@ -1,6 +1,7 @@
 import { type MoneyFlowAi, visionMime } from "@/lib/money-flow/ai";
-import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
+import { tidyMerchant } from "@/lib/money-flow/categorize";
 import { detectFileKind } from "@/lib/money-flow/detect";
+import { readMovement } from "@/lib/money-flow/interpret-row";
 import { accountRefFromText } from "@/lib/money-flow/account-identity";
 import { identifyAccounts } from "@/lib/money-flow/accounts";
 import { detectInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
@@ -225,17 +226,18 @@ function parseOfx(text: string, sourceFile: string): InterpretedTransaction[] {
     const dateIso = parseDate(posted) ?? parseDate(posted.slice(0, 8));
     const name = ofxField(block, "NAME") || ofxField(block, "MEMO") || ofxField(block, "PAYEE");
     if (amount == null || !dateIso || !name) return [];
-    const category = categorize(name);
-    const type = inferType(`${name} ${ofxField(block, "TRNTYPE")}`, amount, category);
+    const read = readMovement(`${name} ${ofxField(block, "TRNTYPE")}`, amount, true);
     return [
       {
         id: `${sourceFile}-ofx-${index}`,
         merchant: tidyMerchant(name),
-        category,
+        categoryKey: read.categoryKey,
+        ...(read.tag ? { tags: [read.tag] } : {}),
+        decidedBy: read.decidedBy,
         date: formatDisplayDate(dateIso),
         dateIso,
-        amount: type === "income" || type === "refund" ? Math.abs(amount) : amount,
-        type,
+        amount: read.amount,
+        type: read.type,
         sourceFile,
         confidence: 0.95,
       } satisfies InterpretedTransaction,
@@ -257,17 +259,18 @@ function parseQif(text: string, sourceFile: string): InterpretedTransaction[] {
     const amount = parseAmount(fieldLine(record, "T") || fieldLine(record, "U"));
     const name = fieldLine(record, "P") || fieldLine(record, "M") || fieldLine(record, "N");
     if (amount == null || !dateIso || !name) return [];
-    const category = categorize(`${name} ${fieldLine(record, "L")}`);
-    const type = inferType(name, amount, category);
+    const read = readMovement(`${name} ${fieldLine(record, "L")}`, amount, true);
     return [
       {
         id: `${sourceFile}-qif-${index}`,
         merchant: tidyMerchant(name),
-        category,
+        categoryKey: read.categoryKey,
+        ...(read.tag ? { tags: [read.tag] } : {}),
+        decidedBy: read.decidedBy,
         date: formatDisplayDate(dateIso),
         dateIso,
-        amount: type === "income" || type === "refund" ? Math.abs(amount) : amount,
-        type,
+        amount: read.amount,
+        type: read.type,
         sourceFile,
         confidence: 0.9,
       } satisfies InterpretedTransaction,
