@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { hasSource, sourceFromCells, sourceValue } from "./source";
+import { hasSource, sourceFromCells, sourcePairs, sourceValue } from "./source";
 
 describe("source rows", () => {
   it("keeps a blank NAB column instead of collapsing the row into a map", () => {
@@ -36,5 +36,15 @@ describe("source rows", () => {
     assert.equal(sourceValue(source, "Merchant Name"), "");
     assert.equal(sourceValue(source, "Processed On"), "30 Jun 26");
     assert.equal(hasSource(source), true);
+    const pairs = sourcePairs(source);
+    assert.equal(pairs.some((cell) => cell.header === ""), false);
+    assert.deepEqual(
+      pairs.find((cell) => cell.header === "Merchant Name"),
+      { header: "Merchant Name", value: "" },
+    );
+    assert.deepEqual(
+      pairs.find((cell) => cell.header === "Balance"),
+      { header: "Balance", value: "4913.07" },
+    );
   });
 });

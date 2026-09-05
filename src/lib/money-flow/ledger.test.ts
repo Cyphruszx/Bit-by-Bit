@@ -11,6 +11,7 @@ import {
   ledgerTransactions,
   nameAccount,
   parseLedger,
+  persistTaxonomy,
   removeImport,
   removeStatement,
   visibleTransactions,
@@ -263,6 +264,38 @@ describe("accumulating a ledger", () => {
       importedAt: "2026-09-02T00:00:00.000Z",
     });
     assert.deepEqual(second.ledger.entries[0]?.source, original);
+  });
+
+  it("writes the current category and tag model onto stored rows", () => {
+    const source = {
+      headers: ["Date", "Amount", "Category"],
+      values: ["01 Jun 26", "-12.80", "Groceries"],
+    };
+    const { ledger } = appendToLedger(EMPTY_LEDGER, upload([txn({ accountKey: "100200300", source })]), {
+      importedAt: "2026-09-01T00:00:00.000Z",
+    });
+    const held = ledger.entries[0];
+    held.categoryKey = "food.groceries";
+    (held as { category?: string }).category = "Food & Drink";
+    (held as { tagSource?: string }).tagSource = "rules";
+    delete held.tags;
+
+    const next = persistTaxonomy(ledger);
+    assert.equal(next.entries[0]?.categoryKey, "food");
+    assert.deepEqual(next.entries[0]?.tags, ["Groceries"]);
+    assert.equal(next.entries[0]?.type, "spent");
+    assert.equal(next.entries[0]?.fingerprint, held.fingerprint);
+    assert.deepEqual(next.entries[0]?.source, source);
+    assert.equal("category" in (next.entries[0] ?? {}), false);
+    assert.equal("tagSource" in (next.entries[0] ?? {}), false);
+    assert.equal(persistTaxonomy(next), next);
+  });
+
+  it("leaves a current-model ledger untouched", () => {
+    const { ledger } = appendToLedger(EMPTY_LEDGER, upload([txn({ accountKey: "100200300" })]), {
+      importedAt: "2026-09-01T00:00:00.000Z",
+    });
+    assert.equal(persistTaxonomy(ledger), ledger);
   });
 
   it("removes an import without dropping movements a later import also covers", () => {
