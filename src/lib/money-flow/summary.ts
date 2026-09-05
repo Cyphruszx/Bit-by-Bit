@@ -235,6 +235,18 @@ export function selectableKeys(transactions: InterpretedTransaction[]): string[]
   );
 }
 
+/** Groups then categories, so a chart's group chip stays selected in the table filter. */
+export function tableFilterKeys(transactions: InterpretedTransaction[]): string[] {
+  const groups = selectableGroups(transactions);
+  const seen = new Set(groups);
+  return [...groups, ...selectableKeys(transactions).filter((key) => !seen.has(key))];
+}
+
+/** Keep a group or category selection; fall back only when that key is not in the set. */
+export function tableFilterValue(selected: string, options: string[]): string {
+  return options.includes(selected) ? selected : "All";
+}
+
 /**
  * Buckets money in and out by day so each movement lands on its own point, falling back to months
  * only once the range is too long to plot daily. Every bucket between the first and last is emitted,

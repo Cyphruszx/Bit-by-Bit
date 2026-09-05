@@ -160,6 +160,40 @@ export function chartLabel(key: string): string {
   return categoryLabel(key);
 }
 
+/** The group name for a filing key, so a chip can show Food before Groceries. */
+export function groupLabelOf(categoryKey: string | undefined): string {
+  return groupLabel(groupOf(categoryKey));
+}
+
+/**
+ * Group first, then the category, for sentences and search.
+ * When both words are the same — Other, Transfers — the name is written once.
+ */
+export function taxonomyPath(categoryKey: string | undefined): string {
+  const group = groupLabelOf(categoryKey);
+  const category = categoryLabel(categoryKey);
+  if (group.toLowerCase() === category.toLowerCase()) return group;
+  return `${group} · ${category}`;
+}
+
+/** Filing keys under each group, in book order, for pickers that still file a category. */
+export function pickerGroups(options?: { includeUncategorised?: boolean }): {
+  id: string;
+  label: string;
+  categories: { key: string; label: string }[];
+}[] {
+  const book = resolvedBook();
+  return book.groups
+    .map((group) => ({
+      id: group.id,
+      label: group.label,
+      categories: categoriesIn(book, group.id)
+        .filter((category) => options?.includeUncategorised || category.key !== UNCATEGORISED)
+        .map((category) => ({ key: category.key, label: category.label })),
+    }))
+    .filter((group) => group.categories.length > 0);
+}
+
 function titleCase(value: string): string {
   return value
     .replace(/[.-]/g, " ")

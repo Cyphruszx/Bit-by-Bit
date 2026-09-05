@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud, formatCount } from "@/lib/format";
 import { reviewGroups, reviewProgress } from "@/lib/money-flow/review";
-import { categoryLabel, CATEGORY_KEYS, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import { pickerGroups } from "@/lib/money-flow/category-book";
+import { UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /** Enough to see the shape of the work without turning the page into a spreadsheet. */
@@ -92,10 +93,14 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
                 className="rounded-full border border-[#dce4df] bg-white px-2.5 py-1 text-xs outline-none focus:border-[#173b31]"
               >
                 <option value={UNCATEGORISED}>Choose a category</option>
-                {CATEGORY_KEYS.filter((key) => key !== UNCATEGORISED).map((key) => (
-                  <option key={key} value={key}>
-                    {categoryLabel(key)}
-                  </option>
+                {pickerGroups().map((held) => (
+                  <optgroup key={held.id} label={held.label}>
+                    {held.categories.map((category) => (
+                      <option key={category.key} value={category.key}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>

@@ -87,8 +87,8 @@ describe("learning from a correction", () => {
     assert.deepEqual(
       learnt.map((thing) => [thing.sentence, thing.count]),
       [
-        ["Woolworths is Eating Out", 2],
-        ["Kfc is Entertainment", 1],
+        ["Woolworths is Food · Eating Out", 2],
+        ["Kfc is Lifestyle · Entertainment", 1],
       ],
     );
   });

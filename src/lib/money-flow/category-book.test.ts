@@ -6,13 +6,17 @@ import {
   addGroup,
   applyBook,
   defaultCategoryBook,
+  groupLabelOf,
   groupOf,
   parseCategoryBook,
+  pickerGroups,
   removeCategory,
   removeGroup,
   renameCategory,
   resolveBook,
+  taxonomyPath,
 } from "./category-book";
+import { matches, tableFilterKeys, tableFilterValue } from "./summary";
 import { EMPTY_LEDGER, mergeLedgers, parseLedger, recordTaxonomy } from "./ledger";
 import { classify } from "./classify";
 import { categoryForBankLabel, categoryLabel, isCategoryKey } from "./taxonomy";
@@ -54,6 +58,39 @@ describe("the editable category book", () => {
     assert.ok(book.categories.find((category) => category.key === "eating-out")?.bankCategories.includes("Fast Food"));
     assert.equal(groupOf("groceries"), "food");
     assert.equal(groupOf("salary"), "income");
+    assert.equal(groupLabelOf("groceries"), "Food");
+    assert.equal(groupLabelOf("salary"), "Income");
+    assert.equal(taxonomyPath("groceries"), "Food · Groceries");
+    assert.equal(taxonomyPath("salary"), "Income · Salary");
+    assert.equal(taxonomyPath("other"), "Other");
+    assert.equal(taxonomyPath("transfers"), "Transfers");
+    assert.equal(taxonomyPath("uncategorised"), "Other · Not sorted yet");
+  });
+
+  it("lists picker options under the PDF groups, with Not sorted yet only when asked", () => {
+    const groups = pickerGroups();
+    assert.equal(groups[0]?.label, "Income");
+    assert.deepEqual(
+      groups.find((group) => group.id === "food")?.categories.map((category) => category.key),
+      ["groceries", "eating-out"],
+    );
+    assert.ok(!pickerGroups().some((group) => group.categories.some((category) => category.key === "uncategorised")));
+    assert.ok(
+      pickerGroups({ includeUncategorised: true }).some((group) =>
+        group.categories.some((category) => category.key === "uncategorised"),
+      ),
+    );
+  });
+
+  it("keeps a Food chart selection in the table filter and matches a Groceries row", () => {
+    const rows = [txn({ merchant: "Woolworths", categoryKey: "groceries" })];
+    const options = ["All", ...tableFilterKeys(rows)];
+    assert.ok(options.includes("food"));
+    assert.ok(options.includes("groceries"));
+    assert.equal(tableFilterValue("food", options), "food");
+    assert.equal(matches(rows[0], "food"), true);
+    assert.equal(matches(rows[0], "groceries"), true);
+    assert.equal(matches(rows[0], "housing"), false);
   });
 
   it("adds and removes groups that do not still hold a built-in category", () => {

@@ -9,8 +9,9 @@ import { accountIdOf, accountLabel } from "@/lib/money-flow/accounts";
 import { displayName } from "@/lib/money-flow/display-name";
 import { hasSource, sourcePairs } from "@/lib/money-flow/source";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
-import { categoryLabel, categoryPath, typeLabel } from "@/lib/money-flow/taxonomy";
-import { selectableKeys } from "@/lib/money-flow/summary";
+import { chartLabel, taxonomyPath } from "@/lib/money-flow/category-book";
+import { typeLabel } from "@/lib/money-flow/taxonomy";
+import { matches, tableFilterKeys, tableFilterValue } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 type Direction = "all" | "in" | "out";
@@ -51,11 +52,11 @@ export function TransactionTable({
     null,
   );
   const tagOptions = useMemo(
-    () => ["All", ...selectableKeys(transactions), ...allTags(transactions)],
+    () => ["All", ...tableFilterKeys(transactions), ...allTags(transactions)],
     [transactions],
   );
   const selectedTag = tag ?? internalTag;
-  const activeTag = tagOptions.includes(selectedTag) ? selectedTag : "All";
+  const activeTag = tableFilterValue(selectedTag, tagOptions);
 
   function selectTag(next: string) {
     if (onTagChange) onTagChange(next);
@@ -67,16 +68,14 @@ export function TransactionTable({
     return transactions.filter((txn) => {
       const tags = tagsOf(txn);
       const matchesTag =
-        activeTag === "All" ||
-        txn.categoryKey === activeTag ||
-        tags.some((name) => name === activeTag);
+        activeTag === "All" || matches(txn, activeTag) || tags.some((name) => name === activeTag);
       const matchesDirection =
         direction === "all" || (direction === "in" ? txn.amount > 0 : txn.amount < 0);
       const matchesQuery =
         needle.length === 0 ||
         displayName(txn).toLowerCase().includes(needle) ||
         txn.merchant.toLowerCase().includes(needle) ||
-        categoryPath(txn.categoryKey).toLowerCase().includes(needle) ||
+        taxonomyPath(txn.categoryKey).toLowerCase().includes(needle) ||
         tags.some((name) => name.toLowerCase().includes(needle)) ||
         txn.sourceFile.toLowerCase().includes(needle) ||
         (accountOf.get(txn.id) ?? "").toLowerCase().includes(needle) ||
@@ -113,7 +112,7 @@ export function TransactionTable({
         >
           {tagOptions.map((name) => (
             <option key={name} value={name}>
-              {name === "All" ? "Everything" : categoryLabel(name)}
+              {name === "All" ? "Everything" : chartLabel(name)}
             </option>
           ))}
         </select>
