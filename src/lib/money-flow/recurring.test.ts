@@ -19,10 +19,10 @@ function txn(
 describe("recurring outflows", () => {
   it("groups similar money-out by merchant and amount", () => {
     const found = detectRecurringOutflows([
-      txn({ id: "1", merchant: "Netflix", amount: -18.99, dateIso: "2026-07-03", categoryKey: "leisure" }),
-      txn({ id: "2", merchant: "Netflix", amount: -18.99, dateIso: "2026-08-03", categoryKey: "leisure" }),
-      txn({ id: "3", merchant: "Woolworths", amount: -86.4, dateIso: "2026-08-04", categoryKey: "food" }),
-      txn({ id: "4", merchant: "Salary", amount: 2620, dateIso: "2026-08-18", type: "earned", categoryKey: "income" }),
+      txn({ id: "1", merchant: "Netflix", amount: -18.99, dateIso: "2026-07-03", categoryKey: "entertainment" }),
+      txn({ id: "2", merchant: "Netflix", amount: -18.99, dateIso: "2026-08-03", categoryKey: "entertainment" }),
+      txn({ id: "3", merchant: "Woolworths", amount: -86.4, dateIso: "2026-08-04", categoryKey: "groceries" }),
+      txn({ id: "4", merchant: "Salary", amount: 2620, dateIso: "2026-08-18", type: "earned", categoryKey: "salary" }),
     ]);
     assert.equal(found.length, 1);
     assert.equal(found[0].merchant, "Netflix");
@@ -35,7 +35,7 @@ describe("recurring outflows", () => {
 
   it("suggests a one-off bill-like payment", () => {
     const found = detectRecurringOutflows([
-      txn({ id: "1", merchant: "Rent Payment Smith", amount: -980, dateIso: "2026-08-15", categoryKey: "home" }),
+      txn({ id: "1", merchant: "Rent Payment Smith", amount: -980, dateIso: "2026-08-15", categoryKey: "rent-mortgage" }),
     ]);
     assert.equal(found[0].suggested, true);
     assert.equal(found[0].cadence, "monthly");
@@ -90,7 +90,7 @@ describe("recurring outflows", () => {
       nextDate: "2026-09-15",
     };
     const rows = [
-      txn({ id: "1", merchant: "Rent", amount: -980, dateIso: "2026-08-15", categoryKey: "home" }),
+      txn({ id: "1", merchant: "Rent", amount: -980, dateIso: "2026-08-15", categoryKey: "rent-mortgage" }),
     ];
     assert.equal(trackedInPeriod(item, { kind: "month", month: "2026-08" }, rows), true);
     assert.equal(trackingSnapshot(item, rows, { kind: "month", month: "2026-08" }, "2026-08-26").status, "paid");

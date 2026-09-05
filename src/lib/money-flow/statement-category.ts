@@ -12,6 +12,7 @@
  * that is exactly what a person needs told when a transfer's other leg never turned up.
  */
 
+import { categoryForBankLabel } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /** Everything a statement said about a movement, in its own words. */
@@ -26,26 +27,28 @@ function asWritten(txn: AsWritten | undefined): string {
  * decides the rest — the same label means different things on either side of the ledger.
  */
 const BANK_HINTS: Array<[RegExp, string, ("in" | "out")?]> = [
-  [/\bgrocer/i, "food.groceries"],
-  [/\bfuel|petrol/i, "transport.fuel"],
-  [/\brestaurant|takeaway|dining|eating out|coffee/i, "food.restaurants"],
-  [/\bmedical|health|pharmacy/i, "health.gp-specialist", "out"],
-  [/\bgovernment|centrelink|benefit/i, "income.government-benefit", "in"],
-  [/\bother income|salary|wage|payroll/i, "income.salary", "in"],
+  [/\bgrocer/i, "groceries.groceries"],
+  [/\bfuel|petrol/i, "car.fuel"],
+  [/\brestaurant|takeaway|dining|eating out|coffee/i, "eating-out.restaurants"],
+  [/\bmedical|health|pharmacy/i, "medical", "out"],
+  [/\bgovernment|centrelink|benefit/i, "other-income.government-benefit", "in"],
+  [/\bother income|salary|wage|payroll/i, "salary", "in"],
   [/\bshopping|retail/i, "shopping"],
-  [/\bentertainment/i, "leisure.events"],
+  [/\bentertainment/i, "entertainment"],
   [/\butility|utilities|bills/i, "utilities"],
-  [/\bsubscription/i, "leisure.streaming"],
+  [/\bsubscription/i, "entertainment.streaming"],
   [/\btravel|holiday/i, "travel"],
-  [/\bhousing|rent|mortgage/i, "home"],
-  [/\bloans?\b/i, "money.interest-charged", "out"],
-  [/\binterest/i, "income.interest", "in"],
+  [/\bhousing|rent|mortgage/i, "rent-mortgage"],
+  [/\bloans?\b/i, "bank-fees.interest-charged", "out"],
+  [/\binterest/i, "other-income.interest-earned", "in"],
 ];
 
 /** A category the bank's label suggests, or null. Never the last word on a movement. */
 export function categoryFromBankLabel(raw: string | undefined, amount: number): string | null {
   const label = raw?.trim() ?? "";
   if (!label || /^(uncategoris[ed]+|uncategoriz[ed]+|other|general)$/i.test(label)) return null;
+  const mapped = categoryForBankLabel(label);
+  if (mapped) return mapped;
   const direction = amount > 0 ? "in" : "out";
   for (const [pattern, category, when] of BANK_HINTS) {
     if (when && when !== direction) continue;

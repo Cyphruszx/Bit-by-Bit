@@ -6,14 +6,14 @@ import { categoryFromBankLabel, looksInternal, tableInterpretationNotes } from "
 
 describe("statement category mapping", () => {
   it("reads a NAB label as a hint, and answers with a real category", () => {
-    assert.equal(categoryFromBankLabel("Groceries", -12.8), "food.groceries");
-    assert.equal(categoryFromBankLabel("Fuel", -76.12), "transport.fuel");
-    assert.equal(categoryFromBankLabel("Restaurants & takeaway", -28.8), "food.restaurants");
-    assert.equal(categoryFromBankLabel("Medical", -376), "health.gp-specialist");
-    assert.equal(categoryFromBankLabel("Government payments", 41.45), "income.government-benefit");
+    assert.equal(categoryFromBankLabel("Groceries", -12.8), "groceries.groceries");
+    assert.equal(categoryFromBankLabel("Fuel", -76.12), "car.fuel");
+    assert.equal(categoryFromBankLabel("Restaurants & takeaway", -28.8), "eating-out.restaurants");
+    assert.equal(categoryFromBankLabel("Medical", -376), "medical");
+    assert.equal(categoryFromBankLabel("Government payments", 41.45), "other-income.government-benefit");
     // Interest both ways, from the one label. The old table sent the charge to Other.
-    assert.equal(categoryFromBankLabel("Interest", 0.1), "income.interest");
-    assert.equal(categoryFromBankLabel("Loans", -0.61), "money.interest-charged");
+    assert.equal(categoryFromBankLabel("Interest", 0.1), "other-income.interest-earned");
+    assert.equal(categoryFromBankLabel("Loans", -0.61), "bank-fees.interest-charged");
   });
 
   it("has no category for a label that says nothing, rather than a bucket", () => {
@@ -66,7 +66,7 @@ describe("movement interpretation", () => {
     });
     assert.equal(txn.amount, -15.4);
     assert.equal(txn.type, "spent");
-    assert.equal(txn.categoryKey, "food");
+    assert.equal(txn.categoryKey, "groceries");
     assert.equal(txn.decidedBy, "bank");
     // The bank's own words are kept beside the movement, never written over.
     assert.deepEqual(txn.bank, { category: "Groceries", type: "EFTPOS DEBIT" });
@@ -91,7 +91,7 @@ describe("movement interpretation", () => {
     // A benefit arriving is not health spending. One rule recognises Medicare and the
     // direction decides which of the two it meant, which is the whole point of splitting
     // the category from the type.
-    assert.equal(txn.categoryKey, "income");
+    assert.equal(txn.categoryKey, "other-income");
     assert.equal(txn.type, "earned");
     assert.equal(txn.amount, 662.4);
   });
@@ -106,7 +106,7 @@ describe("movement interpretation", () => {
       id: "2b",
       confidence: 0.92,
     });
-    assert.equal(txn.categoryKey, "health");
+    assert.equal(txn.categoryKey, "medical");
     assert.equal(txn.type, "spent");
   });
 
@@ -125,7 +125,7 @@ describe("movement interpretation", () => {
     assert.equal(txn.amount, 25000);
     // $25,000 from a consumer lender is not money earned and never was. Counting it
     // destroyed the month it landed in; the bank calling it a transfer did not help.
-    assert.equal(txn.categoryKey, "debt");
+    assert.equal(txn.categoryKey, "debt-payments");
     assert.equal(txn.type, "borrowed");
     assert.equal(txn.bank?.category, "Transfers in");
   });

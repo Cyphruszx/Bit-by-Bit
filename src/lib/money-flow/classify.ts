@@ -25,7 +25,7 @@
 
 import { merchantKey } from "@/lib/money-flow/redact";
 import { ruleFor, type Rules } from "@/lib/money-flow/rules";
-import { typeForCategory, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import { categoryForBankLabel, splitSuggestion, typeForCategory, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { DecidedBy, InterpretedTransaction } from "@/lib/money-flow/types";
 
 const RUNGS: DecidedBy[] = ["said", "learned", "paired", "merchant", "rules", "bank", "ai", "unreviewed"];
@@ -74,6 +74,16 @@ export function classify(
     const known = remembered.get(merchantKey(txn));
     if (known && outranks("merchant", txn.decidedBy)) {
       return placed(txn, known, "merchant");
+    }
+
+    // Only unsorted rows: a bank label the person mapped, after the merchant ladder
+    // has had its say, and never over a category that was already decided.
+    if (needsReview(txn)) {
+      const mapped = categoryForBankLabel(txn.bank?.category);
+      if (mapped) {
+        const { categoryKey } = splitSuggestion(mapped);
+        if (categoryKey !== UNCATEGORISED) return placed(txn, categoryKey, "bank");
+      }
     }
 
     return txn;

@@ -21,7 +21,7 @@ function txn(merchant: string, amount: number): InterpretedTransaction {
   return {
     id: `m${made}`,
     merchant,
-    categoryKey: "food",
+    categoryKey: "groceries",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount,

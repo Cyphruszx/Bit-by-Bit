@@ -4,6 +4,7 @@ import {
   isCategoryKey,
   splitSuggestion,
   SUGGESTIONS,
+  tagsFor,
   typeForCategory,
   UNCATEGORISED,
 } from "@/lib/money-flow/taxonomy";
@@ -22,44 +23,50 @@ type Rule = [pattern: RegExp, category: string, when?: "in" | "out"];
 const RULES: Rule[] = [
   // Delivery before transport, or `uber` claims `UBER *EATS` on its way past — which is
   // exactly what happened, and is why a year of takeaway read as travel costs.
-  [/\b(uber ?eats|menulog|doordash|deliveroo|hungry ?panda)\b/i, "food.takeaway"],
-  [/\b(woolworths|coles|aldi|iga|foodworks|harris farm|greengrocer|supermarket|wojia)\b/i, "food.groceries"],
-  [/\b(bws|dan murphy|liquorland|first choice liquor|bottle ?[o0])\b/i, "food.alcohol"],
+  [/\b(uber ?eats|menulog|doordash|deliveroo|hungry ?panda)\b/i, "eating-out.takeaway"],
+  [/\b(woolworths|coles|aldi|iga|foodworks|harris farm|greengrocer|supermarket|wojia)\b/i, "groceries.groceries"],
+  [/\b(bws|dan murphy|liquorland|first choice liquor|bottle ?[o0])\b/i, "eating-out.alcohol"],
   [
     /\b(cafe|coffee|restaurant|dining|mcdonald|kfc|hungry jack|red rooster|nando|subway|grill.?d|guzman|zambrero|sushia|soul origin|roll viet|domino|thaigga|uneke)\b/i,
-    "food.restaurants",
+    "eating-out.restaurants",
   ],
   [
     /\b(netflix|spotify|disney|stan|youtube|google play|google one|amazon prime|discord|brave|apple\.com\/bill|prime video)\b/i,
-    "leisure.streaming",
+    "entertainment.streaming",
   ],
-  [/\b(event|cinema|ticketek|ticketmaster|entertainment|townhouse|ice zoo)\b/i, "leisure.events"],
-  [/\b(opal|uber|train|bus|petrol|fuel|shell|bp|caltex|ampol|7-eleven|wagga motors|transport)\b/i, "transport"],
+  [/\b(event|cinema|ticketek|ticketmaster|entertainment|townhouse|ice zoo)\b/i, "entertainment.events"],
+  [/\b(petrol|fuel|shell|bp|caltex|ampol|7-eleven|wagga motors)\b/i, "car.fuel"],
+  [/\b(opal|uber|train|bus|transport)\b/i, "getting-around"],
   // Rent going out is housing; rent arriving is income. The same word at opposite ends.
-  [/\brent\b/i, "income.rent-received", "in"],
-  [/\b(rent|landlord|mortgage|realestate|housing|strata)\b/i, "home"],
+  [/\brent\b/i, "other-income.rent-received", "in"],
+  [/\b(rent|landlord|mortgage|realestate|housing|strata)\b/i, "rent-mortgage"],
   [
-    /\b(bunnings|kmart|target|myer|amazon|ikea|big w|the iconic|jb hi-fi|officeworks|shopify|kitchen antics)\b/i,
+    /\b(bunnings|ikea|hardware|furniture)\b/i,
+    "home-garden",
+  ],
+  [
+    /\b(kmart|target|myer|amazon|big w|the iconic|jb hi-fi|officeworks|shopify|kitchen antics)\b/i,
     "shopping",
   ],
-  [/\b(origin|agl|energy|water|internet|exetel|telstra|optus|vodafone|utility|electric)\b/i, "utilities"],
+  [/\b(exetel|telstra|optus|vodafone|internet|mobile)\b/i, "internet-phone"],
+  [/\b(origin|agl|energy|water|utility|electric)\b/i, "utilities"],
   // Medicare, both ways. A payment to a practice is health spending; money arriving from
   // Medicare is a benefit, and the old table filed $120,844.20 of it under Health.
-  [/\b(medicare|mcare benefits)\b/i, "income.rebate", "in"],
-  [/\b(medicare|chemist|pharmacy|priceline|blooms|doctor|hospital|health|glofox)\b/i, "health.gp-specialist"],
+  [/\b(medicare|mcare benefits)\b/i, "other-income.rebate", "in"],
+  [/\b(medicare|chemist|pharmacy|priceline|blooms|doctor|hospital|health|glofox)\b/i, "medical"],
   [/\b(qantas|jetstar|airbnb|hotel|booking\.com|travel|canberra airport)\b/i, "travel"],
   // Consumer lenders. A drawdown is not income and a repayment is not spending, and the
   // direction is the only thing that tells the two apart under one name.
-  [/\b(societyone|latitude fin|harmoney|plenti|wisr|now finance|moneyme|nimble loans)\b/i, "debt.drawdown", "in"],
-  [/\b(societyone|latitude fin|harmoney|plenti|wisr|now finance|moneyme|nimble loans)\b/i, "debt.loan-repayment"],
-  [/\binterest charged\b/i, "money.interest-charged", "out"],
-  [/\binterest\b/i, "income.interest", "in"],
-  [/\b(centrelink|services australia|veterans|vta benefits|dva)\b/i, "income.government-benefit", "in"],
+  [/\b(societyone|latitude fin|harmoney|plenti|wisr|now finance|moneyme|nimble loans)\b/i, "debt-payments.drawdown", "in"],
+  [/\b(societyone|latitude fin|harmoney|plenti|wisr|now finance|moneyme|nimble loans)\b/i, "debt-payments.loan-repayment"],
+  [/\binterest charged\b/i, "bank-fees.interest-charged", "out"],
+  [/\binterest\b/i, "other-income.interest-earned", "in"],
+  [/\b(centrelink|services australia|veterans|vta benefits|dva)\b/i, "other-income.government-benefit", "in"],
   // A payment to the ATO is tax; money from the ATO is a refund of it.
-  [/\b(australian taxation|ato|tax office)\b/i, "income.rebate", "in"],
-  [/\b(australian taxation|ato|tax office)\b/i, "govt.ato"],
-  [/\b(account fee|monthly fee|overdrawn|dishonour|card fee)\b/i, "money.bank-fees"],
-  [/\b(salary|wage|payroll|pay from|employer)\b/i, "income.salary", "in"],
+  [/\b(australian taxation|ato|tax office)\b/i, "other-income.rebate", "in"],
+  [/\b(australian taxation|ato|tax office)\b/i, "government-tax.ato"],
+  [/\b(account fee|monthly fee|overdrawn|dishonour|card fee)\b/i, "bank-fees"],
+  [/\b(salary|wage|payroll|pay from|employer)\b/i, "salary", "in"],
 ];
 
 /**
@@ -85,7 +92,7 @@ export const KNOWN_CATEGORIES = SUGGESTIONS;
  * A loose answer onto a real category and, where it was specific enough, a tag.
  *
  * Accepts the key, the dotted form, a display name, or a bare tag slug, because a model
- * asked for "food.groceries" will sometimes say "Groceries" and sometimes "Food & Drink"
+ * asked for "groceries" will sometimes say "Groceries" and sometimes "Food & Drink"
  * and both are usable.
  */
 export function snapCategory(raw: string): { categoryKey: string; tag?: string } | null {
@@ -102,7 +109,13 @@ export function snapCategory(raw: string): { categoryKey: string; tag?: string }
   const byLabel = CATEGORY_KEYS.find((key) => categoryLabel(key).toLowerCase() === written.toLowerCase());
   if (byLabel) return { categoryKey: byLabel };
 
-  // A bare tag, where a model answered "groceries" rather than "food.groceries".
+  const needle = written.toLowerCase();
+  for (const key of CATEGORY_KEYS) {
+    const tag = tagsFor(key).find((name) => name.toLowerCase() === needle);
+    if (tag) return { categoryKey: key, tag };
+  }
+
+  // A bare tag slug, where a model answered "restaurants" rather than "eating-out.restaurants".
   const bare = SUGGESTIONS.find((key) => key.endsWith(`.${tidy}`));
   return bare ? splitSuggestion(bare) : null;
 }

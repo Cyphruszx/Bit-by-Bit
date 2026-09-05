@@ -7,6 +7,7 @@ const links = [
   ["Upload", "/upload"],
   ["Dashboard", "/dashboard"],
   ["Transactions", "/transactions"],
+  ["Categories", "/categories"],
   ["Recurring", "/recurring"],
   ["Savings", "/savings"],
   ["Accounts", "/accounts"],

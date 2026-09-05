@@ -3,7 +3,8 @@ import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow
 import { uniqueTransactions } from "@/lib/money-flow/summary";
 import { upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
 import { forget, learn, type LearnedRule, type Rules } from "@/lib/money-flow/rules";
-import { isCategoryKey } from "@/lib/money-flow/taxonomy";
+import { parseCategoryBook, type CategoryBook } from "@/lib/money-flow/category-book";
+import { isCategoryKey, migrateStoredCategory } from "@/lib/money-flow/taxonomy";
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -68,6 +69,11 @@ export type Ledger = {
    * to the next statement rather than only to the rows that were on screen at the time.
    */
   rules?: Rules;
+  /**
+   * The category list a person has edited: groups, names, and the bank labels that hint
+   * at each one. Absent while they are still using the usual fourteen.
+   */
+  taxonomy?: CategoryBook;
 };
 
 export type ImportReport = {
@@ -313,6 +319,16 @@ export function forgetCorrection(ledger: Ledger, key: string): Ledger {
   return { ...ledger, rules: forget(ledger.rules ?? {}, key) };
 }
 
+/** Records the category list a person has edited, or forgets it so the usual fourteen return. */
+export function recordTaxonomy(ledger: Ledger, book: CategoryBook | null): Ledger {
+  if (!book) {
+    const next = { ...ledger };
+    delete next.taxonomy;
+    return next;
+  }
+  return { ...ledger, taxonomy: book };
+}
+
 /**
  * Records that two wordings are one payer. An empty target takes the merge back, and the
  * wordings go back to being read as they were written.
@@ -366,7 +382,19 @@ export function mergeLedgers(mine: Ledger, theirs: Ledger): Ledger {
     ...named({ ...theirs.accounts, ...mine.accounts }, "accounts"),
     ...named({ ...theirs.payers, ...mine.payers }, "payers"),
     ...mergedVerdicts(mine.verdicts, theirs.verdicts),
+    ...mergedRules(mine.rules, theirs.rules),
+    ...pickedTaxonomy(mine.taxonomy, theirs.taxonomy),
   };
+}
+
+function mergedRules(mine: Rules | undefined, theirs: Rules | undefined) {
+  const held = { ...theirs, ...mine };
+  return Object.keys(held).length > 0 ? { rules: held } : {};
+}
+
+function pickedTaxonomy(mine: CategoryBook | undefined, theirs: CategoryBook | undefined) {
+  const held = mine ?? theirs;
+  return held ? { taxonomy: held } : {};
 }
 
 /** Only carried when there is something to carry, so an empty ledger stays empty. */
@@ -465,6 +493,8 @@ export function parseLedger(value: unknown): Ledger | null {
     (entry): entry is LedgerEntry =>
       Boolean(entry) && typeof entry.fingerprint === "string" && Array.isArray(entry.importIds) && typeof entry.amount === "number",
   );
+  const taxonomy = parseCategoryBook(raw.taxonomy);
+  const extraKeys = taxonomy?.categories.map((category) => category.key) ?? [];
   return {
     version: LEDGER_VERSION,
     entries: sortEntries(entries),
@@ -473,7 +503,8 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(raw.accounts && typeof raw.accounts === "object" ? { accounts: namesOnly(raw.accounts) } : {}),
     ...(raw.verdicts && typeof raw.verdicts === "object" ? { verdicts: verdictsOnly(raw.verdicts) } : {}),
     ...(raw.payers && typeof raw.payers === "object" ? { payers: stringsOnly(raw.payers) } : {}),
-    ...(raw.rules && typeof raw.rules === "object" ? { rules: rulesOnly(raw.rules) } : {}),
+    ...(raw.rules && typeof raw.rules === "object" ? { rules: rulesOnly(raw.rules, extraKeys) } : {}),
+    ...(taxonomy ? { taxonomy } : {}),
   };
 }
 
@@ -548,14 +579,21 @@ function verdictsOnly(raw: Record<string, unknown>): Verdicts {
  * never be applied, and leaving it in the learned list would show a person a sentence
  * about their money that is not true.
  */
-function rulesOnly(raw: Record<string, unknown>): Rules {
+function rulesOnly(raw: Record<string, unknown>, extraKeys: string[] = []): Rules {
   const held: Rules = {};
+  const extras = new Set(extraKeys);
   for (const [key, value] of Object.entries(raw)) {
     if (!value || typeof value !== "object") continue;
     const stored = value as Partial<LearnedRule>;
-    if (typeof stored.categoryKey !== "string" || !isCategoryKey(stored.categoryKey)) continue;
+    if (typeof stored.categoryKey !== "string") continue;
+    const categoryKey = extras.has(stored.categoryKey)
+      ? stored.categoryKey
+      : migrateStoredCategory(stored.categoryKey).categoryKey;
+    if (!(isCategoryKey(categoryKey) || extras.has(categoryKey))) {
+      continue;
+    }
     held[key] = {
-      categoryKey: stored.categoryKey,
+      categoryKey,
       at: typeof stored.at === "string" ? stored.at : "",
       ...(typeof stored.from === "string" ? { from: stored.from } : {}),
     };

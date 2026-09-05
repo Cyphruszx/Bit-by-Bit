@@ -58,7 +58,7 @@ describe("AI JSON helpers", () => {
     assert.equal(result.transactions.length, 1);
     assert.equal(result.transactions[0].merchant, "Woolworths Bondi");
     assert.equal(result.transactions[0].amount, -86.4);
-    assert.equal(result.transactions[0].categoryKey, "food");
+    assert.equal(result.transactions[0].categoryKey, "groceries");
     assert.equal(result.transactions[0].decidedBy, "ai");
     assert.equal(result.transactions[0].extractedBy, "ai");
     assert.equal(result.transactions[0].dateIso, "2026-08-25");
@@ -80,9 +80,9 @@ describe("AI JSON helpers", () => {
 
   it("snaps a loose label onto a real category, and refuses to invent one", () => {
     // The detail a model gives comes back as a tag, not as a deeper category.
-    assert.deepEqual(snapCategory("groceries"), { categoryKey: "food", tag: "Groceries" });
-    assert.deepEqual(snapCategory("food.groceries"), { categoryKey: "food", tag: "Groceries" });
-    assert.deepEqual(snapCategory("Food & Drink"), { categoryKey: "food" });
+    assert.deepEqual(snapCategory("groceries"), { categoryKey: "groceries" });
+    assert.deepEqual(snapCategory("food.groceries"), { categoryKey: "groceries", tag: "Groceries" });
+    assert.deepEqual(snapCategory("Food & Drink"), { categoryKey: "eating-out", tag: "Food & Drink" });
     // Nothing recognisable is null, not a bucket: the movement stays in the review queue
     // rather than picking up a category a model invented.
     assert.equal(snapCategory("???"), null);
@@ -92,7 +92,7 @@ describe("AI JSON helpers", () => {
 describe("initial AI tagging", () => {
   it("only retags movements nothing else could settle", () => {
     const { transactions, taggedCount } = applyTagSuggestions(
-      [txn(), txn({ id: "2", merchant: "Woolworths", categoryKey: "food", tags: ["Groceries"] })],
+      [txn(), txn({ id: "2", merchant: "Woolworths", categoryKey: "groceries", tags: ["Groceries"] })],
       [
         { id: "1", category: "shopping", confidence: 0.8 },
         { id: "2", category: "food.restaurants", confidence: 0.9 },
@@ -101,7 +101,7 @@ describe("initial AI tagging", () => {
     assert.equal(taggedCount, 1);
     assert.equal(transactions[0].categoryKey, "shopping");
     assert.equal(transactions[0].decidedBy, "ai");
-    assert.equal(transactions[1].categoryKey, "food");
+    assert.equal(transactions[1].categoryKey, "groceries");
     assert.equal(needsInitialTag(transactions[1]), false);
   });
 
@@ -199,7 +199,7 @@ describe("image interpretation with AI", () => {
       return "";
     });
     assert.equal(ocrCalled, false);
-    assert.equal(parsed.transactions[0].categoryKey, "food");
+    assert.equal(parsed.transactions[0].categoryKey, "eating-out");
     assert.ok(parsed.notes.some((note) => /AI vision/i.test(note)));
   });
 
@@ -277,7 +277,7 @@ describe("image interpretation with AI", () => {
       { ai },
     );
     assert.equal(suggested, false);
-    assert.equal(result.transactions[0].categoryKey, "food");
+    assert.equal(result.transactions[0].categoryKey, "groceries");
   });
 
   it("asks AI to tag unknown merchants from a bank file", async () => {
