@@ -97,6 +97,17 @@ export function TransactionsView() {
           compact
         />
       </section>
+      <article className="mt-4 overflow-hidden rounded-2xl border border-[#dce4df] bg-white p-4">
+        <h2 className="text-base font-bold">Transactions</h2>
+        <p className="mt-0.5 text-xs text-[#60716a]">
+          Every movement in this period — one row each, so the same shop appears as many times as you
+          paid it. Show statement to put the bank&apos;s own cells beside BitbyBit&apos;s reading. The
+          bank&apos;s words are evidence, not the answer.
+        </p>
+        <div className="mt-3">
+          <TransactionTable transactions={scoped} tag={selectedTag} onTagChange={setSelectedTag} />
+        </div>
+      </article>
       <ReviewQueue transactions={scoped} />
       <UnsettledMoney transactions={scoped} />
       <SettledMoney transactions={scoped} />
@@ -110,17 +121,6 @@ export function TransactionsView() {
           compact
         />
       </div>
-      <article className="mt-4 overflow-hidden rounded-2xl border border-[#dce4df] bg-white p-4">
-        <h2 className="text-base font-bold">Transactions</h2>
-        <p className="mt-0.5 text-xs text-[#60716a]">
-          Every movement in this period — one row each, so the same shop appears as many times as you
-          paid it. Show statement to put the bank&apos;s own cells beside BitbyBit&apos;s reading. The
-          bank&apos;s words are evidence, not the answer.
-        </p>
-        <div className="mt-3">
-          <TransactionTable transactions={scoped} tag={selectedTag} onTagChange={setSelectedTag} />
-        </div>
-      </article>
       <LearnedList />
       <TagManager
         transactions={allTransactions}
