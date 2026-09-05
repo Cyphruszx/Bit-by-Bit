@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { IncomeRhythm } from "@/components/income-rhythm";
 import { PayerSuggestions } from "@/components/payer-suggestions";
-import { demoAccounts, useMoneyFlow } from "@/components/money-flow-provider";
+import { EmptyLedger } from "@/components/empty-ledger";
+import { useMoneyFlow } from "@/components/money-flow-provider";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
 import { mergeSuggestions } from "@/lib/money-flow/account-identity";
@@ -48,29 +49,38 @@ export function AccountsView() {
 
   const accountFor = (key: string) => accounts.find((account) => account.keys.includes(key));
 
+  if (!hasUploads) {
+    return (
+      <>
+        <h1 className="text-3xl font-bold tracking-tight">Accounts and sources</h1>
+        <EmptyLedger>
+          Every account BitbyBit reads will appear here under the bank it belongs to, ready to be
+          named or merged when one account arrives written two different ways.
+        </EmptyLedger>
+      </>
+    );
+  }
+
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">
-        {hasUploads ? flow.periodLabel : "Upload to interpret"}
-      </p>
+      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Accounts and sources</h1>
       <p className="mt-2 text-[#60716a]">
-        {hasUploads
-          ? "Every account BitbyBit has read, under the bank it belongs to. Name one to recognise it next time, or merge two that turned out to be the same account."
-          : "Placeholder balances until you upload statements. Use the period filter on Dashboard and Transactions to slice sample activity."}
+        Every account BitbyBit has read, under the bank it belongs to. Name one to recognise it next
+        time, or merge two that turned out to be the same account.
       </p>
 
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <SummaryCard
-          label={hasUploads ? "Interpreted net flow" : "Net across accounts"}
-          value={formatAud(hasUploads ? flow.cashNet : demoAccounts.reduce((sum, a) => sum + a.balance, 0))}
-          detail={hasUploads ? flow.periodLabel : "Everyday, savings, and card"}
+          label="Interpreted net flow"
+          value={formatAud(flow.cashNet)}
+          detail={flow.periodLabel}
           positive
         />
         <SummaryCard
           label="Accounts in view"
-          value={String(hasUploads ? accounts.length : demoAccounts.length)}
-          detail={hasUploads ? `Across ${groups.length} institution${groups.length === 1 ? "" : "s"}` : "Demo institutions only"}
+          value={String(accounts.length)}
+          detail={`Across ${groups.length} institution${groups.length === 1 ? "" : "s"}`}
         />
         <SummaryCard
           label="Documents interpreted"
@@ -108,43 +118,30 @@ export function AccountsView() {
         </section>
       ) : null}
 
-      {hasUploads ? (
-        <section className="mt-8 space-y-8">
-          {groups.map((group) => (
-            <div key={group.institution}>
-              <div className="flex items-baseline justify-between border-b border-[#dce4df] pb-2">
-                <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{group.institution}</h2>
-                <p className="text-sm text-[#77857f]">
-                  {group.accounts.length} account{group.accounts.length === 1 ? "" : "s"}
-                </p>
-              </div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {group.accounts.map((account) => (
-                  <AccountCard
-                    key={account.id}
-                    account={account}
-                    name={nameOf(account)}
-                    siblings={group.accounts.filter((other) => other.id !== account.id)}
-                    onRename={(name) => rename(account, name)}
-                    onMerge={(into) => merge(account, into)}
-                  />
-                ))}
-              </div>
+      <section className="mt-8 space-y-8">
+        {groups.map((group) => (
+          <div key={group.institution}>
+            <div className="flex items-baseline justify-between border-b border-[#dce4df] pb-2">
+              <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{group.institution}</h2>
+              <p className="text-sm text-[#77857f]">
+                {group.accounts.length} account{group.accounts.length === 1 ? "" : "s"}
+              </p>
             </div>
-          ))}
-        </section>
-      ) : (
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
-          {demoAccounts.map((account) => (
-            <article key={account.id} className="rounded-2xl border border-[#dce4df] bg-white p-6">
-              <p className="text-sm text-[#60716a]">{account.institution}</p>
-              <h2 className="mt-1 text-lg font-bold">{account.name}</h2>
-              <p className="mt-4 text-2xl font-bold">{formatAud(account.balance)}</p>
-              <p className="mt-1 text-sm text-[#77857f]">{account.accountType}</p>
-            </article>
-          ))}
-        </section>
-      )}
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {group.accounts.map((account) => (
+                <AccountCard
+                  key={account.id}
+                  account={account}
+                  name={nameOf(account)}
+                  siblings={group.accounts.filter((other) => other.id !== account.id)}
+                  onRename={(name) => rename(account, name)}
+                  onMerge={(into) => merge(account, into)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
 
       {files.length > 0 ? (
         <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">

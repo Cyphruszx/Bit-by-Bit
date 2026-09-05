@@ -65,7 +65,7 @@ export default function Home() {
         ))}
       </section>
       <footer className="border-t border-[#dce4df] px-6 py-8 text-center text-sm text-[#60716a]">
-        {siteName} · Upload a document to replace the demo snapshot
+        {siteName} · Your statements stay in this browser
       </footer>
     </main>
   );

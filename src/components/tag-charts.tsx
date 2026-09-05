@@ -8,7 +8,6 @@ import {
   tagFlowOverTime,
   NO_SUB_TAG,
   type FlowOverTimePoint,
-  type TagFlowRow,
 } from "@/lib/money-flow/summary";
 import {
   barAxisTicks,
@@ -25,7 +24,6 @@ import { allPrimaryTags, allSubTags } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export function TagChartCard({
-  categories,
   transactions = [],
   selectedTag,
   onSelectTag,
@@ -33,7 +31,6 @@ export function TagChartCard({
   onChartChange,
   compact = false,
 }: {
-  categories?: CategorySpend[];
   transactions?: InterpretedTransaction[];
   selectedTag: string;
   onSelectTag: (tag: string) => void;
@@ -42,8 +39,8 @@ export function TagChartCard({
   compact?: boolean;
 }) {
   const series = useMemo(
-    () => (transactions.length > 0 ? chartTagFlowSeries(transactions, selectedTag) : fallbackSeries(categories)),
-    [categories, selectedTag, transactions],
+    () => chartTagFlowSeries(transactions, selectedTag),
+    [selectedTag, transactions],
   );
   const spend = useMemo(() => orderByFlow(topChartCategories(series.rows)), [series.rows]);
   const slices = useMemo(() => pieSlices(spend), [spend]);
@@ -163,18 +160,6 @@ export function TagChartCard({
       ) : null}
     </article>
   );
-}
-
-/** Demo/summary data only carries spending totals, so treat every category as money out. */
-function fallbackSeries(categories: CategorySpend[] = []) {
-  const spending = categories.reduce((sum, item) => sum + item.amount, 0);
-  const rows: TagFlowRow[] = categories.map((item) => ({
-    ...item,
-    amount: -item.amount,
-    income: 0,
-    spending: item.amount,
-  }));
-  return { rows, level: "primary" as const, income: 0, spending, net: -spending, parent: null };
 }
 
 function ChipRow({ label, children, compact = false }: { label: string; children: ReactNode; compact?: boolean }) {

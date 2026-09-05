@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
-import { accounts as demoAccounts, budgets as demoBudgets, goals as demoGoals, transactions as demoTransactions } from "@/lib/demo-data";
 import {
   appendToLedger,
   EMPTY_LEDGER,
@@ -22,9 +21,8 @@ import {
 } from "@/lib/money-flow/ledger";
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
-import { parseDate } from "@/lib/money-flow/parse-values";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
-import { removeTag, renameTag, tagMerchant, tagsOf, withTags } from "@/lib/money-flow/tags";
+import { removeTag, renameTag, tagMerchant, withTags } from "@/lib/money-flow/tags";
 import { markRefundLegs } from "@/lib/money-flow/refunds";
 import {
   applyVerdicts,
@@ -40,16 +38,13 @@ import type { FileInterpretation, InterpretationResult, InterpretedTransaction, 
 import { resolveLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
 
 const PERIOD_KEY = "bitbybit.period-v1";
-const DEMO_TAGS_KEY = "bitbybit.demo-tags-v1";
 
 type Snapshot = {
   ledger: Ledger;
-  /** Tag edits made against the sample activity, which never enters the ledger. */
-  demoTags: Record<string, string[]>;
   ready: boolean;
 };
 
-const EMPTY_SNAPSHOT: Snapshot = { ledger: EMPTY_LEDGER, demoTags: {}, ready: false };
+const EMPTY_SNAPSHOT: Snapshot = { ledger: EMPTY_LEDGER, ready: false };
 
 const listeners = new Set<() => void>();
 const periodListeners = new Set<() => void>();
@@ -68,8 +63,7 @@ type MoneyFlowState = {
   period: PeriodFilter;
   setPeriod: (period: PeriodFilter) => void;
   hasUploads: boolean;
-  usingDemo: boolean;
-  /** False until the stored ledger has been read, so the UI can wait instead of flashing samples. */
+  /** False until the stored ledger has been read, so the UI can wait instead of flashing an empty one. */
   ready: boolean;
   importDocuments: (result: InterpretationResult, hashes?: Record<string, string>) => ImportReport;
   removeStatement: (key: string) => void;
@@ -133,10 +127,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     // What the person said last: a verdict settles what the statements could not, so it is
     // applied over the reader's own pairing rather than under it.
     const allTransactions = applyVerdicts(
-      markRefundLegs(
-        markTransferLegs(stored.length > 0 ? stored : demoRows(held.demoTags), matching),
-        matching,
-      ),
+      markRefundLegs(markTransferLegs(stored, matching), matching),
       held.ledger.verdicts ?? {},
       registry,
     );
@@ -157,7 +148,6 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       payers: held.ledger.payers ?? {},
       mergePayers,
       hasUploads: held.ledger.imports.length > 0,
-      usingDemo: stored.length === 0,
       ready: held.ready,
       importDocuments,
       removeStatement,
@@ -177,8 +167,6 @@ export function useMoneyFlow() {
   if (!value) throw new Error("useMoneyFlow must be used within MoneyFlowProvider");
   return value;
 }
-
-export { demoAccounts, demoBudgets, demoGoals };
 
 function subscribe(onChange: () => void) {
   listeners.add(onChange);
@@ -223,12 +211,11 @@ function hydrate(): Promise<void> {
       // when the two are the same ledger costs nothing and changes nothing.
       update({
         ledger: mergeLedgers(snapshot.ledger, stored),
-        demoTags: readDemoTags(),
         ready: true,
       });
     })
     .catch(() => {
-      if (mine === reading) update({ demoTags: readDemoTags(), ready: true });
+      if (mine === reading) update({ ready: true });
     });
   return loading;
 }
@@ -351,60 +338,9 @@ function removeTagEverywhere(name: string) {
   edit((rows) => removeTag(rows, name));
 }
 
-/** Tag edits land on the ledger once statements are held, and on the samples until then. */
+/** A tag edit only ever lands on a statement the person actually uploaded. */
 function edit(change: (rows: InterpretedTransaction[]) => InterpretedTransaction[]) {
   const stored = ledgerTransactions(snapshot.ledger);
-  if (stored.length > 0) {
-    commit(replaceTransactions(snapshot.ledger, change(stored)));
-    return;
-  }
-  const next = change(demoRows(snapshot.demoTags));
-  writeDemoTags(Object.fromEntries(next.map((txn) => [txn.id, tagsOf(txn)])));
-}
-
-function demoRows(overrides: Record<string, string[]>): InterpretedTransaction[] {
-  return demoTransactions.map((txn) => {
-    const row = toInterpreted(txn);
-    const tags = overrides[txn.id];
-    return tags ? { ...row, tags: [...tags] } : row;
-  });
-}
-
-function readDemoTags(): Record<string, string[]> {
-  try {
-    const raw = localStorage.getItem(DEMO_TAGS_KEY);
-    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-    return Object.fromEntries(
-      Object.entries(parsed)
-        .filter(([, tags]) => Array.isArray(tags) && tags.every((tag) => typeof tag === "string"))
-        .map(([id, tags]) => [id, tags as string[]]),
-    );
-  } catch {
-    return {};
-  }
-}
-
-function writeDemoTags(next: Record<string, string[]>) {
-  try {
-    localStorage.setItem(DEMO_TAGS_KEY, JSON.stringify(next));
-  } catch {
-    // Losing a sample tag edit is not worth interrupting the page for.
-  }
-  update({ demoTags: next });
-}
-
-function toInterpreted(txn: (typeof demoTransactions)[number]): InterpretedTransaction {
-  return {
-    id: txn.id,
-    merchant: txn.merchant,
-    category: txn.category,
-    tags: [...txn.tags],
-    date: txn.date,
-    dateIso: parseDate(`${txn.date} 2026`) ?? "2026-08-01",
-    amount: txn.amount,
-    type: txn.amount > 0 ? "income" : txn.category === "Goals" ? "transfer" : "expense",
-    sourceFile: "demo",
-    institution: demoAccounts[0].institution,
-    confidence: 1,
-  };
+  if (stored.length === 0) return;
+  commit(replaceTransactions(snapshot.ledger, change(stored)));
 }

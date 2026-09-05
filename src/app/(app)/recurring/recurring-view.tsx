@@ -22,7 +22,7 @@ import {
 } from "@/lib/money-flow/recurring";
 
 export function RecurringView() {
-  const { allTransactions, flow, period, usingDemo } = useMoneyFlow();
+  const { allTransactions, flow, hasUploads, period } = useMoneyFlow();
   const { ignored, confirmed, custom, confirmPayment, ignorePayment, stopTracking, addCustomPayment, updatePayment, markPaid } =
     useRecurringStore();
   const detected = useMemo(() => detectRecurringOutflows(allTransactions), [allTransactions]);
@@ -47,9 +47,9 @@ export function RecurringView() {
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Recurring payments</h1>
       <p className="mt-2 max-w-2xl text-[#60716a]">
-        {usingDemo
-          ? "Track a repeating payment to see whether it was paid in this period. Mark it paid to roll the next date forward."
-          : "Track repeating money out from your documents. BitbyBit matches them against activity in this period."}
+        {hasUploads
+          ? "Track repeating money out from your documents. BitbyBit matches them against activity in this period."
+          : "Add a repeating payment to track it. Upload a statement and BitbyBit will also suggest them from your own activity."}
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <SummaryCard
