@@ -93,7 +93,7 @@ describe("saying where money in came from", () => {
 
   it("does not ask about a refund the rules already filed as income", () => {
     const rows = [
-      credit(662.4, "Refund", { categoryKey: "income", decidedBy: "rules", merchant: "Medicare" }),
+      credit(662.4, "Refund", { categoryKey: "other-income", decidedBy: "rules", merchant: "Medicare" }),
       credit(1200, "Refund"),
     ];
     const sources = incomeSources(rows);

@@ -15,12 +15,9 @@
  * way in and which on the way out, so "Medicare" as a payment is health spending and
  * "Medicare" as a receipt is income, from one rule.
  *
- * There are fourteen categories and they are flat. An earlier draft had a second level —
- * `food.groceries` under `food` — and it bought nothing: every figure in the app was
- * already summed at the top level, so the depth existed only to be collapsed again. The
- * detail is worth keeping, so those seventy-four names are the tag vocabulary instead,
- * offered against the category they belong to. One movement, one category, any number of
- * tags.
+ * Categories are the middle of three levels: a group is a folder for charts, a category
+ * is what a movement is filed under, and a bank label is mapping and find-by metadata.
+ * One movement, one category, any number of tags — tags never move a figure.
  */
 
 /** Whether a movement changed what the household owns, and in which direction. */
@@ -135,8 +132,7 @@ type Category = {
 };
 
 /**
- * Fourteen categories a person can hold in their head, each with a handful of tags to
- * reach for.
+ * The Redbark PDF categories, each with the bank names it offers as tags.
  *
  * Every category takes `earned` on the way in, which looks wrong until you try the
  * alternative. Typing a credit `returned` because it landed in a spending category means a
@@ -146,21 +142,55 @@ type Category = {
  * found the other leg or the payment being reversed, or by the person saying so. A credit
  * sitting under Groceries is a rule getting it wrong, and it still counts until somebody
  * fixes the category.
+ *
+ * Investing is kept even though the PDF has no Investing group: Super and brokerage
+ * outflows have to stay `invested`, not spending. Transfers is listed so the Categories
+ * tab can hold the bank labels; unmatched transfer rows are still not filed from those
+ * words alone.
  */
 const CATEGORIES: Category[] = [
   {
-    key: "home",
-    label: "Home",
+    key: "salary",
+    label: "Salary",
+    inType: "earned",
+    outType: "adjusted",
+    tags: [["salary", "Salary"]],
+  },
+  {
+    key: "other-income",
+    label: "Other Income",
+    inType: "earned",
+    outType: "adjusted",
+    tags: [
+      ["income", "Income"],
+      ["business-income", "Business Income"],
+      ["business", "Business"],
+      ["tax-refund", "Tax Refund"],
+      ["rebate", "Rebate"],
+      ["government-benefits", "Government Benefits"],
+      ["government-benefit", "Government Benefit"],
+      ["investment-income", "Investment Income"],
+      ["dividends", "Dividends"],
+      ["interest-earned", "Interest Earned"],
+      ["rental-income", "Rental Income"],
+      ["rent-received", "Rent Received"],
+      ["child-support", "Child Support"],
+      ["other-income", "Other Income"],
+    ],
+  },
+  {
+    key: "rent-mortgage",
+    label: "Rent & Mortgage",
     inType: "earned",
     outType: "spent",
     tags: [
       ["rent", "Rent"],
+      ["mortgage-payment", "Mortgage Payment"],
       ["mortgage-interest", "Mortgage Interest"],
       ["strata", "Strata"],
       ["council-rates", "Council Rates"],
       ["maintenance", "Maintenance"],
-      ["insurance", "Home Insurance"],
-      ["furniture", "Furniture"],
+      ["home-insurance", "Home Insurance"],
     ],
   },
   {
@@ -169,53 +199,113 @@ const CATEGORIES: Category[] = [
     inType: "earned",
     outType: "spent",
     tags: [
+      ["gas-electricity", "Gas & Electricity"],
       ["electricity", "Electricity"],
       ["gas", "Gas"],
       ["water", "Water"],
+      ["sewage-waste", "Sewage & Waste"],
+      ["other-utilities", "Other Utilities"],
+    ],
+  },
+  {
+    key: "internet-phone",
+    label: "Internet & Phone",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["internet-cable", "Internet & Cable"],
       ["internet", "Internet"],
+      ["telephone", "Telephone"],
       ["mobile", "Mobile"],
     ],
   },
   {
-    key: "food",
-    label: "Food & Drink",
+    key: "home-garden",
+    label: "Home & Garden",
     inType: "earned",
     outType: "spent",
     tags: [
-      ["groceries", "Groceries"],
+      ["home-improvement", "Home Improvement"],
+      ["furniture", "Furniture"],
+      ["hardware", "Hardware"],
+    ],
+  },
+  {
+    key: "groceries",
+    label: "Groceries",
+    inType: "earned",
+    outType: "spent",
+    tags: [["groceries", "Groceries"]],
+  },
+  {
+    key: "eating-out",
+    label: "Eating Out",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["food-drink", "Food & Drink"],
+      ["beer-wine-liquor", "Beer, Wine & Liquor"],
+      ["alcohol", "Alcohol"],
+      ["fast-food", "Fast Food"],
+      ["restaurant", "Restaurant"],
       ["restaurants", "Restaurants"],
       ["takeaway", "Takeaway"],
       ["coffee", "Coffee"],
-      ["alcohol", "Alcohol"],
+      ["other-food-drink", "Other Food & Drink"],
     ],
   },
   {
-    key: "transport",
-    label: "Transport",
+    key: "getting-around",
+    label: "Getting Around",
     inType: "earned",
     outType: "spent",
     tags: [
-      ["fuel", "Fuel"],
+      ["transportation", "Transportation"],
+      ["bikes-scooters", "Bikes & Scooters"],
+      ["public-transit", "Public Transit"],
       ["public-transport", "Public Transport"],
+      ["taxis-ride-shares", "Taxis & Ride Shares"],
       ["rideshare", "Rideshare"],
+      ["parking", "Parking"],
       ["parking-tolls", "Parking & Tolls"],
-      ["rego-ctp", "Rego & CTP"],
-      ["servicing", "Servicing"],
-      ["insurance", "Car Insurance"],
+      ["tolls", "Tolls"],
+      ["ev-charging", "EV Charging"],
+      ["other-transportation", "Other Transportation"],
     ],
   },
   {
-    key: "health",
-    label: "Health",
+    key: "car",
+    label: "Car",
     inType: "earned",
     outType: "spent",
     tags: [
-      ["gp-specialist", "GP & Specialists"],
-      ["pharmacy", "Pharmacy"],
-      ["dental", "Dental"],
-      ["optical", "Optical"],
-      ["private-cover", "Private Health Cover"],
-      ["fitness", "Fitness"],
+      ["car-payment", "Car Payment"],
+      ["automotive", "Automotive"],
+      ["fuel", "Fuel"],
+      ["service", "Service"],
+      ["servicing", "Servicing"],
+      ["rego-ctp", "Rego & CTP"],
+      ["car-insurance", "Car Insurance"],
+    ],
+  },
+  {
+    key: "entertainment",
+    label: "Entertainment",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["entertainment", "Entertainment"],
+      ["casinos-gambling", "Casinos & Gambling"],
+      ["music-audio", "Music & Audio"],
+      ["events-amusement", "Events & Amusement"],
+      ["events", "Events"],
+      ["tv-movies", "TV & Movies"],
+      ["streaming", "Streaming"],
+      ["video-games", "Video Games"],
+      ["gaming", "Gaming"],
+      ["software", "Software"],
+      ["sport", "Sport"],
+      ["other-entertainment", "Other Entertainment"],
     ],
   },
   {
@@ -224,7 +314,17 @@ const CATEGORIES: Category[] = [
     inType: "earned",
     outType: "spent",
     tags: [
+      ["merchandise", "Merchandise"],
+      ["books-news", "Books & News"],
+      ["clothing-accessories", "Clothing & Accessories"],
       ["clothing", "Clothing"],
+      ["convenience-stores", "Convenience Stores"],
+      ["department-stores", "Department Stores"],
+      ["office-supplies", "Office Supplies"],
+      ["online-marketplaces", "Online Marketplaces"],
+      ["sporting-goods", "Sporting Goods"],
+      ["tobacco-vape", "Tobacco & Vape"],
+      ["other-merchandise", "Other Merchandise"],
       ["homewares", "Homewares"],
       ["electronics", "Electronics"],
       ["hobbies", "Hobbies"],
@@ -232,16 +332,17 @@ const CATEGORIES: Category[] = [
     ],
   },
   {
-    key: "leisure",
-    label: "Leisure",
+    key: "personal-care",
+    label: "Personal Care",
     inType: "earned",
     outType: "spent",
     tags: [
-      ["streaming", "Streaming"],
-      ["software", "Software"],
-      ["events", "Events"],
-      ["gaming", "Gaming"],
-      ["sport", "Sport"],
+      ["personal-care", "Personal Care"],
+      ["gyms-fitness", "Gyms & Fitness"],
+      ["fitness", "Fitness"],
+      ["hair-beauty", "Hair & Beauty"],
+      ["laundry-dry-cleaning", "Laundry & Dry Cleaning"],
+      ["other-personal-care", "Other Personal Care"],
     ],
   },
   {
@@ -250,77 +351,95 @@ const CATEGORIES: Category[] = [
     inType: "earned",
     outType: "spent",
     tags: [
+      ["travel", "Travel"],
       ["flights", "Flights"],
+      ["rental-cars", "Rental Cars"],
+      ["hotels", "Hotels"],
       ["accommodation", "Accommodation"],
       ["transport-abroad", "Transport Abroad"],
-      ["insurance", "Travel Insurance"],
+      ["travel-insurance", "Travel Insurance"],
+      ["other-travel", "Other Travel"],
     ],
   },
   {
-    key: "people",
-    label: "Family & Personal",
+    key: "medical",
+    label: "Medical",
     inType: "earned",
     outType: "spent",
     tags: [
-      ["childcare", "Childcare"],
-      ["education", "Education"],
-      ["pets", "Pets"],
-      ["personal-care", "Personal Care"],
-      ["donations", "Donations"],
+      ["medical", "Medical"],
+      ["aged-care", "Aged Care"],
+      ["pharmacies-supplements", "Pharmacies & Supplements"],
+      ["pharmacy", "Pharmacy"],
+      ["primary-care", "Primary Care"],
+      ["gp-specialist", "GP & Specialists"],
+      ["dental", "Dental"],
+      ["optical", "Optical"],
+      ["private-cover", "Private Health Cover"],
+      ["other-medical", "Other Medical"],
     ],
   },
   {
-    key: "money",
-    label: "Fees & Interest",
+    key: "pets",
+    label: "Pets",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["pets", "Pets"],
+      ["pet-supplies", "Pet Supplies"],
+      ["veterinary-services", "Veterinary Services"],
+    ],
+  },
+  {
+    key: "insurance",
+    label: "Insurance",
+    inType: "earned",
+    outType: "spent",
+    tags: [["insurance", "Insurance"]],
+  },
+  {
+    key: "education-childcare",
+    label: "Education & Childcare",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["education", "Education"],
+      ["childcare", "Childcare"],
+      ["child-care", "Child Care"],
+    ],
+  },
+  {
+    key: "debt-payments",
+    label: "Debt Payments",
+    inType: "borrowed",
+    outType: "repaid",
+    tags: [
+      ["loan-payments", "Loan Payments"],
+      ["credit-card-payment", "Credit Card Payment"],
+      ["personal-loan-payment", "Personal Loan Payment"],
+      ["student-loan-payment", "Student Loan Payment"],
+      ["other-loan-payment", "Other Loan Payment"],
+      ["cash-advances-loans", "Cash Advances & Loans"],
+      ["drawdown", "Drawdown"],
+      ["loan-repayment", "Loan Repayment"],
+      ["bnpl", "Buy Now Pay Later"],
+    ],
+  },
+  {
+    key: "bank-fees",
+    label: "Bank Fees",
     inType: "earned",
     outType: "spent",
     tags: [
       ["bank-fees", "Bank Fees"],
+      ["atm-fees", "ATM Fees"],
+      ["insufficient-funds", "Insufficient Funds"],
+      ["interest-charge", "Interest Charge"],
       ["interest-charged", "Interest Charged"],
+      ["overdraft-fees", "Overdraft Fees"],
+      ["other-bank-fees", "Other Bank Fees"],
       ["foreign-fees", "Foreign Transaction Fees"],
       ["professional-fees", "Professional Fees"],
-      ["insurance", "Insurance"],
-    ],
-  },
-  {
-    key: "govt",
-    label: "Government & Tax",
-    inType: "earned",
-    outType: "spent",
-    tags: [
-      ["ato", "ATO"],
-      ["hecs-help", "HECS-HELP"],
-      ["fines", "Fines"],
-    ],
-  },
-  {
-    key: "income",
-    label: "Income",
-    inType: "earned",
-    // A payment filed under income is a salary reversal or a reading that went wrong, and
-    // is neither spending nor a category to fix silently.
-    outType: "adjusted",
-    tags: [
-      ["salary", "Salary"],
-      ["business", "Business"],
-      ["government-benefit", "Government Benefit"],
-      ["rebate", "Rebate"],
-      ["interest", "Interest Earned"],
-      ["dividends", "Dividends"],
-      ["rent-received", "Rent Received"],
-      ["other", "Other Income"],
-    ],
-  },
-  {
-    key: "debt",
-    label: "Borrowing",
-    inType: "borrowed",
-    outType: "repaid",
-    tags: [
-      ["drawdown", "Drawdown"],
-      ["loan-repayment", "Loan Repayment"],
-      ["credit-card-payment", "Credit Card Payment"],
-      ["bnpl", "Buy Now Pay Later"],
     ],
   },
   {
@@ -332,6 +451,45 @@ const CATEGORIES: Category[] = [
       ["contribution", "Contribution"],
       ["brokerage-fee", "Brokerage Fee"],
       ["super", "Super"],
+    ],
+  },
+  {
+    key: "donations",
+    label: "Donations",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["donations", "Donations"],
+      ["charity", "Charity"],
+    ],
+  },
+  {
+    key: "government-tax",
+    label: "Government & Tax",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["government-non-profit", "Government & Non-Profit"],
+      ["government-services", "Government Services"],
+      ["tax-payment", "Tax Payment"],
+      ["other-government", "Other Government"],
+      ["ato", "ATO"],
+      ["hecs-help", "HECS-HELP"],
+      ["fines", "Fines"],
+    ],
+  },
+  {
+    key: "transfers",
+    label: "Transfers",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["transfer-in", "Transfer In"],
+      ["transfer-out", "Transfer Out"],
+      ["deposit", "Deposit"],
+      ["withdrawal", "Withdrawal"],
+      ["other-transfer", "Other Transfer"],
+      ["internal-transfers", "Internal Transfers"],
     ],
   },
 ];
@@ -354,11 +512,133 @@ const LOOSE: Record<string, { label: string; inType: TransactionType; outType: T
 };
 
 const BY_KEY = new Map(CATEGORIES.map((category) => [category.key, category]));
+const BUILTIN_KEYS = new Set([...CATEGORIES.map((category) => category.key), OTHER, UNCATEGORISED]);
 
-/** Every category a movement can be filed under. Fourteen, plus the two loose ones. */
+export type ListedCategory = {
+  key: string;
+  label: string;
+  inType: TransactionType;
+  outType: TransactionType;
+  tags: string[];
+};
+
+/** The named filing categories, without the two loose buckets. */
+export function listBuiltinCategories(): ListedCategory[] {
+  return CATEGORIES.map((category) => ({
+    key: category.key,
+    label: category.label,
+    inType: category.inType,
+    outType: category.outType,
+    tags: category.tags.map(([, tag]) => tag),
+  }));
+}
+
+/** Other and Not sorted yet — real filing keys, not ones a person adds. */
+export function listLooseCategories(): ListedCategory[] {
+  return [OTHER, UNCATEGORISED].map((key) => ({
+    key,
+    label: LOOSE[key].label,
+    inType: LOOSE[key].inType,
+    outType: LOOSE[key].outType,
+    tags: [],
+  }));
+}
+
+export function isBuiltinCategoryKey(key: string): boolean {
+  return BUILTIN_KEYS.has(key);
+}
+
+/**
+ * A person's category list, applied over the built-in filing keys.
+ *
+ * The keys a statement was filed under have to keep meaning the same thing after a rename,
+ * so the overlay never rewrites a key — only the name a person reads, the tags a picker
+ * offers, and any extra keys they have added.
+ */
+export type CategoryOverlay = {
+  categories: Array<{
+    key: string;
+    label: string;
+    inType: TransactionType;
+    outType: TransactionType;
+    bankCategories: string[];
+  }>;
+};
+
+type Overlay = {
+  labels: Map<string, string>;
+  extras: Map<string, { label: string; inType: TransactionType; outType: TransactionType }>;
+  tags: Map<string, Suggestion[]>;
+  bankToSuggestion: Map<string, string>;
+};
+
+function emptyOverlay(): Overlay {
+  return { labels: new Map(), extras: new Map(), tags: new Map(), bankToSuggestion: new Map() };
+}
+
+const overlay: Overlay = emptyOverlay();
+
+function replaceOverlay(next: Overlay) {
+  overlay.labels = next.labels;
+  overlay.extras = next.extras;
+  overlay.tags = next.tags;
+  overlay.bankToSuggestion = next.bankToSuggestion;
+  refreshKnown();
+}
+
+/** Installs a person's category list, or clears it so the built-in keys return. */
+export function applyCategoryOverlay(spec: CategoryOverlay | null): void {
+  if (!spec) {
+    replaceOverlay(emptyOverlay());
+    return;
+  }
+
+  const next = emptyOverlay();
+  for (const category of spec.categories) {
+    const key = category.key.trim();
+    if (!key) continue;
+    next.labels.set(key, category.label);
+    const pairs: Suggestion[] = uniquePairs(category.bankCategories.map((name) => [slugify(name), name.trim()] as Suggestion));
+    next.tags.set(key, pairs);
+    if (!BUILTIN_KEYS.has(key)) {
+      next.extras.set(key, { label: category.label, inType: category.inType, outType: category.outType });
+    }
+    // Transfers bank labels stay on the Categories tab. A bank saying "Transfer In"
+    // is still only a claim — pairing settles it, not this map.
+    if (key === "transfers") continue;
+    for (const [slug, name] of pairs) {
+      if (/\btransfers?\b/i.test(name)) continue;
+      const needle = name.toLowerCase();
+      if (next.bankToSuggestion.has(needle)) continue;
+      next.bankToSuggestion.set(needle, slug ? `${key}.${slug}` : key);
+    }
+  }
+  replaceOverlay(next);
+}
+
+/** A bank label the person has mapped, written as a category or `groceries`. */
+export function categoryForBankLabel(raw: string | undefined): string | null {
+  const needle = raw?.trim().toLowerCase();
+  if (!needle) return null;
+  return overlay.bankToSuggestion.get(needle) ?? null;
+}
+
+/** Every category a movement can be filed under. The built-in list, plus extras, plus the two loose ones. */
 export const CATEGORY_KEYS: string[] = [...CATEGORIES.map((category) => category.key), OTHER, UNCATEGORISED];
 
 const KNOWN = new Set(CATEGORY_KEYS);
+
+function refreshKnown() {
+  const extras = [...overlay.extras.keys()].filter((key) => !BUILTIN_KEYS.has(key)).sort();
+  CATEGORY_KEYS.length = 0;
+  CATEGORY_KEYS.push(...CATEGORIES.map((category) => category.key), ...extras, OTHER, UNCATEGORISED);
+  KNOWN.clear();
+  for (const key of CATEGORY_KEYS) KNOWN.add(key);
+  SUGGESTIONS.length = 0;
+  SUGGESTIONS.push(...computeSuggestions());
+  SUGGESTED_TAGS.length = 0;
+  SUGGESTED_TAGS.push(...computeSuggestedTags());
+}
 
 export function isCategoryKey(value: unknown): boolean {
   return typeof value === "string" && KNOWN.has(value);
@@ -366,7 +646,7 @@ export function isCategoryKey(value: unknown): boolean {
 
 export function categoryLabel(key: string | undefined): string {
   if (!key) return LOOSE[UNCATEGORISED].label;
-  return LOOSE[key]?.label ?? BY_KEY.get(key)?.label ?? titleCase(key);
+  return overlay.labels.get(key) ?? LOOSE[key]?.label ?? BY_KEY.get(key)?.label ?? overlay.extras.get(key)?.label ?? titleCase(key);
 }
 
 /** Kept as its own name because callers mean "however this category should read on its own". */
@@ -376,52 +656,126 @@ export function categoryPath(key: string | undefined): string {
 
 /** The tags this category offers. Suggestions only — a person can type anything. */
 export function tagsFor(categoryKey: string | undefined): string[] {
-  return (BY_KEY.get(categoryKey ?? "")?.tags ?? []).map(([, tag]) => tag);
+  return tagPairsFor(categoryKey ?? "").map(([, tag]) => tag);
+}
+
+function tagPairsFor(key: string): Suggestion[] {
+  return overlay.tags.get(key) ?? BY_KEY.get(key)?.tags ?? [];
+}
+
+function computeSuggestedTags(): string[] {
+  return [...new Set(CATEGORY_KEYS.flatMap((key) => tagsFor(key)))].sort((a, b) => a.localeCompare(b));
+}
+
+function computeSuggestions(): string[] {
+  return CATEGORY_KEYS.filter((key) => key !== UNCATEGORISED).flatMap((key) => [
+    key,
+    ...tagPairsFor(key).map(([slug]) => `${key}.${slug}`),
+  ]);
 }
 
 /** Every tag the app suggests, for the pickers that are not scoped to one category. */
-export const SUGGESTED_TAGS: string[] = [
-  ...new Set(CATEGORIES.flatMap((category) => category.tags.map(([, tag]) => tag))),
-].sort((a, b) => a.localeCompare(b));
+export const SUGGESTED_TAGS: string[] = computeSuggestedTags();
 
 /**
  * Everything a rule or a model may answer with: a category on its own, or a category and
- * one of its tags written as `food.groceries`.
+ * one of its tags written as `eating-out.restaurants`.
  *
  * The dotted form is kept as a *vocabulary* even though nothing stores it any more. It is
- * how the merchant rules stay legible — one line saying groceries rather than two saying
- * food and then Groceries — and it lets a model answer at the level it is actually sure
- * of, which is usually the specific one.
+ * how the merchant rules stay legible — one line saying restaurants rather than two saying
+ * eating-out and then Restaurants — and it lets a model answer at the level it is actually
+ * sure of, which is usually the specific one. Older dotted keys such as `food.groceries`
+ * are still read here so a stored row or a stale rule lands on the new filing key.
  */
-export const SUGGESTIONS: string[] = [
-  ...CATEGORIES.flatMap((category) => [
-    category.key,
-    ...category.tags.map(([slug]) => `${category.key}.${slug}`),
-  ]),
-  OTHER,
-];
+export const SUGGESTIONS: string[] = computeSuggestions();
 
 /**
  * Splits what a rule, a model or an older ledger said into the two things it now means.
  *
- * `food.groceries` is a category and a tag, and used to be one key. Reading it apart here
- * is the whole of the migration: every movement stored under the two-level model lands on
- * the category it was already being counted under, and keeps the detail as a tag.
+ * `food.groceries` used to be one key and is now Groceries. Reading it apart here is the
+ * whole of the migration: every movement stored under the older model lands on the
+ * category it already meant, and keeps the detail as a tag.
  */
 export function splitSuggestion(raw: string | undefined): { categoryKey: string; tag?: string } {
   const value = (raw ?? "").trim().toLowerCase();
   if (!value) return { categoryKey: UNCATEGORISED };
+
+  const remembered = FROM_OLD[value];
+  if (remembered) return { ...remembered };
+
   if (!value.includes(".")) {
     return { categoryKey: isCategoryKey(value) ? value : UNCATEGORISED };
   }
 
   const [head, ...rest] = value.split(".");
-  const category = BY_KEY.get(head);
-  if (!category) return { categoryKey: isCategoryKey(head) ? head : UNCATEGORISED };
+  if (!isCategoryKey(head)) return { categoryKey: UNCATEGORISED };
 
   const slug = rest.join(".");
-  const found = category.tags.find(([known]) => known === slug);
-  return { categoryKey: category.key, ...(found ? { tag: found[1] } : {}) };
+  const found = tagPairsFor(head).find(([known]) => known === slug);
+  return { categoryKey: head, ...(found ? { tag: found[1] } : {}) };
+}
+
+/**
+ * A stored filing key, including the old fourteen, onto the PDF key it now means.
+ *
+ * Tags decide the splits the wording alone cannot: Food + Groceries is groceries, Food
+ * alone is eating-out, Income + Salary is salary.
+ */
+export function migrateStoredCategory(
+  key: string | undefined,
+  tags?: string[],
+): { categoryKey: string; tag?: string } {
+  const raw = (key ?? "").trim().toLowerCase();
+  if (!raw) return { categoryKey: UNCATEGORISED };
+
+  const refined = refineOldKey(raw, tags);
+  if (refined) return refined;
+  if (isCategoryKey(raw)) return { categoryKey: raw };
+  return splitSuggestion(raw);
+}
+
+function refineOldKey(key: string, tags?: string[]): { categoryKey: string; tag?: string } | null {
+  const held = (tags ?? []).map((tag) => tag.toLowerCase());
+  const has = (...needles: string[]) =>
+    held.some((tag) => needles.some((needle) => tag === needle || tag.includes(needle)));
+
+  if (key === "food") {
+    if (has("groceries")) return { categoryKey: "groceries", tag: "Groceries" };
+    return { categoryKey: "eating-out" };
+  }
+  if (key === "income") {
+    if (has("salary")) return { categoryKey: "salary", tag: "Salary" };
+    return { categoryKey: "other-income" };
+  }
+  if (key === "home") {
+    if (has("furniture", "hardware", "home improvement", "homewares")) return { categoryKey: "home-garden" };
+    return { categoryKey: "rent-mortgage" };
+  }
+  if (key === "utilities") {
+    if (has("internet", "mobile", "telephone", "phone", "cable")) return { categoryKey: "internet-phone" };
+    return isCategoryKey(key) ? null : { categoryKey: "utilities" };
+  }
+  if (key === "transport") {
+    if (has("fuel", "car", "rego", "ctp", "servic", "automotive", "ampol", "shell", "petrol")) {
+      return { categoryKey: "car" };
+    }
+    return { categoryKey: "getting-around" };
+  }
+  if (key === "people") {
+    if (has("childcare", "child care", "education")) return { categoryKey: "education-childcare" };
+    if (has("pets", "vet")) return { categoryKey: "pets" };
+    if (has("donation", "charity")) return { categoryKey: "donations" };
+    return { categoryKey: "personal-care" };
+  }
+  if (key === "money") {
+    if (has("insurance")) return { categoryKey: "insurance" };
+    return { categoryKey: "bank-fees" };
+  }
+  if (key === "health") return { categoryKey: "medical" };
+  if (key === "leisure") return { categoryKey: "entertainment" };
+  if (key === "govt") return { categoryKey: "government-tax" };
+  if (key === "debt") return { categoryKey: "debt-payments" };
+  return null;
 }
 
 /**
@@ -432,10 +786,94 @@ export function splitSuggestion(raw: string | undefined): { categoryKey: string;
  * old model had to guess from the merchant alone and got it wrong in both directions.
  */
 export function typeForCategory(key: string | undefined, amount: number): TransactionType {
-  const held = key ? (LOOSE[key] ?? BY_KEY.get(key)) : undefined;
+  const extra = key ? overlay.extras.get(key) : undefined;
+  const held = key ? (LOOSE[key] ?? extra ?? BY_KEY.get(key)) : undefined;
   const meaning = held ?? LOOSE[UNCATEGORISED];
   return amount > 0 ? meaning.inType : meaning.outType;
 }
+
+/**
+ * Older dotted keys and the fourteen flat keys they sat under, mapped onto the PDF list.
+ *
+ * Kept beside `splitSuggestion` so a rule that still says `food.groceries`, a model that
+ * answers that way, or a ledger stored before this rewrite all land on the same key.
+ */
+const FROM_OLD: Record<string, { categoryKey: string; tag?: string }> = {
+  "food.groceries": { categoryKey: "groceries", tag: "Groceries" },
+  "food.restaurants": { categoryKey: "eating-out", tag: "Restaurants" },
+  "food.takeaway": { categoryKey: "eating-out", tag: "Takeaway" },
+  "food.coffee": { categoryKey: "eating-out", tag: "Coffee" },
+  "food.alcohol": { categoryKey: "eating-out", tag: "Alcohol" },
+  food: { categoryKey: "eating-out" },
+  "home.rent": { categoryKey: "rent-mortgage", tag: "Rent" },
+  "home.mortgage-interest": { categoryKey: "rent-mortgage", tag: "Mortgage Interest" },
+  "home.strata": { categoryKey: "rent-mortgage", tag: "Strata" },
+  "home.council-rates": { categoryKey: "rent-mortgage", tag: "Council Rates" },
+  "home.maintenance": { categoryKey: "rent-mortgage", tag: "Maintenance" },
+  "home.insurance": { categoryKey: "rent-mortgage", tag: "Home Insurance" },
+  "home.furniture": { categoryKey: "home-garden", tag: "Furniture" },
+  home: { categoryKey: "rent-mortgage" },
+  housing: { categoryKey: "rent-mortgage" },
+  "utilities.electricity": { categoryKey: "utilities", tag: "Electricity" },
+  "utilities.gas": { categoryKey: "utilities", tag: "Gas" },
+  "utilities.water": { categoryKey: "utilities", tag: "Water" },
+  "utilities.internet": { categoryKey: "internet-phone", tag: "Internet" },
+  "utilities.mobile": { categoryKey: "internet-phone", tag: "Mobile" },
+  "transport.fuel": { categoryKey: "car", tag: "Fuel" },
+  "transport.public-transport": { categoryKey: "getting-around", tag: "Public Transport" },
+  "transport.rideshare": { categoryKey: "getting-around", tag: "Rideshare" },
+  "transport.parking-tolls": { categoryKey: "getting-around", tag: "Parking & Tolls" },
+  "transport.rego-ctp": { categoryKey: "car", tag: "Rego & CTP" },
+  "transport.servicing": { categoryKey: "car", tag: "Servicing" },
+  "transport.insurance": { categoryKey: "car", tag: "Car Insurance" },
+  transport: { categoryKey: "getting-around" },
+  "health.gp-specialist": { categoryKey: "medical", tag: "GP & Specialists" },
+  "health.pharmacy": { categoryKey: "medical", tag: "Pharmacy" },
+  "health.dental": { categoryKey: "medical", tag: "Dental" },
+  "health.optical": { categoryKey: "medical", tag: "Optical" },
+  "health.private-cover": { categoryKey: "medical", tag: "Private Health Cover" },
+  "health.fitness": { categoryKey: "personal-care", tag: "Fitness" },
+  health: { categoryKey: "medical" },
+  "leisure.streaming": { categoryKey: "entertainment", tag: "Streaming" },
+  "leisure.software": { categoryKey: "entertainment", tag: "Software" },
+  "leisure.events": { categoryKey: "entertainment", tag: "Events" },
+  "leisure.gaming": { categoryKey: "entertainment", tag: "Gaming" },
+  "leisure.sport": { categoryKey: "entertainment", tag: "Sport" },
+  leisure: { categoryKey: "entertainment" },
+  "people.childcare": { categoryKey: "education-childcare", tag: "Childcare" },
+  "people.education": { categoryKey: "education-childcare", tag: "Education" },
+  "people.pets": { categoryKey: "pets", tag: "Pets" },
+  "people.personal-care": { categoryKey: "personal-care", tag: "Personal Care" },
+  "people.donations": { categoryKey: "donations", tag: "Donations" },
+  people: { categoryKey: "personal-care" },
+  "money.bank-fees": { categoryKey: "bank-fees", tag: "Bank Fees" },
+  "money.interest-charged": { categoryKey: "bank-fees", tag: "Interest Charged" },
+  "money.foreign-fees": { categoryKey: "bank-fees", tag: "Foreign Transaction Fees" },
+  "money.professional-fees": { categoryKey: "bank-fees", tag: "Professional Fees" },
+  "money.insurance": { categoryKey: "insurance", tag: "Insurance" },
+  money: { categoryKey: "bank-fees" },
+  "govt.ato": { categoryKey: "government-tax", tag: "ATO" },
+  "govt.hecs-help": { categoryKey: "government-tax", tag: "HECS-HELP" },
+  "govt.fines": { categoryKey: "government-tax", tag: "Fines" },
+  govt: { categoryKey: "government-tax" },
+  "income.salary": { categoryKey: "salary", tag: "Salary" },
+  "income.business": { categoryKey: "other-income", tag: "Business" },
+  "income.government-benefit": { categoryKey: "other-income", tag: "Government Benefit" },
+  "income.rebate": { categoryKey: "other-income", tag: "Rebate" },
+  "income.interest": { categoryKey: "other-income", tag: "Interest Earned" },
+  "income.dividends": { categoryKey: "other-income", tag: "Dividends" },
+  "income.rent-received": { categoryKey: "other-income", tag: "Rent Received" },
+  "income.other": { categoryKey: "other-income", tag: "Other Income" },
+  income: { categoryKey: "other-income" },
+  "debt.drawdown": { categoryKey: "debt-payments", tag: "Drawdown" },
+  "debt.loan-repayment": { categoryKey: "debt-payments", tag: "Loan Repayment" },
+  "debt.credit-card-payment": { categoryKey: "debt-payments", tag: "Credit Card Payment" },
+  "debt.bnpl": { categoryKey: "debt-payments", tag: "Buy Now Pay Later" },
+  debt: { categoryKey: "debt-payments" },
+  "invest.contribution": { categoryKey: "invest", tag: "Contribution" },
+  "invest.brokerage-fee": { categoryKey: "invest", tag: "Brokerage Fee" },
+  "invest.super": { categoryKey: "invest", tag: "Super" },
+};
 
 /**
  * The old thirteen tags, mapped to where they now live.
@@ -446,18 +884,32 @@ export function typeForCategory(key: string | undefined, amount: number): Transa
  * reader thought this was internal" and belongs to the pairing layer, not here.
  */
 const LEGACY: Record<string, string> = {
-  housing: "home",
-  groceries: "food.groceries",
-  dining: "food.restaurants",
-  transport: "transport",
+  housing: "rent-mortgage",
+  groceries: "groceries",
+  dining: "eating-out.restaurants",
+  transport: "getting-around",
   shopping: "shopping",
-  entertainment: "leisure",
-  subscriptions: "leisure.streaming",
+  entertainment: "entertainment",
+  subscriptions: "entertainment.streaming",
   utilities: "utilities",
-  health: "health",
+  health: "medical",
   travel: "travel",
   other: OTHER,
 };
+
+/** Filing keys the previous taxonomy stored, which a saved category book may still hold. */
+export const RETIRED_CATEGORY_KEYS = new Set([
+  "food",
+  "home",
+  "health",
+  "leisure",
+  "people",
+  "money",
+  "govt",
+  "income",
+  "debt",
+  "transport",
+]);
 
 /** Where an old tag lands, or null when only the movement itself can settle it. */
 export function categoryForLegacyTag(tag: string): string | null {
@@ -470,4 +922,22 @@ function titleCase(value: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function slugify(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+}
+
+function uniquePairs(pairs: Suggestion[]): Suggestion[] {
+  const seen = new Set<string>();
+  const result: Suggestion[] = [];
+  for (const [slug, name] of pairs) {
+    const label = name.trim();
+    if (!label) continue;
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push([slug, label]);
+  }
+  return result;
 }

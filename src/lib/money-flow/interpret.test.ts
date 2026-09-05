@@ -90,7 +90,7 @@ describe("document interpretation", () => {
     assert.equal(result.flow.transfers, 0);
     assert.equal(result.flow.unmatchedInternal, 400);
     assert.ok(result.transactions.some((txn) => /woolworths/i.test(txn.merchant)));
-    assert.ok(result.transactions.some((txn) => txn.categoryKey === "home"));
+    assert.ok(result.transactions.some((txn) => txn.categoryKey === "rent-mortgage"));
     assert.equal(result.flow.net, result.flow.income - result.flow.spending);
     assert.equal(result.flow.cashIn, 5240);
     assert.equal(result.flow.cashOut, 1692.44);
@@ -284,7 +284,7 @@ describe("NAB CSV exports", () => {
     // a consumer lender changes nothing about what the household owns, and counting it as
     // earnings put $25,000 into a single month that was never earned.
     assert.equal(drawdown?.type, "borrowed");
-    assert.equal(drawdown?.categoryKey, "debt");
+    assert.equal(drawdown?.categoryKey, "debt-payments");
     const outgoing = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === -200);
     assert.ok(outgoing, "the same day's outgoing transfer should stay negative");
   });
@@ -297,12 +297,12 @@ describe("NAB CSV exports", () => {
     assert.equal(sourceValue(drawdown?.source, "Merchant Name"), "");
     assert.equal(sourceValue(drawdown?.source, "Processed On"), "30 Jun 26");
     assert.equal(drawdown?.type, "borrowed");
-    assert.equal(drawdown?.categoryKey, "debt");
+    assert.equal(drawdown?.categoryKey, "debt-payments");
 
     const benefit = result.transactions.find((txn) => txn.dateIso === "2026-06-29" && txn.amount === 662.4);
     assert.equal(sourceValue(benefit?.source, "Category"), "Refund");
     assert.equal(sourceValue(benefit?.source, "Merchant Name"), "Medicare");
-    assert.equal(benefit?.categoryKey, "income");
+    assert.equal(benefit?.categoryKey, "other-income");
     assert.equal(benefit?.type, "earned");
   });
 
@@ -311,7 +311,7 @@ describe("NAB CSV exports", () => {
     const medicare = result.transactions.find((txn) => txn.dateIso === "2026-06-29" && txn.amount === 662.4);
     assert.equal(medicare?.merchant, "Medicare");
     // A benefit arriving, not a payment to a doctor. The merchant is the same either way.
-    assert.equal(medicare?.categoryKey, "income");
+    assert.equal(medicare?.categoryKey, "other-income");
     assert.equal(medicare?.type, "earned");
     assert.ok(result.transactions.some((txn) => txn.merchant === "Woolworths (Wagga Wagga North)"));
   });
@@ -340,15 +340,15 @@ describe("NAB CSV exports", () => {
     const result = await interpretNab();
     assert.ok(result.files.every((fileResult) => fileResult.notes.some((note) => note.includes("NAB account export"))));
     const grocery = result.transactions.find((txn) => txn.merchant === "Woolworths (Wagga Wagga North)" && txn.amount === -12.8);
-    assert.equal(grocery?.categoryKey, "food");
+    assert.equal(grocery?.categoryKey, "groceries");
     const csv = `Date,Amount,Account Number,,Transaction Type,Transaction Details,Balance,Category,Merchant Name,Processed On
 01 Jun 26,-15.40,100200300,,EFTPOS DEBIT,XYZ MART 999,-15.40,Groceries,,01 Jun 26
 01 Jun 26,80.00,100200300,,INTER-BANK CREDIT,CENTRELINK PAYMENT,64.60,Government payments,,01 Jun 26
 01 Jun 26,-50.00,100200300,,TRANSFER DEBIT,TO SAVINGS,14.60,Transfers out,,01 Jun 26
 `;
     const tagged = await interpretDocuments([file("nab-gaps.csv", "text/csv", csv)]);
-    assert.equal(tagged.transactions.find((txn) => txn.amount === -15.4)?.categoryKey, "food");
-    assert.equal(tagged.transactions.find((txn) => txn.amount === 80)?.categoryKey, "income");
+    assert.equal(tagged.transactions.find((txn) => txn.amount === -15.4)?.categoryKey, "groceries");
+    assert.equal(tagged.transactions.find((txn) => txn.amount === 80)?.categoryKey, "other-income");
     // "Transfers out" is not a category and never was. Whether this money reached another
     // of the person's accounts is settled by finding the other leg, so until then it is
     // unsorted, counted, and flagged.
@@ -506,7 +506,7 @@ describe("money flow summary", () => {
       {
         id: "1",
         merchant: "Salary",
-        categoryKey: "income",
+        categoryKey: "salary",
         date: "18 Aug",
         dateIso: "2026-08-18",
         amount: 2000,
@@ -528,7 +528,7 @@ describe("money flow summary", () => {
       {
         id: "3",
         merchant: "Woolworths",
-        categoryKey: "food",
+        categoryKey: "groceries",
         date: "25 Aug",
         dateIso: "2026-08-25",
         amount: -80,
@@ -551,7 +551,7 @@ describe("money flow summary", () => {
       summary.categories.map((category) => category.name),
       // Keyed, not named. The $400 has no category — nothing has said where it went — and
       // "not sorted yet" is a different thing from a bucket somebody chose.
-      ["uncategorised", "food"],
+      ["misc", "food"],
     );
 
     // Upload the savings account and the same $400 stops being spending, because both
@@ -580,12 +580,12 @@ describe("money flow summary", () => {
     assert.equal(settled.income, 2000);
   });
 
-  it("counts spending on the primary tag only, so sub-tags do not double-count", () => {
+  it("counts spending on the group, so cafe and groceries are one Food bar", () => {
     const summary = summarizeMoneyFlow([
       {
         id: "1",
         merchant: "Cafe Sydney",
-        categoryKey: "food",
+        categoryKey: "eating-out",
         tags: ["Dining", "Coffee"],
         date: "20 Aug",
         dateIso: "2026-08-20",
@@ -597,7 +597,7 @@ describe("money flow summary", () => {
       {
         id: "2",
         merchant: "Woolworths Bondi",
-        categoryKey: "food",
+        categoryKey: "groceries",
         tags: ["Groceries"],
         date: "25 Aug",
         dateIso: "2026-08-25",
@@ -610,18 +610,16 @@ describe("money flow summary", () => {
     assert.equal(summary.spending, 114.8);
     assert.deepEqual(
       summary.categories.map((category) => [category.name, category.amount]),
-      // Both sit under Food & Drink now, which is the point of a two-level taxonomy: the
-      // headline groups, and the detail one click in.
       [["food", 114.8]],
     );
   });
 
-  it("splits a selected primary into sub-tags without changing the total", () => {
+  it("splits a selected group into its categories without changing the total", () => {
     const rows = [
       {
         id: "1",
         merchant: "Cafe Sydney",
-        categoryKey: "food",
+        categoryKey: "eating-out",
         tags: ["Dining", "Coffee"],
         date: "20 Aug",
         dateIso: "2026-08-20",
@@ -632,9 +630,9 @@ describe("money flow summary", () => {
       },
       {
         id: "2",
-        merchant: "Dinner Out",
-        categoryKey: "food",
-        tags: ["Dining"],
+        merchant: "Woolworths Bondi",
+        categoryKey: "groceries",
+        tags: ["Groceries"],
         date: "21 Aug",
         dateIso: "2026-08-21",
         amount: -60,
@@ -645,7 +643,7 @@ describe("money flow summary", () => {
       {
         id: "3",
         merchant: "Salary Acme",
-        categoryKey: "income",
+        categoryKey: "salary",
         tags: ["Salary"],
         date: "18 Aug",
         dateIso: "2026-08-18",
@@ -660,10 +658,10 @@ describe("money flow summary", () => {
     assert.equal(drilled.spending, 88.4);
     assert.deepEqual(
       drilled.rows.map((row) => [row.name, row.amount]),
-      // One level down from Food & Drink is now the tags on those movements, so the bar
-      // is the tag they share. Read from the first tag on each, so the breakdown always
-      // adds up to the category above it however many tags a movement carries.
-      [["Dining", -88.4]],
+      [
+        ["groceries", -60],
+        ["eating-out", -28.4],
+      ],
     );
   });
 
@@ -672,7 +670,7 @@ describe("money flow summary", () => {
       {
         id: "1",
         merchant: "Cafe Sydney",
-        categoryKey: "food",
+        categoryKey: "eating-out",
         tags: ["Dining"],
         date: "20 Aug",
         dateIso: "2026-08-20",
@@ -684,7 +682,7 @@ describe("money flow summary", () => {
       {
         id: "2",
         merchant: "Salary Acme",
-        categoryKey: "income",
+        categoryKey: "salary",
         tags: ["Income"],
         date: "18 Aug",
         dateIso: "2026-08-18",
@@ -726,7 +724,7 @@ describe("money flow summary", () => {
       combined.rows.map((row) => [row.name, row.amount]),
       [
         ["income", 2620],
-        ["shopping", -60],
+        ["lifestyle", -60],
         ["food", -28.4],
       ],
     );
@@ -737,18 +735,18 @@ describe("money flow summary", () => {
     // August: in 4200, out 1450 + 612.40 + 87.60 = 2150, net 2050
     // September: in 900, out 1450 + 330.20 = 1780.20, net -880.20
     const rows = [
-      flowRow("2026-07-03", "3 Jul", 4200, "income.salary", "earned"),
-      flowRow("2026-07-11", "11 Jul", -1450, "home", "spent"),
-      flowRow("2026-07-19", "19 Jul", -260.75, "food.groceries", "spent"),
+      flowRow("2026-07-03", "3 Jul", 4200, "salary", "earned"),
+      flowRow("2026-07-11", "11 Jul", -1450, "rent-mortgage", "spent"),
+      flowRow("2026-07-19", "19 Jul", -260.75, "groceries", "spent"),
       flowRow("2026-07-27", "27 Jul", 180, "shopping", "earned"),
       flowRow("2026-07-30", "30 Jul", -700, "uncategorised", "spent"),
-      flowRow("2026-08-03", "3 Aug", 4200, "income.salary", "earned"),
-      flowRow("2026-08-11", "11 Aug", -1450, "home", "spent"),
+      flowRow("2026-08-03", "3 Aug", 4200, "salary", "earned"),
+      flowRow("2026-08-11", "11 Aug", -1450, "rent-mortgage", "spent"),
       flowRow("2026-08-16", "16 Aug", -612.4, "shopping", "spent"),
-      flowRow("2026-08-23", "23 Aug", -87.6, "food.restaurants", "spent"),
-      flowRow("2026-09-03", "3 Sep", 900, "income.salary", "earned"),
-      flowRow("2026-09-11", "11 Sep", -1450, "home", "spent"),
-      flowRow("2026-09-24", "24 Sep", -330.2, "food.groceries", "spent"),
+      flowRow("2026-08-23", "23 Aug", -87.6, "eating-out", "spent"),
+      flowRow("2026-09-03", "3 Sep", 900, "salary", "earned"),
+      flowRow("2026-09-11", "11 Sep", -1450, "rent-mortgage", "spent"),
+      flowRow("2026-09-24", "24 Sep", -330.2, "groceries", "spent"),
     ];
 
     const points = tagFlowOverTime(rows);
@@ -791,8 +789,8 @@ describe("money flow summary", () => {
 
   it("holds the running total level through quiet days instead of dropping to zero", () => {
     const rows = [
-      flowRow("2026-08-18", "18 Aug", 2620, "income.salary", "earned"),
-      flowRow("2026-08-24", "24 Aug", -18.99, "leisure.streaming", "spent"),
+      flowRow("2026-08-18", "18 Aug", 2620, "salary", "earned"),
+      flowRow("2026-08-24", "24 Aug", -18.99, "entertainment", "spent"),
     ];
 
     assert.deepEqual(
@@ -811,8 +809,8 @@ describe("money flow summary", () => {
 
   it("collapses to months once the range is too long to plot daily, keeping quiet months", () => {
     const rows = [
-      flowRow("2026-07-05", "5 Jul", 500, "income.salary", "earned"),
-      flowRow("2027-10-05", "5 Oct", -300, "home", "spent"),
+      flowRow("2026-07-05", "5 Jul", 500, "salary", "earned"),
+      flowRow("2027-10-05", "5 Oct", -300, "rent-mortgage", "spent"),
     ];
 
     const points = tagFlowOverTime(rows);
@@ -827,8 +825,8 @@ describe("money flow summary", () => {
 
   it("keeps a quiet day on the timeline instead of closing the gap", () => {
     const rows = [
-      flowRow("2026-07-05", "5 Jul", 500, "income.salary", "earned"),
-      flowRow("2026-07-08", "8 Jul", -300, "home", "spent"),
+      flowRow("2026-07-05", "5 Jul", 500, "salary", "earned"),
+      flowRow("2026-07-08", "8 Jul", -300, "rent-mortgage", "spent"),
     ];
 
     assert.deepEqual(
@@ -844,8 +842,8 @@ describe("money flow summary", () => {
 
   it("fills the quiet days between movements inside a single month", () => {
     const rows = [
-      flowRow("2026-08-18", "18 Aug", 2500, "income.salary", "earned"),
-      flowRow("2026-08-20", "20 Aug", -900, "home", "spent"),
+      flowRow("2026-08-18", "18 Aug", 2500, "salary", "earned"),
+      flowRow("2026-08-20", "20 Aug", -900, "rent-mortgage", "spent"),
     ];
 
     assert.deepEqual(
@@ -858,7 +856,7 @@ describe("money flow summary", () => {
     );
 
     assert.deepEqual(
-      tagFlowOverTime(rows, "home").map((point) => [point.key, point.net]),
+      tagFlowOverTime(rows, "rent-mortgage").map((point) => [point.key, point.net]),
       [["2026-08-20", -900]],
     );
   });
@@ -866,7 +864,7 @@ describe("money flow summary", () => {
   it("nets a bucket below zero when spending outruns income", () => {
     const rows = [
       flowRow("2026-08-02", "2 Aug", 40, "shopping", "earned"),
-      flowRow("2026-08-02", "2 Aug", -900, "home", "spent"),
+      flowRow("2026-08-02", "2 Aug", -900, "rent-mortgage", "spent"),
     ];
     assert.deepEqual(
       tagFlowOverTime(rows).map((point) => [point.income, point.spending, point.net]),
@@ -879,7 +877,7 @@ describe("money flow summary", () => {
       {
         id: "1",
         merchant: "Rent Payment Smith",
-        categoryKey: "home",
+        categoryKey: "rent-mortgage",
         tags: ["Housing"],
         date: "1 Aug",
         dateIso: "2026-08-01",
@@ -893,7 +891,7 @@ describe("money flow summary", () => {
       {
         id: "1",
         merchant: "Rent Payment Smith",
-        categoryKey: "home",
+        categoryKey: "rent-mortgage",
         tags: ["Rent"],
         date: "1 Aug",
         dateIso: "2026-08-01",
@@ -905,13 +903,13 @@ describe("money flow summary", () => {
     ]);
     assert.deepEqual(
       before.categories.map((category) => category.name),
-      ["home"],
+      ["housing"],
     );
     // The tag changed and the figure did not move. Under the old model the first tag was
     // the category, so renaming one silently re-filed a year of spending.
     assert.deepEqual(
       after.categories.map((category) => [category.name, category.amount]),
-      [["home", 980]],
+      [["housing", 980]],
     );
   });
 });

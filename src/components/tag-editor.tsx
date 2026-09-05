@@ -1,15 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { groupLabelOf, pickerGroups } from "@/lib/money-flow/category-book";
 import { tagsOf } from "@/lib/money-flow/tags";
-import {
-  categoryLabel,
-  categoryPath,
-  CATEGORY_KEYS,
-  tagsFor,
-  typeLabel,
-  UNCATEGORISED,
-} from "@/lib/money-flow/taxonomy";
+import { categoryLabel, tagsFor, typeLabel, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /**
@@ -22,6 +16,9 @@ import type { InterpretedTransaction } from "@/lib/money-flow/types";
 export function ClassificationChips({ txn }: { txn: InterpretedTransaction }) {
   const tags = tagsOf(txn);
   const unsorted = txn.categoryKey === UNCATEGORISED;
+  const group = groupLabelOf(txn.categoryKey);
+  const category = categoryLabel(txn.categoryKey);
+  const showCategory = group.toLowerCase() !== category.toLowerCase();
 
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -30,8 +27,13 @@ export function ClassificationChips({ txn }: { txn: InterpretedTransaction }) {
           unsorted ? "bg-[#fdf2e3] text-[#8a5a1e]" : "bg-[#173b31] text-white"
         }`}
       >
-        {categoryPath(txn.categoryKey)}
+        {group}
       </span>
+      {showCategory ? (
+        <span className="inline-flex items-center rounded-full bg-[#edf0ee] px-2 py-0.5 text-[11px] font-semibold text-[#173b31]">
+          {category}
+        </span>
+      ) : null}
       {tags.map((tag) => (
         <span
           key={tag}
@@ -105,10 +107,14 @@ export function ClassificationEditor({
           onChange={(event) => onCategory(event.target.value)}
           className="rounded-full border border-[#dce4df] bg-white px-2.5 py-1 text-[11px] outline-none focus:border-[#173b31]"
         >
-          {CATEGORY_KEYS.map((key) => (
-            <option key={key} value={key}>
-              {categoryLabel(key)}
-            </option>
+          {pickerGroups({ includeUncategorised: true }).map((group) => (
+            <optgroup key={group.id} label={group.label}>
+              {group.categories.map((held) => (
+                <option key={held.key} value={held.key}>
+                  {held.label}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         {/* The type is not a field. It follows from the category and which way the money

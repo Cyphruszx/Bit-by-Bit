@@ -51,7 +51,7 @@ describe("the movements the taxonomy has to get right", () => {
   it("does not count a lender's drawdown as income, or the payment it funded as anything else", async () => {
     const rows = await ledger();
     const drawdown = on(rows, "2026-06-30", 25000, /SocietyOne/i);
-    assert.equal(drawdown.categoryKey, "debt");
+    assert.equal(drawdown.categoryKey, "debt-payments");
     assert.equal(drawdown.tags?.[0], "Drawdown", "the detail the rule knew, kept as a tag");
     assert.equal(drawdown.type, "borrowed");
     assert.equal(drawdown.bank?.category, "Transfers in");
@@ -66,11 +66,11 @@ describe("the movements the taxonomy has to get right", () => {
   it("reads interest charged and interest earned as opposite things", async () => {
     const rows = await ledger();
     const charged = on(rows, "2026-06-30", -0.61, /Interest Charged/i);
-    assert.equal(charged.categoryKey, "money");
+    assert.equal(charged.categoryKey, "bank-fees");
     assert.equal(charged.type, "spent");
 
     const earned = on(rows, "2026-06-30", 0.1, /^\s*Interest\b/i);
-    assert.equal(earned.categoryKey, "income");
+    assert.equal(earned.categoryKey, "other-income");
     assert.equal(earned.type, "earned");
   });
 
@@ -79,21 +79,21 @@ describe("the movements the taxonomy has to get right", () => {
     // Filed under Health by the old model: a credit wearing a spending category, which is
     // the mismatch the type layer exists to make impossible.
     const medicare = on(rows, "2026-06-29", 662.4, /MCARE BENEFITS/i);
-    assert.equal(medicare.categoryKey, "income");
+    assert.equal(medicare.categoryKey, "other-income");
     assert.deepEqual(medicare.tags, ["Rebate"]);
     assert.equal(medicare.type, "earned");
 
     const dva = on(rows, "2026-06-29", 41.45, /VTA BENEFITS/i);
-    assert.equal(dva.categoryKey, "income");
+    assert.equal(dva.categoryKey, "other-income");
     assert.equal(dva.type, "earned");
   });
 
   it("recognises the everyday merchants, including the one that used to land in Other", async () => {
     const rows = await ledger();
-    assert.equal(on(rows, "2026-06-30", -14.95, /KFC/i).categoryKey, "food");
-    assert.equal(on(rows, "2026-06-30", -13, /WOOLWORTHS/i).categoryKey, "food");
-    assert.equal(on(rows, "2026-06-29", -71.45, /WOOLWORTHS/i).categoryKey, "food");
-    assert.equal(on(rows, "2026-06-27", -27.9, /Grill/i).categoryKey, "food");
+    assert.equal(on(rows, "2026-06-30", -14.95, /KFC/i).categoryKey, "eating-out");
+    assert.equal(on(rows, "2026-06-30", -13, /WOOLWORTHS/i).categoryKey, "groceries");
+    assert.equal(on(rows, "2026-06-29", -71.45, /WOOLWORTHS/i).categoryKey, "groceries");
+    assert.equal(on(rows, "2026-06-27", -27.9, /Grill/i).categoryKey, "eating-out");
   });
 
   it("leaves a processor's charge unsorted rather than guessing at the seller", async () => {

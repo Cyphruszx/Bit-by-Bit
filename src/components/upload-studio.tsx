@@ -12,8 +12,8 @@ import { formatAud, formatSignedAud } from "@/lib/format";
 import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
 import { displayName } from "@/lib/money-flow/display-name";
+import { taxonomyPath } from "@/lib/money-flow/category-book";
 import { tagsOf } from "@/lib/money-flow/tags";
-import { categoryPath } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const SAMPLES: Array<{ paths: string[]; label: string }> = [
@@ -217,7 +217,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
                     <div>
                       <p className="font-semibold">{displayName(txn)}</p>
                       <p className="mt-1 text-sm text-[#77857f]">
-                        {categoryPath(txn.categoryKey)}
+                        {taxonomyPath(txn.categoryKey)}
                         {tagsOf(txn).length > 0 ? ` / ${tagsOf(txn).join(" · ")}` : ""}
                         {txn.decidedBy === "ai" ? " · suggested by AI" : ""} · {txn.date} · {txn.sourceFile}
                       </p>

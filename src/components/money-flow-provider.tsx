@@ -16,12 +16,14 @@ import {
   removeStatement as dropStatement,
   recordPayerMerge,
   recordVerdict,
+  recordTaxonomy,
   replaceTransactions,
   visibleTransactions,
   type HeldStatement,
   type ImportReport,
   type Ledger,
 } from "@/lib/money-flow/ledger";
+import { applyBook, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
@@ -109,6 +111,10 @@ type MoneyFlowState = {
   setMerchantTags: (merchant: string, tags: string[]) => void;
   renameTagEverywhere: (from: string, to: string) => void;
   removeTagEverywhere: (name: string) => void;
+  /** The category list as the person has arranged it, or the usual fourteen. */
+  categoryBook: CategoryBook;
+  /** Records an edit, or null to restore the usual fourteen. */
+  setCategoryBook: (book: CategoryBook | null) => void;
 };
 
 const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
@@ -145,6 +151,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     //
     // Then the pairs, which prove the type and leave the category alone. Then whatever the
     // person said outright, which beats all of it.
+    const categoryBook = resolveBook(held.ledger.taxonomy);
+    applyBook(categoryBook);
     const allTransactions = applyVerdicts(
       markRefundLegs(markTransferLegs(classify(stored, { rules: held.ledger.rules ?? {} }), matching), matching),
       held.ledger.verdicts ?? {},
@@ -179,6 +187,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       setMerchantTags,
       renameTagEverywhere,
       removeTagEverywhere,
+      categoryBook,
+      setCategoryBook,
     };
   }, [held, period]);
 
@@ -290,6 +300,11 @@ function setStatementInstitution(statementKey: string, institution: string) {
 
 function setAccountName(accountKey: string, name: string) {
   commit(nameAccount(snapshot.ledger, accountKey, name));
+}
+
+function setCategoryBook(book: CategoryBook | null) {
+  applyBook(book ? resolveBook(book) : null);
+  commit(recordTaxonomy(snapshot.ledger, book));
 }
 
 function clearLedger() {

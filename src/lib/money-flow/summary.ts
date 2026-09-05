@@ -3,8 +3,9 @@ import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { monthLabelFromKey } from "@/lib/money-flow/savings";
 import { accountIdOf, namesItsOwnAccount, type AccountRegistry } from "@/lib/money-flow/account-identity";
 import { looksInternal } from "@/lib/money-flow/statement-category";
-import { categoryOf, tagsOf } from "@/lib/money-flow/tags";
-import { categoryLabel, countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
+import { chartLabel, groupOf, isGroupId } from "@/lib/money-flow/category-book";
+import { categoryOf } from "@/lib/money-flow/tags";
+import { countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
@@ -159,57 +160,91 @@ export function amountByCategory(
   transactions: InterpretedTransaction[],
   direction: TagFlowDirection = "out",
 ): CategorySpend[] {
-  return aggregateByTag(directed(transactions, direction), categoryOf);
+  return aggregateByTag(directed(transactions, direction), (txn) => groupOf(categoryOf(txn)));
 }
 
-/** A movement in a category chart that carries no tag of its own. */
-export const UNTAGGED = "Untagged";
-
 /**
- * A chart of the categories, drilling into one category's tags when it is selected.
+ * A chart of the groups, drilling into one group's categories when it is selected.
  *
- * Category rows are keyed by category key rather than by display name, so renaming one
- * later cannot orphan a selection or split a bar in two. Callers render `categoryLabel`.
+ * Rows are keyed by group or category key rather than by display name, so renaming one
+ * later cannot orphan a selection or split a bar in two. Callers render `chartLabel`.
  *
- * The drill-down reads a movement's *first* tag, not all of them. A movement can carry any
- * number, and summing every tag would put one payment in two bars and leave the breakdown
- * adding up to more than the category above it. That is a display choice and nothing is
- * stored: the category is what every figure is actually built from, so nothing here can
- * move a total whichever tag is picked.
+ * Tags stay metadata: selecting a category stays on that category's movements and does
+ * not split by tag.
  */
 export function chartTagFlowSeries(transactions: InterpretedTransaction[], selected: string): TagFlowSeries {
   const rows = countedMovements(transactions).filter((txn) => txn.amount !== 0);
-  const isCategory = rows.some((txn) => categoryOf(txn) === selected);
 
-  if (selected !== "All" && isCategory) {
-    const inside = rows.filter((txn) => categoryOf(txn) === selected);
+  if (selected !== "All" && isGroupId(selected)) {
+    const inside = rows.filter((txn) => groupOf(categoryOf(txn)) === selected);
     return {
-      rows: netByTag(inside, (txn) => tagsOf(txn)[0] ?? UNTAGGED),
+      rows: netByTag(inside, categoryOf),
       level: "sub",
       ...flowTotals(inside),
       parent: selected,
     };
   }
 
-  const filtered = selected === "All" ? rows : rows.filter((txn) => matches(txn, selected));
+  if (selected !== "All" && rows.some((txn) => categoryOf(txn) === selected)) {
+    const inside = rows.filter((txn) => categoryOf(txn) === selected);
+    return {
+      rows: netByTag(inside, categoryOf),
+      level: "sub",
+      ...flowTotals(inside),
+      parent: groupOf(selected),
+    };
+  }
+
   return {
-    rows: netByTag(filtered, categoryOf),
+    rows: netByTag(rows, (txn) => groupOf(categoryOf(txn))),
     level: "primary",
-    ...flowTotals(filtered),
+    ...flowTotals(rows),
     parent: null,
   };
 }
 
-/** A selection can be a category or one of the person's tags. */
+/** A selection can be a group or a filing category. Tags are not a chart axis. */
 export function matches(txn: InterpretedTransaction, selected: string): boolean {
-  return categoryOf(txn) === selected || tagsOf(txn).includes(selected);
+  return groupOf(categoryOf(txn)) === selected || categoryOf(txn) === selected;
 }
 
-/** Every category present, for the pickers. Keyed, so a rename cannot orphan a selection. */
+/** Every group present, for the chart chips. Keyed, so a rename cannot orphan a selection. */
+export function selectableGroups(transactions: InterpretedTransaction[]): string[] {
+  return [...new Set(transactions.map((txn) => groupOf(categoryOf(txn))))].sort((a, b) =>
+    chartLabel(a).localeCompare(chartLabel(b)),
+  );
+}
+
+/** Filing categories inside the selected group, or every category when looking at All. */
+export function selectableCategories(transactions: InterpretedTransaction[], selected: string): string[] {
+  const group = selected === "All" ? null : isGroupId(selected) ? selected : groupOf(selected);
+  const keys = [
+    ...new Set(
+      transactions
+        .filter((txn) => !group || groupOf(categoryOf(txn)) === group)
+        .map(categoryOf),
+    ),
+  ];
+  return keys.sort((a, b) => chartLabel(a).localeCompare(chartLabel(b)));
+}
+
+/** Every category present, for the table filter. Keyed, so a rename cannot orphan a selection. */
 export function selectableKeys(transactions: InterpretedTransaction[]): string[] {
   return [...new Set(transactions.map(categoryOf))].sort((a, b) =>
-    categoryLabel(a).localeCompare(categoryLabel(b)),
+    chartLabel(a).localeCompare(chartLabel(b)),
   );
+}
+
+/** Groups then categories, so a chart's group chip stays selected in the table filter. */
+export function tableFilterKeys(transactions: InterpretedTransaction[]): string[] {
+  const groups = selectableGroups(transactions);
+  const seen = new Set(groups);
+  return [...groups, ...selectableKeys(transactions).filter((key) => !seen.has(key))];
+}
+
+/** Keep a group or category selection; fall back only when that key is not in the set. */
+export function tableFilterValue(selected: string, options: string[]): string {
+  return options.includes(selected) ? selected : "All";
 }
 
 /**
@@ -435,7 +470,7 @@ function insights(
   if (topIn) lines.push(`Money came in mainly from ${topIn.merchant} (${formatAud(topIn.amount)}).`);
   if (summary.categories[0]) {
     lines.push(
-      `The most money went on ${categoryLabel(summary.categories[0].name)} (${formatAud(summary.categories[0].amount)}).`,
+      `The most money went on ${chartLabel(summary.categories[0].name)} (${formatAud(summary.categories[0].amount)}).`,
     );
   } else if (topOut) {
     lines.push(`The largest payment was ${topOut.merchant} (${formatAud(Math.abs(topOut.amount))}).`);
