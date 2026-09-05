@@ -110,7 +110,7 @@ export function TransactionsView() {
           compact
         />
       </div>
-      <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
+      <article className="mt-4 overflow-hidden rounded-2xl border border-[#dce4df] bg-white p-4">
         <h2 className="text-base font-bold">Transactions</h2>
         <p className="mt-0.5 text-xs text-[#60716a]">
           Every movement in this period — one row each, so the same shop appears as many times as you

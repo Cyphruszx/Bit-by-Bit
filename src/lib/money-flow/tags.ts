@@ -12,7 +12,7 @@
  */
 
 import { merchantKey } from "@/lib/money-flow/redact";
-import { isCategoryKey, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import { isCategoryKey, typeForCategory, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { DecidedBy, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export function tidyTag(raw: string): string {
@@ -40,7 +40,7 @@ export function withCategory(
   decidedBy: DecidedBy = "said",
 ): InterpretedTransaction {
   const next = isCategoryKey(categoryKey) ? categoryKey : UNCATEGORISED;
-  return { ...txn, categoryKey: next, decidedBy };
+  return { ...txn, categoryKey: next, type: typeForCategory(next, txn.amount), decidedBy };
 }
 
 export function withTags(txn: InterpretedTransaction, tags: string[]): InterpretedTransaction {

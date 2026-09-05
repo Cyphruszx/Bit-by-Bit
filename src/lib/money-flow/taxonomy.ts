@@ -358,6 +358,50 @@ const BY_KEY = new Map(CATEGORIES.map((category) => [category.key, category]));
 /** Every category a movement can be filed under. Fourteen, plus the two loose ones. */
 export const CATEGORY_KEYS: string[] = [...CATEGORIES.map((category) => category.key), OTHER, UNCATEGORISED];
 
+/**
+ * Folders a person reaches for first. The ledger still stores a category, not a group —
+ * this is only how the list is offered, so Home and the power bill sit together without
+ * inventing a second thing to save.
+ */
+export const CATEGORY_GROUPS: { key: string; label: string; categories: string[] }[] = [
+  { key: "income", label: "Income", categories: ["income"] },
+  { key: "housing", label: "Housing", categories: ["home", "utilities"] },
+  { key: "food", label: "Food", categories: ["food"] },
+  { key: "transport", label: "Transport", categories: ["transport"] },
+  { key: "lifestyle", label: "Lifestyle", categories: ["shopping", "leisure", "travel", "people"] },
+  { key: "health", label: "Health", categories: ["health"] },
+  { key: "commitments", label: "Commitments", categories: ["money", "debt", "invest"] },
+  { key: "giving-govt", label: "Giving and Government", categories: ["govt"] },
+  { key: "other", label: "Other", categories: [OTHER, UNCATEGORISED] },
+];
+
+const GROUP_BY_CATEGORY = new Map(
+  CATEGORY_GROUPS.flatMap((group) => group.categories.map((key) => [key, group] as const)),
+);
+
+const OTHER_GROUP = CATEGORY_GROUPS[CATEGORY_GROUPS.length - 1];
+
+/** The folder this category sits in. Unknown keys land in Other. */
+export function groupOf(categoryKey: string | undefined) {
+  return (categoryKey && GROUP_BY_CATEGORY.get(categoryKey)) || OTHER_GROUP;
+}
+
+export function groupLabel(categoryKey: string | undefined): string {
+  return groupOf(categoryKey).label;
+}
+
+/**
+ * The category to file under after a folder is chosen.
+ *
+ * Stay put when the current category already lives there. Otherwise take the first one in
+ * the folder — Other, not "Not sorted yet", because moving a row into Other is a decision.
+ */
+export function defaultCategoryForGroup(groupKey: string, current?: string): string {
+  const group = CATEGORY_GROUPS.find((entry) => entry.key === groupKey) ?? OTHER_GROUP;
+  if (current && group.categories.includes(current)) return current;
+  return group.categories[0];
+}
+
 const KNOWN = new Set(CATEGORY_KEYS);
 
 export function isCategoryKey(value: unknown): boolean {
