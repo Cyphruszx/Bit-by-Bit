@@ -22,7 +22,7 @@ import {
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
-import { removeTag, renameTag, tagMerchant, withTags } from "@/lib/money-flow/tags";
+import { categorizeMerchant, removeTag, renameTag, tagMerchant, withCategory, withTags } from "@/lib/money-flow/tags";
 import { markRefundLegs } from "@/lib/money-flow/refunds";
 import {
   applyVerdicts,
@@ -91,6 +91,10 @@ type MoneyFlowState = {
   /** Joins two wordings, or with a null target, separates them again. */
   mergePayers: (from: string, into: string | null) => void;
   clearInterpretation: () => void;
+  /** What one movement was for. A person choosing settles it against every later re-read. */
+  setTransactionCategory: (id: string, categoryKey: string) => void;
+  /** The same category on every movement of one merchant, however far back it goes. */
+  setMerchantCategory: (merchant: string, categoryKey: string) => void;
   setTransactionTags: (id: string, tags: string[]) => void;
   /** The same tags on every movement of one merchant, however far back it goes. */
   setMerchantTags: (merchant: string, tags: string[]) => void;
@@ -152,6 +156,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       importDocuments,
       removeStatement,
       clearInterpretation: clearLedger,
+      setTransactionCategory,
+      setMerchantCategory,
       setTransactionTags,
       setMerchantTags,
       renameTagEverywhere,
@@ -291,6 +297,14 @@ function writePeriod(period: PeriodFilter) {
   cachedPeriodRaw = raw;
   cachedPeriod = period;
   periodListeners.forEach((listener) => listener());
+}
+
+function setTransactionCategory(id: string, categoryKey: string) {
+  edit((rows) => rows.map((txn) => (txn.id === id ? withCategory(txn, categoryKey) : txn)));
+}
+
+function setMerchantCategory(merchant: string, categoryKey: string) {
+  edit((rows) => categorizeMerchant(rows, merchant, categoryKey));
 }
 
 function setTransactionTags(id: string, tags: string[]) {

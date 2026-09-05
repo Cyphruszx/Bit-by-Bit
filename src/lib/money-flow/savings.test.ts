@@ -132,9 +132,9 @@ describe("months to pot", () => {
 describe("monthly transfers", () => {
   it("totals set-aside transfers by month", () => {
     const series = monthlyTransferSeries([
-      txn({ id: "1", merchant: "Transfer", amount: -400, dateIso: "2026-07-12", type: "transfer" }),
-      txn({ id: "2", merchant: "Transfer", amount: -400, dateIso: "2026-08-12", type: "transfer" }),
-      txn({ id: "3", merchant: "Woolworths", amount: -86.4, dateIso: "2026-08-04", type: "expense" }),
+      txn({ id: "1", merchant: "Transfer", amount: -400, dateIso: "2026-07-12", type: "moved" }),
+      txn({ id: "2", merchant: "Transfer", amount: -400, dateIso: "2026-08-12", type: "moved" }),
+      txn({ id: "3", merchant: "Woolworths", amount: -86.4, dateIso: "2026-08-04", type: "spent" }),
     ]);
     assert.deepEqual(
       series.map((point) => [point.key, point.value]),
@@ -150,9 +150,9 @@ function txn(
   partial: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "merchant" | "amount" | "dateIso">,
 ): InterpretedTransaction {
   return {
-    category: "Goals",
+    categoryKey: "uncategorised",
     date: "1 Aug",
-    type: "expense",
+    type: "spent",
     sourceFile: "demo",
     confidence: 1,
     ...partial,

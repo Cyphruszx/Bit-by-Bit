@@ -1,4 +1,18 @@
-import type { InterpretedTransaction } from "@/lib/money-flow/types";
+/**
+ * Tags, which are now only tags.
+ *
+ * This file used to hold both axes at once: `withTags` wrote the first tag back into
+ * `category`, so the two were the same string and a tag could silently move a total. The
+ * rule they are separated by is one sentence — **a movement has exactly one category, for
+ * what the money was for, and any number of tags, for anything else you want to find it
+ * by** — and the thing that enforces it is that nothing in here touches a figure.
+ *
+ * The old "primary tag and optional sub-tag" control was a two-level category wearing a
+ * tag's name. The levels live in the taxonomy now, so the control is gone.
+ */
+
+import { isCategoryKey, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import type { DecidedBy, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export function tidyTag(raw: string): string {
   const cleaned = raw.replace(/\s+/g, " ").trim();
@@ -6,41 +20,36 @@ export function tidyTag(raw: string): string {
   return cleaned.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function tagsOf(txn: Pick<InterpretedTransaction, "category" | "tags">): string[] {
-  const fromTags = uniqueTags((txn.tags ?? []).map(tidyTag).filter(Boolean));
-  if (fromTags.length > 0) return fromTags;
-  const fallback = tidyTag(txn.category);
-  return fallback ? [fallback] : ["Other"];
+/** What the money was for. Always a taxonomy key, never a display name. */
+export function categoryOf(txn: Pick<InterpretedTransaction, "categoryKey">): string {
+  return isCategoryKey(txn.categoryKey) ? txn.categoryKey : UNCATEGORISED;
 }
 
-export function primaryTag(txn: Pick<InterpretedTransaction, "category" | "tags">): string {
-  return tagsOf(txn)[0] ?? "Other";
+export function tagsOf(txn: Pick<InterpretedTransaction, "tags">): string[] {
+  return uniqueTags((txn.tags ?? []).map(tidyTag).filter(Boolean));
 }
 
-export function subTags(txn: Pick<InterpretedTransaction, "category" | "tags">): string[] {
-  return tagsOf(txn).slice(1);
+/**
+ * A person choosing a category settles it, which is the highest rung on the ladder: no
+ * later re-read, better rule or model call moves it again.
+ */
+export function withCategory(
+  txn: InterpretedTransaction,
+  categoryKey: string,
+  decidedBy: DecidedBy = "said",
+): InterpretedTransaction {
+  const next = isCategoryKey(categoryKey) ? categoryKey : UNCATEGORISED;
+  return { ...txn, categoryKey: next, decidedBy };
 }
 
 export function withTags(txn: InterpretedTransaction, tags: string[]): InterpretedTransaction {
   const next = uniqueTags(tags.map(tidyTag).filter(Boolean));
-  const primary = next[0] ?? "Other";
-  return { ...txn, tags: next.length > 0 ? next : ["Other"], category: primary, tagSource: "user" };
-}
-
-export function withPrimary(txn: InterpretedTransaction, name: string): InterpretedTransaction {
-  const next = tidyTag(name);
-  const rest = subTags(txn).filter((tag) => tag.toLowerCase() !== next.toLowerCase());
-  return withTags(txn, next ? [next, ...rest] : rest);
-}
-
-export function withSubTags(txn: InterpretedTransaction, nextSubs: string[]): InterpretedTransaction {
-  return withTags(txn, [primaryTag(txn), ...nextSubs]);
-}
-
-export function makePrimary(txn: InterpretedTransaction, name: string): InterpretedTransaction {
-  const next = tidyTag(name);
-  const others = tagsOf(txn).filter((tag) => tag.toLowerCase() !== next.toLowerCase());
-  return withTags(txn, next ? [next, ...others] : others);
+  if (next.length === 0) {
+    const bare = { ...txn };
+    delete bare.tags;
+    return bare;
+  }
+  return { ...txn, tags: next };
 }
 
 /** Statements name a merchant inconsistently in case, so match on the tidied name. */
@@ -55,7 +64,15 @@ export function merchantRows(
   return transactions.filter((txn) => sameMerchant(txn.merchant, merchant));
 }
 
-/** The same tags on every movement of one merchant, leaving every other movement alone. */
+/** The same category on every movement of one merchant, leaving every other movement alone. */
+export function categorizeMerchant(
+  transactions: InterpretedTransaction[],
+  merchant: string,
+  categoryKey: string,
+): InterpretedTransaction[] {
+  return transactions.map((txn) => (sameMerchant(txn.merchant, merchant) ? withCategory(txn, categoryKey) : txn));
+}
+
 export function tagMerchant(
   transactions: InterpretedTransaction[],
   merchant: string,
@@ -83,14 +100,6 @@ export function removeTag(transactions: InterpretedTransaction[], name: string):
 
 export function allTags(transactions: InterpretedTransaction[]): string[] {
   return uniqueTags(transactions.flatMap(tagsOf)).sort((a, b) => a.localeCompare(b));
-}
-
-export function allPrimaryTags(transactions: InterpretedTransaction[]): string[] {
-  return uniqueTags(transactions.map(primaryTag)).sort((a, b) => a.localeCompare(b));
-}
-
-export function allSubTags(transactions: InterpretedTransaction[]): string[] {
-  return uniqueTags(transactions.flatMap(subTags)).sort((a, b) => a.localeCompare(b));
 }
 
 export function uniqueTags(tags: string[]): string[] {

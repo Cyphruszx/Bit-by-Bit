@@ -21,11 +21,11 @@ function txn(merchant: string, amount: number): InterpretedTransaction {
   return {
     id: `m${made}`,
     merchant,
-    category: "Dining",
+    categoryKey: "food.restaurants",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount,
-    type: amount < 0 ? "expense" : "income",
+    type: amount < 0 ? "spent" : "earned",
     sourceFile: "statement.csv",
     confidence: 1,
   };

@@ -19,11 +19,11 @@ function paid(
   return {
     id: `m${made}`,
     merchant: description,
-    category: "Other",
+    categoryKey: "uncategorised",
     date: dateIso,
     dateIso,
     amount,
-    type: amount > 0 ? "income" : "expense",
+    type: amount > 0 ? "earned" : "spent",
     sourceFile: "nab.csv",
     accountId: "NAB · 100200300",
     confidence: 1,

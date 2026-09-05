@@ -14,6 +14,8 @@
  */
 
 import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/account-identity";
+import { looksReturned } from "@/lib/money-flow/statement-category";
+import { typeForCategory } from "@/lib/money-flow/taxonomy";
 import { calendarDaysBetween } from "@/lib/money-flow/transfers";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -147,6 +149,10 @@ export function markRefundLegs(
 ): InterpretedTransaction[] {
   const match = matchRefunds(transactions, options);
   const pairOf = new Map<string, string>();
+  // Only the credit becomes `returned`. The debit is still a payment that was made — the
+  // pair is what stops both of them counting, and calling the payment a return as well
+  // would lose what it was for.
+  const returned = new Set(match.pairs.map((pair) => pair.refund.id));
   for (const pair of match.pairs) {
     const id = `${pair.payment.id}~${pair.refund.id}`;
     pairOf.set(pair.payment.id, id);
@@ -155,9 +161,13 @@ export function markRefundLegs(
 
   return transactions.map((txn) => {
     const pair = pairOf.get(txn.id);
-    if (pair) return txn.refundPair === pair ? txn : { ...txn, refundPair: pair };
+    if (pair) {
+      const type = returned.has(txn.id) ? "returned" : txn.type;
+      if (txn.refundPair === pair && txn.type === type) return txn;
+      return { ...txn, refundPair: pair, type, decidedBy: "paired" as const };
+    }
     if (!txn.refundPair) return txn;
-    const forgotten = { ...txn };
+    const forgotten = { ...txn, type: typeForCategory(txn.categoryKey, txn.amount) };
     delete forgotten.refundPair;
     return forgotten;
   });
@@ -203,13 +213,12 @@ function wordsOf(txn: InterpretedTransaction): string[] {
  * Same account, same amount and a shared word is not enough on its own: a landlord who
  * receives $2,300 of rent and pays $2,300 to the same agent within the quarter shares a
  * rare word and would have both legs cancelled, quietly claiming the money never moved.
- * Something has to say this credit is a reversal, and the reader already decides that.
+ * Something has to say this credit is a reversal, and the statement's own wording is the
+ * only thing that can — which is exactly the use the bank's words are kept for. Saying so
+ * is not believed: it only decides which credits are worth looking for a payment against.
  */
 function comesBack(txn: InterpretedTransaction): boolean {
-  if (txn.type === "refund") return true;
-  return /\b(refund|reversal|rebate|chargeback|returned)/i.test(
-    `${txn.description ?? ""} ${txn.merchant}`,
-  );
+  return looksReturned(txn);
 }
 
 function bucket(account: string, amount: number): string {

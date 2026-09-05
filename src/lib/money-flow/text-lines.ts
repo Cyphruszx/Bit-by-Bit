@@ -1,4 +1,5 @@
-import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
+import { tidyMerchant } from "@/lib/money-flow/categorize";
+import { readMovement } from "@/lib/money-flow/interpret-row";
 import { formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -78,19 +79,23 @@ export function transactionsFromText(text: string, sourceFile: string): Interpre
   const perRow = chained ? null : signByNeighbouringBalance(rows, opening);
 
   return rows.map((row, position) => {
-    const category = categorize(row.description);
     const fromBalance = chained?.[position] ?? perRow?.[position] ?? null;
-    const amount = fromBalance ?? readWithoutBalance(row);
-    const type = inferType(row.description, amount, category);
+    // A balance says which way the money went, and is believed over any reading of the
+    // words. Without one the wording is all there is.
+    const read =
+      fromBalance != null
+        ? readMovement(row.description, fromBalance, true)
+        : readMovement(row.description, magnitudeOf(row), false);
 
     return {
       id: `${sourceFile}-line-${row.index}-${row.dateIso}`,
       merchant: tidyMerchant(row.description),
-      category,
+      categoryKey: read.categoryKey,
+      decidedBy: read.decidedBy,
       date: formatDisplayDate(row.dateIso),
       dateIso: row.dateIso,
-      amount,
-      type,
+      amount: read.amount,
+      type: read.type,
       sourceFile,
       // A balance the statement itself agrees with is stronger evidence than a guess at
       // which way an amount was meant to go; one neighbouring balance is weaker than a
@@ -109,11 +114,8 @@ export function transactionsFromText(text: string, sourceFile: string): Interpre
  * it as the movement turns a $100 shop into $900 of income. What moved is the figure
  * before it.
  */
-function readWithoutBalance(row: Row): number {
-  const amount = row.amounts.length >= 2 ? magnitude(row) : row.amounts[0];
-  const type = inferType(row.description, amount, categorize(row.description));
-  if (type === "income" || type === "refund") return Math.abs(amount);
-  return type === "expense" && amount > 0 ? -amount : amount;
+function magnitudeOf(row: Row): number {
+  return row.amounts.length >= 2 ? magnitude(row) : row.amounts[0];
 }
 
 /**

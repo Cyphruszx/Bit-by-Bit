@@ -18,11 +18,11 @@ function txn(id: string, dateIso: string, amount = -10): InterpretedTransaction 
   return {
     id,
     merchant: "Cafe",
-    category: "Dining",
+    categoryKey: "food.restaurants",
     date: dateIso.slice(8),
     dateIso,
     amount,
-    type: amount > 0 ? "income" : "expense",
+    type: amount > 0 ? "earned" : "spent",
     sourceFile: "demo",
     confidence: 1,
   };

@@ -1,5 +1,6 @@
 import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/accounts";
 import { institutionOf, type InstitutionOverrides } from "@/lib/money-flow/institution";
+import { typeForCategory } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /** Amounts are money, so equality is to the cent and nothing finer. */
@@ -191,11 +192,20 @@ export function markTransferLegs(
     pairOf.set(pair.credit.id, id);
   }
 
+  // Finding the other leg is the only thing that proves money moved between the person's
+  // own accounts, so this is the only place `moved` is ever written. A bank's own wording
+  // gets no vote: NAB calls 212 movements a transfer and 54 of them are.
   return transactions.map((txn) => {
     const pair = pairOf.get(txn.id);
-    if (pair) return txn.transferPair === pair ? txn : { ...txn, transferPair: pair };
+    if (pair) {
+      if (txn.transferPair === pair && txn.type === "moved") return txn;
+      return { ...txn, transferPair: pair, type: "moved" as const, decidedBy: "paired" as const };
+    }
     if (!txn.transferPair) return txn;
-    const forgotten = { ...txn };
+    // A pair that no longer holds — the other account's statement was removed — has to
+    // give the type back as well as the mark, or the money stays invisible on the evidence
+    // of something that is no longer there.
+    const forgotten = { ...txn, type: typeForCategory(txn.categoryKey, txn.amount) };
     delete forgotten.transferPair;
     return forgotten;
   });

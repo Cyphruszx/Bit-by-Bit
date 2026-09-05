@@ -1,12 +1,13 @@
 import type { AccountNames } from "@/lib/money-flow/account-identity";
 import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import { uniqueTransactions } from "@/lib/money-flow/summary";
+import { upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const LEDGER_VERSION = 1;
 
-export type LedgerEntry = InterpretedTransaction & {
+export type LedgerEntry = StoredTransaction & {
   fingerprint: string;
   /** Every import that carried this movement, so removing one import cannot drop a row another still covers. */
   importIds: string[];
@@ -363,7 +364,7 @@ function mergedVerdicts(mine: Verdicts | undefined, theirs: Verdicts | undefined
 }
 
 export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {
-  return ledger.entries;
+  return upgradeTransactions(ledger.entries);
 }
 
 /**
@@ -377,7 +378,10 @@ export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {
  * overlap folds away here, with nothing re-imported and no stored row disturbed.
  */
 export function visibleTransactions(ledger: Ledger): InterpretedTransaction[] {
-  return uniqueTransactions(ledger.entries, {
+  // Read into the current model on the way out rather than rewritten in place, so a ledger
+  // stored under the old thirteen tags opens correctly the first time and nobody is walked
+  // through a migration. Idempotent, so a ledger already in the new shape pays nothing.
+  return uniqueTransactions(upgradeTransactions(ledger.entries), {
     ...(ledger.accounts ? { names: ledger.accounts } : {}),
     ...(ledger.institutions ? { institutions: ledger.institutions } : {}),
     ...(ledger.payers ? { payers: ledger.payers } : {}),

@@ -155,7 +155,7 @@ export function prependRecordedMonths(snapshots: SavingsSnapshot[], projected: C
 export function monthlyTransferSeries(transactions: InterpretedTransaction[]): ChartPoint[] {
   const byMonth = new Map<string, number>();
   for (const txn of transactions) {
-    if (txn.type !== "transfer" || !txn.dateIso) continue;
+    if (txn.type !== "moved" || !txn.dateIso) continue;
     const key = txn.dateIso.slice(0, 7);
     if (key.length !== 7) continue;
     byMonth.set(key, roundMoney((byMonth.get(key) ?? 0) + Math.abs(txn.amount)));

@@ -1,4 +1,5 @@
-import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
+import { tidyMerchant } from "@/lib/money-flow/categorize";
+import { readMovement } from "@/lib/money-flow/interpret-row";
 import { formatDisplayDate, parseAmount } from "@/lib/money-flow/parse-values";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -203,27 +204,32 @@ function transactionFromBlock(
   const description = descriptionFrom(lines);
   if (!description) return null;
 
-  const category = categorize(description);
-  let amount = txnAmount.value;
-  if (txnAmount.plus) amount = Math.abs(amount);
-  else if (txnAmount.minus) amount = -Math.abs(amount);
-  else amount = -Math.abs(amount);
-
-  if (/\brefund\b/i.test(description)) amount = Math.abs(amount);
-  if (/\bosko payment received|\binterest\b/i.test(description)) amount = Math.abs(amount);
-
-  const type = inferType(description, amount, category);
-  if (type === "income" || type === "refund") amount = Math.abs(amount);
-  if (type === "expense" && amount > 0) amount = -amount;
+  // Up prints a + beside money in and nothing beside money out, so the absence of a marker
+  // is itself the statement saying "out" — not a gap for the wording to fill. Reading these
+  // rows the way a loose text file is read turns $20,446.60 of purchases into income.
+  //
+  // The two exceptions are rows where Up's own marker is not on the amount line: a reversal,
+  // and the interest it pays. Both are money in whatever the marker says.
+  const arriving =
+    txnAmount.plus ||
+    (!txnAmount.minus && (/\brefund\b/i.test(description) || /\bosko payment received\b|\binterest\b/i.test(description)));
+  const signed = arriving ? Math.abs(txnAmount.value) : -Math.abs(txnAmount.value);
+  const read = readMovement(description, signed, true);
 
   return {
-    id: `${sourceFile}-up-${index}-${dateIso}-${amount}`,
+    id: `${sourceFile}-up-${index}-${dateIso}-${read.amount}`,
     merchant: tidyMerchant(merchantFrom(lines, description)),
-    category,
+    // Up's own line for the movement, kept rather than thrown away once the merchant has
+    // been read off it. It is the only record that Up called this one a refund and that one
+    // a transfer, and those two words are what the refund matcher and the unsettled-money
+    // card are looking for. Kept in the bank layer, so it is evidence and never an answer.
+    bank: { type: description },
+    categoryKey: read.categoryKey,
+    decidedBy: read.decidedBy,
     date: formatDisplayDate(dateIso),
     dateIso,
-    amount,
-    type,
+    amount: read.amount,
+    type: read.type,
     sourceFile,
     accountId: account,
     confidence: 0.9,

@@ -7,9 +7,9 @@ function txn(
   partial: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "merchant" | "amount" | "dateIso">,
 ): InterpretedTransaction {
   return {
-    category: "Other",
+    categoryKey: "uncategorised",
     date: "1 Aug",
-    type: "expense",
+    type: "spent",
     sourceFile: "demo",
     confidence: 1,
     ...partial,
@@ -19,10 +19,10 @@ function txn(
 describe("recurring outflows", () => {
   it("groups similar money-out by merchant and amount", () => {
     const found = detectRecurringOutflows([
-      txn({ id: "1", merchant: "Netflix", amount: -18.99, dateIso: "2026-07-03", category: "Subscriptions" }),
-      txn({ id: "2", merchant: "Netflix", amount: -18.99, dateIso: "2026-08-03", category: "Subscriptions" }),
-      txn({ id: "3", merchant: "Woolworths", amount: -86.4, dateIso: "2026-08-04", category: "Groceries" }),
-      txn({ id: "4", merchant: "Salary", amount: 2620, dateIso: "2026-08-18", type: "income", category: "Income" }),
+      txn({ id: "1", merchant: "Netflix", amount: -18.99, dateIso: "2026-07-03", categoryKey: "leisure.streaming" }),
+      txn({ id: "2", merchant: "Netflix", amount: -18.99, dateIso: "2026-08-03", categoryKey: "leisure.streaming" }),
+      txn({ id: "3", merchant: "Woolworths", amount: -86.4, dateIso: "2026-08-04", categoryKey: "food.groceries" }),
+      txn({ id: "4", merchant: "Salary", amount: 2620, dateIso: "2026-08-18", type: "earned", categoryKey: "income.salary" }),
     ]);
     assert.equal(found.length, 1);
     assert.equal(found[0].merchant, "Netflix");
@@ -35,7 +35,7 @@ describe("recurring outflows", () => {
 
   it("suggests a one-off bill-like payment", () => {
     const found = detectRecurringOutflows([
-      txn({ id: "1", merchant: "Rent Payment Smith", amount: -980, dateIso: "2026-08-15", category: "Housing" }),
+      txn({ id: "1", merchant: "Rent Payment Smith", amount: -980, dateIso: "2026-08-15", categoryKey: "home" }),
     ]);
     assert.equal(found[0].suggested, true);
     assert.equal(found[0].cadence, "monthly");
@@ -44,8 +44,8 @@ describe("recurring outflows", () => {
 
   it("skips savings transfers", () => {
     const found = detectRecurringOutflows([
-      txn({ id: "1", merchant: "Transfer To Savings", amount: -400, dateIso: "2026-08-12", type: "transfer", category: "Goals" }),
-      txn({ id: "2", merchant: "Transfer To Savings", amount: -400, dateIso: "2026-08-26", type: "transfer", category: "Goals" }),
+      txn({ id: "1", merchant: "Transfer To Savings", amount: -400, dateIso: "2026-08-12", type: "moved", categoryKey: "uncategorised" }),
+      txn({ id: "2", merchant: "Transfer To Savings", amount: -400, dateIso: "2026-08-26", type: "moved", categoryKey: "uncategorised" }),
     ]);
     assert.equal(found.length, 0);
   });
@@ -90,7 +90,7 @@ describe("recurring outflows", () => {
       nextDate: "2026-09-15",
     };
     const rows = [
-      txn({ id: "1", merchant: "Rent", amount: -980, dateIso: "2026-08-15", category: "Housing" }),
+      txn({ id: "1", merchant: "Rent", amount: -980, dateIso: "2026-08-15", categoryKey: "home" }),
     ];
     assert.equal(trackedInPeriod(item, { kind: "month", month: "2026-08" }, rows), true);
     assert.equal(trackingSnapshot(item, rows, { kind: "month", month: "2026-08" }, "2026-08-26").status, "paid");

@@ -1,8 +1,8 @@
-import { KNOWN_TAGS, snapTag, tidyMerchant } from "@/lib/money-flow/categorize";
+import { KNOWN_CATEGORIES, snapCategory, tidyMerchant } from "@/lib/money-flow/categorize";
 import { extensionOf } from "@/lib/money-flow/detect";
 import { formatDisplayDate, parseDate, roundMoney } from "@/lib/money-flow/parse-values";
-import { tagsOf } from "@/lib/money-flow/tags";
-import type { InterpretedTransaction, TransactionType } from "@/lib/money-flow/types";
+import { inflowType, isTransactionType, typeForCategory, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export type ImageExtractInput = {
   filename: string;
@@ -21,6 +21,7 @@ export type AiImageExtract = {
 
 export type AiTagSuggestion = {
   id: string;
+  /** A taxonomy key. Anything outside it is dropped rather than invented into existence. */
   category: string;
   confidence: number;
 };
@@ -32,7 +33,6 @@ export type MoneyFlowAi = {
 
 export type AiEnv = Record<string, string | undefined>;
 
-const TYPES = new Set<TransactionType>(["income", "expense", "transfer", "refund"]);
 const VISION_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 const TAG_BATCH = 40;
 const MIN_TAG_CONFIDENCE = 0.45;
@@ -82,21 +82,23 @@ export function transactionsFromAiExtract(raw: unknown, sourceFile: string): AiI
     const merchant = tidyMerchant(String(item.merchant ?? item.description ?? "").trim());
     if (amount == null || amount === 0 || merchant === "Unknown") return [];
     const dateIso = parseDate(String(item.date ?? "")) ?? todayIso();
-    const type = toType(item.type, amount, String(item.category ?? ""));
-    const category = snapTag(String(item.category ?? ""), true);
+    const categoryKey = snapCategory(String(item.category ?? "")) ?? UNCATEGORISED;
+    const signed = signedAmount(amount, item.type);
     const confidence = clamp01(item.confidence) ?? 0.72;
     return [
       {
         id: `${sourceFile}-ai-${index}`,
         merchant,
-        category,
-        tags: [category],
-        tagSource: category === "Other" ? "rules" : "ai",
+        categoryKey,
+        // The type is worked out from the category and the direction rather than taken
+        // from the model, so a model that answers "income" for a payment cannot put a
+        // negative number in the earnings figure.
+        type: typeForCategory(categoryKey, signed),
+        decidedBy: categoryKey === UNCATEGORISED ? ("unreviewed" as const) : ("ai" as const),
         extractedBy: "ai",
         date: formatDisplayDate(dateIso),
         dateIso,
-        amount: signedAmount(amount, type),
-        type,
+        amount: signed,
         sourceFile,
         confidence,
       } satisfies InterpretedTransaction,
@@ -108,8 +110,16 @@ export function transactionsFromAiExtract(raw: unknown, sourceFile: string): AiI
   return { transactions, notes };
 }
 
+/**
+ * Whether the model is worth asking about this movement at all.
+ *
+ * Only the ones nothing else could settle. A movement the rules recognised, a person
+ * corrected, or a pair proved is already decided by something cheaper and more reliable
+ * than a model call, and asking anyway is how a confident wrong answer overwrites a right
+ * one.
+ */
 export function needsInitialTag(txn: InterpretedTransaction): boolean {
-  return tagsOf(txn).every((tag) => tag === "Other");
+  return txn.categoryKey === UNCATEGORISED;
 }
 
 export function applyTagSuggestions(
@@ -127,14 +137,16 @@ export function applyTagSuggestions(
     if (!needsInitialTag(txn)) return txn;
     const suggestion = byId.get(txn.id);
     if (!suggestion) return txn;
-    const category = snapTag(suggestion.category, true);
-    if (category === "Other") return txn;
+    const categoryKey = snapCategory(suggestion.category);
+    // A model naming something outside the taxonomy has told us nothing usable, and the
+    // movement stays in the review queue rather than picking up an invented category.
+    if (!categoryKey || categoryKey === UNCATEGORISED) return txn;
     taggedCount += 1;
     return {
       ...txn,
-      category,
-      tags: [category],
-      tagSource: "ai" as const,
+      categoryKey,
+      type: typeForCategory(categoryKey, txn.amount),
+      decidedBy: "ai" as const,
       confidence: Math.max(txn.confidence, suggestion.confidence),
     };
   });
@@ -231,11 +243,11 @@ function extractSystemPrompt(): string {
   return [
     "You extract money movement from photos of receipts, invoices, and bank statements for an Australian personal-finance app.",
     "Reply with JSON only:",
-    '{ "documentType": "receipt" | "statement" | "invoice" | "other", "transactions": [{ "date": "YYYY-MM-DD", "merchant": "string", "description": "string", "amount": -12.5, "type": "expense" | "income" | "transfer" | "refund", "category": "Groceries", "confidence": 0.86 }], "notes": ["short note"] }',
+    '{ "documentType": "receipt" | "statement" | "invoice" | "other", "transactions": [{ "date": "YYYY-MM-DD", "merchant": "string", "description": "string", "amount": -12.5, "type": "expense" | "income" | "transfer" | "refund", "category": "food.groceries", "confidence": 0.86 }], "notes": ["short note"] }',
     "Amounts are AUD. Expenses and transfers out are negative. Income and refunds are positive.",
     "A shop receipt is usually ONE expense for the total paid, not every line item.",
     "A bank or card statement photo should list each transaction row.",
-    `Use only these category tags when possible: ${KNOWN_TAGS.join(", ")}.`,
+    `Use only these category keys: ${KNOWN_CATEGORIES.join(", ")}.`,
     "Do not invent amounts, dates, or merchants you cannot see.",
     "If the photo is not a financial document, return an empty transactions array.",
   ].join("\n");
@@ -243,11 +255,11 @@ function extractSystemPrompt(): string {
 
 function tagSystemPrompt(): string {
   return [
-    "You assign an initial tag when rule-based matching could not.",
-    `Allowed tags: ${KNOWN_TAGS.join(", ")}.`,
-    'Reply with JSON only: { "suggestions": [{ "id": "txn-id", "category": "Dining", "confidence": 0.8 }] }',
-    "If you are not reasonably sure, use Other with low confidence.",
-    "Prefer a specific tag over Other when the merchant is recognisable.",
+    "You assign a category to an Australian bank movement that no rule recognised. Answer with the category key only; the app works out whether it was earned, spent, borrowed or moved from the key and the direction, so never say.",
+    `Allowed category keys, and nothing else: ${KNOWN_CATEGORIES.join(", ")}.`,
+    'Reply with JSON only: { "suggestions": [{ "id": "txn-id", "category": "food.restaurants", "confidence": 0.8 }] }',
+    "If you are not reasonably sure, answer uncategorised with low confidence. A wrong category is worse than none: an unsorted movement is asked about, a wrong one is not.",
+    "Prefer the most specific key you are sure of. A group on its own, such as transport, is a fine answer when the child is a guess.",
   ].join("\n");
 }
 
@@ -284,17 +296,20 @@ function toAmount(value: unknown): number | null {
   return null;
 }
 
-function toType(value: unknown, amount: number, category: string): TransactionType {
-  if (typeof value === "string" && TYPES.has(value as TransactionType)) return value as TransactionType;
-  if (/\brefund|reversal|rebate\b/i.test(category)) return "refund";
-  if (category.toLowerCase() === "goals" || /\btransfer\b/i.test(category)) return "transfer";
-  if (amount > 0 || category.toLowerCase() === "income") return "income";
-  return "expense";
-}
-
-function signedAmount(amount: number, type: TransactionType): number {
-  if (type === "income" || type === "refund") return Math.abs(amount);
-  return amount > 0 ? -amount : amount;
+/**
+ * The direction a model meant, which is the only part of its type answer worth keeping.
+ *
+ * What kind of movement it is follows from the category and the sign, so the model never
+ * gets to put a figure in the wrong column by naming a type. It is still asked for one,
+ * because on a photo of a receipt the model is the only thing that can see whether money
+ * came or went.
+ */
+function signedAmount(amount: number, type: unknown): number {
+  const named = String(type ?? "");
+  const arriving = isTransactionType(named)
+    ? inflowType(named)
+    : /\b(income|refund|credit|earned|returned|borrowed)\b/i.test(named);
+  return arriving ? Math.abs(amount) : amount > 0 ? -amount : amount;
 }
 
 function clamp01(value: unknown): number | null {

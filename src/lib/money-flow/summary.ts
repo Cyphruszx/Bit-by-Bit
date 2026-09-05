@@ -2,12 +2,13 @@ import { formatAud } from "@/lib/format";
 import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { monthLabelFromKey } from "@/lib/money-flow/savings";
 import { accountIdOf, namesItsOwnAccount, type AccountRegistry } from "@/lib/money-flow/account-identity";
-import { primaryTag, subTags, tagsOf } from "@/lib/money-flow/tags";
+import { looksInternal } from "@/lib/money-flow/statement-category";
+import { categoryOf, tagsOf } from "@/lib/money-flow/tags";
+import { categoryLabel, countsAsIncome, countsAsSpending, groupOf } from "@/lib/money-flow/taxonomy";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
 export type TagFlowDirection = "out" | "in";
-export const NO_SUB_TAG = "No sub-tag";
 
 /** A tag's net position: `amount` is signed, positive for money in and negative for money out. */
 export type TagFlowRow = CategorySpend & {
@@ -42,12 +43,20 @@ export type FlowOverTimePoint = {
  * found in another account — markTransferLegs decides that over the whole ledger, so a
  * transfer sent in January and received in February is still one movement of the same
  * money. A bank writing "transfer" on a movement is not enough on its own.
+ *
+ * The second filter is what the type layer is for. Money arriving is not the same as money
+ * earned: a $25,000 drawdown from a lender lands in the account like a salary does and
+ * changes nothing about what the household owns. Reading the sign alone counted it, and
+ * one such row destroys a month. So a credit reaches the income figure only if its type
+ * says it was earned, and a debit reaches spending only if its type says it was spent.
  */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const counted = countedMovements(transactions);
-  const income = roundMoney(counted.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0));
+  const income = roundMoney(
+    counted.filter(isEarnings).reduce((sum, txn) => sum + txn.amount, 0),
+  );
   const spending = roundMoney(
-    counted.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    counted.filter(isSpending).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   const cashIn = roundMoney(
     transactions.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
@@ -67,15 +76,22 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
       .filter((txn) => txn.amount < 0 && settledTransfer.has(txn.id))
       .reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
+  // Movements the *bank* called internal that no other leg was ever found for. Read from
+  // the statement's own words rather than from a type, because that wording is the only
+  // record of what the bank believed and it is not allowed to decide anything on its own.
+  // Saying "this looks internal and its other leg is not here, so it still counts" is more
+  // use to a person than quietly believing the bank in either direction.
   const unmatchedInternal = roundMoney(
-    counted.filter((txn) => txn.type === "transfer").reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    counted
+      .filter((txn) => looksInternal(txn) && !txn.transferPair)
+      .reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   const refunds = roundMoney(
-    transactions.filter((txn) => txn.type === "refund").reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    transactions.filter((txn) => txn.type === "returned").reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   const net = roundMoney(income - spending);
   const cashNet = roundMoney(cashIn - cashOut);
-  const categories = spendByTags(transactions);
+  const categories = spendByCategory(transactions);
 
   return {
     income,
@@ -125,39 +141,66 @@ export function isInflow(txn: InterpretedTransaction): boolean {
   return txn.amount > 0 && !txn.transferPair;
 }
 
-export function spendByTags(transactions: InterpretedTransaction[]): CategorySpend[] {
-  return amountByPrimaryTags(transactions, "out");
+/** A credit the household actually earned, rather than one that merely arrived. */
+export function isEarnings(txn: InterpretedTransaction): boolean {
+  return txn.amount > 0 && countsAsIncome(txn.type);
 }
 
-export function amountByPrimaryTags(
+/** A payment that was really spent, rather than moved, repaid or invested. */
+export function isSpending(txn: InterpretedTransaction): boolean {
+  return txn.amount < 0 && countsAsSpending(txn.type);
+}
+
+export function spendByCategory(transactions: InterpretedTransaction[]): CategorySpend[] {
+  return amountByCategory(transactions, "out");
+}
+
+export function amountByCategory(
   transactions: InterpretedTransaction[],
   direction: TagFlowDirection = "out",
 ): CategorySpend[] {
-  return aggregateByTag(directed(transactions, direction), (txn) => primaryTag(txn));
+  return aggregateByTag(directed(transactions, direction), (txn) => groupOf(categoryOf(txn)));
 }
 
-export function chartTagFlowSeries(transactions: InterpretedTransaction[], selectedTag: string): TagFlowSeries {
+/**
+ * A chart of one level of the taxonomy, drilling into a group when one is selected.
+ *
+ * Rows are keyed by category key rather than by display name, so renaming a category later
+ * cannot orphan a selection or split one bar into two. Callers render `categoryLabel`.
+ */
+export function chartTagFlowSeries(transactions: InterpretedTransaction[], selected: string): TagFlowSeries {
   const rows = countedMovements(transactions).filter((txn) => txn.amount !== 0);
-  const selectedIsPrimary = rows.some((txn) => primaryTag(txn) === selectedTag);
+  const isGroup = rows.some((txn) => groupOf(categoryOf(txn)) === selected);
 
-  if (selectedTag !== "All" && selectedIsPrimary) {
-    const underPrimary = rows.filter((txn) => primaryTag(txn) === selectedTag);
-    const hasSub = underPrimary.some((txn) => subTags(txn).length > 0);
+  if (selected !== "All" && isGroup) {
+    const inGroup = rows.filter((txn) => groupOf(categoryOf(txn)) === selected);
     return {
-      rows: netByTag(underPrimary, hasSub ? (txn) => subTags(txn)[0] ?? NO_SUB_TAG : (txn) => primaryTag(txn)),
-      level: hasSub ? "sub" : "primary",
-      ...flowTotals(underPrimary),
-      parent: selectedTag,
+      rows: netByTag(inGroup, (txn) => categoryOf(txn)),
+      level: "sub",
+      ...flowTotals(inGroup),
+      parent: selected,
     };
   }
 
-  const filtered = selectedTag === "All" ? rows : rows.filter((txn) => tagsOf(txn).includes(selectedTag));
+  const filtered = selected === "All" ? rows : rows.filter((txn) => matches(txn, selected));
   return {
-    rows: netByTag(filtered, (txn) => primaryTag(txn)),
+    rows: netByTag(filtered, (txn) => groupOf(categoryOf(txn))),
     level: "primary",
     ...flowTotals(filtered),
     parent: null,
   };
+}
+
+/** A selection can be a category at either level, or one of the person's own tags. */
+export function matches(txn: InterpretedTransaction, selected: string): boolean {
+  const key = categoryOf(txn);
+  return key === selected || groupOf(key) === selected || tagsOf(txn).includes(selected);
+}
+
+/** Every category and tag present, for the pickers. Categories first, keyed. */
+export function selectableKeys(transactions: InterpretedTransaction[]): string[] {
+  const categories = new Set(transactions.map((txn) => groupOf(categoryOf(txn))));
+  return [...categories].sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)));
 }
 
 /**
@@ -168,13 +211,10 @@ export function chartTagFlowSeries(transactions: InterpretedTransaction[], selec
  */
 export function tagFlowOverTime(
   transactions: InterpretedTransaction[],
-  selectedTag = "All",
+  selected = "All",
 ): FlowOverTimePoint[] {
   const rows = countedMovements(transactions).filter(
-    (txn) =>
-      txn.amount !== 0 &&
-      Boolean(txn.dateIso) &&
-      (selectedTag === "All" || tagsOf(txn).includes(selectedTag)),
+    (txn) => txn.amount !== 0 && Boolean(txn.dateIso) && (selected === "All" || matches(txn, selected)),
   );
   if (rows.length === 0) return [];
 
@@ -292,8 +332,13 @@ function netByTag(
     .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount) || a.name.localeCompare(b.name));
 }
 
+/**
+ * The movements behind a headline figure, so its breakdown adds up to it. A repayment or a
+ * drawdown is left out here for the same reason it is left out of the total: a breakdown
+ * that does not reconcile with the number above it is worse than no breakdown.
+ */
 function directed(transactions: InterpretedTransaction[], direction: TagFlowDirection): InterpretedTransaction[] {
-  return countedMovements(transactions).filter((txn) => (direction === "out" ? txn.amount < 0 : txn.amount > 0));
+  return countedMovements(transactions).filter(direction === "out" ? isSpending : isEarnings);
 }
 
 function signedTotal(transactions: InterpretedTransaction[]): number {
@@ -380,7 +425,9 @@ function insights(
   const topOut = transactions.filter((txn) => txn.amount < 0).sort((a, b) => a.amount - b.amount)[0];
   if (topIn) lines.push(`Money came in mainly from ${topIn.merchant} (${formatAud(topIn.amount)}).`);
   if (summary.categories[0]) {
-    lines.push(`The largest primary outflow tag is ${summary.categories[0].name} (${formatAud(summary.categories[0].amount)}).`);
+    lines.push(
+      `The most money went on ${categoryLabel(summary.categories[0].name)} (${formatAud(summary.categories[0].amount)}).`,
+    );
   } else if (topOut) {
     lines.push(`The largest payment was ${topOut.merchant} (${formatAud(Math.abs(topOut.amount))}).`);
   }
