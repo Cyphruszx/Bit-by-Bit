@@ -51,6 +51,12 @@ describe("transaction tags", () => {
     const next = withCategory(txn("uncategorised"), "groceries");
     assert.equal(next.categoryKey, "groceries");
     assert.equal(next.decidedBy, "said");
+    assert.equal(next.type, "spent");
+  });
+
+  it("lets the type follow the category, so the two cannot disagree", () => {
+    // A debit filed under Income is a reversal or a misread, not spending wearing a wage.
+    assert.equal(withCategory(txn("groceries"), "salary").type, "adjusted");
   });
 
   it("refuses a category the taxonomy has never heard of", () => {

@@ -166,6 +166,18 @@ export function groupLabelOf(categoryKey: string | undefined): string {
 }
 
 /**
+ * The category to file under after a folder is chosen.
+ *
+ * Stay put when the current category already lives there. Otherwise take the first one in
+ * the folder — Other, not "Not sorted yet", because moving a row into Other is a decision.
+ */
+export function defaultCategoryForGroup(groupId: string, current?: string): string {
+  const held = categoriesIn(resolvedBook(), groupId);
+  if (current && held.some((category) => category.key === current)) return current;
+  return (held.find((category) => category.key !== UNCATEGORISED) ?? held[0])?.key ?? OTHER;
+}
+
+/**
  * Group first, then the category, for sentences and search.
  * When both words are the same — Other, Transfers — the name is written once.
  */

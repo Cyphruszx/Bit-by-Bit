@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ClassificationChips, ClassificationEditor } from "@/components/tag-editor";
+import { Fragment, useMemo, useState } from "react";
+import { ClassificationChips } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
@@ -9,15 +9,25 @@ import { accountIdOf, accountLabel } from "@/lib/money-flow/accounts";
 import { displayName } from "@/lib/money-flow/display-name";
 import { hasSource, sourcePairs } from "@/lib/money-flow/source";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
-import { chartLabel, taxonomyPath } from "@/lib/money-flow/category-book";
-import { typeLabel } from "@/lib/money-flow/taxonomy";
+import {
+  categoriesIn,
+  chartLabel,
+  defaultCategoryForGroup,
+  groupOf,
+  resolvedBook,
+  taxonomyPath,
+} from "@/lib/money-flow/category-book";
+import { categoryLabel, tagsFor, typeLabel } from "@/lib/money-flow/taxonomy";
 import { matches, tableFilterKeys, tableFilterValue } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 type Direction = "all" | "in" | "out";
 
-/** A statement year runs to well over a thousand movements, which is more than anyone scrolls. */
-const PAGE_SIZE = 25;
+const PAGE_SIZES = [5, 10, 25] as const;
+
+const RULE = "border-r border-[#edf0ee]";
+const CELL = "px-3 py-1.5";
+const SELECT = "w-full bg-transparent outline-none text-xs text-[#17211e]";
 
 export function TransactionTable({
   transactions,
@@ -40,14 +50,15 @@ export function TransactionTable({
   );
   // Saying which account every movement is in only helps once there is more than one.
   const showAccount = new Set(accountOf.values()).size > 1;
+  const columns = showAccount ? 8 : 7;
   const [query, setQuery] = useState("");
   const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
   const [showStatement, setShowStatement] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  // Raised after every tag edit where the merchant appears more than once, so the edit can be
-  // carried across without the reader hunting the rest down one at a time.
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(25);
+  // Raised after every category edit where the merchant appears more than once, so the edit
+  // can be carried across without the reader hunting the rest down one at a time.
   const [spread, setSpread] = useState<{ id: string; merchant: string; categoryKey: string; others: number } | null>(
     null,
   );
@@ -86,13 +97,20 @@ export function TransactionTable({
 
   // Going back to the first page whenever the filter changes, so narrowing the list does not
   // leave the reader parked on a page of it that no longer means anything.
-  const filterKey = `${activeTag}|${direction}|${query.trim().toLowerCase()}|${transactions.length}`;
+  const filterKey = `${activeTag}|${direction}|${query.trim().toLowerCase()}|${transactions.length}|${pageSize}`;
   const [shownFor, setShownFor] = useState(filterKey);
   if (shownFor !== filterKey) {
     setShownFor(filterKey);
     setPage(1);
   }
-  const { items: visible, page: currentPage, pageCount, firstIndex: firstOnPage } = paginate(rows, page, PAGE_SIZE);
+  const { items: visible, page: currentPage, pageCount, firstIndex: firstOnPage } = paginate(rows, page, pageSize);
+
+  function applyCategory(txn: InterpretedTransaction, categoryKey: string) {
+    if (categoryKey === txn.categoryKey) return;
+    setTransactionCategory(txn.id, categoryKey);
+    const others = merchantRows(allTransactions, txn.merchant).filter((row) => row.id !== txn.id).length;
+    setSpread({ id: txn.id, merchant: displayName(txn), categoryKey, others });
+  }
 
   return (
     <div>
@@ -148,93 +166,132 @@ export function TransactionTable({
           ))}
         </div>
       </div>
-      <div className="mt-3 divide-y divide-[#edf0ee]">
-        {rows.length === 0 ? (
-          <p className="py-5 text-sm text-[#60716a]">
-            {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
-          </p>
-        ) : (
-          visible.map((txn) => {
-            const editing = editingId === txn.id;
-            return (
-              <div className="py-2" key={txn.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                      <p className="text-sm font-semibold">{displayName(txn)}</p>
-                      <p className={`text-sm font-semibold tabular-nums ${txn.amount > 0 ? "text-[#257155]" : ""}`}>
+      {rows.length === 0 ? (
+        <p className="mt-3 py-5 text-sm text-[#60716a]">
+          {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
+        </p>
+      ) : (
+        <div className="mt-3 overflow-x-auto rounded-xl border border-[#edf0ee]">
+          <table className="w-full min-w-[900px] border-collapse text-left">
+            <thead className="sticky top-0 z-10 bg-[#f4f8ec]">
+              <tr>
+                <HeaderCell>Date</HeaderCell>
+                <HeaderCell>Merchant</HeaderCell>
+                <HeaderCell>Amount</HeaderCell>
+                {showAccount ? <HeaderCell>Account</HeaderCell> : null}
+                <HeaderCell>Type</HeaderCell>
+                <HeaderCell>Group</HeaderCell>
+                <HeaderCell>Category</HeaderCell>
+                <HeaderCell last>Tag</HeaderCell>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#edf0ee] bg-white">
+              {visible.map((txn) => {
+                const book = resolvedBook();
+                const groupId = groupOf(txn.categoryKey);
+                const inGroup = categoriesIn(book, groupId);
+                const categories = inGroup.some((category) => category.key === txn.categoryKey)
+                  ? inGroup
+                  : [{ key: txn.categoryKey, label: categoryLabel(txn.categoryKey) }, ...inGroup];
+                const name = displayName(txn);
+                return (
+                  <Fragment key={txn.id}>
+                    <tr>
+                      <td className={`${CELL} ${RULE} whitespace-nowrap text-xs text-[#17211e]`}>{txn.date}</td>
+                      <td className={`${CELL} ${RULE} text-xs font-medium text-[#17211e]`}>{name}</td>
+                      <td
+                        className={`${CELL} ${RULE} text-xs font-semibold tabular-nums ${
+                          txn.amount > 0 ? "text-[#257155]" : "text-[#17211e]"
+                        }`}
+                      >
                         {formatSignedAud(txn.amount)}
-                      </p>
-                      <p className="text-[11px] text-[#77857f]">{txn.date}</p>
+                      </td>
                       {showAccount ? (
-                        <p className="rounded-full bg-[#f0f4f1] px-2 py-0.5 text-[11px] text-[#60716a]">
-                          {accountOf.get(txn.id)}
-                        </p>
+                        <td className={`${CELL} ${RULE} text-xs text-[#60716a]`}>{accountOf.get(txn.id)}</td>
                       ) : null}
-                    </div>
-                    <div className="mt-1">
-                      {showStatement ? <ReadingBesideStatement txn={txn} /> : <ClassificationChips txn={txn} />}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    aria-expanded={editing}
-                    aria-controls={`tag-editor-${txn.id}`}
-                    onClick={() => {
-                      setSpread(null);
-                      setEditingId(editing ? null : txn.id);
-                    }}
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      editing ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
-                    }`}
-                  >
-                    {editing ? "Done" : "Change"}
-                  </button>
-                </div>
-                <div
-                  id={`tag-editor-${txn.id}`}
-                  hidden={!editing}
-                  className="mt-2 border-t border-dashed border-[#dce4df] pt-2"
-                >
-                  <ClassificationEditor
-                    txn={txn}
-                    tagOptions={allTags(transactions)}
-                    listId={`tag-suggestions-${txn.id}`}
-                    onTags={(next) => setTransactionTags(txn.id, next)}
-                    onCategory={(categoryKey) => {
-                      // Told once, applied everywhere, and said out loud. The app used to
-                      // ask whether to carry a correction across — but the answer was
-                      // always yes, and asking on every edit made a person confirm the
-                      // same thing about the same shop over and over.
-                      setTransactionCategory(txn.id, categoryKey);
-                      const others = merchantRows(allTransactions, txn.merchant).filter(
-                        (row) => row.id !== txn.id,
-                      ).length;
-                      setSpread({ id: txn.id, merchant: displayName(txn), categoryKey, others });
-                    }}
-                  />
-                  {spread?.id === txn.id ? (
-                    <p aria-live="polite" className="mt-2 rounded-xl bg-[#f4f8ec] px-3 py-2 text-xs text-[#355a3f]">
-                      Saved.{" "}
-                      {spread.others === 0
-                        ? `${spread.merchant} will be filed here from now on.`
-                        : spread.others === 1
-                          ? `Also applied to one other ${spread.merchant} movement, and to any that arrive later.`
-                          : `Also applied to ${formatCount(spread.others)} other ${spread.merchant} movements, and to any that arrive later.`}{" "}
-                      <span className="text-[#60716a]">You can undo this under What BitbyBit has learned.</span>
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-      {rows.length > PAGE_SIZE ? (
-        <nav
-          aria-label="Transaction pages"
-          className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#edf0ee] pt-3"
-        >
+                      <td className={`${CELL} ${RULE} text-[11px] font-semibold text-[#77857f]`}>{txn.type}</td>
+                      <td className={`${CELL} ${RULE}`}>
+                        <select
+                          value={groupId}
+                          aria-label={`Group for ${name}`}
+                          onChange={(event) => applyCategory(txn, defaultCategoryForGroup(event.target.value, txn.categoryKey))}
+                          className={SELECT}
+                        >
+                          {book.groups.map((entry) => (
+                            <option key={entry.id} value={entry.id}>
+                              {entry.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className={`${CELL} ${RULE}`}>
+                        <select
+                          value={txn.categoryKey}
+                          aria-label={`Category for ${name}`}
+                          onChange={(event) => applyCategory(txn, event.target.value)}
+                          className={SELECT}
+                        >
+                          {categories.map((held) => (
+                            <option key={held.key} value={held.key}>
+                              {held.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className={CELL}>
+                        <TagCell
+                          tags={tagsOf(txn)}
+                          options={[...new Set([...tagsFor(txn.categoryKey), ...allTags(transactions)])]}
+                          listId={`tag-suggestions-${txn.id}`}
+                          onChange={(next) => setTransactionTags(txn.id, next)}
+                        />
+                      </td>
+                    </tr>
+                    {showStatement ? (
+                      <tr className="bg-[#fafcf9]">
+                        <td colSpan={columns} className="px-3 py-2">
+                          <ReadingBesideStatement txn={txn} />
+                        </td>
+                      </tr>
+                    ) : null}
+                    {spread?.id === txn.id ? (
+                      <tr className="bg-[#f4f8ec]">
+                        <td colSpan={columns} className="px-3 py-2 text-xs text-[#355a3f]" aria-live="polite">
+                          Saved.{" "}
+                          {spread.others === 0
+                            ? `${spread.merchant} will be filed here from now on.`
+                            : spread.others === 1
+                              ? `Also applied to one other ${spread.merchant} movement, and to any that arrive later.`
+                              : `Also applied to ${formatCount(spread.others)} other ${spread.merchant} movements, and to any that arrive later.`}{" "}
+                          <span className="text-[#60716a]">You can undo this under What BitbyBit has learned.</span>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {rows.length > 0 ? (
+        <nav aria-label="Transaction pages" className="mt-3 flex flex-wrap items-center justify-between gap-4 pt-2">
+          <div className="flex items-center gap-1">
+            {PAGE_SIZES.map((size) => (
+              <button
+                key={size}
+                type="button"
+                aria-pressed={pageSize === size}
+                aria-label={`${size} rows per page`}
+                onClick={() => setPageSize(size)}
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  pageSize === size ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
+                }`}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
           <p className="text-xs text-[#60716a]" aria-live="polite">
             Showing {formatCount(firstOnPage + 1)}–{formatCount(firstOnPage + visible.length)} of{" "}
             {formatCount(rows.length)}
@@ -262,6 +319,90 @@ export function TransactionTable({
           </div>
         </nav>
       ) : null}
+    </div>
+  );
+}
+
+function HeaderCell({ children, last = false }: { children: string; last?: boolean }) {
+  return (
+    <th
+      className={`${CELL.replace("py-1.5", "py-2")} text-xs font-semibold uppercase tracking-wide text-[#527166] ${
+        last ? "border-b border-[#edf0ee]" : `${RULE} border-b`
+      }`}
+    >
+      {children}
+    </th>
+  );
+}
+
+function TagCell({
+  tags,
+  options,
+  listId,
+  onChange,
+}: {
+  tags: string[];
+  options: string[];
+  listId: string;
+  onChange: (tags: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const unused = options.filter((name) => !tags.some((tag) => tag.toLowerCase() === name.toLowerCase()));
+
+  function submit(name: string) {
+    const next = name.trim();
+    if (!next) return;
+    if (tags.some((tag) => tag.toLowerCase() === next.toLowerCase())) {
+      setDraft("");
+      return;
+    }
+    onChange([...tags, next]);
+    setDraft("");
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {tags.map((name) => (
+        <span
+          key={name}
+          className="inline-flex items-center gap-1 rounded-full bg-[#edf4dc] px-2 py-0.5 text-[10px] font-semibold text-[#355a3f]"
+        >
+          {name}
+          <button
+            type="button"
+            aria-label={`Remove ${name}`}
+            onClick={() => onChange(tags.filter((tag) => tag !== name))}
+            className="text-[#527166] hover:text-[#173b31]"
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <form
+        className="flex items-center"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit(draft);
+        }}
+      >
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          list={listId}
+          placeholder={tags.length === 0 ? "Add tag..." : "Add..."}
+          aria-label="Add a tag"
+          className={`border-b border-dashed border-[#c3d2ca] bg-transparent px-1 py-0.5 text-[11px] text-[#17211e] outline-none placeholder-[#77857f] ${
+            tags.length === 0 ? "w-20" : "w-16"
+          }`}
+        />
+        {unused.length > 0 ? (
+          <datalist id={listId}>
+            {unused.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+        ) : null}
+      </form>
     </div>
   );
 }

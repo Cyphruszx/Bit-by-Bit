@@ -63,4 +63,12 @@ describe("paginate", () => {
     assert.equal(short.pageCount, 1);
     assert.equal(short.items.length, 10);
   });
+
+  it("honours a shorter page when the reader asks for one", () => {
+    const five = paginate(rows(12), 2, 5);
+    assert.equal(five.items.length, 5);
+    assert.equal(five.items[0], 6);
+    assert.equal(five.pageCount, 3);
+    assert.equal(paginate(rows(12), 1, 10).items.length, 10);
+  });
 });

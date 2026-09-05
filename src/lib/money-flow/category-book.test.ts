@@ -6,6 +6,7 @@ import {
   addGroup,
   applyBook,
   defaultCategoryBook,
+  defaultCategoryForGroup,
   groupLabelOf,
   groupOf,
   parseCategoryBook,
@@ -65,6 +66,15 @@ describe("the editable category book", () => {
     assert.equal(taxonomyPath("other"), "Other");
     assert.equal(taxonomyPath("transfers"), "Transfers");
     assert.equal(taxonomyPath("uncategorised"), "Other · Not sorted yet");
+  });
+
+  it("keeps the current category when the group already holds it", () => {
+    assert.equal(defaultCategoryForGroup("housing", "utilities"), "utilities");
+  });
+
+  it("moves to the first category in a group that does not hold the current one", () => {
+    assert.equal(defaultCategoryForGroup("food", "rent-mortgage"), "groceries");
+    assert.equal(defaultCategoryForGroup("misc", "groceries"), "other");
   });
 
   it("lists picker options under the PDF groups, with Not sorted yet only when asked", () => {
