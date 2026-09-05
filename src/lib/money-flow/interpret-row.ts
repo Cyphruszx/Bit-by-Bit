@@ -1,4 +1,5 @@
-import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
+import { categorize, inferType } from "@/lib/money-flow/categorize";
+import { displayName } from "@/lib/money-flow/display-name";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
 import { categoryFromBankLabel } from "@/lib/money-flow/statement-category";
 import { inflowType, splitSuggestion, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
@@ -98,7 +99,12 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
 
   return {
     id: raw.id,
-    merchant: tidyMerchant(bank.merchant || raw.description),
+    merchant: displayName({
+      merchant: bank.merchant || raw.description,
+      description: raw.description,
+      bank,
+      source: raw.source,
+    }),
     categoryKey: read.categoryKey,
     ...(read.tag ? { tags: [read.tag] } : {}),
     decidedBy: read.decidedBy,

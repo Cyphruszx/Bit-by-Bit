@@ -88,6 +88,7 @@ describe("movement interpretation", () => {
       confidence: 0.92,
     });
     assert.equal(txn.merchant, "Medicare");
+    assert.equal(txn.bank?.merchant, "Medicare");
     // A benefit arriving is not health spending. One rule recognises Medicare and the
     // direction decides which of the two it meant, which is the whole point of splitting
     // the category from the type.
