@@ -26,7 +26,7 @@ export function TransactionTable({
   onTagChange?: (tag: string) => void;
 }) {
   const { accountNames, allTransactions, institutionOverrides, payers,
-    setMerchantCategory, setTransactionCategory, setTransactionTags } = useMoneyFlow();
+    setTransactionCategory, setTransactionTags } = useMoneyFlow();
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers }),
     [accountNames, institutionOverrides, payers],
@@ -189,44 +189,27 @@ export function TransactionTable({
                     listId={`tag-suggestions-${txn.id}`}
                     onTags={(next) => setTransactionTags(txn.id, next)}
                     onCategory={(categoryKey) => {
-                      // The row the reader is on changes now; the rest is offered, not assumed.
+                      // Told once, applied everywhere, and said out loud. The app used to
+                      // ask whether to carry a correction across — but the answer was
+                      // always yes, and asking on every edit made a person confirm the
+                      // same thing about the same shop over and over.
                       setTransactionCategory(txn.id, categoryKey);
                       const others = merchantRows(allTransactions, txn.merchant).filter(
                         (row) => row.id !== txn.id,
                       ).length;
-                      setSpread(others > 0 ? { id: txn.id, merchant: txn.merchant, categoryKey, others } : null);
+                      setSpread({ id: txn.id, merchant: txn.merchant, categoryKey, others });
                     }}
                   />
                   {spread?.id === txn.id ? (
-                    <div
-                      aria-live="polite"
-                      className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-[#f4f8ec] px-3 py-2"
-                    >
-                      <p className="text-xs text-[#355a3f]">
-                        {spread.others === 1
-                          ? `${spread.merchant} appears on one other movement.`
-                          : `${spread.merchant} appears on ${formatCount(spread.others)} other movements.`}
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMerchantCategory(spread.merchant, spread.categoryKey);
-                            setSpread(null);
-                          }}
-                          className="rounded-full bg-[#173b31] px-2.5 py-1 text-xs font-semibold text-white"
-                        >
-                          Apply to all {formatCount(spread.others + 1)}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSpread(null)}
-                          className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f]"
-                        >
-                          Just this one
-                        </button>
-                      </div>
-                    </div>
+                    <p aria-live="polite" className="mt-2 rounded-xl bg-[#f4f8ec] px-3 py-2 text-xs text-[#355a3f]">
+                      Saved.{" "}
+                      {spread.others === 0
+                        ? `${spread.merchant} will be filed here from now on.`
+                        : spread.others === 1
+                          ? `Also applied to one other ${spread.merchant} movement, and to any that arrive later.`
+                          : `Also applied to ${formatCount(spread.others)} other ${spread.merchant} movements, and to any that arrive later.`}{" "}
+                      <span className="text-[#60716a]">You can undo this under What BitbyBit has learned.</span>
+                    </p>
                   ) : null}
                 </div>
               </div>

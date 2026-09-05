@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { classify } from "./classify";
 import { interpretDocuments } from "./interpret";
+import { reviewGroups, reviewProgress } from "./review";
 import { markRefundLegs } from "./refunds";
 import { summarizeMoneyFlow } from "./summary";
 import { markTransferLegs } from "./transfers";
@@ -24,7 +26,7 @@ async function ledger(): Promise<InterpretedTransaction[]> {
       bytes: new Uint8Array(readFileSync(path.join(samples, filename))),
     })),
   );
-  held = markRefundLegs(markTransferLegs(result.transactions));
+  held = markRefundLegs(markTransferLegs(classify(result.transactions)));
   return held;
 }
 
@@ -113,6 +115,33 @@ describe("the movements the taxonomy has to get right", () => {
     assert.equal(sent.type, "moved");
     assert.equal(received.type, "moved");
     assert.equal(sent.transferPair, received.transferPair);
+  });
+
+  it("asks about a payee once, however many reference numbers the bank stamped on it", async () => {
+    const groups = reviewGroups(await ledger());
+    const offset = groups.filter((group) => /casey lee offset/i.test(group.merchant));
+
+    // The statements write this payee as "Casey Lee Offset J8243077379", "…M7022577125"
+    // and eight more, all different. Read literally that is ten questions about one payee,
+    // and ten separate things to teach the app.
+    assert.equal(offset[0].count, 10);
+    assert.equal(offset[0].amount, -30500);
+    assert.equal(offset[0].merchant, "Casey Lee Offset", "labelled by the payee, not by one row's reference");
+  });
+
+  it("puts the money in front of the person in the order it matters", async () => {
+    const rows = await ledger();
+    const groups = reviewGroups(rows);
+    const progress = reviewProgress(rows);
+
+    // Two thirds of a year of statements place themselves. What is left is ordered by how
+    // much money is behind it, so the first few answers move the reports most.
+    assert.equal(progress.percent, 59);
+    assert.ok(groups.length < 250, `${groups.length} questions, not one per movement`);
+    assert.ok(
+      Math.abs(groups[0].amount) > Math.abs(groups[groups.length - 1].amount),
+      "biggest first",
+    );
   });
 
   it("keeps the household's cash tied to the statements while its income is not", async () => {

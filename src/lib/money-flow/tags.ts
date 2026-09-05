@@ -11,6 +11,7 @@
  * tag's name. The levels live in the taxonomy now, so the control is gone.
  */
 
+import { merchantKey } from "@/lib/money-flow/redact";
 import { isCategoryKey, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { DecidedBy, InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -64,13 +65,20 @@ export function merchantRows(
   return transactions.filter((txn) => sameMerchant(txn.merchant, merchant));
 }
 
-/** The same category on every movement of one merchant, leaving every other movement alone. */
+/**
+ * The same category on every movement of one merchant, leaving every other movement alone.
+ *
+ * Matched on the normalised name rather than the written one, so re-filing a payee the
+ * bank stamps with a fresh reference number each time catches all of them — which is what
+ * the person meant, and what the review queue promised when it asked once.
+ */
 export function categorizeMerchant(
   transactions: InterpretedTransaction[],
   merchant: string,
   categoryKey: string,
 ): InterpretedTransaction[] {
-  return transactions.map((txn) => (sameMerchant(txn.merchant, merchant) ? withCategory(txn, categoryKey) : txn));
+  const wanted = merchantKey({ merchant });
+  return transactions.map((txn) => (merchantKey(txn) === wanted ? withCategory(txn, categoryKey) : txn));
 }
 
 export function tagMerchant(

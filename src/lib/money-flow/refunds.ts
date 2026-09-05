@@ -14,6 +14,7 @@
  */
 
 import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/account-identity";
+import { outranks } from "@/lib/money-flow/classify";
 import { looksReturned } from "@/lib/money-flow/statement-category";
 import { typeForCategory } from "@/lib/money-flow/taxonomy";
 import { calendarDaysBetween } from "@/lib/money-flow/transfers";
@@ -164,7 +165,12 @@ export function markRefundLegs(
     if (pair) {
       const type = returned.has(txn.id) ? "returned" : txn.type;
       if (txn.refundPair === pair && txn.type === type) return txn;
-      return { ...txn, refundPair: pair, type, decidedBy: "paired" as const };
+      return {
+        ...txn,
+        refundPair: pair,
+        type,
+        ...(outranks("paired", txn.decidedBy) ? { decidedBy: "paired" as const } : {}),
+      };
     }
     if (!txn.refundPair) return txn;
     const forgotten = { ...txn, type: typeForCategory(txn.categoryKey, txn.amount) };

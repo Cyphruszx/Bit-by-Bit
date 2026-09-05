@@ -2,6 +2,8 @@ import type { AccountNames } from "@/lib/money-flow/account-identity";
 import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import { uniqueTransactions } from "@/lib/money-flow/summary";
 import { upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
+import { forget, learn, type LearnedRule, type Rules } from "@/lib/money-flow/rules";
+import { isCategoryKey } from "@/lib/money-flow/taxonomy";
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -60,6 +62,12 @@ export type Ledger = {
    * whether two wordings are one payer or two.
    */
   payers?: Record<string, string>;
+  /**
+   * What the app has learned from being corrected, against the merchant it learned it
+   * about. Kept beside the movements like everything else a person has said, so it applies
+   * to the next statement rather than only to the rows that were on screen at the time.
+   */
+  rules?: Rules;
 };
 
 export type ImportReport = {
@@ -289,6 +297,23 @@ export function recordVerdict(ledger: Ledger, key: string, verdict: Verdict | nu
 }
 
 /**
+ * Remembers a correction, so the next statement gets it right without being asked again.
+ */
+export function recordCorrection(
+  ledger: Ledger,
+  txn: Pick<InterpretedTransaction, "merchant" | "categoryKey">,
+  categoryKey: string,
+  at: string,
+): Ledger {
+  return { ...ledger, rules: learn(ledger.rules ?? {}, txn, categoryKey, at) };
+}
+
+/** Takes a learned correction back. The reader's own reading returns on the next read. */
+export function forgetCorrection(ledger: Ledger, key: string): Ledger {
+  return { ...ledger, rules: forget(ledger.rules ?? {}, key) };
+}
+
+/**
  * Records that two wordings are one payer. An empty target takes the merge back, and the
  * wordings go back to being read as they were written.
  */
@@ -448,6 +473,7 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(raw.accounts && typeof raw.accounts === "object" ? { accounts: namesOnly(raw.accounts) } : {}),
     ...(raw.verdicts && typeof raw.verdicts === "object" ? { verdicts: verdictsOnly(raw.verdicts) } : {}),
     ...(raw.payers && typeof raw.payers === "object" ? { payers: stringsOnly(raw.payers) } : {}),
+    ...(raw.rules && typeof raw.rules === "object" ? { rules: rulesOnly(raw.rules) } : {}),
   };
 }
 
@@ -511,6 +537,28 @@ function verdictsOnly(raw: Record<string, unknown>): Verdicts {
     const known = verdictFor(stored.because, stored.at);
     if (known.because !== stored.because) continue;
     held[key] = known;
+  }
+  return held;
+}
+
+/**
+ * Learned corrections read back from storage, checked against the taxonomy as it is now.
+ *
+ * A rule naming a category that no longer exists is dropped rather than kept: it could
+ * never be applied, and leaving it in the learned list would show a person a sentence
+ * about their money that is not true.
+ */
+function rulesOnly(raw: Record<string, unknown>): Rules {
+  const held: Rules = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!value || typeof value !== "object") continue;
+    const stored = value as Partial<LearnedRule>;
+    if (typeof stored.categoryKey !== "string" || !isCategoryKey(stored.categoryKey)) continue;
+    held[key] = {
+      categoryKey: stored.categoryKey,
+      at: typeof stored.at === "string" ? stored.at : "",
+      ...(typeof stored.from === "string" ? { from: stored.from } : {}),
+    };
   }
   return held;
 }

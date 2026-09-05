@@ -1,5 +1,6 @@
 import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/accounts";
 import { institutionOf, type InstitutionOverrides } from "@/lib/money-flow/institution";
+import { outranks } from "@/lib/money-flow/classify";
 import { typeForCategory } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -199,7 +200,14 @@ export function markTransferLegs(
     const pair = pairOf.get(txn.id);
     if (pair) {
       if (txn.transferPair === pair && txn.type === "moved") return txn;
-      return { ...txn, transferPair: pair, type: "moved" as const, decidedBy: "paired" as const };
+      // The pair proves the type. It does not get to relabel a category the person chose,
+      // so `decidedBy` only ever moves up the ladder.
+      return {
+        ...txn,
+        transferPair: pair,
+        type: "moved" as const,
+        ...(outranks("paired", txn.decidedBy) ? { decidedBy: "paired" as const } : {}),
+      };
     }
     if (!txn.transferPair) return txn;
     // A pair that no longer holds — the other account's statement was removed — has to

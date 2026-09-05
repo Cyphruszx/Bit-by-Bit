@@ -1,6 +1,7 @@
 import { KNOWN_CATEGORIES, snapCategory, tidyMerchant } from "@/lib/money-flow/categorize";
 import { extensionOf } from "@/lib/money-flow/detect";
 import { formatDisplayDate, parseDate, roundMoney } from "@/lib/money-flow/parse-values";
+import { personalWords, redactMovement } from "@/lib/money-flow/redact";
 import { inflowType, isTransactionType, typeForCategory, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -35,7 +36,28 @@ export type AiEnv = Record<string, string | undefined>;
 
 const VISION_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 const TAG_BATCH = 40;
-const MIN_TAG_CONFIDENCE = 0.45;
+
+/**
+ * How sure a model has to be before its answer is used, by how much money is riding on it.
+ *
+ * A wrong category on a $13 lunch is a rounding error in a report. A wrong category on
+ * $24,800 moves the year, and the sample statements contain exactly that row. So the bar
+ * rises with the amount: below it the movement stays in the review queue, where a person
+ * decides in one click, rather than being quietly filed somewhere plausible.
+ *
+ * Tuned by moving the small-amount floor first once there is correction-rate data: it is
+ * the one that decides how much of a first import gets placed automatically.
+ */
+const CONFIDENCE_NEEDED: Array<[atLeast: number, confidence: number]> = [
+  [1000, 0.85],
+  [200, 0.7],
+  [0, 0.55],
+];
+
+export function confidenceNeededFor(amount: number): number {
+  const size = Math.abs(amount);
+  return CONFIDENCE_NEEDED.find(([atLeast]) => size >= atLeast)?.[1] ?? 0.55;
+}
 
 export function isAiConfigured(env: AiEnv = process.env): boolean {
   return Boolean(env.OPENAI_API_KEY?.trim());
@@ -125,18 +147,17 @@ export function needsInitialTag(txn: InterpretedTransaction): boolean {
 export function applyTagSuggestions(
   transactions: InterpretedTransaction[],
   suggestions: AiTagSuggestion[],
-  minConfidence = MIN_TAG_CONFIDENCE,
+  floor = 0,
 ): { transactions: InterpretedTransaction[]; taggedCount: number } {
-  const byId = new Map(
-    suggestions
-      .filter((suggestion) => suggestion.confidence >= minConfidence)
-      .map((suggestion) => [suggestion.id, suggestion]),
-  );
+  const byId = new Map(suggestions.map((suggestion) => [suggestion.id, suggestion]));
   let taggedCount = 0;
   const next = transactions.map((txn) => {
     if (!needsInitialTag(txn)) return txn;
     const suggestion = byId.get(txn.id);
     if (!suggestion) return txn;
+    // The bar this movement has to clear, not a bar for the batch: the same answer that is
+    // good enough for a coffee is not good enough for a mortgage payment.
+    if (suggestion.confidence < Math.max(floor, confidenceNeededFor(txn.amount))) return txn;
     const categoryKey = snapCategory(suggestion.category);
     // A model naming something outside the taxonomy has told us nothing usable, and the
     // movement stays in the review queue rather than picking up an invented category.
@@ -177,15 +198,26 @@ async function extractWithOpenAi(
 
 async function suggestWithOpenAi(input: TagSuggestInput, client: OpenAiClient): Promise<AiTagSuggestion[]> {
   const pending = input.transactions.filter(needsInitialTag);
+  // Worked out over the whole ledger rather than per batch, because a name is only
+  // recognisable as a name by how often it turns up across all of it.
+  const personal = personalWords(input.transactions);
   const suggestions: AiTagSuggestion[] = [];
   for (let i = 0; i < pending.length; i += TAG_BATCH) {
-    const batch = pending.slice(i, i + TAG_BATCH).map((txn) => ({
-      id: txn.id,
-      merchant: txn.merchant,
-      amount: txn.amount,
-      type: txn.type,
-      date: txn.dateIso,
-    }));
+    const batch = pending.slice(i, i + TAG_BATCH).flatMap((txn) => {
+      const merchant = redactMovement(txn, personal);
+      // Nothing recognisable survived redaction — the descriptor was a reference number
+      // and a name. There is no question to ask, so none is asked.
+      if (!merchant) return [];
+      return [{
+        id: txn.id,
+        merchant,
+        // Rounded, because the exact cents identify a person's movement and the size is
+        // all the model needs to tell a coffee from a rent payment.
+        amount: Math.round(txn.amount),
+        date: txn.dateIso.slice(0, 7),
+      }];
+    });
+    if (batch.length === 0) continue;
     const content = await completeJson(client, {
       system: tagSystemPrompt(),
       user: [{ type: "text", text: JSON.stringify({ transactions: batch }) }],
@@ -256,6 +288,7 @@ function extractSystemPrompt(): string {
 function tagSystemPrompt(): string {
   return [
     "You assign a category to an Australian bank movement that no rule recognised. Answer with the category key only; the app works out whether it was earned, spent, borrowed or moved from the key and the direction, so never say.",
+    "Descriptors have had names, account numbers and reference numbers stripped out. Do not ask for them and do not guess at them.",
     `Allowed category keys, and nothing else: ${KNOWN_CATEGORIES.join(", ")}.`,
     'Reply with JSON only: { "suggestions": [{ "id": "txn-id", "category": "food.restaurants", "confidence": 0.8 }] }',
     "If you are not reasonably sure, answer uncategorised with low confidence. A wrong category is worse than none: an unsorted movement is asked about, a wrong one is not.",
