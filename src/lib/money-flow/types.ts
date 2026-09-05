@@ -44,6 +44,18 @@ export type BankWords = {
   merchant?: string;
 };
 
+/**
+ * The bank's own row, kept exactly as it arrived. Parallel arrays so a blank
+ * column (NAB's empty header between Account Number and Transaction Type) is
+ * not dropped, and two columns with the same name stay apart.
+ *
+ * Optional so a ledger stored before this field existed still reads.
+ */
+export type SourceRow = {
+  headers: string[];
+  values: string[];
+};
+
 export type InterpretedTransaction = {
   id: string;
   merchant: string;
@@ -59,6 +71,11 @@ export type InterpretedTransaction = {
   type: TransactionType;
   /** The statement's own words. Read as a signal, never shown as the answer. */
   bank?: BankWords;
+  /**
+   * Every cell the statement printed for this movement. Evidence, never rewritten
+   * when the working columns change.
+   */
+  source?: SourceRow;
   decidedBy?: DecidedBy;
   sourceFile: string;
   confidence: number;

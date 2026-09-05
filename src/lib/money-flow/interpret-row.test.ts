@@ -88,6 +88,7 @@ describe("movement interpretation", () => {
       confidence: 0.92,
     });
     assert.equal(txn.merchant, "Medicare");
+    assert.equal(txn.bank?.merchant, "Medicare");
     // A benefit arriving is not health spending. One rule recognises Medicare and the
     // direction decides which of the two it meant, which is the whole point of splitting
     // the category from the type.
@@ -128,6 +129,29 @@ describe("movement interpretation", () => {
     assert.equal(txn.categoryKey, "debt-payments");
     assert.equal(txn.type, "borrowed");
     assert.equal(txn.bank?.category, "Transfers in");
+  });
+
+  it("copies the source row through and does not let it rewrite the working columns", () => {
+    const source = {
+      headers: ["Date", "Amount", "Category", "Merchant Name"],
+      values: ["30 Jun 26", "25000.00", "Transfers in", ""],
+    };
+    const txn = interpretMovement({
+      dateIso: "2026-06-30",
+      amount: 25000,
+      directionKnown: true,
+      description: "SocietyOne",
+      typeHint: "TRANSFER CREDIT",
+      bankCategory: "Transfers in",
+      source,
+      sourceFile: "nab.csv",
+      id: "4",
+      confidence: 0.92,
+    });
+    assert.deepEqual(txn.source, source);
+    assert.equal(txn.categoryKey, "debt-payments");
+    assert.equal(txn.type, "borrowed");
+    assert.equal(txn.amount, 25000);
   });
 });
 

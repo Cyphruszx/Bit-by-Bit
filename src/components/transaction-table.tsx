@@ -6,8 +6,10 @@ import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
 import { accountIdOf, accountLabel } from "@/lib/money-flow/accounts";
+import { displayName } from "@/lib/money-flow/display-name";
+import { hasSource, sourcePairs } from "@/lib/money-flow/source";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
-import { categoryLabel, categoryPath } from "@/lib/money-flow/taxonomy";
+import { categoryLabel, categoryPath, typeLabel } from "@/lib/money-flow/taxonomy";
 import { selectableKeys } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -40,6 +42,7 @@ export function TransactionTable({
   const [query, setQuery] = useState("");
   const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
+  const [showStatement, setShowStatement] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   // Raised after every tag edit where the merchant appears more than once, so the edit can be
@@ -71,11 +74,13 @@ export function TransactionTable({
         direction === "all" || (direction === "in" ? txn.amount > 0 : txn.amount < 0);
       const matchesQuery =
         needle.length === 0 ||
+        displayName(txn).toLowerCase().includes(needle) ||
         txn.merchant.toLowerCase().includes(needle) ||
         categoryPath(txn.categoryKey).toLowerCase().includes(needle) ||
         tags.some((name) => name.toLowerCase().includes(needle)) ||
         txn.sourceFile.toLowerCase().includes(needle) ||
-        (accountOf.get(txn.id) ?? "").toLowerCase().includes(needle);
+        (accountOf.get(txn.id) ?? "").toLowerCase().includes(needle) ||
+        statementText(txn).includes(needle);
       return matchesTag && matchesDirection && matchesQuery;
     });
   }, [accountOf, activeTag, direction, query, transactions]);
@@ -97,7 +102,7 @@ export function TransactionTable({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search merchants, categories, or accounts"
+          placeholder="Search merchants, categories, accounts, or statement cells"
           className="w-full rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31] sm:max-w-xs"
         />
         <select
@@ -112,6 +117,16 @@ export function TransactionTable({
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          aria-pressed={showStatement}
+          onClick={() => setShowStatement((open) => !open)}
+          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+            showStatement ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
+          }`}
+        >
+          {showStatement ? "Hide statement" : "Show statement"}
+        </button>
         <div className="flex gap-1">
           {(
             [
@@ -147,7 +162,7 @@ export function TransactionTable({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                      <p className="text-sm font-semibold">{txn.merchant}</p>
+                      <p className="text-sm font-semibold">{displayName(txn)}</p>
                       <p className={`text-sm font-semibold tabular-nums ${txn.amount > 0 ? "text-[#257155]" : ""}`}>
                         {formatSignedAud(txn.amount)}
                       </p>
@@ -159,7 +174,7 @@ export function TransactionTable({
                       ) : null}
                     </div>
                     <div className="mt-1">
-                      <ClassificationChips txn={txn} />
+                      {showStatement ? <ReadingBesideStatement txn={txn} /> : <ClassificationChips txn={txn} />}
                     </div>
                   </div>
                   <button
@@ -196,7 +211,7 @@ export function TransactionTable({
                       const others = merchantRows(allTransactions, txn.merchant).filter(
                         (row) => row.id !== txn.id,
                       ).length;
-                      setSpread({ id: txn.id, merchant: txn.merchant, categoryKey, others });
+                      setSpread({ id: txn.id, merchant: displayName(txn), categoryKey, others });
                     }}
                   />
                   {spread?.id === txn.id ? (
@@ -249,5 +264,77 @@ export function TransactionTable({
         </nav>
       ) : null}
     </div>
+  );
+}
+
+function statementText(txn: InterpretedTransaction): string {
+  const cells = sourcePairs(txn.source)
+    .map((cell) => `${cell.header} ${cell.value}`)
+    .join(" ");
+  const bank = [txn.bank?.category, txn.bank?.type, txn.bank?.merchant, txn.description]
+    .filter(Boolean)
+    .join(" ");
+  return `${cells} ${bank}`.toLowerCase();
+}
+
+function ReadingBesideStatement({ txn }: { txn: InterpretedTransaction }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#527166]">BitbyBit</p>
+        <p className="mt-1 text-[11px] text-[#60716a]">{typeLabel(txn.type)}</p>
+        <div className="mt-1">
+          <ClassificationChips txn={txn} />
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#527166]">Statement</p>
+        <StatementCells txn={txn} />
+      </div>
+    </div>
+  );
+}
+
+function StatementCells({ txn }: { txn: InterpretedTransaction }) {
+  const pairs = sourcePairs(txn.source);
+  if (pairs.length > 0) {
+    return (
+      <dl className="mt-1 grid grid-cols-[minmax(0,7.5rem)_1fr] gap-x-2 gap-y-0.5 text-[11px]">
+        {pairs.map((cell, index) => (
+          <div className="contents" key={`${cell.header}-${index}`}>
+            <dt className="truncate text-[#77857f]">{cell.header}</dt>
+            <dd className="min-w-0 break-words text-[#355a3f]">{cell.value || "—"}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+
+  const fallback = [
+    txn.bank?.category ? ["Category", txn.bank.category] : null,
+    txn.bank?.type ? ["Type", txn.bank.type] : null,
+    txn.bank?.merchant ? ["Merchant", txn.bank.merchant] : null,
+    txn.description ? ["Details", txn.description] : null,
+  ].filter((cell): cell is [string, string] => Boolean(cell));
+
+  if (fallback.length > 0) {
+    return (
+      <dl className="mt-1 grid grid-cols-[minmax(0,7.5rem)_1fr] gap-x-2 gap-y-0.5 text-[11px]">
+        {fallback.map(([header, value]) => (
+          <div className="contents" key={header}>
+            <dt className="truncate text-[#77857f]">{header}</dt>
+            <dd className="min-w-0 break-words text-[#355a3f]">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+
+  return (
+    <p className="mt-1 text-[11px] text-[#77857f]">
+      {hasSource(txn.source)
+        ? "The statement row is empty."
+        : "Re-upload the statement to keep every original cell."}
+    </p>
   );
 }

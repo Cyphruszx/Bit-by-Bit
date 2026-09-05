@@ -6,6 +6,7 @@ import { accountsByInstitution, accountsFrom } from "./accounts";
 import { detectFileKind } from "./detect";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate, roundMoney } from "./parse-values";
+import { sourceValue } from "./source";
 import { summarizeMoneyFlow, chartTagFlowSeries, tagFlowOverTime } from "./summary";
 import { filterByScope } from "./scope";
 import { markTransferLegs, matchTransfers, withoutMatchedLegs } from "./transfers";
@@ -88,7 +89,7 @@ describe("document interpretation", () => {
     // and is flagged until the account that received it is uploaded too.
     assert.equal(result.flow.transfers, 0);
     assert.equal(result.flow.unmatchedInternal, 400);
-    assert.ok(result.transactions.some((txn) => txn.merchant.includes("Woolworths")));
+    assert.ok(result.transactions.some((txn) => /woolworths/i.test(txn.merchant)));
     assert.ok(result.transactions.some((txn) => txn.categoryKey === "rent-mortgage"));
     assert.equal(result.flow.net, result.flow.income - result.flow.spending);
     assert.equal(result.flow.cashIn, 5240);
@@ -277,7 +278,7 @@ describe("NAB CSV exports", () => {
 
   it("reads a lender's credit as borrowing, whatever the bank filed it under", async () => {
     const result = await interpretNab();
-    const drawdown = result.transactions.find((txn) => txn.merchant.startsWith("Soc-"));
+    const drawdown = result.transactions.find((txn) => /soc-/i.test(txn.merchant));
     assert.equal(drawdown?.amount, 25000);
     // NAB files this under "Transfers in". It is neither a transfer nor income: money from
     // a consumer lender changes nothing about what the household owns, and counting it as
@@ -286,6 +287,23 @@ describe("NAB CSV exports", () => {
     assert.equal(drawdown?.categoryKey, "debt-payments");
     const outgoing = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === -200);
     assert.ok(outgoing, "the same day's outgoing transfer should stay negative");
+  });
+
+  it("keeps every NAB cell on the source row, including the ones we do not interpret", async () => {
+    const result = await interpretNab();
+    const drawdown = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === 25000);
+    assert.equal(sourceValue(drawdown?.source, "Balance"), "4913.07");
+    assert.equal(sourceValue(drawdown?.source, "Category"), "Transfers in");
+    assert.equal(sourceValue(drawdown?.source, "Merchant Name"), "");
+    assert.equal(sourceValue(drawdown?.source, "Processed On"), "30 Jun 26");
+    assert.equal(drawdown?.type, "borrowed");
+    assert.equal(drawdown?.categoryKey, "debt-payments");
+
+    const benefit = result.transactions.find((txn) => txn.dateIso === "2026-06-29" && txn.amount === 662.4);
+    assert.equal(sourceValue(benefit?.source, "Category"), "Refund");
+    assert.equal(sourceValue(benefit?.source, "Merchant Name"), "Medicare");
+    assert.equal(benefit?.categoryKey, "other-income");
+    assert.equal(benefit?.type, "earned");
   });
 
   it("names the merchant from the Merchant Name column", async () => {
@@ -300,7 +318,7 @@ describe("NAB CSV exports", () => {
 
   it("treats charged interest as an expense and interest paid as income", async () => {
     const result = await interpretNab();
-    const charged = result.transactions.find((txn) => txn.merchant === "Interest Charged");
+    const charged = result.transactions.find((txn) => /interest charged/i.test(txn.merchant));
     assert.equal(charged?.amount, -0.61);
     assert.equal(charged?.type, "spent");
     const paid = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === 0.1);
@@ -364,13 +382,13 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.deepEqual(result.files[0].notes, ["Read as an Up / Bendigo bank statement."]);
     assert.equal(result.transactions.length, 4);
     assert.equal(result.transactions.find((txn) => txn.merchant === "Woolworths")?.amount, -10.5);
-    assert.equal(result.transactions.find((txn) => txn.merchant === "Osko Payment Received")?.amount, 300);
+    assert.equal(result.transactions.find((txn) => txn.merchant === "JANE CITIZEN")?.amount, 300);
     // Read on its own, with no payment to reverse and no other account in sight, neither
     // of these is settled. Both are money that arrived, counted and flagged rather than
     // quietly removed on the strength of a word — `returned` and `moved` are written only
     // once the matcher has found the payment or the other leg.
     assert.equal(result.transactions.find((txn) => txn.merchant === "Soul Origin")?.type, "earned");
-    assert.equal(result.transactions.find((txn) => txn.merchant === "Transfer From Tax")?.type, "earned");
+    assert.equal(result.transactions.find((txn) => txn.merchant === "Transfer from Tax")?.type, "earned");
     assert.equal(result.flow.spending, 10.5);
     // Nothing was reversed here: the payment this credit would cancel is not in the file.
     // It counts as money in and is put to the person, rather than being removed because
@@ -397,6 +415,16 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.ok(result.transactions.some((txn) => txn.merchant === "Zambrero"));
   });
 
+  it("keeps the printed Up block on the source row", async () => {
+    const result = await readUpSample();
+    const kfc = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === -14.95 && txn.merchant === "KFC");
+    assert.equal(sourceValue(kfc?.source, "Date"), "2026-06-30");
+    assert.equal(sourceValue(kfc?.source, "Amount"), "$14.95");
+    assert.equal(sourceValue(kfc?.source, "Balance"), "$177.64");
+    assert.equal(sourceValue(kfc?.source, "Account"), "Spending");
+    assert.equal(kfc?.amount, -14.95);
+  });
+
   it("counts day headings back through the year they belong to", async () => {
     const result = await readUpSample();
     const dates = result.transactions.map((txn) => txn.dateIso).sort();
@@ -409,9 +437,11 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
 
   it("reads the money coming in from the other bank", async () => {
     const result = await readUpSample();
-    const osko = result.transactions.filter((txn) => txn.merchant === "Osko Payment Received");
+    const osko = result.transactions.filter((txn) => /osko payment received/i.test(`${txn.description ?? ""} ${txn.bank?.type ?? ""}`));
     assert.ok(osko.length > 50, `osko receipts ${osko.length}`);
     assert.ok(osko.every((txn) => txn.amount > 0));
+    const received = osko.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === 200);
+    assert.equal(received?.merchant, "JORDAN LEE");
   });
 
   it("reconciles the year sample to the summary the statement prints", async () => {

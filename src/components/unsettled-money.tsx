@@ -4,18 +4,19 @@ import { useMemo, useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud } from "@/lib/format";
 import { accountLabel } from "@/lib/money-flow/accounts";
+import { displayName } from "@/lib/money-flow/display-name";
 import { unsettledGroups, type UnsettledGroup } from "@/lib/money-flow/income";
 import { describeSpan } from "@/lib/money-flow/parse-values";
+import { categoryLabel } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import { reasonLabel, reasonsFor, type VerdictReason } from "@/lib/money-flow/verdicts";
 
 /**
- * The money the statements could not settle, put to the person one run at a time.
+ * Credits still sitting in money in that the ledger could not file.
  *
- * A bank writing "Refund" on a year of Medicare billing, or "transfer" on a loan
- * drawdown, is not something a reader can see through — but a person can, in a second.
- * Asking by wording rather than by row is what makes it a second: 172 identical benefit
- * payments are one question.
+ * Needs a category is for shops. This list is only refunds and transfers with no
+ * category and no matching payment — the bank's label is a hint, not the answer.
+ * Medicare, ATO rebates and a lender's drawdown are already typed, so they are not here.
  */
 export function UnsettledMoney({ transactions }: { transactions: InterpretedTransaction[] }) {
   const { accountNames, institutionOverrides,
@@ -36,13 +37,14 @@ export function UnsettledMoney({ transactions }: { transactions: InterpretedTran
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-base font-bold">Money in we can&apos;t place</h2>
         <p className="text-sm text-[#60716a]">
-          <span className="tabular-nums">{formatAud(total)}</span> across {groups.length} kind
-          {groups.length === 1 ? "" : "s"}
+          <span className="tabular-nums">{formatAud(total)}</span> across {groups.length}{" "}
+          {groups.length === 1 ? "question" : "questions"}
         </p>
       </div>
       <p className="mt-0.5 max-w-2xl text-xs text-[#60716a]">
-        Counted as money in, because nothing in your statements says otherwise. Tell us what these
-        really are and the totals follow. Answering one settles every movement worded like it.
+        Still in money in, still without a category, and the bank called them a refund or a
+        transfer. Wages, Medicare and anything the ledger already filed are not here. Answering
+        one settles every movement worded like it.
       </p>
       <ul className="mt-3 divide-y divide-[#edf0ee]">
         {groups.map((group) => (
@@ -80,8 +82,10 @@ function UnsettledRow({
           <p className="truncate text-sm font-semibold">{group.label}</p>
           <p className="mt-0.5 text-xs text-[#60716a]">
             {describeSpan(group.from, group.to)} · {accountLabel(group.account)} · {group.count} movement
-            {group.count === 1 ? "" : "s"} ·{" "}
-            {group.kind === "returned" ? "your bank calls this a refund" : "your bank calls this a transfer"}
+            {group.count === 1 ? "" : "s"} · {categoryLabel(group.example.categoryKey)} ·{" "}
+            {group.kind === "returned"
+              ? bankClaim(group.example, "refund")
+              : bankClaim(group.example, "transfer")}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -124,7 +128,7 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
 
   const groups = new Map<string, { rows: InterpretedTransaction[]; because: VerdictReason }>();
   for (const txn of settled) {
-    const label = txn.description?.trim() || txn.merchant;
+    const label = displayName(txn);
     // The account belongs in the key: one payer paying into two accounts is two verdicts,
     // and a single Undo can only ever clear the one it was given.
     const key = `${label}|${txn.verdict?.because}|${txn.accountId ?? txn.sourceFile}`;
@@ -140,7 +144,7 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
       <h2 className="text-base font-bold">What you&apos;ve told us</h2>
       <ul className="mt-3 divide-y divide-[#edf0ee]">
         {[...groups].map(([key, held]) => {
-          const label = held.rows[0].description?.trim() || held.rows[0].merchant;
+          const label = displayName(held.rows[0]);
           const amount = held.rows.reduce((sum, txn) => sum + Math.abs(txn.amount), 0);
           return (
             <li key={key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
@@ -164,4 +168,9 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
       </ul>
     </article>
   );
+}
+
+function bankClaim(txn: InterpretedTransaction, fallback: "refund" | "transfer"): string {
+  const written = txn.bank?.category?.trim();
+  return written ? `statement: ${written}` : `the bank called this a ${fallback}`;
 }

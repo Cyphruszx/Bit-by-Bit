@@ -11,6 +11,7 @@ import {
   ledgerTransactions,
   nameAccount,
   parseLedger,
+  persistTaxonomy,
   removeImport,
   removeStatement,
   visibleTransactions,
@@ -82,6 +83,20 @@ describe("movement fingerprints", () => {
 
   it("falls back to the file when the export never names an account", () => {
     assert.equal(fingerprintOf(txn({ sourceFile: "one.csv" })).startsWith("file:one.csv"), true);
+  });
+
+  it("does not change identity when source cells are added or differ", () => {
+    const june = txn({ accountKey: "100200300", description: "Coffee Roasters 123" });
+    const withSource = {
+      ...june,
+      source: { headers: ["Date", "Amount", "Balance"], values: ["1 Jun 26", "-5.00", "12.00"] },
+    };
+    const otherSource = {
+      ...june,
+      source: { headers: ["Date", "Amount", "Balance"], values: ["1 Jun 26", "-5.00", "99.00"] },
+    };
+    assert.equal(fingerprintOf(june), fingerprintOf(withSource));
+    assert.equal(fingerprintOf(withSource), fingerprintOf(otherSource));
   });
 });
 
@@ -214,6 +229,73 @@ describe("accumulating a ledger", () => {
     first.ledger.entries[0].tags = ["Groceries"];
     const second = appendToLedger(first.ledger, upload([row]), { importedAt: "2026-09-02T00:00:00.000Z" });
     assert.deepEqual(second.ledger.entries[0]?.tags, ["Groceries"]);
+  });
+
+  it("backfills source on a sourceless held row and leaves the working columns alone", () => {
+    const held = txn({ accountKey: "100200300", categoryKey: "groceries", amount: -12.8, description: "Woolworths" });
+    const first = appendToLedger(EMPTY_LEDGER, upload([held]), { importedAt: "2026-09-01T00:00:00.000Z" });
+    const source = {
+      headers: ["Date", "Amount", "Category", "Merchant Name"],
+      values: ["01 Jun 26", "-12.80", "Groceries", "Woolworths"],
+    };
+    const second = appendToLedger(
+      first.ledger,
+      upload([{ ...held, categoryKey: "shopping", amount: -12.8, source }]),
+      { importedAt: "2026-09-02T00:00:00.000Z" },
+    );
+    assert.equal(second.report.added, 0);
+    assert.deepEqual(second.ledger.entries[0]?.source, source);
+    assert.equal(second.ledger.entries[0]?.categoryKey, "groceries");
+    assert.equal(second.ledger.entries[0]?.amount, -12.8);
+  });
+
+  it("does not overwrite source that is already held", () => {
+    const original = {
+      headers: ["Date", "Amount"],
+      values: ["01 Jun 26", "-12.80"],
+    };
+    const later = {
+      headers: ["Date", "Amount", "Balance"],
+      values: ["01 Jun 26", "-12.80", "1.00"],
+    };
+    const row = txn({ accountKey: "100200300", source: original });
+    const first = appendToLedger(EMPTY_LEDGER, upload([row]), { importedAt: "2026-09-01T00:00:00.000Z" });
+    const second = appendToLedger(first.ledger, upload([{ ...row, source: later }]), {
+      importedAt: "2026-09-02T00:00:00.000Z",
+    });
+    assert.deepEqual(second.ledger.entries[0]?.source, original);
+  });
+
+  it("writes the current category and tag model onto stored rows", () => {
+    const source = {
+      headers: ["Date", "Amount", "Category"],
+      values: ["01 Jun 26", "-12.80", "Groceries"],
+    };
+    const { ledger } = appendToLedger(EMPTY_LEDGER, upload([txn({ accountKey: "100200300", source })]), {
+      importedAt: "2026-09-01T00:00:00.000Z",
+    });
+    const held = ledger.entries[0];
+    held.categoryKey = "food.groceries";
+    (held as { category?: string }).category = "Food & Drink";
+    (held as { tagSource?: string }).tagSource = "rules";
+    delete held.tags;
+
+    const next = persistTaxonomy(ledger);
+    assert.equal(next.entries[0]?.categoryKey, "groceries");
+    assert.deepEqual(next.entries[0]?.tags, ["Groceries"]);
+    assert.equal(next.entries[0]?.type, "spent");
+    assert.equal(next.entries[0]?.fingerprint, held.fingerprint);
+    assert.deepEqual(next.entries[0]?.source, source);
+    assert.equal("category" in (next.entries[0] ?? {}), false);
+    assert.equal("tagSource" in (next.entries[0] ?? {}), false);
+    assert.equal(persistTaxonomy(next), next);
+  });
+
+  it("leaves a current-model ledger untouched", () => {
+    const { ledger } = appendToLedger(EMPTY_LEDGER, upload([txn({ accountKey: "100200300" })]), {
+      importedAt: "2026-09-01T00:00:00.000Z",
+    });
+    assert.equal(persistTaxonomy(ledger), ledger);
   });
 
   it("removes an import without dropping movements a later import also covers", () => {

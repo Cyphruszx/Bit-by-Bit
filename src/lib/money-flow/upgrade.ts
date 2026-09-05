@@ -19,6 +19,7 @@
 
 import {
   categoryForLegacyTag,
+  isCategoryKey,
   migrateStoredCategory,
   OTHER,
   splitSuggestion,
@@ -86,6 +87,34 @@ export function upgradeTransaction(row: StoredTransaction): InterpretedTransacti
 
 export function upgradeTransactions(rows: StoredTransaction[]): InterpretedTransaction[] {
   return rows.map(upgradeTransaction);
+}
+
+/**
+ * Whether a stored row is already in the current model: a flat category key, no
+ * leftover display-name category, no tagSource, tags already split off the old key.
+ */
+export function storedInCurrentModel(row: StoredTransaction): boolean {
+  if (row.category != null && String(row.category).trim() !== "") return false;
+  if (row.tagSource != null) return false;
+  if (!isCategoryKey(row.categoryKey)) return false;
+  const upgraded = upgradeTransaction(row);
+  return (
+    upgraded.categoryKey === row.categoryKey &&
+    sameStrings(upgraded.tags, row.tags) &&
+    upgraded.decidedBy === row.decidedBy
+  );
+}
+
+/** The current-model row, or the same object when nothing needs writing. */
+export function persistStoredTransaction(row: StoredTransaction): StoredTransaction {
+  if (storedInCurrentModel(row)) return row;
+  return upgradeTransaction(row);
+}
+
+function sameStrings(a?: string[], b?: string[]): boolean {
+  const left = [...(a ?? [])].map((value) => value.trim()).filter(Boolean).sort();
+  const right = [...(b ?? [])].map((value) => value.trim()).filter(Boolean).sort();
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 /** The three old tags that meant something other than a category. */

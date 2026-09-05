@@ -1,21 +1,22 @@
 /**
  * What the money-in figure is actually made of.
  *
- * A single number cannot be argued with. $167,796.02 of income looks wrong to a person
+ * A single number cannot be argued with. $142,796.02 of income looks wrong to a person
  * who knows what they earn, and until they can see that $120,844.20 of it is a practice's
- * Medicare billing and $25,000 is a loan drawdown, they have no way to say which part is
+ * Medicare billing already filed under Income, they have no way to say which part is
  * wrong. Splitting the figure turns a wrong total into a specific question.
  *
  * Nothing here changes a total. It only says where one came from.
  */
 
+import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/account-identity";
+import { needsReview } from "@/lib/money-flow/classify";
+import { displayName } from "@/lib/money-flow/display-name";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { looksInternal, looksReturned } from "@/lib/money-flow/statement-category";
 import { countedMovements, isEarnings } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import { likeKey } from "@/lib/money-flow/verdicts";
-import type { AccountRegistry } from "@/lib/money-flow/account-identity";
-import { accountIdOf } from "@/lib/money-flow/account-identity";
 
 export type IncomeSourceKind = "earned" | "returned" | "arrived";
 
@@ -50,13 +51,13 @@ export function incomeSources(transactions: InterpretedTransaction[]): IncomeSou
   // called it, so it stops being asked about.
   const confirmed = credits.filter((txn) => txn.verdict?.counts === true);
   const open = credits.filter((txn) => !txn.verdict);
-  // Split on what the *bank* claimed, not on what the reader concluded. These are the
-  // credits still sitting in the money-in figure precisely because no payment and no other
-  // leg was ever found for them, so the reader has nothing left to say — the only new
-  // information available is the label the bank put on them, and the person is the one who
-  // can tell whether it was right.
-  const returned = open.filter((txn) => looksReturned(txn));
-  const arrived = open.filter((txn) => !looksReturned(txn) && looksInternal(txn));
+  // Split on what the *bank* claimed, and only where the ledger has not already
+  // answered. Medicare under "Refund" used to be the whole of this card; the
+  // rules now file it as income, so asking again is asking a person to confirm
+  // a category the ledger already wrote. What remains is a credit with no
+  // category and no matching payment — the bank's label is the only hint left.
+  const returned = open.filter((txn) => looksReturned(txn) && needsReview(txn));
+  const arrived = open.filter((txn) => !looksReturned(txn) && looksInternal(txn) && needsReview(txn));
   const claimed = new Set([...returned, ...arrived].map((txn) => txn.id));
   const earned = [...confirmed, ...open.filter((txn) => !claimed.has(txn.id))];
 
@@ -73,9 +74,8 @@ export function incomeSources(transactions: InterpretedTransaction[]): IncomeSou
       kind: "returned",
       label: "Called a refund by the bank",
       detail:
-        "No payment in your statements matches these, so they are counted as money in. " +
-        "A benefit or a rebate paid to you belongs here; a refund whose purchase you have " +
-        "not uploaded does not.",
+        "The bank called these a refund, they still have no category, and no payment in " +
+        "the ledger reverses them. Benefits the rules already filed sit under Earned.",
       amount: total(returned),
       count: returned.length,
       askable: true,
@@ -84,8 +84,8 @@ export function incomeSources(transactions: InterpretedTransaction[]): IncomeSou
       kind: "arrived",
       label: "Arrived from somewhere else",
       detail:
-        "Money the bank called a transfer, with no matching payment out of an account you " +
-        "have added. Usually an account you have not uploaded, or borrowed money.",
+        "The bank called these a transfer, they still have no category, and no matching " +
+        "payment left an account you have added. Usually an account not uploaded yet.",
       amount: total(arrived),
       count: arrived.length,
       askable: true,
@@ -124,16 +124,21 @@ export type UnsettledGroup = {
 };
 
 /**
- * Money in the reader could not settle, gathered by wording so a run is one question
- * rather than a hundred. Biggest first, because that is the one worth answering: on the
- * sample statements the top two rows are a year of Medicare billing and a loan drawdown.
+ * Money in the ledger could not settle, gathered by wording so a run is one question
+ * rather than a hundred. Biggest first. Credits the rules already filed — Medicare,
+ * ATO, a lender's drawdown — are not here; Needs a category is for shops, and this
+ * list is only unsorted refunds and transfers still sitting in money in.
  */
 export function unsettledGroups(
   transactions: InterpretedTransaction[],
   registry: AccountRegistry = {},
 ): UnsettledGroup[] {
   const open = countedMovements(transactions).filter(
-    (txn) => isEarnings(txn) && !txn.verdict && (looksReturned(txn) || looksInternal(txn)),
+    (txn) =>
+      isEarnings(txn) &&
+      !txn.verdict &&
+      needsReview(txn) &&
+      (looksReturned(txn) || looksInternal(txn)),
   );
 
   const grouped = new Map<string, UnsettledGroup>();
@@ -143,7 +148,7 @@ export function unsettledGroups(
     grouped.set(key, {
       key,
       example: held?.example ?? txn,
-      label: held?.label ?? (txn.description?.trim() || txn.merchant),
+      label: held?.label ?? displayName(txn),
       account: held?.account ?? accountIdOf(txn, registry),
       count: (held?.count ?? 0) + 1,
       amount: roundMoney((held?.amount ?? 0) + txn.amount),

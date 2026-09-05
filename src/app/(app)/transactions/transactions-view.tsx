@@ -114,7 +114,8 @@ export function TransactionsView() {
         <h2 className="text-base font-bold">Transactions</h2>
         <p className="mt-0.5 text-xs text-[#60716a]">
           Every movement in this period — one row each, so the same shop appears as many times as you
-          paid it. Change one and you are offered the rest.
+          paid it. Show statement to put the bank&apos;s own cells beside BitbyBit&apos;s reading. The
+          bank&apos;s words are evidence, not the answer.
         </p>
         <div className="mt-3">
           <TransactionTable transactions={scoped} tag={selectedTag} onTagChange={setSelectedTag} />

@@ -90,6 +90,23 @@ describe("saying where money in came from", () => {
     const rows = [credit(3000, "Salary"), credit(1200, "Refund"), credit(25000, "Transfers in")];
     assert.equal(unsettledIncome(rows), 26200);
   });
+
+  it("does not ask about a refund the rules already filed as income", () => {
+    const rows = [
+      credit(662.4, "Refund", { categoryKey: "other-income", decidedBy: "rules", merchant: "Medicare" }),
+      credit(1200, "Refund"),
+    ];
+    const sources = incomeSources(rows);
+    assert.deepEqual(
+      sources.map((source) => [source.kind, source.amount, source.askable]),
+      [
+        ["earned", 662.4, false],
+        ["returned", 1200, true],
+      ],
+    );
+    assert.equal(unsettledIncome(rows), 1200);
+    assert.equal(unsettledGroups(rows).length, 1);
+  });
 });
 
 describe("the samples, split up", () => {
@@ -107,62 +124,54 @@ describe("the samples, split up", () => {
     return markTransferLegs(result.transactions);
   }
 
-  it("shows the household its Medicare billing, the loan having already been placed", async () => {
+  it("files the practice's billing under earned, and only asks about what is still unsorted", async () => {
     const rows = await sampleLedger();
     const sources = incomeSources(rows);
     const of = (kind: string) => sources.find((source) => source.kind === kind);
 
-    // $142,796.02 of money in, and only $17,482.09 of it is what a person would call
-    // earnings. Nearly all the rest is a practice's Medicare billing, which NAB files
-    // under "Refund".
-    //
-    // The $25,000 SocietyOne drawdown is no longer in here at all, and that is the point:
-    // it used to be the second-biggest thing the person had to explain, and the reader now
-    // recognises a consumer lender and types it as borrowing on its own. "Arrived" is down
-    // to $501 of genuinely unexplained credits.
-    assert.equal(of("earned")?.amount, 17482.09);
-    assert.equal(of("returned")?.amount, 124812.93);
+    // $142,796.02 of money in. The rules already put Medicare ($120,844.20) and the ATO
+    // rebates under Income, and SocietyOne is borrowed, so none of those are questions.
+    // What is left to ask about is $501 of unmatched internal transfers and $4.73 of
+    // unmatched refunds — credits with no category and no other leg.
+    assert.equal(of("earned")?.amount, 142290.29);
+    assert.equal(of("returned")?.amount, 4.73);
     assert.equal(of("arrived")?.amount, 501);
     assert.equal(
-      sources.reduce((sum, source) => sum + source.amount, 0),
+      roundMoney(sources.reduce((sum, source) => sum + source.amount, 0)),
       summarizeMoneyFlow(rows).income,
     );
-    assert.equal(unsettledIncome(rows), 125313.93);
+    assert.equal(unsettledIncome(rows), 505.73);
   });
 
-  it("puts a year of unplaced money to the person as six questions", async () => {
+  it("asks about leftover transfers and refunds by the name the statement printed", async () => {
     const rows = await sampleLedger();
     const groups = unsettledGroups(rows);
 
-    // Biggest first, because the top one is 96% of it and is a single click. The loan that
-    // used to sit second is gone from the list: the reader places it without asking.
-    assert.equal(groups.length, 6);
-    assert.equal(groups[0].count, 172, "a year of Medicare billing asked about once");
-    assert.equal(groups[0].amount, 120844.2);
-    assert.match(groups[0].label, /MCARE BENEFITS/);
+    assert.equal(groups.length, 4);
+    assert.equal(groups[0].amount, 500);
+    assert.match(groups[0].label, /Linked Acc Trns/i);
+    assert.equal(groups[0].example.categoryKey, "uncategorised");
+    assert.ok(!groups.some((group) => /medicare|mcare/i.test(group.label)), "billing is already income");
     assert.ok(!groups.some((group) => /SocietyOne/.test(group.label)), "the drawdown needs no answer");
-    assert.equal(groups[1].amount, 3964, "four ATO refunds, which are money in and stay in");
+    assert.ok(!groups.some((group) => /ato/i.test(group.label)), "ATO rebates are already income");
     assert.equal(
       roundMoney(groups.reduce((sum, group) => sum + group.amount, 0)),
       unsettledIncome(rows),
     );
   });
 
-  it("reaches the household's real position once the billing is answered", async () => {
+  it("still lets a leftover transfer be taken out of money in", async () => {
     const rows = await sampleLedger();
     const groups = unsettledGroups(rows);
     const at = "2026-09-03T00:00:00.000Z";
-    // One answer now, not two. The practice's billing is revenue, and it is the only thing
-    // left that a statement could never have settled by itself.
     const settled = applyVerdicts(rows, {
-      [likeKey(groups[0].example)]: verdictFor("earned", at),
+      [likeKey(groups[0].example)]: verdictFor("own-account", at),
     });
     const flow = summarizeMoneyFlow(settled);
 
-    assert.equal(flow.income, 142796.02, "the loan was already out, and the billing stays");
+    assert.equal(flow.income, 142296.02, "the $500 was not earnings");
     assert.equal(flow.spending, 168303.53, "no payment changed");
-    assert.equal(flow.net, -25507.51, "which is what living on a $25,000 loan looks like");
     assert.equal(flow.cashNet, -507.51, "and the cash that moved is untouched");
-    assert.equal(unsettledIncome(settled), 4469.73);
+    assert.equal(unsettledIncome(settled), 5.73);
   });
 });

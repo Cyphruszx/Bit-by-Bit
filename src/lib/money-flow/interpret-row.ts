@@ -1,8 +1,9 @@
-import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
+import { categorize, inferType } from "@/lib/money-flow/categorize";
+import { displayName } from "@/lib/money-flow/display-name";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
 import { categoryFromBankLabel } from "@/lib/money-flow/statement-category";
 import { inflowType, splitSuggestion, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
-import type { BankWords, DecidedBy, InterpretedTransaction, TransactionType } from "@/lib/money-flow/types";
+import type { BankWords, DecidedBy, InterpretedTransaction, SourceRow, TransactionType } from "@/lib/money-flow/types";
 
 export type RawMovement = {
   dateIso: string;
@@ -13,6 +14,8 @@ export type RawMovement = {
   merchant?: string;
   bankCategory?: string;
   accountKey?: string;
+  accountId?: string;
+  source?: SourceRow;
   sourceFile: string;
   id: string;
   confidence: number;
@@ -92,10 +95,16 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
   const read = readMovement(text, raw.amount, raw.directionKnown, bank.category);
 
   const accountKey = raw.accountKey?.trim();
+  const accountId = raw.accountId?.trim();
 
   return {
     id: raw.id,
-    merchant: tidyMerchant(bank.merchant || raw.description),
+    merchant: displayName({
+      merchant: bank.merchant || raw.description,
+      description: raw.description,
+      bank,
+      source: raw.source,
+    }),
     categoryKey: read.categoryKey,
     ...(read.tag ? { tags: [read.tag] } : {}),
     decidedBy: read.decidedBy,
@@ -107,6 +116,8 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
     sourceFile: raw.sourceFile,
     ...(Object.keys(bank).length > 0 ? { bank } : {}),
     ...(accountKey ? { accountKey } : {}),
+    ...(accountId ? { accountId } : {}),
+    ...(raw.source ? { source: raw.source } : {}),
     ...(raw.description.trim() ? { description: raw.description.trim() } : {}),
     confidence: raw.confidence,
   };
