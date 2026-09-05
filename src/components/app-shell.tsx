@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AccountLink } from "@/components/account-link";
 import { AppNav } from "@/components/app-nav";
 import { BrandMark } from "@/components/brand-mark";
 import { PeriodFilterBar } from "@/components/period-filter";
@@ -19,6 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="rounded-full bg-[#edf4dc] px-3 py-1 text-sm font-medium text-[#355a3f]">
               {!ready ? "Opening your ledger" : hasUploads ? "Interpreted from files" : "No statements yet"}
             </span>
+            <AccountLink />
             <Link href="/upload" className="rounded-full bg-[#d5f06c] px-4 py-2 text-sm font-bold text-[#173b31]">
               Upload
             </Link>

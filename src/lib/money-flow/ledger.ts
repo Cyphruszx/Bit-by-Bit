@@ -298,6 +298,70 @@ export function recordPayerMerge(ledger: Ledger, from: string, into: string | nu
   return { ...ledger, payers };
 }
 
+/**
+ * Two copies of one ledger, brought together without losing either.
+ *
+ * This is what makes a backup safe to sync rather than merely safe to restore. A browser
+ * and a cloud copy both hold statements, and taking whichever was written last would throw
+ * away whatever the other side did — a statement imported on a laptop, an account named on
+ * a phone. Nothing here overwrites: a movement in either copy is a movement in the result.
+ *
+ * Fingerprints do most of the work, because a movement's identity is already decided once
+ * at import and is the same wherever it was read. What is left is what a person said about
+ * a movement, and those are settled per key rather than per copy, so two devices that
+ * named different things both keep their answer.
+ */
+export function mergeLedgers(mine: Ledger, theirs: Ledger): Ledger {
+  const entries = new Map<string, LedgerEntry>();
+  for (const entry of [...theirs.entries, ...mine.entries]) {
+    const held = entries.get(entry.fingerprint);
+    if (!held) {
+      entries.set(entry.fingerprint, entry);
+      continue;
+    }
+    // The same movement from both copies. Keep the local reading of it — a tag edited
+    // here is the one in front of the person — but remember every import that carried it,
+    // or removing a statement on one device would drop rows the other still covers.
+    entries.set(entry.fingerprint, {
+      ...entry,
+      importIds: unique([...held.importIds, ...entry.importIds]),
+      firstSeen: earliest(held.firstSeen, entry.firstSeen),
+    });
+  }
+
+  const imports = new Map<string, LedgerImport>();
+  for (const record of [...theirs.imports, ...mine.imports]) imports.set(record.id, record);
+
+  return {
+    version: LEDGER_VERSION,
+    entries: sortEntries([...entries.values()]),
+    imports: [...imports.values()],
+    ...named({ ...theirs.institutions, ...mine.institutions }, "institutions"),
+    ...named({ ...theirs.accounts, ...mine.accounts }, "accounts"),
+    ...named({ ...theirs.payers, ...mine.payers }, "payers"),
+    ...mergedVerdicts(mine.verdicts, theirs.verdicts),
+  };
+}
+
+/** Only carried when there is something to carry, so an empty ledger stays empty. */
+function named(map: Record<string, string>, key: "institutions" | "accounts" | "payers") {
+  return Object.keys(map).length > 0 ? { [key]: map } : {};
+}
+
+/**
+ * A verdict says when it was given, so the two copies can be told apart on their own
+ * evidence rather than on which happened to be saved last. Changing your mind on a phone
+ * beats an older answer on a laptop, whichever device syncs first.
+ */
+function mergedVerdicts(mine: Verdicts | undefined, theirs: Verdicts | undefined) {
+  const held: Verdicts = { ...theirs };
+  for (const [key, verdict] of Object.entries(mine ?? {})) {
+    const other = held[key];
+    if (!other || verdict.at >= other.at) held[key] = verdict;
+  }
+  return Object.keys(held).length > 0 ? { verdicts: held } : {};
+}
+
 export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {
   return ledger.entries;
 }
