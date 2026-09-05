@@ -19,8 +19,9 @@
  * sentences a person can read and undo, without the words "rule engine" appearing anywhere.
  */
 
+import { taxonomyPath } from "@/lib/money-flow/category-book";
 import { merchantKey } from "@/lib/money-flow/redact";
-import { categoryPath, isCategoryKey } from "@/lib/money-flow/taxonomy";
+import { isCategoryKey } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export type LearnedRule = {
@@ -110,7 +111,7 @@ export function whatWasLearned(rules: Rules, transactions: InterpretedTransactio
         key,
         merchant,
         categoryKey: rule.categoryKey,
-        sentence: `${merchant} is ${categoryPath(rule.categoryKey)}`,
+        sentence: `${merchant} is ${taxonomyPath(rule.categoryKey)}`,
         count: held?.count ?? 0,
         at: rule.at,
       };

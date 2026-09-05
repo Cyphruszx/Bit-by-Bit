@@ -25,7 +25,7 @@ function txn(overrides: Partial<InterpretedTransaction> = {}): InterpretedTransa
   return {
     id: "a",
     merchant: "Cafe",
-    categoryKey: "food",
+    categoryKey: "groceries",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount: -5,
@@ -232,7 +232,7 @@ describe("accumulating a ledger", () => {
   });
 
   it("backfills source on a sourceless held row and leaves the working columns alone", () => {
-    const held = txn({ accountKey: "100200300", categoryKey: "food", amount: -12.8, description: "Woolworths" });
+    const held = txn({ accountKey: "100200300", categoryKey: "groceries", amount: -12.8, description: "Woolworths" });
     const first = appendToLedger(EMPTY_LEDGER, upload([held]), { importedAt: "2026-09-01T00:00:00.000Z" });
     const source = {
       headers: ["Date", "Amount", "Category", "Merchant Name"],
@@ -245,7 +245,7 @@ describe("accumulating a ledger", () => {
     );
     assert.equal(second.report.added, 0);
     assert.deepEqual(second.ledger.entries[0]?.source, source);
-    assert.equal(second.ledger.entries[0]?.categoryKey, "food");
+    assert.equal(second.ledger.entries[0]?.categoryKey, "groceries");
     assert.equal(second.ledger.entries[0]?.amount, -12.8);
   });
 
@@ -281,7 +281,7 @@ describe("accumulating a ledger", () => {
     delete held.tags;
 
     const next = persistTaxonomy(ledger);
-    assert.equal(next.entries[0]?.categoryKey, "food");
+    assert.equal(next.entries[0]?.categoryKey, "groceries");
     assert.deepEqual(next.entries[0]?.tags, ["Groceries"]);
     assert.equal(next.entries[0]?.type, "spent");
     assert.equal(next.entries[0]?.fingerprint, held.fingerprint);

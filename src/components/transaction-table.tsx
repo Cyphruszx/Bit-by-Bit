@@ -10,16 +10,15 @@ import { displayName } from "@/lib/money-flow/display-name";
 import { hasSource, sourcePairs } from "@/lib/money-flow/source";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
 import {
-  CATEGORY_GROUPS,
-  categoryLabel,
-  categoryPath,
+  categoriesIn,
+  chartLabel,
   defaultCategoryForGroup,
-  groupLabel,
   groupOf,
-  tagsFor,
-  typeLabel,
-} from "@/lib/money-flow/taxonomy";
-import { selectableKeys } from "@/lib/money-flow/summary";
+  resolvedBook,
+  taxonomyPath,
+} from "@/lib/money-flow/category-book";
+import { categoryLabel, tagsFor, typeLabel } from "@/lib/money-flow/taxonomy";
+import { matches, tableFilterKeys, tableFilterValue } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 type Direction = "all" | "in" | "out";
@@ -64,11 +63,11 @@ export function TransactionTable({
     null,
   );
   const tagOptions = useMemo(
-    () => ["All", ...selectableKeys(transactions), ...allTags(transactions)],
+    () => ["All", ...tableFilterKeys(transactions), ...allTags(transactions)],
     [transactions],
   );
   const selectedTag = tag ?? internalTag;
-  const activeTag = tagOptions.includes(selectedTag) ? selectedTag : "All";
+  const activeTag = tableFilterValue(selectedTag, tagOptions);
 
   function selectTag(next: string) {
     if (onTagChange) onTagChange(next);
@@ -80,17 +79,14 @@ export function TransactionTable({
     return transactions.filter((txn) => {
       const tags = tagsOf(txn);
       const matchesTag =
-        activeTag === "All" ||
-        txn.categoryKey === activeTag ||
-        tags.some((name) => name === activeTag);
+        activeTag === "All" || matches(txn, activeTag) || tags.some((name) => name === activeTag);
       const matchesDirection =
         direction === "all" || (direction === "in" ? txn.amount > 0 : txn.amount < 0);
       const matchesQuery =
         needle.length === 0 ||
         displayName(txn).toLowerCase().includes(needle) ||
         txn.merchant.toLowerCase().includes(needle) ||
-        categoryPath(txn.categoryKey).toLowerCase().includes(needle) ||
-        groupLabel(txn.categoryKey).toLowerCase().includes(needle) ||
+        taxonomyPath(txn.categoryKey).toLowerCase().includes(needle) ||
         tags.some((name) => name.toLowerCase().includes(needle)) ||
         txn.sourceFile.toLowerCase().includes(needle) ||
         (accountOf.get(txn.id) ?? "").toLowerCase().includes(needle) ||
@@ -134,7 +130,7 @@ export function TransactionTable({
         >
           {tagOptions.map((name) => (
             <option key={name} value={name}>
-              {name === "All" ? "Everything" : categoryLabel(name)}
+              {name === "All" ? "Everything" : chartLabel(name)}
             </option>
           ))}
         </select>
@@ -191,10 +187,12 @@ export function TransactionTable({
             </thead>
             <tbody className="divide-y divide-[#edf0ee] bg-white">
               {visible.map((txn) => {
-                const group = groupOf(txn.categoryKey);
-                const categories = group.categories.includes(txn.categoryKey)
-                  ? group.categories
-                  : [txn.categoryKey, ...group.categories];
+                const book = resolvedBook();
+                const groupId = groupOf(txn.categoryKey);
+                const inGroup = categoriesIn(book, groupId);
+                const categories = inGroup.some((category) => category.key === txn.categoryKey)
+                  ? inGroup
+                  : [{ key: txn.categoryKey, label: categoryLabel(txn.categoryKey) }, ...inGroup];
                 const name = displayName(txn);
                 return (
                   <Fragment key={txn.id}>
@@ -214,13 +212,13 @@ export function TransactionTable({
                       <td className={`${CELL} ${RULE} text-[11px] font-semibold text-[#77857f]`}>{txn.type}</td>
                       <td className={`${CELL} ${RULE}`}>
                         <select
-                          value={group.key}
+                          value={groupId}
                           aria-label={`Group for ${name}`}
                           onChange={(event) => applyCategory(txn, defaultCategoryForGroup(event.target.value, txn.categoryKey))}
                           className={SELECT}
                         >
-                          {CATEGORY_GROUPS.map((entry) => (
-                            <option key={entry.key} value={entry.key}>
+                          {book.groups.map((entry) => (
+                            <option key={entry.id} value={entry.id}>
                               {entry.label}
                             </option>
                           ))}
@@ -233,9 +231,9 @@ export function TransactionTable({
                           onChange={(event) => applyCategory(txn, event.target.value)}
                           className={SELECT}
                         >
-                          {categories.map((key) => (
-                            <option key={key} value={key}>
-                              {categoryLabel(key)}
+                          {categories.map((held) => (
+                            <option key={held.key} value={held.key}>
+                              {held.label}
                             </option>
                           ))}
                         </select>

@@ -3,9 +3,11 @@
 import { useMemo, type ReactNode } from "react";
 import { formatAud, formatAudCompact, formatSignedAud } from "@/lib/format";
 import { LineChart, type LineChartSeries } from "@/components/line-chart";
+import { chartLabel } from "@/lib/money-flow/category-book";
 import {
   chartTagFlowSeries,
-  selectableKeys,
+  selectableCategories,
+  selectableGroups,
   tagFlowOverTime,
   type FlowOverTimePoint,
 } from "@/lib/money-flow/summary";
@@ -20,8 +22,6 @@ import {
   withTagColors,
   type ChartKind,
 } from "@/lib/money-flow/tag-charts";
-import { allTags } from "@/lib/money-flow/tags";
-import { categoryLabel } from "@/lib/money-flow/taxonomy";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export function TagChartCard({
@@ -50,13 +50,16 @@ export function TagChartCard({
     () => transactions.filter((txn) => txn.type !== "moved" && txn.amount !== 0),
     [transactions],
   );
-  const primaries = useMemo(() => selectableKeys(scoped), [scoped]);
-  const subs = useMemo(() => allTags(scoped), [scoped]);
+  const primaries = useMemo(() => selectableGroups(scoped), [scoped]);
+  const subs = useMemo(
+    () => (selectedTag === "All" ? [] : selectableCategories(scoped, selectedTag)),
+    [scoped, selectedTag],
+  );
   const highlightAll = series.level === "sub" && series.parent === selectedTag;
   const title =
     series.level === "sub" && series.parent
-      ? `Inside ${categoryLabel(series.parent)}`
-      : "Money in and out by category";
+      ? `Inside ${chartLabel(series.parent)}`
+      : "Money in and out by group";
   const emptyLabel = "No money in or out in this period.";
 
   function selectChartTag(name: string) {
@@ -78,7 +81,7 @@ export function TagChartCard({
               : chart === "line"
                 ? "A running total stepping at every movement: money in lifts the line, money out pulls it down, and it holds level on quiet days."
                 : "Slice size is the share of all movement, and money in is outlined."}{" "}
-            Totals use the primary tag only, so extra tags never double-count. Tap a primary to see its sub-tags.
+            Groups first, then the categories inside a group. Tags stay metadata and never split a bar.
           </p>
         </div>
         <div className="flex flex-wrap gap-1">
@@ -127,31 +130,31 @@ export function TagChartCard({
       )}
       {primaries.length > 0 || subs.length > 0 ? (
         <div className={`${compact ? "mt-3 space-y-2" : "mt-5 space-y-3"}`}>
-          <ChipRow label="Category" compact={compact}>
+          <ChipRow label="Group" compact={compact}>
             <TagToggle active={selectedTag === "All"} onClick={() => onSelectTag("All")} compact={compact}>
               All
             </TagToggle>
             {primaries.map((key) => (
               <TagToggle
                 key={key}
-                active={selectedTag === key}
+                active={selectedTag === key || series.parent === key}
                 onClick={() => onSelectTag(nextTagSelection(selectedTag, key))}
                 compact={compact}
               >
-                {categoryLabel(key)}
+                {chartLabel(key)}
               </TagToggle>
             ))}
           </ChipRow>
           {subs.length > 0 ? (
-            <ChipRow label="Tag" compact={compact}>
-              {subs.map((tag) => (
+            <ChipRow label="Category" compact={compact}>
+              {subs.map((key) => (
                 <TagToggle
-                  key={tag}
-                  active={selectedTag === tag}
-                  onClick={() => onSelectTag(nextTagSelection(selectedTag, tag))}
+                  key={key}
+                  active={selectedTag === key}
+                  onClick={() => onSelectTag(nextTagSelection(selectedTag, key))}
                   compact={compact}
                 >
-                  {tag}
+                  {chartLabel(key)}
                 </TagToggle>
               ))}
             </ChipRow>
@@ -259,7 +262,7 @@ function BarGraph({
               <rect
                 role="button"
                 tabIndex={0}
-                aria-label={`${categoryLabel(bar.name)}: ${formatAud(Math.abs(bar.amount))} ${incoming ? "in" : "out"}`}
+                aria-label={`${chartLabel(bar.name)}: ${formatAud(Math.abs(bar.amount))} ${incoming ? "in" : "out"}`}
                 aria-pressed={selected}
                 x={pad.left + bar.x}
                 y={pad.top + bar.y}
@@ -284,7 +287,7 @@ function BarGraph({
                 fill="#77857f"
                 fontSize="11"
               >
-                {categoryLabel(bar.name)}
+                {chartLabel(bar.name)}
               </text>
             </g>
           );
@@ -362,7 +365,7 @@ function PieChart({
               key={slice.name}
               role="button"
               tabIndex={0}
-              aria-label={`${categoryLabel(slice.name)}: ${formatAud(Math.abs(slice.amount))} ${slice.direction}, ${slice.share}%`}
+              aria-label={`${chartLabel(slice.name)}: ${formatAud(Math.abs(slice.amount))} ${slice.direction}, ${slice.share}%`}
               aria-pressed={selected}
               d={donutPath(cx, cy, outer, inner, slice.startAngle, slice.endAngle)}
               fill={slice.color}
@@ -415,7 +418,7 @@ function PieChart({
                       boxShadow: slice.direction === "in" ? "0 0 0 2px #257155" : undefined,
                     }}
                   />
-                  <span className="truncate font-medium">{categoryLabel(slice.name)}</span>
+                  <span className="truncate font-medium">{chartLabel(slice.name)}</span>
                   <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#77857f]">
                     {slice.direction}
                   </span>

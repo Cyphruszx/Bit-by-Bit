@@ -20,6 +20,7 @@
 import {
   categoryForLegacyTag,
   isCategoryKey,
+  migrateStoredCategory,
   OTHER,
   splitSuggestion,
   typeForCategory,
@@ -46,30 +47,16 @@ const FROM_TAG_SOURCE: Record<string, DecidedBy> = {
 export function upgradeTransaction(row: StoredTransaction): InterpretedTransaction {
   const { category, tagSource, ...rest } = row;
 
-  if (isCategoryKey(row.categoryKey)) {
-    const categoryKey = row.categoryKey as string;
+  if (typeof row.categoryKey === "string" && row.categoryKey.trim()) {
+    const migrated = migrateStoredCategory(row.categoryKey, row.tags);
+    const tags = [...new Set([...(migrated.tag ? [migrated.tag] : []), ...(row.tags ?? [])])];
     return {
       ...rest,
-      categoryKey,
-      type: typeForCategory(categoryKey, row.amount),
+      categoryKey: migrated.categoryKey,
+      type: typeForCategory(migrated.categoryKey, row.amount),
+      ...(tags.length > 0 ? { tags } : {}),
       ...(row.decidedBy ? { decidedBy: row.decidedBy } : {}),
     };
-  }
-
-  // A movement stored under the two-level model: `food.groceries` was one key and is now a
-  // category and a tag. Every figure was already summed at the category, so nothing moves —
-  // the detail simply stops being part of the key and becomes something to find it by.
-  if (typeof row.categoryKey === "string" && row.categoryKey.includes(".")) {
-    const split = splitSuggestion(row.categoryKey);
-    if (split.categoryKey !== UNCATEGORISED) {
-      return {
-        ...rest,
-        categoryKey: split.categoryKey,
-        type: typeForCategory(split.categoryKey, row.amount),
-        ...(split.tag ? { tags: [...new Set([...(row.tags ?? []), split.tag])] } : {}),
-        ...(row.decidedBy ? { decidedBy: row.decidedBy } : {}),
-      };
-    }
   }
 
   // The old model kept the category in the first tag as well as its own field, so the
@@ -143,7 +130,7 @@ function resolve(primary: string, mapped: string | null, settled: boolean, amoun
   if (name === "other") return settled ? OTHER : UNCATEGORISED;
   // Income on a payment was always a misreading, however deliberately it was applied, so
   // it is asked about rather than carried across as negative earnings.
-  if (name === "income") return settled && amount > 0 ? "income" : UNCATEGORISED;
+  if (name === "income") return settled && amount > 0 ? "other-income" : UNCATEGORISED;
   return UNCATEGORISED;
 }
 

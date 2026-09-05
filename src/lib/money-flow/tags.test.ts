@@ -33,52 +33,52 @@ function txn(categoryKey: string, tags?: string[]): InterpretedTransaction {
 
 describe("transaction tags", () => {
   it("keeps the two axes apart, so a tag can never move a total", () => {
-    const row = withTags(txn("food"), ["Weekly"]);
-    assert.equal(categoryOf(row), "food");
+    const row = withTags(txn("groceries"), ["Weekly"]);
+    assert.equal(categoryOf(row), "groceries");
     assert.deepEqual(tagsOf(row), ["Weekly"]);
     // The old model wrote the first tag back into the category, so these were one field
     // and adding a tag silently re-filed the movement.
-    assert.equal(withTags(row, ["Payday"]).categoryKey, "food");
+    assert.equal(withTags(row, ["Payday"]).categoryKey, "groceries");
     assert.equal(tidyTag("  eating out "), "Eating Out");
   });
 
   it("takes as many tags as a person wants, and each of them once", () => {
-    const next = withTags(txn("food"), ["food", "Woolworths", "food"]);
-    assert.deepEqual(next.tags, ["Food", "Woolworths"]);
+    const next = withTags(txn("groceries"), ["groceries", "Woolworths", "groceries"]);
+    assert.deepEqual(next.tags, ["Groceries", "Woolworths"]);
   });
 
   it("treats a category a person chose as settled", () => {
-    const next = withCategory(txn("uncategorised"), "food");
-    assert.equal(next.categoryKey, "food");
+    const next = withCategory(txn("uncategorised"), "groceries");
+    assert.equal(next.categoryKey, "groceries");
     assert.equal(next.decidedBy, "said");
     assert.equal(next.type, "spent");
   });
 
   it("lets the type follow the category, so the two cannot disagree", () => {
     // A debit filed under Income is a reversal or a misread, not spending wearing a wage.
-    assert.equal(withCategory(txn("food"), "income").type, "adjusted");
+    assert.equal(withCategory(txn("groceries"), "salary").type, "adjusted");
   });
 
   it("refuses a category the taxonomy has never heard of", () => {
     // Otherwise a typo becomes a category, and every report grows a column nobody meant.
-    assert.equal(withCategory(txn("food"), "not-a-real-key").categoryKey, "uncategorised");
+    assert.equal(withCategory(txn("groceries"), "not-a-real-key").categoryKey, "uncategorised");
   });
 
   it("renames and removes a tag across the list", () => {
-    const rows = [txn("food", ["Weekend"]), txn("leisure", ["Weekend", "Shared"])];
+    const rows = [txn("groceries", ["Weekend"]), txn("entertainment", ["Weekend", "Shared"])];
     const renamed = renameTag(rows, "weekend", "long weekend");
     assert.deepEqual(allTags(renamed), ["Long Weekend", "Shared"]);
     const removed = removeTag(renamed, "long weekend");
     assert.deepEqual(tagsOf(removed[1]), ["Shared"]);
     // Losing the last tag leaves no tags, not a placeholder one.
     assert.deepEqual(tagsOf(removed[0]), []);
-    assert.equal(removed[0].categoryKey, "food", "a tag edit never touches the category");
+    assert.equal(removed[0].categoryKey, "groceries", "a tag edit never touches the category");
   });
 });
 
 describe("applying a change to every movement of a merchant", () => {
   function row(id: string, merchant: string, tags?: string[]): InterpretedTransaction {
-    return { ...txn("food", tags), id, merchant };
+    return { ...txn("groceries", tags), id, merchant };
   }
 
   const rows = [
@@ -103,7 +103,7 @@ describe("applying a change to every movement of a merchant", () => {
       assert.equal(changed?.decidedBy, "said");
     }
     const untouched = next.find((r) => r.id === "3");
-    assert.equal(untouched?.categoryKey, "food");
+    assert.equal(untouched?.categoryKey, "groceries");
     assert.equal(untouched, rows[2], "an unrelated row should not be rebuilt");
   });
 
@@ -114,7 +114,7 @@ describe("applying a change to every movement of a merchant", () => {
   });
 
   it("leaves the list alone when no movement carries that merchant", () => {
-    assert.deepEqual(categorizeMerchant(rows, "Aldi", "food"), rows);
+    assert.deepEqual(categorizeMerchant(rows, "Aldi", "groceries"), rows);
     assert.equal(merchantRows(rows, "Aldi").length, 0);
   });
 });
