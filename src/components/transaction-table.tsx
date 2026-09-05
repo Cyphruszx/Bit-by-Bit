@@ -6,6 +6,7 @@ import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
 import { accountIdOf, accountLabel } from "@/lib/money-flow/accounts";
+import { displayName } from "@/lib/money-flow/display-name";
 import { hasSource, sourcePairs } from "@/lib/money-flow/source";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
 import { categoryLabel, categoryPath, typeLabel } from "@/lib/money-flow/taxonomy";
@@ -73,6 +74,7 @@ export function TransactionTable({
         direction === "all" || (direction === "in" ? txn.amount > 0 : txn.amount < 0);
       const matchesQuery =
         needle.length === 0 ||
+        displayName(txn).toLowerCase().includes(needle) ||
         txn.merchant.toLowerCase().includes(needle) ||
         categoryPath(txn.categoryKey).toLowerCase().includes(needle) ||
         tags.some((name) => name.toLowerCase().includes(needle)) ||
@@ -160,7 +162,7 @@ export function TransactionTable({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                      <p className="text-sm font-semibold">{txn.merchant}</p>
+                      <p className="text-sm font-semibold">{displayName(txn)}</p>
                       <p className={`text-sm font-semibold tabular-nums ${txn.amount > 0 ? "text-[#257155]" : ""}`}>
                         {formatSignedAud(txn.amount)}
                       </p>
@@ -209,7 +211,7 @@ export function TransactionTable({
                       const others = merchantRows(allTransactions, txn.merchant).filter(
                         (row) => row.id !== txn.id,
                       ).length;
-                      setSpread({ id: txn.id, merchant: txn.merchant, categoryKey, others });
+                      setSpread({ id: txn.id, merchant: displayName(txn), categoryKey, others });
                     }}
                   />
                   {spread?.id === txn.id ? (

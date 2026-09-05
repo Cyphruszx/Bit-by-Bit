@@ -1,3 +1,4 @@
+import { nameFromPrintedLines } from "@/lib/money-flow/display-name";
 import { interpretMovement, type RawMovement } from "@/lib/money-flow/interpret-row";
 import { parseAmount } from "@/lib/money-flow/parse-values";
 import { sourceFromPairs } from "@/lib/money-flow/source";
@@ -248,16 +249,7 @@ function timeFrom(lines: string[]): string {
 }
 
 function merchantFrom(lines: string[], description: string): string {
-  const timed = lines[0]?.match(TIME_LINE);
-  const onTimeLine = timed?.[2]?.trim() ?? "";
-  if (onTimeLine && !/^\$/.test(onTimeLine) && moneyCount(onTimeLine) === 0) {
-    return onTimeLine.replace(/\b(purchase|refund|direct debit|eftpos withdrawal)$/i, "").trim() || onTimeLine;
-  }
-  const named = lines
-    .slice(1)
-    .map((line) => line.replace(TIME_LINE, "$2").trim())
-    .find((line) => /[A-Za-z]{3,}/.test(line) && !isAmountLine(line) && !/, (NSW|VIC|QLD|ACT|SA|WA|TAS|NT)\b/i.test(line));
-  return named || description;
+  return nameFromPrintedLines(lines) || description;
 }
 
 function descriptionFrom(lines: string[]): string {
