@@ -1,6 +1,6 @@
-import { tidyMerchant } from "@/lib/money-flow/categorize";
-import { readMovement } from "@/lib/money-flow/interpret-row";
-import { formatDisplayDate, parseAmount } from "@/lib/money-flow/parse-values";
+import { interpretMovement, type RawMovement } from "@/lib/money-flow/interpret-row";
+import { parseAmount } from "@/lib/money-flow/parse-values";
+import { sourceFromPairs } from "@/lib/money-flow/source";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const MONTHS: Record<string, number> = {
@@ -35,6 +35,10 @@ export function looksLikeUpStatement(text: string): boolean {
 }
 
 export function transactionsFromUpStatement(text: string, sourceFile: string): InterpretedTransaction[] {
+  return movementsFromUpStatement(text, sourceFile).map(interpretMovement);
+}
+
+export function movementsFromUpStatement(text: string, sourceFile: string): RawMovement[] {
   const latestYear = statementYear(text);
   const covers = statementRange(text);
   const normalized = text.replace(/\+\s*\n\s*\$/g, "+$").replace(/\r/g, "\n");
@@ -46,7 +50,7 @@ export function transactionsFromUpStatement(text: string, sourceFile: string): I
     // place the statement says which saver the movements below it belong to.
     .filter((line) => !shouldSkip(line) || SAVER_HEADER.test(line));
 
-  const results: InterpretedTransaction[] = [];
+  const results: RawMovement[] = [];
   let currentDate: string | null = null;
   let pending: string[] = [];
   // Day headings carry no year and run newest first, so the year steps back a
@@ -56,8 +60,8 @@ export function transactionsFromUpStatement(text: string, sourceFile: string): I
   let account = SPENDING_ACCOUNT;
 
   const flush = () => {
-    const txn = transactionFromBlock(pending, currentDate, sourceFile, results.length, account);
-    if (txn) results.push(txn);
+    const movement = movementFromBlock(pending, currentDate, sourceFile, results.length, account);
+    if (movement) results.push(movement);
     pending = [];
   };
 
@@ -182,21 +186,21 @@ function isAmountLine(line: string): boolean {
   );
 }
 
-function transactionFromBlock(
+function movementFromBlock(
   lines: string[],
   dateIso: string | null,
   sourceFile: string,
   index: number,
   account: string,
-): InterpretedTransaction | null {
+): RawMovement | null {
   if (!dateIso || lines.length === 0) return null;
-  const block = lines.join(" ");
-  const amounts = moneyMatches(block)
+  const printed = moneyMatches(lines.join(" "));
+  const amounts = printed
     .map((match) => {
       const value = parseAmount(`${match[1]}$${match[2]}`);
-      return { value, plus: match[1] === "+", minus: match[1] === "-" };
+      return { value, plus: match[1] === "+", minus: match[1] === "-", printed: `${match[1]}$${match[2]}` };
     })
-    .filter((item): item is { value: number; plus: boolean; minus: boolean } => item.value != null);
+    .filter((item): item is { value: number; plus: boolean; minus: boolean; printed: string } => item.value != null);
 
   if (amounts.length === 0) return null;
 
@@ -214,27 +218,33 @@ function transactionFromBlock(
     txnAmount.plus ||
     (!txnAmount.minus && (/\brefund\b/i.test(description) || /\bosko payment received\b|\binterest\b/i.test(description)));
   const signed = arriving ? Math.abs(txnAmount.value) : -Math.abs(txnAmount.value);
-  const read = readMovement(description, signed, true);
 
   return {
-    id: `${sourceFile}-up-${index}-${dateIso}-${read.amount}`,
-    merchant: tidyMerchant(merchantFrom(lines, description)),
-    // Up's own line for the movement, kept rather than thrown away once the merchant has
-    // been read off it. It is the only record that Up called this one a refund and that one
-    // a transfer, and those two words are what the refund matcher and the unsettled-money
-    // card are looking for. Kept in the bank layer, so it is evidence and never an answer.
-    bank: { type: description },
-    categoryKey: read.categoryKey,
-    ...(read.tag ? { tags: [read.tag] } : {}),
-    decidedBy: read.decidedBy,
-    date: formatDisplayDate(dateIso),
     dateIso,
-    amount: read.amount,
-    type: read.type,
-    sourceFile,
+    amount: signed,
+    directionKnown: true,
+    description,
+    // Up's own line for the movement. The refund matcher and the unsettled-money
+    // card still read it from bank.type; source keeps the printed cells beside it.
+    typeHint: description,
+    merchant: merchantFrom(lines, description),
     accountId: account,
+    source: sourceFromPairs([
+      ["Date", dateIso],
+      ["Time", timeFrom(lines)],
+      ["Account", account],
+      ["Amount", txnAmount.printed],
+      ["Balance", amounts[1]?.printed ?? ""],
+      ["Lines", lines.join("\n")],
+    ]),
+    sourceFile,
+    id: `${sourceFile}-up-${index}-${dateIso}-${signed}`,
     confidence: 0.9,
   };
+}
+
+function timeFrom(lines: string[]): string {
+  return lines[0]?.match(TIME_LINE)?.[1] ?? "";
 }
 
 function merchantFrom(lines: string[], description: string): string {

@@ -1,5 +1,7 @@
+import { readBankSource } from "@/lib/money-flow/bank-filter";
 import { interpretMovement } from "@/lib/money-flow/interpret-row";
 import { parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { sourceFromCells } from "@/lib/money-flow/source";
 import { tableInterpretationNotes } from "@/lib/money-flow/statement-category";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -108,6 +110,9 @@ export function interpretTable(
   const headers = (rows[start] ?? []).map((cell) => String(cell ?? ""));
   const body = rows.slice(start + (headerIndex >= 0 ? 1 : 0));
 
+  const known = readBankSource({ sourceFile, headers, rows: body });
+  if (known) return { ...known, headers };
+
   const dateIdx = findColumn(headers, DATE_HEADERS);
   const amountIdx = findColumn(headers, AMOUNT_HEADERS);
   const debitIdx = findColumn(headers, DEBIT_HEADERS);
@@ -163,6 +168,7 @@ export function interpretTable(
         merchant: merchantIdx >= 0 ? cells[merchantIdx] : "",
         bankCategory: categoryIdx >= 0 ? cells[categoryIdx] : "",
         accountKey: accountIdx >= 0 ? cells[accountIdx] : "",
+        source: sourceFromCells(headers, cells),
         sourceFile,
         id: `${sourceFile}-${index}-${dateIso}-${amount}`,
         confidence: headerIndex >= 0 ? 0.92 : 0.7,

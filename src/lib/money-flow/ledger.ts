@@ -5,6 +5,7 @@ import { upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/up
 import { forget, learn, type LearnedRule, type Rules } from "@/lib/money-flow/rules";
 import { isCategoryKey } from "@/lib/money-flow/taxonomy";
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
+import { hasSource } from "@/lib/money-flow/source";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const LEDGER_VERSION = 1;
@@ -136,6 +137,7 @@ export function appendToLedger(
 
     const repeat = contentHash ? ledger.imports.find((prior) => prior.contentHash === contentHash) : undefined;
     if (repeat) {
+      backfillMissingSource(held, rows);
       imports.push({ ...record, duplicates: rows.length, repeatOf: repeat.id });
       return;
     }
@@ -151,6 +153,7 @@ export function appendToLedger(
       if (existing) {
         // Keep the held movement, tags and all, and only note that this import covered it too.
         if (!existing.importIds.includes(record.id)) existing.importIds.push(record.id);
+        fillSource(existing, row);
         record.duplicates += 1;
         continue;
       }
@@ -569,6 +572,25 @@ function namesOnly(raw: Record<string, unknown>): InstitutionOverrides {
       .filter((pair): pair is [string, string] => typeof pair[1] === "string" && pair[1].trim().length > 0)
       .map(([key, value]) => [key, tidyInstitutionName(value)]),
   );
+}
+
+/**
+ * A re-upload can land source cells on a movement stored before they existed.
+ * Working columns stay as they were — source is evidence, not a rewrite.
+ */
+function backfillMissingSource(held: Map<string, LedgerEntry>, rows: InterpretedTransaction[]): void {
+  const seen = new Map<string, number>();
+  for (const row of rows) {
+    const base = fingerprintOf(row);
+    const occurrence = seen.get(base) ?? 0;
+    seen.set(base, occurrence + 1);
+    const existing = held.get(occurrence === 0 ? base : fingerprintOf(row, occurrence));
+    if (existing) fillSource(existing, row);
+  }
+}
+
+function fillSource(existing: LedgerEntry, row: InterpretedTransaction): void {
+  if (!hasSource(existing.source) && row.source) existing.source = row.source;
 }
 
 function describe(txn: InterpretedTransaction): string {

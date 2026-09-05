@@ -6,6 +6,7 @@ import { accountsByInstitution, accountsFrom } from "./accounts";
 import { detectFileKind } from "./detect";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate, roundMoney } from "./parse-values";
+import { sourceValue } from "./source";
 import { summarizeMoneyFlow, chartTagFlowSeries, tagFlowOverTime } from "./summary";
 import { filterByScope } from "./scope";
 import { markTransferLegs, matchTransfers, withoutMatchedLegs } from "./transfers";
@@ -288,6 +289,23 @@ describe("NAB CSV exports", () => {
     assert.ok(outgoing, "the same day's outgoing transfer should stay negative");
   });
 
+  it("keeps every NAB cell on the source row, including the ones we do not interpret", async () => {
+    const result = await interpretNab();
+    const drawdown = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === 25000);
+    assert.equal(sourceValue(drawdown?.source, "Balance"), "4913.07");
+    assert.equal(sourceValue(drawdown?.source, "Category"), "Transfers in");
+    assert.equal(sourceValue(drawdown?.source, "Merchant Name"), "");
+    assert.equal(sourceValue(drawdown?.source, "Processed On"), "30 Jun 26");
+    assert.equal(drawdown?.type, "borrowed");
+    assert.equal(drawdown?.categoryKey, "debt");
+
+    const benefit = result.transactions.find((txn) => txn.dateIso === "2026-06-29" && txn.amount === 662.4);
+    assert.equal(sourceValue(benefit?.source, "Category"), "Refund");
+    assert.equal(sourceValue(benefit?.source, "Merchant Name"), "Medicare");
+    assert.equal(benefit?.categoryKey, "income");
+    assert.equal(benefit?.type, "earned");
+  });
+
   it("names the merchant from the Merchant Name column", async () => {
     const result = await interpretNab();
     const medicare = result.transactions.find((txn) => txn.dateIso === "2026-06-29" && txn.amount === 662.4);
@@ -395,6 +413,16 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.ok(fileResult.notes.includes("Read as an Up / Bendigo bank statement."));
     assert.ok(result.transactions.length > 1000, `txn count ${result.transactions.length}`);
     assert.ok(result.transactions.some((txn) => txn.merchant === "Zambrero"));
+  });
+
+  it("keeps the printed Up block on the source row", async () => {
+    const result = await readUpSample();
+    const kfc = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === -14.95 && txn.merchant === "Kfc");
+    assert.equal(sourceValue(kfc?.source, "Date"), "2026-06-30");
+    assert.equal(sourceValue(kfc?.source, "Amount"), "$14.95");
+    assert.equal(sourceValue(kfc?.source, "Balance"), "$177.64");
+    assert.equal(sourceValue(kfc?.source, "Account"), "Spending");
+    assert.equal(kfc?.amount, -14.95);
   });
 
   it("counts day headings back through the year they belong to", async () => {
