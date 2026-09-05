@@ -8,6 +8,7 @@ import {
   heldStatements,
   importedFiles,
   ledgerTransactions,
+  mergeLedgers,
   nameAccount,
   nameInstitution,
   removeStatement as dropStatement,
@@ -36,7 +37,7 @@ import {
 } from "@/lib/money-flow/verdicts";
 import { markTransferLegs } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
-import { createLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
+import { resolveLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
 
 const PERIOD_KEY = "bitbybit.period-v1";
 const DEMO_TAGS_KEY = "bitbybit.demo-tags-v1";
@@ -198,27 +199,62 @@ function update(patch: Partial<Snapshot>) {
   listeners.forEach((listener) => listener());
 }
 
+/**
+ * Which read is the current one. A read started for one person must not paint the screen
+ * after somebody else has signed in — it would put their statements in front of the wrong
+ * person — so a read that is no longer the latest quietly drops what it found.
+ */
+let reading = 0;
+
 function hydrate(): Promise<void> {
   if (loading) return loading;
-  store = store ?? createLedgerStore();
-  loading = store
-    .load()
+  const mine = ++reading;
+  loading = resolveLedgerStore()
+    .then((resolved) => {
+      if (mine !== reading) return null;
+      store = resolved;
+      return resolved.load();
+    })
     .then((stored) => {
-      // A statement imported while the read was in flight must not be thrown away.
+      if (mine !== reading || !stored) return;
+      // Merged, not chosen. A statement imported while the read was in flight must not be
+      // thrown away, and neither must what the read brought back — which after signing in
+      // is the backup arriving. mergeLedgers is idempotent on fingerprints, so doing this
+      // when the two are the same ledger costs nothing and changes nothing.
       update({
-        ledger: snapshot.ledger.imports.length > 0 ? snapshot.ledger : stored,
+        ledger: mergeLedgers(snapshot.ledger, stored),
         demoTags: readDemoTags(),
         ready: true,
       });
     })
-    .catch(() => update({ demoTags: readDemoTags(), ready: true }));
+    .catch(() => {
+      if (mine === reading) update({ demoTags: readDemoTags(), ready: true });
+    });
   return loading;
+}
+
+/**
+ * Re-reads the ledger, which is what signing in or out has to do: the store it should be
+ * saving to has changed, and the two copies have not met yet.
+ *
+ * The screen is emptied first and refilled by whatever the new store returns, rather than
+ * being merged into. Signing out that way still shows everything, because the browser's copy
+ * is left alone and is what gets read back; signing in as somebody else shows their ledger
+ * and not the last person's.
+ */
+export function rehydrateLedger(): Promise<void> {
+  loading = null;
+  store = null;
+  update({ ledger: EMPTY_LEDGER, ready: false });
+  return hydrate();
 }
 
 function commit(next: Ledger) {
   update({ ledger: next });
-  store = store ?? createLedgerStore();
-  void store.save(next);
+  // Saved through whichever store hydrate settled on. Before that resolves there is
+  // nothing on screen to save, because nothing has been read yet.
+  if (store) void store.save(next);
+  else void hydrate().then(() => store?.save(next));
 }
 
 function importDocuments(result: InterpretationResult, hashes?: Record<string, string>): ImportReport {
@@ -243,8 +279,10 @@ function setAccountName(accountKey: string, name: string) {
 
 function clearLedger() {
   update({ ledger: EMPTY_LEDGER });
-  store = store ?? createLedgerStore();
-  void store.clear();
+  // Clearing removes the backup too, so "start again" means it on every device rather
+  // than leaving a copy to sync straight back.
+  if (store) void store.clear();
+  else void hydrate().then(() => store?.clear());
 }
 
 function getPeriod(): PeriodFilter {
