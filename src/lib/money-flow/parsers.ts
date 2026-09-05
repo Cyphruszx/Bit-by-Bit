@@ -6,10 +6,11 @@ import { accountRefFromText } from "@/lib/money-flow/account-identity";
 import { identifyAccounts } from "@/lib/money-flow/accounts";
 import { detectInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { readBankSource } from "@/lib/money-flow/bank-filter";
 import { interpretTable, rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
-import { looksLikeUpStatement, transactionsFromUpStatement } from "@/lib/money-flow/up-statement";
 import { transactionsFromText } from "@/lib/money-flow/text-lines";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
+import { looksLikeUpStatement } from "@/lib/money-flow/up-statement";
 
 export type ParseDocumentOptions = {
   ai?: MoneyFlowAi | null;
@@ -181,7 +182,8 @@ async function ocrImageText(bytes: Uint8Array): Promise<string> {
 }
 
 function transactionsFromExtractedText(text: string, filename: string): InterpretedTransaction[] {
-  if (looksLikeUpStatement(text)) return transactionsFromUpStatement(text, filename);
+  const known = readBankSource({ sourceFile: filename, text });
+  if (known) return known.transactions;
   const asTable = transactionsFromTable(rowsFromCsv(text), filename);
   const asLines = transactionsFromText(text, filename);
   return asTable.length >= asLines.length ? asTable : asLines;
