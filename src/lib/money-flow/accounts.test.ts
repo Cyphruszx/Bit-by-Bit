@@ -15,7 +15,7 @@ function txn(over: Partial<InterpretedTransaction> = {}): InterpretedTransaction
   return {
     id: `t${Math.random()}`,
     merchant: "Cafe",
-    categoryKey: "food.restaurants",
+    categoryKey: "food",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount: -4.5,

@@ -33,46 +33,46 @@ function txn(categoryKey: string, tags?: string[]): InterpretedTransaction {
 
 describe("transaction tags", () => {
   it("keeps the two axes apart, so a tag can never move a total", () => {
-    const row = withTags(txn("food.groceries"), ["Weekly"]);
-    assert.equal(categoryOf(row), "food.groceries");
+    const row = withTags(txn("food"), ["Weekly"]);
+    assert.equal(categoryOf(row), "food");
     assert.deepEqual(tagsOf(row), ["Weekly"]);
     // The old model wrote the first tag back into the category, so these were one field
     // and adding a tag silently re-filed the movement.
-    assert.equal(withTags(row, ["Payday"]).categoryKey, "food.groceries");
+    assert.equal(withTags(row, ["Payday"]).categoryKey, "food");
     assert.equal(tidyTag("  eating out "), "Eating Out");
   });
 
   it("takes as many tags as a person wants, and each of them once", () => {
-    const next = withTags(txn("food.groceries"), ["food", "Woolworths", "food"]);
+    const next = withTags(txn("food"), ["food", "Woolworths", "food"]);
     assert.deepEqual(next.tags, ["Food", "Woolworths"]);
   });
 
   it("treats a category a person chose as settled", () => {
-    const next = withCategory(txn("uncategorised"), "food.restaurants");
-    assert.equal(next.categoryKey, "food.restaurants");
+    const next = withCategory(txn("uncategorised"), "food");
+    assert.equal(next.categoryKey, "food");
     assert.equal(next.decidedBy, "said");
   });
 
   it("refuses a category the taxonomy has never heard of", () => {
     // Otherwise a typo becomes a category, and every report grows a column nobody meant.
-    assert.equal(withCategory(txn("food.groceries"), "not-a-real-key").categoryKey, "uncategorised");
+    assert.equal(withCategory(txn("food"), "not-a-real-key").categoryKey, "uncategorised");
   });
 
   it("renames and removes a tag across the list", () => {
-    const rows = [txn("food.groceries", ["Weekend"]), txn("food.restaurants", ["Weekend", "Shared"])];
+    const rows = [txn("food", ["Weekend"]), txn("leisure", ["Weekend", "Shared"])];
     const renamed = renameTag(rows, "weekend", "long weekend");
     assert.deepEqual(allTags(renamed), ["Long Weekend", "Shared"]);
     const removed = removeTag(renamed, "long weekend");
     assert.deepEqual(tagsOf(removed[1]), ["Shared"]);
     // Losing the last tag leaves no tags, not a placeholder one.
     assert.deepEqual(tagsOf(removed[0]), []);
-    assert.equal(removed[0].categoryKey, "food.groceries", "a tag edit never touches the category");
+    assert.equal(removed[0].categoryKey, "food", "a tag edit never touches the category");
   });
 });
 
 describe("applying a change to every movement of a merchant", () => {
   function row(id: string, merchant: string, tags?: string[]): InterpretedTransaction {
-    return { ...txn("food.groceries", tags), id, merchant };
+    return { ...txn("food", tags), id, merchant };
   }
 
   const rows = [
@@ -90,14 +90,14 @@ describe("applying a change to every movement of a merchant", () => {
   });
 
   it("re-files that merchant and nothing else", () => {
-    const next = categorizeMerchant(rows, "Woolworths", "shopping.homewares");
+    const next = categorizeMerchant(rows, "Woolworths", "shopping");
     for (const id of ["1", "2", "4"]) {
       const changed = next.find((r) => r.id === id);
-      assert.equal(changed?.categoryKey, "shopping.homewares", `row ${id}`);
+      assert.equal(changed?.categoryKey, "shopping", `row ${id}`);
       assert.equal(changed?.decidedBy, "said");
     }
     const untouched = next.find((r) => r.id === "3");
-    assert.equal(untouched?.categoryKey, "food.groceries");
+    assert.equal(untouched?.categoryKey, "food");
     assert.equal(untouched, rows[2], "an unrelated row should not be rebuilt");
   });
 
@@ -108,7 +108,7 @@ describe("applying a change to every movement of a merchant", () => {
   });
 
   it("leaves the list alone when no movement carries that merchant", () => {
-    assert.deepEqual(categorizeMerchant(rows, "Aldi", "food.groceries"), rows);
+    assert.deepEqual(categorizeMerchant(rows, "Aldi", "food"), rows);
     assert.equal(merchantRows(rows, "Aldi").length, 0);
   });
 });

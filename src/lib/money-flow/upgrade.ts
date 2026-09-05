@@ -17,7 +17,14 @@
  *   layer marks it `moved` on the next read if the other leg is really there.
  */
 
-import { categoryForLegacyTag, isCategoryKey, OTHER, typeForCategory, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import {
+  categoryForLegacyTag,
+  isCategoryKey,
+  OTHER,
+  splitSuggestion,
+  typeForCategory,
+  UNCATEGORISED,
+} from "@/lib/money-flow/taxonomy";
 import type { DecidedBy, InterpretedTransaction } from "@/lib/money-flow/types";
 
 /** A row as it may be sitting in storage: either shape, or halfway between. */
@@ -40,7 +47,7 @@ export function upgradeTransaction(row: StoredTransaction): InterpretedTransacti
   const { category, tagSource, ...rest } = row;
 
   if (isCategoryKey(row.categoryKey)) {
-    const categoryKey = row.categoryKey;
+    const categoryKey = row.categoryKey as string;
     return {
       ...rest,
       categoryKey,
@@ -49,18 +56,38 @@ export function upgradeTransaction(row: StoredTransaction): InterpretedTransacti
     };
   }
 
+  // A movement stored under the two-level model: `food.groceries` was one key and is now a
+  // category and a tag. Every figure was already summed at the category, so nothing moves —
+  // the detail simply stops being part of the key and becomes something to find it by.
+  if (typeof row.categoryKey === "string" && row.categoryKey.includes(".")) {
+    const split = splitSuggestion(row.categoryKey);
+    if (split.categoryKey !== UNCATEGORISED) {
+      return {
+        ...rest,
+        categoryKey: split.categoryKey,
+        type: typeForCategory(split.categoryKey, row.amount),
+        ...(split.tag ? { tags: [...new Set([...(row.tags ?? []), split.tag])] } : {}),
+        ...(row.decidedBy ? { decidedBy: row.decidedBy } : {}),
+      };
+    }
+  }
+
   // The old model kept the category in the first tag as well as its own field, so the
   // tags that survive are the ones after it — which is what a tag was always meant to be.
   const held = (row.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
   const primary = (category ?? held[0] ?? "").trim();
   const others = held.filter((tag) => tag.toLowerCase() !== primary.toLowerCase());
 
-  const mapped = categoryForLegacyTag(primary);
+  const legacy = categoryForLegacyTag(primary);
+  const fromLegacy = legacy ? splitSuggestion(legacy) : null;
+  const mapped = fromLegacy && fromLegacy.categoryKey !== UNCATEGORISED ? fromLegacy.categoryKey : legacy;
   const settled = tagSource === "user";
   const categoryKey = resolve(primary, mapped, settled, row.amount);
   // A tag the person invented is theirs and is kept — as a tag, which is where a name the
   // taxonomy has never heard of belongs.
-  const tags = mapped || !primary || isReserved(primary) ? others : [primary, ...others];
+  const carried = mapped || !primary || isReserved(primary) ? others : [primary, ...others];
+  // The detail the old tag carried — Groceries under Food & Drink — survives as a tag.
+  const tags = [...new Set([...(fromLegacy?.tag ? [fromLegacy.tag] : []), ...carried])];
 
   return {
     ...rest,
@@ -88,7 +115,7 @@ function resolve(primary: string, mapped: string | null, settled: boolean, amoun
   if (name === "other") return settled ? OTHER : UNCATEGORISED;
   // Income on a payment was always a misreading, however deliberately it was applied, so
   // it is asked about rather than carried across as negative earnings.
-  if (name === "income") return settled && amount > 0 ? "income.other" : UNCATEGORISED;
+  if (name === "income") return settled && amount > 0 ? "income" : UNCATEGORISED;
   return UNCATEGORISED;
 }
 

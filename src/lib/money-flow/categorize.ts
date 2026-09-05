@@ -1,7 +1,9 @@
 import {
-  CATEGORY_KEYS,
   categoryLabel,
+  CATEGORY_KEYS,
   isCategoryKey,
+  splitSuggestion,
+  SUGGESTIONS,
   typeForCategory,
   UNCATEGORISED,
 } from "@/lib/money-flow/taxonomy";
@@ -76,21 +78,33 @@ export function categorize(description: string, amount: number): string | null {
   return null;
 }
 
-/** Every category a person or a model may choose from, by key. */
-export const KNOWN_CATEGORIES = CATEGORY_KEYS;
+/** Everything a model may answer with: a category, or a category and one of its tags. */
+export const KNOWN_CATEGORIES = SUGGESTIONS;
 
 /**
- * A loose name onto a real category. Accepts the key itself, the display name, or an old
- * tag, so what a model returns and what a person types land in the same place.
+ * A loose answer onto a real category and, where it was specific enough, a tag.
+ *
+ * Accepts the key, the dotted form, a display name, or a bare tag slug, because a model
+ * asked for "food.groceries" will sometimes say "Groceries" and sometimes "Food & Drink"
+ * and both are usable.
  */
-export function snapCategory(raw: string): string | null {
-  const tidy = raw.trim().toLowerCase().replace(/\s*[·>/]\s*/g, ".").replace(/\s+/g, "-");
-  if (!tidy) return null;
-  if (isCategoryKey(tidy)) return tidy;
-  const byLabel = CATEGORY_KEYS.find((key) => categoryLabel(key).toLowerCase() === raw.trim().toLowerCase());
-  if (byLabel) return byLabel;
-  // A bare child name, where a model answered "groceries" rather than "food.groceries".
-  return CATEGORY_KEYS.find((key) => key.endsWith(`.${tidy}`)) ?? null;
+export function snapCategory(raw: string): { categoryKey: string; tag?: string } | null {
+  const written = raw.trim();
+  if (!written) return null;
+  const tidy = written.toLowerCase().replace(/\s*[·>/]\s*/g, ".").replace(/\s+/g, "-");
+
+  if (isCategoryKey(tidy)) return { categoryKey: tidy };
+  if (tidy.includes(".")) {
+    const split = splitSuggestion(tidy);
+    if (split.categoryKey !== UNCATEGORISED) return split;
+  }
+
+  const byLabel = CATEGORY_KEYS.find((key) => categoryLabel(key).toLowerCase() === written.toLowerCase());
+  if (byLabel) return { categoryKey: byLabel };
+
+  // A bare tag, where a model answered "groceries" rather than "food.groceries".
+  const bare = SUGGESTIONS.find((key) => key.endsWith(`.${tidy}`));
+  return bare ? splitSuggestion(bare) : null;
 }
 
 /**

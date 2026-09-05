@@ -66,11 +66,12 @@ describe("movement interpretation", () => {
     });
     assert.equal(txn.amount, -15.4);
     assert.equal(txn.type, "spent");
-    assert.equal(txn.categoryKey, "food.groceries");
+    assert.equal(txn.categoryKey, "food");
     assert.equal(txn.decidedBy, "bank");
     // The bank's own words are kept beside the movement, never written over.
     assert.deepEqual(txn.bank, { category: "Groceries", type: "EFTPOS DEBIT" });
-    assert.equal(txn.tags, undefined);
+    // The detail the bank's label carried survives as a tag beside the category.
+    assert.deepEqual(txn.tags, ["Groceries"]);
   });
 
   it("prefers a known merchant rule over a generic bank category", () => {
@@ -90,7 +91,7 @@ describe("movement interpretation", () => {
     // A benefit arriving is not health spending. One rule recognises Medicare and the
     // direction decides which of the two it meant, which is the whole point of splitting
     // the category from the type.
-    assert.equal(txn.categoryKey, "income.rebate");
+    assert.equal(txn.categoryKey, "income");
     assert.equal(txn.type, "earned");
     assert.equal(txn.amount, 662.4);
   });
@@ -105,7 +106,7 @@ describe("movement interpretation", () => {
       id: "2b",
       confidence: 0.92,
     });
-    assert.equal(txn.categoryKey, "health.gp-specialist");
+    assert.equal(txn.categoryKey, "health");
     assert.equal(txn.type, "spent");
   });
 
@@ -124,7 +125,7 @@ describe("movement interpretation", () => {
     assert.equal(txn.amount, 25000);
     // $25,000 from a consumer lender is not money earned and never was. Counting it
     // destroyed the month it landed in; the bank calling it a transfer did not help.
-    assert.equal(txn.categoryKey, "debt.drawdown");
+    assert.equal(txn.categoryKey, "debt");
     assert.equal(txn.type, "borrowed");
     assert.equal(txn.bank?.category, "Transfers in");
   });

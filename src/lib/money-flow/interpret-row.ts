@@ -1,7 +1,7 @@
 import { categorize, inferType, tidyMerchant } from "@/lib/money-flow/categorize";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
 import { categoryFromBankLabel } from "@/lib/money-flow/statement-category";
-import { inflowType, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import { inflowType, splitSuggestion, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { BankWords, DecidedBy, InterpretedTransaction, TransactionType } from "@/lib/money-flow/types";
 
 export type RawMovement = {
@@ -43,6 +43,8 @@ export type Reading = {
   /** Signed, so a negative amount is money leaving. */
   amount: number;
   categoryKey: string;
+  /** The detail the rule knew, when it knew one. Groceries rather than just Food & Drink. */
+  tag?: string;
   type: TransactionType;
   decidedBy: DecidedBy;
 };
@@ -68,10 +70,13 @@ export function readMovement(
   const amount = directionKnown ? rawAmount : Math.abs(rawAmount) * directionFromWords(text);
   const fromRules = categorize(text, amount);
   const fromBank = fromRules ? null : categoryFromBankLabel(bankCategory, amount);
-  const categoryKey = fromRules ?? fromBank ?? UNCATEGORISED;
+  // A rule says `food.groceries` because that is the legible way to write a rule. It means
+  // a category and a tag, and this is where the two come apart.
+  const { categoryKey, tag } = splitSuggestion(fromRules ?? fromBank ?? UNCATEGORISED);
   return {
     amount,
     categoryKey,
+    ...(tag ? { tag } : {}),
     type: inferType(categoryKey, amount),
     decidedBy: fromRules ? "rules" : fromBank ? "bank" : "unreviewed",
   };
@@ -92,6 +97,7 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
     id: raw.id,
     merchant: tidyMerchant(bank.merchant || raw.description),
     categoryKey: read.categoryKey,
+    ...(read.tag ? { tags: [read.tag] } : {}),
     decidedBy: read.decidedBy,
     extractedBy: "parser",
     date: formatDisplayDate(raw.dateIso),

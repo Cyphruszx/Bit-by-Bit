@@ -91,6 +91,7 @@ export function transactionsFromText(text: string, sourceFile: string): Interpre
       id: `${sourceFile}-line-${row.index}-${row.dateIso}`,
       merchant: tidyMerchant(row.description),
       categoryKey: read.categoryKey,
+      ...(read.tag ? { tags: [read.tag] } : {}),
       decidedBy: read.decidedBy,
       date: formatDisplayDate(row.dateIso),
       dateIso: row.dateIso,

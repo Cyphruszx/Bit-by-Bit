@@ -18,7 +18,7 @@ function txn(id: string, dateIso: string, amount = -10): InterpretedTransaction 
   return {
     id,
     merchant: "Cafe",
-    categoryKey: "food.restaurants",
+    categoryKey: "food",
     date: dateIso.slice(8),
     dateIso,
     amount,

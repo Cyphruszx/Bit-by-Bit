@@ -67,15 +67,15 @@ describe("the review queue", () => {
   });
 
   it("leaves out what has a category already", () => {
-    assert.deepEqual(reviewGroups([txn({ categoryKey: "food.restaurants", decidedBy: "rules" })]), []);
+    assert.deepEqual(reviewGroups([txn({ categoryKey: "food", decidedBy: "rules" })]), []);
   });
 
   it("counts progress by what is done, not by what is left", () => {
     // A first import is mostly unplaced, and a screen that opens on "412 to go" reads as
     // a bill rather than as something a couple of minutes fixes.
     const progress = reviewProgress([
-      txn({ categoryKey: "food.groceries", decidedBy: "rules" }),
-      txn({ categoryKey: "food.groceries", decidedBy: "rules" }),
+      txn({ categoryKey: "food", decidedBy: "rules" }),
+      txn({ categoryKey: "food", decidedBy: "rules" }),
       txn({ merchant: "Kfc", amount: -20 }),
     ]);
     assert.deepEqual([progress.sorted, progress.total, progress.percent, progress.unsorted], [2, 3, 67, 20]);

@@ -9,12 +9,18 @@
  * The model had nowhere to put the difference.
  *
  * So: a **type** says whether this changed what the household owns. A **category** says
- * what the money was for. A **tag** is anything else the person wants to find it by, and
- * never moves a total.
+ * what the money was for. A **tag** is anything else the person wants to find it by.
  *
  * Type is derived rather than stored twice: a category knows which type it takes on the
  * way in and which on the way out, so "Medicare" as a payment is health spending and
  * "Medicare" as a receipt is income, from one rule.
+ *
+ * There are fourteen categories and they are flat. An earlier draft had a second level —
+ * `food.groceries` under `food` — and it bought nothing: every figure in the app was
+ * already summed at the top level, so the depth existed only to be collapsed again. The
+ * detail is worth keeping, so those seventy-four names are the tag vocabulary instead,
+ * offered against the category they belong to. One movement, one category, any number of
+ * tags.
  */
 
 /** Whether a movement changed what the household owns, and in which direction. */
@@ -105,26 +111,34 @@ export function inflowType(type: TransactionType): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Categories
+// Categories, and the tags that come with them
 // ---------------------------------------------------------------------------
 
-type Group = {
+/**
+ * A tag the app offers against a category: the slug an older ledger stored it under, and
+ * the name a person reads.
+ *
+ * The slug is kept because it is what `food.groceries` meant, and a movement filed that way
+ * has to land on the right tag when it is read back.
+ */
+type Suggestion = [slug: string, tag: string];
+
+type Category = {
   key: string;
   label: string;
-  /** The type a credit in this group takes. */
+  /** The type a credit in this category takes. */
   inType: TransactionType;
-  /** The type a debit in this group takes. */
+  /** The type a debit takes. */
   outType: TransactionType;
-  /** Machine keys, without the group prefix. Display names are derived from these. */
-  children: string[];
+  /** Offered as tags when this category is chosen. Never required, never exhaustive. */
+  tags: Suggestion[];
 };
 
 /**
- * Twelve groups a person can hold in their head, each with a handful of children. Two
- * levels exactly: the charts already drill from a group to its children, and a third level
- * would have nothing to draw.
+ * Fourteen categories a person can hold in their head, each with a handful of tags to
+ * reach for.
  *
- * Every spending group takes `earned` on the way in, which looks wrong until you try the
+ * Every category takes `earned` on the way in, which looks wrong until you try the
  * alternative. Typing a credit `returned` because it landed in a spending category means a
  * rule that mis-files one credit silently deletes it from income — four ATO refunds worth
  * $3,964 vanished from the sample statements that way, and nothing on screen would have
@@ -133,83 +147,151 @@ type Group = {
  * sitting under Groceries is a rule getting it wrong, and it still counts until somebody
  * fixes the category.
  */
-const GROUPS: Group[] = [
+const CATEGORIES: Category[] = [
   {
     key: "home",
     label: "Home",
     inType: "earned",
     outType: "spent",
-    children: ["rent", "mortgage-interest", "strata", "council-rates", "maintenance", "insurance", "furniture"],
+    tags: [
+      ["rent", "Rent"],
+      ["mortgage-interest", "Mortgage Interest"],
+      ["strata", "Strata"],
+      ["council-rates", "Council Rates"],
+      ["maintenance", "Maintenance"],
+      ["insurance", "Home Insurance"],
+      ["furniture", "Furniture"],
+    ],
   },
   {
     key: "utilities",
     label: "Utilities",
     inType: "earned",
     outType: "spent",
-    children: ["electricity", "gas", "water", "internet", "mobile"],
+    tags: [
+      ["electricity", "Electricity"],
+      ["gas", "Gas"],
+      ["water", "Water"],
+      ["internet", "Internet"],
+      ["mobile", "Mobile"],
+    ],
   },
   {
     key: "food",
     label: "Food & Drink",
     inType: "earned",
     outType: "spent",
-    children: ["groceries", "restaurants", "takeaway", "coffee", "alcohol"],
+    tags: [
+      ["groceries", "Groceries"],
+      ["restaurants", "Restaurants"],
+      ["takeaway", "Takeaway"],
+      ["coffee", "Coffee"],
+      ["alcohol", "Alcohol"],
+    ],
   },
   {
     key: "transport",
     label: "Transport",
     inType: "earned",
     outType: "spent",
-    children: ["fuel", "public-transport", "rideshare", "parking-tolls", "rego-ctp", "servicing", "insurance"],
+    tags: [
+      ["fuel", "Fuel"],
+      ["public-transport", "Public Transport"],
+      ["rideshare", "Rideshare"],
+      ["parking-tolls", "Parking & Tolls"],
+      ["rego-ctp", "Rego & CTP"],
+      ["servicing", "Servicing"],
+      ["insurance", "Car Insurance"],
+    ],
   },
   {
     key: "health",
     label: "Health",
     inType: "earned",
     outType: "spent",
-    children: ["gp-specialist", "pharmacy", "dental", "optical", "private-cover", "fitness"],
+    tags: [
+      ["gp-specialist", "GP & Specialists"],
+      ["pharmacy", "Pharmacy"],
+      ["dental", "Dental"],
+      ["optical", "Optical"],
+      ["private-cover", "Private Health Cover"],
+      ["fitness", "Fitness"],
+    ],
   },
   {
     key: "shopping",
     label: "Shopping",
     inType: "earned",
     outType: "spent",
-    children: ["clothing", "homewares", "electronics", "hobbies", "gifts"],
+    tags: [
+      ["clothing", "Clothing"],
+      ["homewares", "Homewares"],
+      ["electronics", "Electronics"],
+      ["hobbies", "Hobbies"],
+      ["gifts", "Gifts"],
+    ],
   },
   {
     key: "leisure",
     label: "Leisure",
     inType: "earned",
     outType: "spent",
-    children: ["streaming", "software", "events", "gaming", "sport"],
+    tags: [
+      ["streaming", "Streaming"],
+      ["software", "Software"],
+      ["events", "Events"],
+      ["gaming", "Gaming"],
+      ["sport", "Sport"],
+    ],
   },
   {
     key: "travel",
     label: "Travel",
     inType: "earned",
     outType: "spent",
-    children: ["flights", "accommodation", "transport-abroad", "insurance"],
+    tags: [
+      ["flights", "Flights"],
+      ["accommodation", "Accommodation"],
+      ["transport-abroad", "Transport Abroad"],
+      ["insurance", "Travel Insurance"],
+    ],
   },
   {
     key: "people",
     label: "Family & Personal",
     inType: "earned",
     outType: "spent",
-    children: ["childcare", "education", "pets", "personal-care", "donations"],
+    tags: [
+      ["childcare", "Childcare"],
+      ["education", "Education"],
+      ["pets", "Pets"],
+      ["personal-care", "Personal Care"],
+      ["donations", "Donations"],
+    ],
   },
   {
     key: "money",
     label: "Fees & Interest",
     inType: "earned",
     outType: "spent",
-    children: ["bank-fees", "interest-charged", "foreign-fees", "professional-fees", "insurance"],
+    tags: [
+      ["bank-fees", "Bank Fees"],
+      ["interest-charged", "Interest Charged"],
+      ["foreign-fees", "Foreign Transaction Fees"],
+      ["professional-fees", "Professional Fees"],
+      ["insurance", "Insurance"],
+    ],
   },
   {
     key: "govt",
     label: "Government & Tax",
     inType: "earned",
     outType: "spent",
-    children: ["ato", "hecs-help", "fines"],
+    tags: [
+      ["ato", "ATO"],
+      ["hecs-help", "HECS-HELP"],
+      ["fines", "Fines"],
+    ],
   },
   {
     key: "income",
@@ -218,15 +300,15 @@ const GROUPS: Group[] = [
     // A payment filed under income is a salary reversal or a reading that went wrong, and
     // is neither spending nor a category to fix silently.
     outType: "adjusted",
-    children: [
-      "salary",
-      "business",
-      "government-benefit",
-      "rebate",
-      "interest",
-      "dividends",
-      "rent-received",
-      "other",
+    tags: [
+      ["salary", "Salary"],
+      ["business", "Business"],
+      ["government-benefit", "Government Benefit"],
+      ["rebate", "Rebate"],
+      ["interest", "Interest Earned"],
+      ["dividends", "Dividends"],
+      ["rent-received", "Rent Received"],
+      ["other", "Other Income"],
     ],
   },
   {
@@ -234,14 +316,23 @@ const GROUPS: Group[] = [
     label: "Borrowing",
     inType: "borrowed",
     outType: "repaid",
-    children: ["drawdown", "loan-repayment", "credit-card-payment", "bnpl"],
+    tags: [
+      ["drawdown", "Drawdown"],
+      ["loan-repayment", "Loan Repayment"],
+      ["credit-card-payment", "Credit Card Payment"],
+      ["bnpl", "Buy Now Pay Later"],
+    ],
   },
   {
     key: "invest",
     label: "Investing",
     inType: "earned",
     outType: "invested",
-    children: ["contribution", "brokerage-fee", "super"],
+    tags: [
+      ["contribution", "Contribution"],
+      ["brokerage-fee", "Brokerage Fee"],
+      ["super", "Super"],
+    ],
   },
 ];
 
@@ -262,79 +353,75 @@ const LOOSE: Record<string, { label: string; inType: TransactionType; outType: T
   [UNCATEGORISED]: { label: "Not sorted yet", inType: "earned", outType: "spent" },
 };
 
-const WORDS: Record<string, string> = {
-  "mortgage-interest": "Mortgage interest",
-  "council-rates": "Council rates",
-  "public-transport": "Public transport",
-  "parking-tolls": "Parking & tolls",
-  "rego-ctp": "Rego & CTP",
-  "gp-specialist": "GP & specialists",
-  "private-cover": "Private health cover",
-  "bank-fees": "Bank fees",
-  "interest-charged": "Interest charged",
-  "foreign-fees": "Foreign transaction fees",
-  "professional-fees": "Professional fees",
-  "hecs-help": "HECS-HELP",
-  ato: "ATO",
-  "government-benefit": "Government benefit",
-  "rent-received": "Rent received",
-  "transport-abroad": "Transport abroad",
-  "personal-care": "Personal care",
-  "credit-card-payment": "Credit card payment",
-  "loan-repayment": "Loan repayment",
-  bnpl: "Buy now pay later",
-  "brokerage-fee": "Brokerage fee",
-  super: "Super",
-};
+const BY_KEY = new Map(CATEGORIES.map((category) => [category.key, category]));
 
-const BY_GROUP = new Map(GROUPS.map((group) => [group.key, group]));
-
-/** Every category a person can be given, groups first so a chart reads top-down. */
-export const CATEGORY_KEYS: string[] = [
-  ...GROUPS.flatMap((group) => [group.key, ...group.children.map((child) => `${group.key}.${child}`)]),
-  OTHER,
-  UNCATEGORISED,
-];
+/** Every category a movement can be filed under. Fourteen, plus the two loose ones. */
+export const CATEGORY_KEYS: string[] = [...CATEGORIES.map((category) => category.key), OTHER, UNCATEGORISED];
 
 const KNOWN = new Set(CATEGORY_KEYS);
 
-export function isCategoryKey(value: unknown): value is string {
+export function isCategoryKey(value: unknown): boolean {
   return typeof value === "string" && KNOWN.has(value);
-}
-
-/**
- * The group a category belongs to. A group is its own group.
- *
- * Tolerant of a missing key on purpose: these run over rows read straight out of storage,
- * and a ledger written before the taxonomy existed should open rather than throw.
- */
-export function groupOf(key: string | undefined): string {
-  if (!key) return UNCATEGORISED;
-  return key.includes(".") ? key.slice(0, key.indexOf(".")) : key;
-}
-
-/** The part after the dot, or an empty string for a group. */
-export function childOf(key: string | undefined): string {
-  if (!key) return "";
-  return key.includes(".") ? key.slice(key.indexOf(".") + 1) : "";
 }
 
 export function categoryLabel(key: string | undefined): string {
   if (!key) return LOOSE[UNCATEGORISED].label;
-  const loose = LOOSE[key];
-  if (loose) return loose.label;
-  const group = BY_GROUP.get(groupOf(key));
-  if (!group) return titleCase(key);
-  const child = childOf(key);
-  if (!child) return group.label;
-  return WORDS[child] ?? titleCase(child);
+  return LOOSE[key]?.label ?? BY_KEY.get(key)?.label ?? titleCase(key);
 }
 
-/** "Food & Drink · Groceries", for the places that show a category on its own. */
+/** Kept as its own name because callers mean "however this category should read on its own". */
 export function categoryPath(key: string | undefined): string {
-  const child = childOf(key);
-  if (!child || !key || LOOSE[key]) return categoryLabel(key);
-  return `${categoryLabel(groupOf(key))} · ${categoryLabel(key)}`;
+  return categoryLabel(key);
+}
+
+/** The tags this category offers. Suggestions only — a person can type anything. */
+export function tagsFor(categoryKey: string | undefined): string[] {
+  return (BY_KEY.get(categoryKey ?? "")?.tags ?? []).map(([, tag]) => tag);
+}
+
+/** Every tag the app suggests, for the pickers that are not scoped to one category. */
+export const SUGGESTED_TAGS: string[] = [
+  ...new Set(CATEGORIES.flatMap((category) => category.tags.map(([, tag]) => tag))),
+].sort((a, b) => a.localeCompare(b));
+
+/**
+ * Everything a rule or a model may answer with: a category on its own, or a category and
+ * one of its tags written as `food.groceries`.
+ *
+ * The dotted form is kept as a *vocabulary* even though nothing stores it any more. It is
+ * how the merchant rules stay legible — one line saying groceries rather than two saying
+ * food and then Groceries — and it lets a model answer at the level it is actually sure
+ * of, which is usually the specific one.
+ */
+export const SUGGESTIONS: string[] = [
+  ...CATEGORIES.flatMap((category) => [
+    category.key,
+    ...category.tags.map(([slug]) => `${category.key}.${slug}`),
+  ]),
+  OTHER,
+];
+
+/**
+ * Splits what a rule, a model or an older ledger said into the two things it now means.
+ *
+ * `food.groceries` is a category and a tag, and used to be one key. Reading it apart here
+ * is the whole of the migration: every movement stored under the two-level model lands on
+ * the category it was already being counted under, and keeps the detail as a tag.
+ */
+export function splitSuggestion(raw: string | undefined): { categoryKey: string; tag?: string } {
+  const value = (raw ?? "").trim().toLowerCase();
+  if (!value) return { categoryKey: UNCATEGORISED };
+  if (!value.includes(".")) {
+    return { categoryKey: isCategoryKey(value) ? value : UNCATEGORISED };
+  }
+
+  const [head, ...rest] = value.split(".");
+  const category = BY_KEY.get(head);
+  if (!category) return { categoryKey: isCategoryKey(head) ? head : UNCATEGORISED };
+
+  const slug = rest.join(".");
+  const found = category.tags.find(([known]) => known === slug);
+  return { categoryKey: category.key, ...(found ? { tag: found[1] } : {}) };
 }
 
 /**
@@ -345,9 +432,9 @@ export function categoryPath(key: string | undefined): string {
  * old model had to guess from the merchant alone and got it wrong in both directions.
  */
 export function typeForCategory(key: string | undefined, amount: number): TransactionType {
-  const loose = key ? LOOSE[key] : undefined;
-  const group = loose ?? BY_GROUP.get(groupOf(key)) ?? LOOSE[UNCATEGORISED];
-  return amount > 0 ? group.inType : group.outType;
+  const held = key ? (LOOSE[key] ?? BY_KEY.get(key)) : undefined;
+  const meaning = held ?? LOOSE[UNCATEGORISED];
+  return amount > 0 ? meaning.inType : meaning.outType;
 }
 
 /**

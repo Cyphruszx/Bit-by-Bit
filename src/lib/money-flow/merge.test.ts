@@ -22,7 +22,7 @@ function txn(overrides: Partial<InterpretedTransaction> = {}): InterpretedTransa
   return {
     id: `m${made}`,
     merchant: "Cafe",
-    categoryKey: "food.restaurants",
+    categoryKey: "food",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount: -5,

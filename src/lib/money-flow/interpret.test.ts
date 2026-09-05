@@ -283,7 +283,7 @@ describe("NAB CSV exports", () => {
     // a consumer lender changes nothing about what the household owns, and counting it as
     // earnings put $25,000 into a single month that was never earned.
     assert.equal(drawdown?.type, "borrowed");
-    assert.equal(drawdown?.categoryKey, "debt.drawdown");
+    assert.equal(drawdown?.categoryKey, "debt");
     const outgoing = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === -200);
     assert.ok(outgoing, "the same day's outgoing transfer should stay negative");
   });
@@ -293,7 +293,7 @@ describe("NAB CSV exports", () => {
     const medicare = result.transactions.find((txn) => txn.dateIso === "2026-06-29" && txn.amount === 662.4);
     assert.equal(medicare?.merchant, "Medicare");
     // A benefit arriving, not a payment to a doctor. The merchant is the same either way.
-    assert.equal(medicare?.categoryKey, "income.rebate");
+    assert.equal(medicare?.categoryKey, "income");
     assert.equal(medicare?.type, "earned");
     assert.ok(result.transactions.some((txn) => txn.merchant === "Woolworths (Wagga Wagga North)"));
   });
@@ -322,15 +322,15 @@ describe("NAB CSV exports", () => {
     const result = await interpretNab();
     assert.ok(result.files.every((fileResult) => fileResult.notes.some((note) => note.includes("NAB account export"))));
     const grocery = result.transactions.find((txn) => txn.merchant === "Woolworths (Wagga Wagga North)" && txn.amount === -12.8);
-    assert.equal(grocery?.categoryKey, "food.groceries");
+    assert.equal(grocery?.categoryKey, "food");
     const csv = `Date,Amount,Account Number,,Transaction Type,Transaction Details,Balance,Category,Merchant Name,Processed On
 01 Jun 26,-15.40,100200300,,EFTPOS DEBIT,XYZ MART 999,-15.40,Groceries,,01 Jun 26
 01 Jun 26,80.00,100200300,,INTER-BANK CREDIT,CENTRELINK PAYMENT,64.60,Government payments,,01 Jun 26
 01 Jun 26,-50.00,100200300,,TRANSFER DEBIT,TO SAVINGS,14.60,Transfers out,,01 Jun 26
 `;
     const tagged = await interpretDocuments([file("nab-gaps.csv", "text/csv", csv)]);
-    assert.equal(tagged.transactions.find((txn) => txn.amount === -15.4)?.categoryKey, "food.groceries");
-    assert.equal(tagged.transactions.find((txn) => txn.amount === 80)?.categoryKey, "income.government-benefit");
+    assert.equal(tagged.transactions.find((txn) => txn.amount === -15.4)?.categoryKey, "food");
+    assert.equal(tagged.transactions.find((txn) => txn.amount === 80)?.categoryKey, "income");
     // "Transfers out" is not a category and never was. Whether this money reached another
     // of the person's accounts is settled by finding the other leg, so until then it is
     // unsorted, counted, and flagged.
@@ -476,7 +476,7 @@ describe("money flow summary", () => {
       {
         id: "1",
         merchant: "Salary",
-        categoryKey: "income.salary",
+        categoryKey: "income",
         date: "18 Aug",
         dateIso: "2026-08-18",
         amount: 2000,
@@ -498,7 +498,7 @@ describe("money flow summary", () => {
       {
         id: "3",
         merchant: "Woolworths",
-        categoryKey: "food.groceries",
+        categoryKey: "food",
         date: "25 Aug",
         dateIso: "2026-08-25",
         amount: -80,
@@ -555,7 +555,7 @@ describe("money flow summary", () => {
       {
         id: "1",
         merchant: "Cafe Sydney",
-        categoryKey: "food.restaurants",
+        categoryKey: "food",
         tags: ["Dining", "Coffee"],
         date: "20 Aug",
         dateIso: "2026-08-20",
@@ -567,7 +567,7 @@ describe("money flow summary", () => {
       {
         id: "2",
         merchant: "Woolworths Bondi",
-        categoryKey: "food.groceries",
+        categoryKey: "food",
         tags: ["Groceries"],
         date: "25 Aug",
         dateIso: "2026-08-25",
@@ -591,7 +591,7 @@ describe("money flow summary", () => {
       {
         id: "1",
         merchant: "Cafe Sydney",
-        categoryKey: "food.restaurants",
+        categoryKey: "food",
         tags: ["Dining", "Coffee"],
         date: "20 Aug",
         dateIso: "2026-08-20",
@@ -603,7 +603,7 @@ describe("money flow summary", () => {
       {
         id: "2",
         merchant: "Dinner Out",
-        categoryKey: "food.restaurants",
+        categoryKey: "food",
         tags: ["Dining"],
         date: "21 Aug",
         dateIso: "2026-08-21",
@@ -615,7 +615,7 @@ describe("money flow summary", () => {
       {
         id: "3",
         merchant: "Salary Acme",
-        categoryKey: "income.salary",
+        categoryKey: "income",
         tags: ["Salary"],
         date: "18 Aug",
         dateIso: "2026-08-18",
@@ -630,10 +630,10 @@ describe("money flow summary", () => {
     assert.equal(drilled.spending, 88.4);
     assert.deepEqual(
       drilled.rows.map((row) => [row.name, row.amount]),
-      // One level down from Food & Drink. Both of these are restaurants, so the group
-      // splits into the one child that carries them rather than into a "no sub-tag" bucket
-      // that only ever existed because tags were doing a category's job.
-      [["food.restaurants", -88.4]],
+      // One level down from Food & Drink is now the tags on those movements, so the bar
+      // is the tag they share. Read from the first tag on each, so the breakdown always
+      // adds up to the category above it however many tags a movement carries.
+      [["Dining", -88.4]],
     );
   });
 
@@ -642,7 +642,7 @@ describe("money flow summary", () => {
       {
         id: "1",
         merchant: "Cafe Sydney",
-        categoryKey: "food.restaurants",
+        categoryKey: "food",
         tags: ["Dining"],
         date: "20 Aug",
         dateIso: "2026-08-20",
@@ -654,7 +654,7 @@ describe("money flow summary", () => {
       {
         id: "2",
         merchant: "Salary Acme",
-        categoryKey: "income.salary",
+        categoryKey: "income",
         tags: ["Income"],
         date: "18 Aug",
         dateIso: "2026-08-18",

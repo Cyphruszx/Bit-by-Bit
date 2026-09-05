@@ -94,7 +94,7 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
                 <option value={UNCATEGORISED}>Choose a category</option>
                 {CATEGORY_KEYS.filter((key) => key !== UNCATEGORISED).map((key) => (
                   <option key={key} value={key}>
-                    {key.includes(".") ? `  ${categoryLabel(key)}` : categoryLabel(key)}
+                    {categoryLabel(key)}
                   </option>
                 ))}
               </select>

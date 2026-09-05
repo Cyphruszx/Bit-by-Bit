@@ -7,7 +7,7 @@ import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
 import { accountIdOf, accountLabel } from "@/lib/money-flow/accounts";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
-import { categoryLabel, categoryPath, groupOf } from "@/lib/money-flow/taxonomy";
+import { categoryLabel, categoryPath } from "@/lib/money-flow/taxonomy";
 import { selectableKeys } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -66,7 +66,6 @@ export function TransactionTable({
       const matchesTag =
         activeTag === "All" ||
         txn.categoryKey === activeTag ||
-        groupOf(txn.categoryKey) === activeTag ||
         tags.some((name) => name === activeTag);
       const matchesDirection =
         direction === "all" || (direction === "in" ? txn.amount > 0 : txn.amount < 0);

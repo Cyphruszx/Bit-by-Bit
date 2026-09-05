@@ -14,7 +14,7 @@ function txn(sourceFile: string, institution?: string): InterpretedTransaction {
   return {
     id: `${sourceFile}-1`,
     merchant: "Cafe",
-    categoryKey: "food.restaurants",
+    categoryKey: "food",
     date: "1 Jun",
     dateIso: "2026-06-01",
     amount: -4.5,

@@ -19,10 +19,10 @@ function txn(
 describe("recurring outflows", () => {
   it("groups similar money-out by merchant and amount", () => {
     const found = detectRecurringOutflows([
-      txn({ id: "1", merchant: "Netflix", amount: -18.99, dateIso: "2026-07-03", categoryKey: "leisure.streaming" }),
-      txn({ id: "2", merchant: "Netflix", amount: -18.99, dateIso: "2026-08-03", categoryKey: "leisure.streaming" }),
-      txn({ id: "3", merchant: "Woolworths", amount: -86.4, dateIso: "2026-08-04", categoryKey: "food.groceries" }),
-      txn({ id: "4", merchant: "Salary", amount: 2620, dateIso: "2026-08-18", type: "earned", categoryKey: "income.salary" }),
+      txn({ id: "1", merchant: "Netflix", amount: -18.99, dateIso: "2026-07-03", categoryKey: "leisure" }),
+      txn({ id: "2", merchant: "Netflix", amount: -18.99, dateIso: "2026-08-03", categoryKey: "leisure" }),
+      txn({ id: "3", merchant: "Woolworths", amount: -86.4, dateIso: "2026-08-04", categoryKey: "food" }),
+      txn({ id: "4", merchant: "Salary", amount: 2620, dateIso: "2026-08-18", type: "earned", categoryKey: "income" }),
     ]);
     assert.equal(found.length, 1);
     assert.equal(found[0].merchant, "Netflix");

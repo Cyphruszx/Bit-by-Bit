@@ -4,7 +4,7 @@ import { monthLabelFromKey } from "@/lib/money-flow/savings";
 import { accountIdOf, namesItsOwnAccount, type AccountRegistry } from "@/lib/money-flow/account-identity";
 import { looksInternal } from "@/lib/money-flow/statement-category";
 import { categoryOf, tagsOf } from "@/lib/money-flow/tags";
-import { categoryLabel, countsAsIncome, countsAsSpending, groupOf } from "@/lib/money-flow/taxonomy";
+import { categoryLabel, countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
@@ -159,48 +159,57 @@ export function amountByCategory(
   transactions: InterpretedTransaction[],
   direction: TagFlowDirection = "out",
 ): CategorySpend[] {
-  return aggregateByTag(directed(transactions, direction), (txn) => groupOf(categoryOf(txn)));
+  return aggregateByTag(directed(transactions, direction), categoryOf);
 }
 
+/** A movement in a category chart that carries no tag of its own. */
+export const UNTAGGED = "Untagged";
+
 /**
- * A chart of one level of the taxonomy, drilling into a group when one is selected.
+ * A chart of the categories, drilling into one category's tags when it is selected.
  *
- * Rows are keyed by category key rather than by display name, so renaming a category later
- * cannot orphan a selection or split one bar into two. Callers render `categoryLabel`.
+ * Category rows are keyed by category key rather than by display name, so renaming one
+ * later cannot orphan a selection or split a bar in two. Callers render `categoryLabel`.
+ *
+ * The drill-down reads a movement's *first* tag, not all of them. A movement can carry any
+ * number, and summing every tag would put one payment in two bars and leave the breakdown
+ * adding up to more than the category above it. That is a display choice and nothing is
+ * stored: the category is what every figure is actually built from, so nothing here can
+ * move a total whichever tag is picked.
  */
 export function chartTagFlowSeries(transactions: InterpretedTransaction[], selected: string): TagFlowSeries {
   const rows = countedMovements(transactions).filter((txn) => txn.amount !== 0);
-  const isGroup = rows.some((txn) => groupOf(categoryOf(txn)) === selected);
+  const isCategory = rows.some((txn) => categoryOf(txn) === selected);
 
-  if (selected !== "All" && isGroup) {
-    const inGroup = rows.filter((txn) => groupOf(categoryOf(txn)) === selected);
+  if (selected !== "All" && isCategory) {
+    const inside = rows.filter((txn) => categoryOf(txn) === selected);
     return {
-      rows: netByTag(inGroup, (txn) => categoryOf(txn)),
+      rows: netByTag(inside, (txn) => tagsOf(txn)[0] ?? UNTAGGED),
       level: "sub",
-      ...flowTotals(inGroup),
+      ...flowTotals(inside),
       parent: selected,
     };
   }
 
   const filtered = selected === "All" ? rows : rows.filter((txn) => matches(txn, selected));
   return {
-    rows: netByTag(filtered, (txn) => groupOf(categoryOf(txn))),
+    rows: netByTag(filtered, categoryOf),
     level: "primary",
     ...flowTotals(filtered),
     parent: null,
   };
 }
 
-/** A selection can be a category at either level, or one of the person's own tags. */
+/** A selection can be a category or one of the person's tags. */
 export function matches(txn: InterpretedTransaction, selected: string): boolean {
-  const key = categoryOf(txn);
-  return key === selected || groupOf(key) === selected || tagsOf(txn).includes(selected);
+  return categoryOf(txn) === selected || tagsOf(txn).includes(selected);
 }
 
-/** Every category and tag present, for the pickers. Categories first, keyed. */
+/** Every category present, for the pickers. Keyed, so a rename cannot orphan a selection. */
 export function selectableKeys(transactions: InterpretedTransaction[]): string[] {
-  const categories = new Set(transactions.map((txn) => groupOf(categoryOf(txn))));
-  return [...categories].sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)));
+  return [...new Set(transactions.map(categoryOf))].sort((a, b) =>
+    categoryLabel(a).localeCompare(categoryLabel(b)),
+  );
 }
 
 /**

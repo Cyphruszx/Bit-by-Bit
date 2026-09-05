@@ -6,7 +6,7 @@ import {
   categoryLabel,
   categoryPath,
   CATEGORY_KEYS,
-  groupOf,
+  tagsFor,
   typeLabel,
   UNCATEGORISED,
 } from "@/lib/money-flow/taxonomy";
@@ -90,7 +90,11 @@ export function ClassificationEditor({
   onTags: (tags: string[]) => void;
 }) {
   const tags = tagsOf(txn);
-  const unused = tagOptions.filter((name) => !tags.some((tag) => tag.toLowerCase() === name.toLowerCase()));
+  // The tags this category comes with, first, then whatever else is already in use. A
+  // person choosing Food & Drink is usually about to reach for Groceries or Takeaway, and
+  // the list should not make them remember the word.
+  const offered = [...new Set([...tagsFor(txn.categoryKey), ...tagOptions])];
+  const unused = offered.filter((name) => !tags.some((tag) => tag.toLowerCase() === name.toLowerCase()));
 
   return (
     <div className="space-y-2">
@@ -103,7 +107,7 @@ export function ClassificationEditor({
         >
           {CATEGORY_KEYS.map((key) => (
             <option key={key} value={key}>
-              {key.includes(".") ? `  ${categoryLabel(key)}` : categoryLabel(key)}
+              {categoryLabel(key)}
             </option>
           ))}
         </select>
@@ -148,13 +152,6 @@ export function ClassificationEditor({
         </p>
       ) : null}
     </div>
-  );
-}
-
-/** The groups present, for the filter chips. Keyed, so a rename cannot orphan a selection. */
-export function groupsOf(transactions: InterpretedTransaction[]): string[] {
-  return [...new Set(transactions.map((txn) => groupOf(txn.categoryKey)))].sort((a, b) =>
-    categoryLabel(a).localeCompare(categoryLabel(b)),
   );
 }
 
@@ -203,6 +200,23 @@ function TagNameForm({
       <button type="submit" className="text-xs font-semibold text-[#355a3f]">
         Add
       </button>
+      {options.length > 0 ? (
+        <select
+          value=""
+          aria-label="Suggested tags"
+          onChange={(event) => {
+            if (event.target.value) submit(event.target.value);
+          }}
+          className="rounded-full border border-[#dce4df] bg-white px-1.5 py-0.5 text-[11px] outline-none focus:border-[#173b31]"
+        >
+          <option value="">Suggested</option>
+          {options.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+      ) : null}
       <datalist id={listId}>
         {options.map((name) => (
           <option key={name} value={name} />

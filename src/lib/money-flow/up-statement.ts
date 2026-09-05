@@ -225,6 +225,7 @@ function transactionFromBlock(
     // card are looking for. Kept in the bank layer, so it is evidence and never an answer.
     bank: { type: description },
     categoryKey: read.categoryKey,
+    ...(read.tag ? { tags: [read.tag] } : {}),
     decidedBy: read.decidedBy,
     date: formatDisplayDate(dateIso),
     dateIso,

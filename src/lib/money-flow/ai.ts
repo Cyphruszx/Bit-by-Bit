@@ -104,7 +104,8 @@ export function transactionsFromAiExtract(raw: unknown, sourceFile: string): AiI
     const merchant = tidyMerchant(String(item.merchant ?? item.description ?? "").trim());
     if (amount == null || amount === 0 || merchant === "Unknown") return [];
     const dateIso = parseDate(String(item.date ?? "")) ?? todayIso();
-    const categoryKey = snapCategory(String(item.category ?? "")) ?? UNCATEGORISED;
+    const answered = snapCategory(String(item.category ?? ""));
+    const categoryKey = answered?.categoryKey ?? UNCATEGORISED;
     const signed = signedAmount(amount, item.type);
     const confidence = clamp01(item.confidence) ?? 0.72;
     return [
@@ -112,6 +113,7 @@ export function transactionsFromAiExtract(raw: unknown, sourceFile: string): AiI
         id: `${sourceFile}-ai-${index}`,
         merchant,
         categoryKey,
+        ...(answered?.tag ? { tags: [answered.tag] } : {}),
         // The type is worked out from the category and the direction rather than taken
         // from the model, so a model that answers "income" for a payment cannot put a
         // negative number in the earnings figure.
@@ -158,15 +160,17 @@ export function applyTagSuggestions(
     // The bar this movement has to clear, not a bar for the batch: the same answer that is
     // good enough for a coffee is not good enough for a mortgage payment.
     if (suggestion.confidence < Math.max(floor, confidenceNeededFor(txn.amount))) return txn;
-    const categoryKey = snapCategory(suggestion.category);
+    const answered = snapCategory(suggestion.category);
     // A model naming something outside the taxonomy has told us nothing usable, and the
     // movement stays in the review queue rather than picking up an invented category.
-    if (!categoryKey || categoryKey === UNCATEGORISED) return txn;
+    if (!answered || answered.categoryKey === UNCATEGORISED) return txn;
     taggedCount += 1;
     return {
       ...txn,
-      categoryKey,
-      type: typeForCategory(categoryKey, txn.amount),
+      categoryKey: answered.categoryKey,
+      // The model's detail is kept as a tag, beside whatever the person already had.
+      ...(answered.tag ? { tags: [...new Set([...(txn.tags ?? []), answered.tag])] } : {}),
+      type: typeForCategory(answered.categoryKey, txn.amount),
       decidedBy: "ai" as const,
       confidence: Math.max(txn.confidence, suggestion.confidence),
     };
