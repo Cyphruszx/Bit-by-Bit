@@ -11,7 +11,6 @@ import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
-import { displayName } from "@/lib/money-flow/display-name";
 import { taxonomyPath } from "@/lib/money-flow/category-book";
 import { tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
@@ -215,7 +214,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
                 transactions.slice(0, 12).map((txn) => (
                   <div className="flex items-center justify-between py-4" key={txn.id}>
                     <div>
-                      <p className="font-semibold">{displayName(txn)}</p>
+                      <p className="font-semibold">{txn.merchant}</p>
                       <p className="mt-1 text-sm text-[#77857f]">
                         {taxonomyPath(txn.categoryKey)}
                         {tagsOf(txn).length > 0 ? ` / ${tagsOf(txn).join(" · ")}` : ""}

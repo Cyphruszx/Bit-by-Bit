@@ -1,90 +1,52 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
-import { displayName, nameFromPrintedLines } from "./display-name";
-import { sourceFromPairs } from "./source";
+import { displayName } from "./display-name";
 
-describe("the printed name", () => {
-  it("keeps a NAB Merchant Name as the bank wrote it", () => {
+describe("the name to show when a reader settled none", () => {
+  it("prefers the merchant the bank named over the wording around it", () => {
     assert.equal(
       displayName({
-        merchant: "Kfc",
-        source: sourceFromPairs([
-          ["Merchant Name", "Woolworths (Wagga Wagga North)"],
-          ["Transaction Details", "WOOLWORTHS 12731 WAGGA"],
-        ]),
+        merchant: "MC BBS878 5550001X MCARE BENEFITS JORDAN LEE",
+        description: "MC BBS878 5550001X MCARE BENEFITS JORDAN LEE",
+        bank: { merchant: "Medicare" },
       }),
-      "Woolworths (Wagga Wagga North)",
+      "Medicare",
     );
   });
 
-  it("uses Transaction Details when Merchant Name is blank", () => {
+  it("falls back to the statement's own wording when no merchant was named", () => {
     assert.equal(
-      displayName({
-        merchant: "Jordan Lee H4756108521",
-        source: sourceFromPairs([
-          ["Merchant Name", ""],
-          ["Transaction Details", "JORDAN LEE H4756108521"],
-        ]),
-      }),
+      displayName({ merchant: "", description: "JORDAN LEE H4756108521" }),
       "JORDAN LEE H4756108521",
     );
   });
 
-  it("keeps KFC as KFC, not a title-cased copy", () => {
-    assert.equal(
-      nameFromPrintedLines([
-        "8:37pm KFC",
-        "Wagga Wagga, NSW KFC WAGGA NORTH, WAGGA WAGGA Purchase",
-        "Zap Card **1234 $14.95 $177.64",
-      ]),
-      "KFC",
-    );
+  it("collapses the whitespace a reader left behind", () => {
+    assert.equal(displayName({ merchant: "  Roll   Viet\tCafé " }), "Roll Viet Café");
   });
 
-  it("takes the counterparty in front of an Osko type line", () => {
-    assert.equal(
-      nameFromPrintedLines(["6:45pm Osko Payment Received", "JORDAN LEE Osko Payment Received +$200.00 $205.59"]),
-      "JORDAN LEE",
-    );
+  it("says Unknown rather than nothing, so a row still has something to click", () => {
+    assert.equal(displayName({ merchant: "" }), "Unknown");
+    assert.equal(displayName({ merchant: "   " }), "Unknown");
   });
 
-  it("still finds the counterparty when the amount wrapped onto the next page", () => {
-    assert.equal(
-      nameFromPrintedLines(["1:21pm Osko Payment Received", "JANE CITIZEN Osko Payment Received +", "$300.00 $325.51"]),
-      "JANE CITIZEN",
-    );
-  });
+  it("fails if bank column names return to shared modules", () => {
+    // Inspection, not a comment: a third bank must mean one new adapter, not editing
+    // every module a row already passes through. Adapters and upgrade.ts may know history.
+    const here = path.join(process.cwd(), "src/lib/money-flow");
+    const skip = new Set(["nab-statement.ts", "up-statement.ts", "upgrade.ts"]);
+    const columns = ["Merchant Name", "Transaction Details"];
+    const quotedLines = /['"]Lines['"]/;
 
-  it("takes the payee in front of Payment", () => {
-    assert.equal(
-      nameFromPrintedLines(["10:51am Payment", "Jordan Lee BetaShare Fund Payment $300.00 $145.49"]),
-      "Jordan Lee BetaShare Fund",
-    );
-  });
-
-  it("keeps a one-line saver transfer as written", () => {
-    assert.equal(nameFromPrintedLines(["12:47pm Transfer from Tax +$75.00 $76.26"]), "Transfer from Tax");
-  });
-
-  it("reads the name from stored Up lines, even when the working merchant was tidied", () => {
-    assert.equal(
-      displayName({
-        merchant: "Kfc",
-        source: sourceFromPairs([
-          ["Date", "2026-06-30"],
-          ["Lines", "8:37pm KFC\nWagga Wagga, NSW KFC WAGGA NORTH, WAGGA WAGGA Purchase\nZap Card **1234 $14.95 $177.64"],
-        ]),
-      }),
-      "KFC",
-    );
-    assert.equal(
-      displayName({
-        merchant: "Osko Payment Received",
-        source: sourceFromPairs([
-          ["Lines", "6:45pm Osko Payment Received\nJORDAN LEE Osko Payment Received +$200.00 $205.59"],
-        ]),
-      }),
-      "JORDAN LEE",
-    );
+    for (const name of readdirSync(here)) {
+      if (!name.endsWith(".ts") || name.endsWith(".test.ts") || skip.has(name)) continue;
+      const text = readFileSync(path.join(here, name), "utf8");
+      for (const column of columns) {
+        assert.equal(text.includes(column), false, `${name} must not mention ${column}`);
+      }
+      assert.equal(quotedLines.test(text), false, `${name} must not look up Lines`);
+    }
   });
 });
