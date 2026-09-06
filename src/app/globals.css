@@ -1,54 +1,45 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   Design tokens - the archive
+   Design tokens - the archive, cobalt forward
    --------------------------------------------------------------------------
-   Drawn from a shelf of objects rather than a colour wheel: brushed and
-   anodised aluminium, fog glass, soft white ceramic, and one saturated
-   cobalt sitting among them the way a single blue object sits on a shelf
-   of metal ones.
+   The same shelf of objects, but the blue one leads. Cobalt carries the
+   primary role: buttons, borders, the first chart series. Aluminium and
+   ceramic step back into a supporting neutral ground.
 
    Three layers: primitives -> semantic -> component.
-   Components reference the semantic layer only (via Tailwind utilities
-   such as `text-muted` or `border-line`), never a raw hex.
-
-   Swapping the theme means rewriting the primitives below. The semantic
-   names and every component that uses them stay exactly as they are.
+   Components reference the semantic layer only, never a raw hex.
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
    Layer 1 - Primitives
-   The raw palette. Nothing outside this file should use these directly;
-   they exist so the semantic layer has one place to change.
    -------------------------------------------------------------------------- */
 :root {
-  /* Alloy - aluminium and machined steel. Warm at the dark end where metal
-     is anodised, faintly green-grey through the middle where it is cut. */
+  /* Alloy - aluminium and machined steel, now the supporting ground */
   --alloy-950: #1e1d1a;
-  --alloy-800: #2c2a26;
   --alloy-700: #4b4944;
   --alloy-500: #696760;
-  --alloy-300: #bcbab3;
   --alloy-250: #c9c7c0;
   --alloy-200: #d1cfc8;
   --alloy-150: #dddbd4;
   --alloy-100: #ecebe5;
 
-  /* Ceramic and fog glass - the light surfaces. Off-white, never paper white. */
+  /* Ceramic and fog glass - the light surfaces, off-white never paper white */
   --ceramic-50: #f7f6f2;
   --fog-25: #fcfbf8;
 
-  /* Cobalt - the one saturated object. Earns its place on the mark and the
-     progress fill, nowhere else. */
-  --cobalt-600: #2338c8;
+  /* Cobalt - promoted. Deep enough to carry white text at button size. */
+  --cobalt-700: #1f2fb0;
+  --cobalt-500: #5566d8;
+  --cobalt-200: #b9c0e8;
 
-  /* Blue glass - the softer blue, thin enough to read dark text through. */
-  --glass-400: #7db3dd;
-  --glass-100: #dfeaf4;
-  --glass-50: #eff5fa;
+  /* Glass - the pale wash the calls to action sit on, cool enough that
+     cobalt text reads against it */
+  --glass-300: #b9cfe0;
+  --glass-100: #e9edfb;
+  --glass-50: #f4f6fd;
 
-  /* Status - patina, oxide and brass, so warnings sit in the same material
-     world as the metal rather than arriving from a generic UI kit. */
+  /* Status - patina, oxide and brass */
   --verdigris-600: #0e755f;
   --rust-700: #a63a2c;
   --rust-800: #8a2c22;
@@ -59,7 +50,7 @@
   --brass-50: #fdf7ed;
   --clay-700: #5a5140;
 
-  /* Categorical - charts only, chosen to stay distinct side by side */
+  /* Categorical - charts only */
   --chart-steel: #5f8fa8;
   --chart-brass: #c09a52;
   --chart-plum: #8069a8;
@@ -87,20 +78,20 @@
 
   /* Text on dark surfaces */
   --color-on-dark: var(--white);
-  --color-on-dark-muted: var(--alloy-300);
+  --color-on-dark-muted: var(--cobalt-200);
 
   /* Lines */
   --color-line: var(--alloy-150);
   --color-line-dashed: var(--alloy-250);
   --color-axis: var(--alloy-200);
 
-  /* Brand - anodised metal carries the weight, glass takes the calls to
-     action, cobalt appears once. */
-  --color-primary: var(--alloy-800);
+  /* Brand - cobalt leads. Aluminium supports rather than
+     dominates, and the calls to action sit on a pale glass wash. */
+  --color-primary: var(--cobalt-700);
   --color-on-primary: var(--white);
-  --color-secondary: var(--cobalt-600);
-  --color-accent: var(--glass-400);
-  --color-on-accent: var(--alloy-800);
+  --color-secondary: var(--cobalt-500);
+  --color-accent: var(--glass-300);
+  --color-on-accent: var(--cobalt-700);
   --color-accent-surface: var(--glass-100);
   --color-accent-surface-subtle: var(--glass-50);
 
@@ -116,8 +107,8 @@
   --color-attention-surface-strong: var(--brass-100);
 
   /* Categorical - keep this order; charts read it as a sequence */
-  --color-chart-1: var(--alloy-800);
-  --color-chart-2: var(--cobalt-600);
+  --color-chart-1: var(--cobalt-700);
+  --color-chart-2: var(--cobalt-500);
   --color-chart-3: var(--chart-steel);
   --color-chart-4: var(--chart-brass);
   --color-chart-5: var(--chart-plum);
