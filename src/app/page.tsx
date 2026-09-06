@@ -30,7 +30,7 @@ export default function Home() {
           <p className="mt-6 max-w-lg text-lg leading-8 text-muted">{siteDescription}</p>
           <Link
             href="/upload"
-            className="mt-9 inline-block rounded-full bg-accent px-6 py-3 font-bold text-primary"
+            className="mt-9 inline-block rounded-full bg-accent px-6 py-3 font-bold text-on-accent"
           >
             Interpret a statement
           </Link>

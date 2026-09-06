@@ -109,7 +109,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={pending}
-          className="mt-6 rounded-full bg-accent px-6 py-3 font-bold text-primary disabled:opacity-60"
+          className="mt-6 rounded-full bg-accent px-6 py-3 font-bold text-on-accent disabled:opacity-60"
         >
           {pending ? (aiReady ? "Reading with AI…" : "Reading documents…") : "Choose documents"}
         </button>

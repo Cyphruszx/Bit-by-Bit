@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {!ready ? "Opening your ledger" : hasUploads ? "Interpreted from files" : "No statements yet"}
             </span>
             <AccountLink />
-            <Link href="/upload" className="rounded-full bg-accent px-4 py-2 text-sm font-bold text-primary">
+            <Link href="/upload" className="rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent">
               Upload
             </Link>
           </div>

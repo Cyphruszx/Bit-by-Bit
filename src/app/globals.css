@@ -16,30 +16,30 @@
    -------------------------------------------------------------------------- */
 :root {
   /* Alloy - aluminium and machined steel, now the supporting ground */
-  --alloy-950: #1e1d1a;
-  --alloy-700: #4b4944;
-  --alloy-500: #696760;
-  --alloy-250: #c9c7c0;
-  --alloy-200: #d1cfc8;
-  --alloy-150: #dddbd4;
-  --alloy-100: #ecebe5;
+  /* Aluminium - true neutrals, sampled from the archive's own objects.
+     No warm cast at all: the candles, trays and folding chairs photograph
+     as a clean grey ladder, and the site sets black on white over it. */
+  --aluminium-950: #000000;
+  --aluminium-700: #333333;
+  --aluminium-500: #696969;
+  --aluminium-300: #b4b4b4;
+  --aluminium-250: #cfcfcf;
+  --aluminium-200: #d6d6d6;
+  --aluminium-150: #e4e4e4;
+  --aluminium-100: #ebebeb;
+  --aluminium-50: #f5f5f5;
+  --aluminium-25: #fafafa;
 
-  /* Ceramic and fog glass - the light surfaces, off-white never paper white */
-  --ceramic-50: #f7f6f2;
-  --fog-25: #fcfbf8;
+  /* Blue - the only chroma in the room. Ultramarine is the deep blue of
+     the objects themselves; electric is the archive's own accent, used
+     the way it uses it: sparingly, at full strength, never diluted. */
+  --ultramarine-800: #16227f;
+  --ultramarine-500: #2f47b8;
+  --electric-500: #0000fe;
+  --wash-100: #e6e9ff;
+  --wash-50: #f2f4ff;
 
-  /* Cobalt - promoted. Deep enough to carry white text at button size. */
-  --cobalt-700: #1f2fb0;
-  --cobalt-500: #5566d8;
-  --cobalt-200: #b9c0e8;
-
-  /* Glass - the pale wash the calls to action sit on, cool enough that
-     cobalt text reads against it */
-  --glass-300: #b9cfe0;
-  --glass-100: #e9edfb;
-  --glass-50: #f4f6fd;
-
-  /* Status - patina, oxide and brass */
+  /* Status */
   --verdigris-600: #0e755f;
   --rust-700: #a63a2c;
   --rust-800: #8a2c22;
@@ -50,7 +50,7 @@
   --brass-50: #fdf7ed;
   --clay-700: #5a5140;
 
-  /* Categorical - charts only */
+  /* Categorical - charts only, chosen to stay distinct side by side */
   --chart-steel: #5f8fa8;
   --chart-brass: #c09a52;
   --chart-plum: #8069a8;
@@ -66,34 +66,35 @@
    -------------------------------------------------------------------------- */
 @theme static {
   /* Surfaces */
-  --color-canvas: var(--ceramic-50);
+  --color-canvas: var(--aluminium-50);
   --color-surface: var(--white);
-  --color-surface-subtle: var(--alloy-100);
-  --color-surface-faint: var(--fog-25);
+  --color-surface-subtle: var(--aluminium-100);
+  --color-surface-faint: var(--aluminium-25);
 
   /* Text - three steps, all AA at body size on every surface above */
-  --color-ink: var(--alloy-950);
-  --color-ink-soft: var(--alloy-700);
-  --color-muted: var(--alloy-500);
+  --color-ink: var(--aluminium-950);
+  --color-ink-soft: var(--aluminium-700);
+  --color-muted: var(--aluminium-500);
 
   /* Text on dark surfaces */
   --color-on-dark: var(--white);
-  --color-on-dark-muted: var(--cobalt-200);
+  --color-on-dark-muted: var(--aluminium-300);
 
   /* Lines */
-  --color-line: var(--alloy-150);
-  --color-line-dashed: var(--alloy-250);
-  --color-axis: var(--alloy-200);
+  --color-line: var(--aluminium-150);
+  --color-line-dashed: var(--aluminium-250);
+  --color-axis: var(--aluminium-200);
 
-  /* Brand - cobalt leads. Aluminium supports rather than
-     dominates, and the calls to action sit on a pale glass wash. */
-  --color-primary: var(--cobalt-700);
+  /* Brand - ultramarine carries the weight, electric makes the call.
+     Inactive chips sit on a pale wash so the full-strength blue stays
+     rare enough to still mean something. */
+  --color-primary: var(--ultramarine-800);
   --color-on-primary: var(--white);
-  --color-secondary: var(--cobalt-500);
-  --color-accent: var(--glass-300);
-  --color-on-accent: var(--cobalt-700);
-  --color-accent-surface: var(--glass-100);
-  --color-accent-surface-subtle: var(--glass-50);
+  --color-secondary: var(--ultramarine-500);
+  --color-accent: var(--electric-500);
+  --color-on-accent: var(--white);
+  --color-accent-surface: var(--wash-100);
+  --color-accent-surface-subtle: var(--wash-50);
 
   /* Status - money moving the right way, the wrong way, or needing a look */
   --color-positive: var(--verdigris-600);
@@ -107,13 +108,13 @@
   --color-attention-surface-strong: var(--brass-100);
 
   /* Categorical - keep this order; charts read it as a sequence */
-  --color-chart-1: var(--cobalt-700);
-  --color-chart-2: var(--cobalt-500);
+  --color-chart-1: var(--ultramarine-800);
+  --color-chart-2: var(--ultramarine-500);
   --color-chart-3: var(--chart-steel);
   --color-chart-4: var(--chart-brass);
   --color-chart-5: var(--chart-plum);
   --color-chart-6: var(--rust-700);
-  --color-chart-7: var(--alloy-500);
+  --color-chart-7: var(--aluminium-500);
   --color-chart-8: var(--verdigris-600);
 }
 
