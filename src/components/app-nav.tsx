@@ -25,7 +25,7 @@ export function AppNav() {
             key={href}
             href={href}
             className={`rounded-full px-3 py-1.5 whitespace-nowrap ${
-              active ? "bg-[#173b31] text-white" : "text-[#52625c] hover:bg-[#edf4dc]"
+              active ? "bg-primary text-white" : "text-muted hover:bg-accent-surface"
             }`}
           >
             {label}

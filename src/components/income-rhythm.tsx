@@ -37,12 +37,12 @@ export function IncomeRhythm() {
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-lg font-bold">What comes in, and how often</h2>
         {maybeMissing.length > 0 ? (
-          <p className="text-sm font-semibold text-[#8a5a2b]">
+          <p className="text-sm font-semibold text-attention">
             {maybeMissing.length} gap{maybeMissing.length === 1 ? "" : "s"} may be a missing statement
           </p>
         ) : null}
       </div>
-      <p className="mt-1 max-w-2xl text-sm text-[#60716a]">
+      <p className="mt-1 max-w-2xl text-sm text-muted">
         Each stream&apos;s rate, measured over the weeks it was actually running. Use it to check a
         total against what you know you earn: a difference is easier to judge in weeks than in
         dollars.
@@ -58,26 +58,26 @@ export function IncomeRhythm() {
 
 function RhythmCard({ rhythm }: { rhythm: Rhythm }) {
   return (
-    <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
+    <article className="rounded-2xl border border-line bg-white p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
           <h3 className="truncate text-base font-bold">{rhythm.label}</h3>
-          <p className="mt-0.5 text-sm text-[#60716a]">
+          <p className="mt-0.5 text-sm text-muted">
             {accountLabel(rhythm.account)} · {rhythm.count} payments · {describeSpan(rhythm.first, rhythm.last)}
           </p>
         </div>
-        <p className="text-sm text-[#60716a]">
-          <span className="font-semibold tabular-nums text-[#257155]">{formatAud(rhythm.perWeek)}</span> a
+        <p className="text-sm text-muted">
+          <span className="font-semibold tabular-nums text-positive">{formatAud(rhythm.perWeek)}</span> a
           week · <span className="tabular-nums">{formatAud(rhythm.perFortnight)}</span> a fortnight
         </p>
       </div>
-      <p className="mt-2 text-sm text-[#60716a]">
+      <p className="mt-2 text-sm text-muted">
         Arrives {everyLabel(rhythm.everyDays)}, and has been running {rhythm.weeksRunning} week
         {rhythm.weeksRunning === 1 ? "" : "s"} of the {describeSpan(rhythm.first, rhythm.last)} it spans.
         Total <span className="tabular-nums">{formatAud(rhythm.total)}</span>.
       </p>
       {rhythm.breaks.length > 0 ? (
-        <ul className="mt-3 space-y-2 border-t border-[#edf0ee] pt-3">
+        <ul className="mt-3 space-y-2 border-t border-surface-subtle pt-3">
           {rhythm.breaks.map((found) => (
             <BreakRow key={`${found.after}-${found.until}`} found={found} />
           ))}
@@ -91,11 +91,11 @@ function BreakRow({ found }: { found: RhythmBreak }) {
   const missing = found.reading === "may-be-missing";
   return (
     <li className="text-sm">
-      <p className={missing ? "font-semibold text-[#8a5a2b]" : "text-[#52625c]"}>
+      <p className={missing ? "font-semibold text-attention" : "text-muted"}>
         Nothing for {found.days} days, {describeSpan(found.after, found.until)} — about{" "}
         <span className="tabular-nums">{formatAud(found.worth)}</span> at this rate.
       </p>
-      <p className="mt-0.5 text-[#60716a]">
+      <p className="mt-0.5 text-muted">
         {missing
           ? "The whole account went quiet too, so a statement covering this may be missing."
           : "The account kept moving through it, so this looks like a pause rather than a gap in your documents."}

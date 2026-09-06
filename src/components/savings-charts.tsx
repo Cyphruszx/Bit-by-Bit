@@ -22,7 +22,7 @@ export function SavingsPathChart({
   compact?: boolean;
 }) {
   if (pots.length === 0) {
-    return <p className="text-sm text-[#60716a]">Include a pot to see the path to target.</p>;
+    return <p className="text-sm text-muted">Include a pot to see the path to target.</p>;
   }
 
   const fromIso = localIsoDate();
@@ -31,14 +31,14 @@ export function SavingsPathChart({
     {
       id: "saved",
       label: snapshots.length > 1 ? "Saved (recorded + planned)" : "Saved (planned path)",
-      color: "#173b31",
-      fill: "#d5f06c",
+      color: "var(--color-primary)",
+      fill: "var(--color-accent)",
       points: saved,
     },
     {
       id: "target",
       label: `Target ${formatAud(target[0]?.value ?? 0)}`,
-      color: "#73a883",
+      color: "var(--color-secondary)",
       dashed: true,
       points: target,
     },
@@ -80,8 +80,8 @@ export function SetAsideLineChart({ transactions }: { transactions: InterpretedT
         {
           id: "set-aside",
           label: "Set aside",
-          color: "#173b31",
-          fill: "#d5f06c",
+          color: "var(--color-primary)",
+          fill: "var(--color-accent)",
           points,
         },
       ]}

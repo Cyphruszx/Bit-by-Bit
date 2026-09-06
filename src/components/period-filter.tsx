@@ -25,9 +25,9 @@ export function PeriodFilterBar() {
   const hasNext = period.kind === "month" && monthIndex > 0;
 
   return (
-    <div className="border-b border-[#dce4df] bg-[#f6f8f7]">
+    <div className="border-b border-line bg-canvas">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-6 py-3">
-        <p className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">Period</p>
+        <p className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-muted">Period</p>
         <PeriodChip active={period.kind === "all"} onClick={() => setPeriod({ kind: "all" })}>
           All activity
         </PeriodChip>
@@ -40,7 +40,7 @@ export function PeriodFilterBar() {
           >
             ‹
           </PeriodChip>
-          <label className="flex items-center gap-2 text-sm text-[#60716a]" htmlFor="period-month">
+          <label className="flex items-center gap-2 text-sm text-muted" htmlFor="period-month">
             Month
           </label>
           <select
@@ -49,10 +49,10 @@ export function PeriodFilterBar() {
             onChange={(event) => {
               if (event.target.value) setPeriod({ kind: "month", month: event.target.value });
             }}
-            className={`rounded-full border px-3 py-1.5 text-sm font-semibold outline-none focus:border-[#173b31] ${
+            className={`rounded-full border px-3 py-1.5 text-sm font-semibold outline-none focus:border-primary ${
               period.kind === "month"
-                ? "border-[#173b31] bg-[#173b31] text-white"
-                : "border-[#dce4df] bg-white text-[#355a3f]"
+                ? "border-primary bg-primary text-white"
+                : "border-line bg-white text-ink-soft"
             }`}
           >
             <option value="" disabled>
@@ -119,7 +119,7 @@ function PeriodChip({
       disabled={disabled}
       onClick={onClick}
       className={`rounded-full px-3 py-1.5 text-sm font-semibold disabled:opacity-35 ${
-        active ? "bg-[#173b31] text-white" : "border border-[#dce4df] bg-white text-[#355a3f]"
+        active ? "bg-primary text-white" : "border border-line bg-white text-ink-soft"
       }`}
     >
       {children}
@@ -137,13 +137,13 @@ function DateField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-[#60716a]">
+    <label className="flex items-center gap-2 text-sm text-muted">
       {label}
       <input
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm font-semibold text-[#173b31] outline-none focus:border-[#173b31]"
+        className="rounded-full border border-line bg-white px-3 py-1.5 text-sm font-semibold text-primary outline-none focus:border-primary"
       />
     </label>
   );

@@ -32,20 +32,20 @@ export function UnsettledMoney({ transactions }: { transactions: InterpretedTran
   const total = groups.reduce((sum, group) => sum + group.amount, 0);
 
   return (
-    <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-base font-bold">Money in we can&apos;t place</h2>
-        <p className="text-sm text-[#60716a]">
+        <p className="text-sm text-muted">
           <span className="tabular-nums">{formatAud(total)}</span> across {groups.length}{" "}
           {groups.length === 1 ? "question" : "questions"}
         </p>
       </div>
-      <p className="mt-0.5 max-w-2xl text-xs text-[#60716a]">
+      <p className="mt-0.5 max-w-2xl text-xs text-muted">
         Still in money in, still without a category, and the bank called them a refund or a
         transfer. Wages, Medicare and anything the ledger already filed are not here. Answering
         one settles every movement worded like it.
       </p>
-      <ul className="mt-3 divide-y divide-[#edf0ee]">
+      <ul className="mt-3 divide-y divide-surface-subtle">
         {groups.map((group) => (
           <UnsettledRow
             key={group.key}
@@ -79,7 +79,7 @@ function UnsettledRow({
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{group.label}</p>
-          <p className="mt-0.5 text-xs text-[#60716a]">
+          <p className="mt-0.5 text-xs text-muted">
             {describeSpan(group.from, group.to)} · {accountLabel(group.account)} · {group.count} movement
             {group.count === 1 ? "" : "s"} · {categoryLabel(group.example.categoryKey)} ·{" "}
             {group.kind === "returned"
@@ -88,12 +88,12 @@ function UnsettledRow({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <p className="text-sm font-semibold tabular-nums text-[#257155]">{formatAud(group.amount)}</p>
+          <p className="text-sm font-semibold tabular-nums text-positive">{formatAud(group.amount)}</p>
           <button
             type="button"
             onClick={onOpen}
             aria-expanded={open}
-            className="rounded-full border border-[#dce4df] px-3 py-1.5 text-sm font-semibold text-[#355a3f]"
+            className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft"
           >
             {open ? "Cancel" : "What is it?"}
           </button>
@@ -106,7 +106,7 @@ function UnsettledRow({
               key={choice.reason}
               type="button"
               onClick={() => onChoose(choice.reason)}
-              className="rounded-full border border-[#c3d2ca] bg-[#f4f7f5] px-3 py-1.5 text-sm font-semibold text-[#355a3f]"
+              className="rounded-full border border-line-dashed bg-canvas px-3 py-1.5 text-sm font-semibold text-ink-soft"
             >
               {choice.label}
               {group.count > 1 ? ` · all ${group.count}` : ""}
@@ -139,9 +139,9 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
   }
 
   return (
-    <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
       <h2 className="text-base font-bold">What you&apos;ve told us</h2>
-      <ul className="mt-3 divide-y divide-[#edf0ee]">
+      <ul className="mt-3 divide-y divide-surface-subtle">
         {[...groups].map(([key, held]) => {
           const label = held.rows[0].merchant;
           const amount = held.rows.reduce((sum, txn) => sum + Math.abs(txn.amount), 0);
@@ -149,7 +149,7 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
             <li key={key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{label}</p>
-                <p className="mt-0.5 text-xs text-[#60716a]">
+                <p className="mt-0.5 text-xs text-muted">
                   {reasonLabel(held.because)} · {held.rows.length} movement
                   {held.rows.length === 1 ? "" : "s"} · <span className="tabular-nums">{formatAud(amount)}</span>
                 </p>
@@ -157,7 +157,7 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
               <button
                 type="button"
                 onClick={() => setVerdict(held.rows[0], null, "like")}
-                className="rounded-full border border-[#dce4df] px-3 py-1.5 text-sm font-semibold text-[#355a3f]"
+                className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft"
               >
                 Undo
               </button>

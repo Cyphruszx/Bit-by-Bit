@@ -50,9 +50,9 @@ export function DashboardView() {
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
+      <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Your financial snapshot</h1>
-      <p className="mt-2 text-[#60716a]">
+      <p className="mt-2 text-muted">
         What actually came in and went out across every account, with money you moved between them
         counted once.
       </p>
@@ -66,9 +66,9 @@ export function DashboardView() {
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="text-lg font-bold">Where it sits</h2>
             {hidden.length > 0 ? (
-              <p className="text-sm text-[#60716a]">
+              <p className="text-sm text-muted">
                 {hidden.length} bank{hidden.length === 1 ? "" : "s"} hidden, still counted above.{" "}
-                <button type="button" onClick={showEveryInstitution} className="font-semibold text-[#355a3f] underline">
+                <button type="button" onClick={showEveryInstitution} className="font-semibold text-ink-soft underline">
                   Show all
                 </button>
               </p>
@@ -84,13 +84,13 @@ export function DashboardView() {
           {hidden.map((institution) => (
             <div
               key={institution}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[#c3d2ca] px-6 py-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-line-dashed px-6 py-4"
             >
-              <p className="text-sm font-semibold text-[#60716a]">{institution} · hidden</p>
+              <p className="text-sm font-semibold text-muted">{institution} · hidden</p>
               <button
                 type="button"
                 onClick={() => toggleInstitution(institution)}
-                className="rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm font-semibold text-[#355a3f]"
+                className="rounded-full border border-line bg-white px-3 py-1.5 text-sm font-semibold text-ink-soft"
               >
                 Show
               </button>
@@ -99,29 +99,29 @@ export function DashboardView() {
         </section>
       ) : null}
 
-      <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+      <article className="mt-8 rounded-2xl border border-line bg-white p-6">
         <h2 className="text-lg font-bold">How the money moved</h2>
-        <ul className="mt-4 space-y-2 text-[#52625c]">
+        <ul className="mt-4 space-y-2 text-muted">
           {flow.insights.map((insight) => (
             <li key={insight}>{insight}</li>
           ))}
         </ul>
       </article>
       <section className="mt-8">
-        <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
+        <article className="rounded-2xl border border-line bg-white p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Savings</h2>
-            <Link href="/savings" className="text-sm font-semibold text-[#355a3f]">
+            <Link href="/savings" className="text-sm font-semibold text-ink-soft">
               View all
             </Link>
           </div>
           <div className="mt-5">
             {pots.length === 0 ? (
-              <p className="text-sm text-[#60716a]">Add a pot on the Savings tab.</p>
+              <p className="text-sm text-muted">Add a pot on the Savings tab.</p>
             ) : included.length === 0 ? (
-              <p className="text-sm text-[#60716a]">
+              <p className="text-sm text-muted">
                 All pots are hidden from the total.{" "}
-                <Link href="/savings" className="font-semibold text-[#355a3f]">
+                <Link href="/savings" className="font-semibold text-ink-soft">
                   Include one on Savings
                 </Link>
                 .
@@ -130,7 +130,7 @@ export function DashboardView() {
               <>
                 <SavingsPathChart pots={included} snapshots={hiddenCount === 0 ? snapshots : []} compact />
                 {hiddenCount > 0 ? (
-                  <p className="mt-3 text-sm text-[#60716a]">
+                  <p className="mt-3 text-sm text-muted">
                     Showing {included.length} of {pots.length} pots. Hidden pots stay off this total.
                   </p>
                 ) : null}
@@ -141,7 +141,7 @@ export function DashboardView() {
                       <div key={pot.id}>
                         <div className="flex justify-between text-sm">
                           <span className="font-medium">{pot.name}</span>
-                          <span className="text-[#60716a]">
+                          <span className="text-muted">
                             {formatAud(pot.saved)} / {formatAud(pot.target)}
                           </span>
                         </div>
@@ -184,10 +184,10 @@ function IncomeBreakdown({ sources, income }: { sources: IncomeSource[]; income:
   if (sources.length < 2) return null;
 
   return (
-    <section className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-6">
+    <section className="mt-4 rounded-2xl border border-line bg-white p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-base font-bold">What&apos;s in money in</h2>
-        <p className="text-sm text-[#60716a]">
+        <p className="text-sm text-muted">
           <span className="tabular-nums">{formatAud(income)}</span> from {sources.length} places
         </p>
       </div>
@@ -197,18 +197,18 @@ function IncomeBreakdown({ sources, income }: { sources: IncomeSource[]; income:
             <div className="flex flex-wrap items-baseline justify-between gap-x-4">
               <p className="text-sm font-semibold">
                 {source.label}
-                <span className="ml-2 font-normal text-[#60716a]">
+                <span className="ml-2 font-normal text-muted">
                   {source.count} movement{source.count === 1 ? "" : "s"}
                 </span>
               </p>
-              <p className="text-sm font-semibold tabular-nums text-[#257155]">{formatAud(source.amount)}</p>
+              <p className="text-sm font-semibold tabular-nums text-positive">{formatAud(source.amount)}</p>
             </div>
-            <p className="mt-0.5 max-w-2xl text-sm text-[#60716a]">
+            <p className="mt-0.5 max-w-2xl text-sm text-muted">
               {source.detail}
               {source.askable ? (
                 <>
                   {" "}
-                  <Link href="/transactions" className="font-semibold text-[#355a3f] underline">
+                  <Link href="/transactions" className="font-semibold text-ink-soft underline">
                     Tell us what these are
                   </Link>
                 </>
@@ -255,7 +255,7 @@ function FlowCards({
         />
       </section>
       {flow.transfers > 0 ? (
-        <p className={`${compact ? "mt-2" : "mt-3"} text-sm text-[#60716a]`}>
+        <p className={`${compact ? "mt-2" : "mt-3"} text-sm text-muted`}>
           {formatAud(flow.transfers)} moved between these accounts, counted once. The statements
           themselves show {formatAud(flow.cashIn)} in and {formatAud(flow.cashOut)} out.
         </p>
@@ -271,31 +271,31 @@ function FlowCards({
  */
 function InstitutionSection({ group, onHide }: { group: InstitutionAccounts; onHide: () => void }) {
   return (
-    <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
+    <article className="rounded-2xl border border-line bg-white p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold">{group.institution}</h3>
-          <p className="mt-0.5 text-sm text-[#60716a]">
+          <p className="mt-0.5 text-sm text-muted">
             {group.flow.transactionCount} movement{group.flow.transactionCount === 1 ? "" : "s"} across{" "}
             {group.accounts.length} account{group.accounts.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <p className="text-sm text-[#60716a]">
-            <span className="tabular-nums text-[#257155]">{formatAud(group.flow.income)}</span> in ·{" "}
+          <p className="text-sm text-muted">
+            <span className="tabular-nums text-positive">{formatAud(group.flow.income)}</span> in ·{" "}
             <span className="tabular-nums">{formatAud(group.flow.spending)}</span> out ·{" "}
-            <span className="font-semibold tabular-nums text-[#17211e]">{formatAud(group.flow.net)}</span> net
+            <span className="font-semibold tabular-nums text-ink">{formatAud(group.flow.net)}</span> net
           </p>
           <button
             type="button"
             onClick={onHide}
-            className="rounded-full border border-[#dce4df] px-3 py-1.5 text-sm font-semibold text-[#355a3f]"
+            className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft"
           >
             Hide
           </button>
         </div>
       </div>
-      <div className="mt-4 divide-y divide-[#edf0ee]">
+      <div className="mt-4 divide-y divide-surface-subtle">
         {group.accounts.map((account) => (
           <AccountRow key={account.id} account={account} institution={group.institution} />
         ))}
@@ -310,10 +310,10 @@ function AccountRow({ account, institution }: { account: AccountTotals; institut
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
       <p className="text-sm font-semibold">{name}</p>
-      <p className="text-sm text-[#60716a]">
-        <span className="tabular-nums text-[#257155]">{formatAud(account.flow.income)}</span> in ·{" "}
+      <p className="text-sm text-muted">
+        <span className="tabular-nums text-positive">{formatAud(account.flow.income)}</span> in ·{" "}
         <span className="tabular-nums">{formatAud(account.flow.spending)}</span> out ·{" "}
-        <span className="font-semibold tabular-nums text-[#17211e]">{formatAud(account.flow.net)}</span> net
+        <span className="font-semibold tabular-nums text-ink">{formatAud(account.flow.net)}</span> net
       </p>
     </div>
   );

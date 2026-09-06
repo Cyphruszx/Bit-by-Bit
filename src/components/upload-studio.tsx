@@ -85,12 +85,12 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           interpret([...event.dataTransfer.files]);
         }}
         className={`rounded-3xl border-2 border-dashed p-8 text-center transition ${
-          dragging ? "border-[#173b31] bg-[#edf4dc]" : "border-[#dce4df] bg-white"
+          dragging ? "border-primary bg-accent-surface" : "border-line bg-white"
         }`}
       >
-        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">Core feature</p>
+        <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Core feature</p>
         <h2 className="mt-2 text-2xl font-bold">Drop almost any money document</h2>
-        <p className="mx-auto mt-3 max-w-xl text-[#52625c]">
+        <p className="mx-auto mt-3 max-w-xl text-muted">
           Bank CSV and Excel exports, OFX/QIF, PDFs, Word docs, HTML statements, JSON, photos of receipts, and plain
           text. BitbyBit reads the file and interprets money in versus money out
           {aiReady
@@ -109,7 +109,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={pending}
-          className="mt-6 rounded-full bg-[#d5f06c] px-6 py-3 font-bold text-[#173b31] disabled:opacity-60"
+          className="mt-6 rounded-full bg-accent px-6 py-3 font-bold text-primary disabled:opacity-60"
         >
           {pending ? (aiReady ? "Reading with AI…" : "Reading documents…") : "Choose documents"}
         </button>
@@ -120,14 +120,14 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               type="button"
               onClick={() => loadSample(sample.paths)}
               disabled={pending}
-              className="rounded-full border border-[#dce4df] px-4 py-2 text-sm font-semibold text-[#355a3f]"
+              className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft"
             >
               Try {sample.label}
             </button>
           ))}
         </div>
-        {error ? <p className="mt-4 text-sm text-[#9b3b32]">{error}</p> : null}
-        {report ? <p className="mt-4 text-sm text-[#355a3f]">{describeImport(report)}</p> : null}
+        {error ? <p className="mt-4 text-sm text-negative">{error}</p> : null}
+        {report ? <p className="mt-4 text-sm text-ink-soft">{describeImport(report)}</p> : null}
       </section>
 
       {report ? (
@@ -152,14 +152,14 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               positive={flow.cashNet >= 0}
             />
           </section>
-          <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
+          <article className="rounded-2xl border border-line bg-white p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-bold">Interpreted money flow</h3>
-              <button type="button" onClick={clearInterpretation} className="text-sm font-semibold text-[#355a3f]">
+              <button type="button" onClick={clearInterpretation} className="text-sm font-semibold text-ink-soft">
                 Clear uploads
               </button>
             </div>
-            <ul className="mt-4 space-y-2 text-[#52625c]">
+            <ul className="mt-4 space-y-2 text-muted">
               {flow.insights.map((insight) => (
                 <li key={insight}>{insight}</li>
               ))}
@@ -169,27 +169,27 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
                 <div key={category.name}>
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">{category.name}</span>
-                    <span className="text-[#60716a]">{formatAud(category.amount)}</span>
+                    <span className="text-muted">{formatAud(category.amount)}</span>
                   </div>
                   <ProgressBar value={category.share} />
                 </div>
               ))}
             </div>
           </article>
-          <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
+          <article className="rounded-2xl border border-line bg-white p-6">
             <h3 className="text-lg font-bold">Statements you have added</h3>
-            <p className="mt-1 text-sm text-[#60716a]">
+            <p className="mt-1 text-sm text-muted">
               Every upload is kept, so you can build up months of activity. Uploading a statement twice adds nothing.
             </p>
-            <div className="mt-4 divide-y divide-[#edf0ee]">
+            <div className="mt-4 divide-y divide-surface-subtle">
               {statements.map((statement) => (
                 <div className="flex flex-wrap items-start justify-between gap-3 py-3" key={statement.key}>
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{statement.label}</p>
-                    <p className="mt-1 text-sm text-[#77857f]">{describeStatement(statement)}</p>
-                    {statement.error ? <p className="mt-1 text-sm text-[#9b3b32]">{statement.error}</p> : null}
+                    <p className="mt-1 text-sm text-muted">{describeStatement(statement)}</p>
+                    {statement.error ? <p className="mt-1 text-sm text-negative">{statement.error}</p> : null}
                     {statement.notes.map((note) => (
-                      <p className="mt-1 text-sm text-[#60716a]" key={note}>
+                      <p className="mt-1 text-sm text-muted" key={note}>
                         {note}
                       </p>
                     ))}
@@ -197,7 +197,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
                   <button
                     type="button"
                     onClick={() => removeStatement(statement.key)}
-                    className="shrink-0 text-sm font-semibold text-[#9b3b32]"
+                    className="shrink-0 text-sm font-semibold text-negative"
                   >
                     Remove
                   </button>
@@ -205,23 +205,23 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               ))}
             </div>
           </article>
-          <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
+          <article className="rounded-2xl border border-line bg-white p-6">
             <h3 className="text-lg font-bold">Extracted activity</h3>
-            <div className="mt-4 divide-y divide-[#edf0ee]">
+            <div className="mt-4 divide-y divide-surface-subtle">
               {transactions.length === 0 ? (
-                <p className="py-4 text-sm text-[#60716a]">No movements in this period.</p>
+                <p className="py-4 text-sm text-muted">No movements in this period.</p>
               ) : (
                 transactions.slice(0, 12).map((txn) => (
                   <div className="flex items-center justify-between py-4" key={txn.id}>
                     <div>
                       <p className="font-semibold">{txn.merchant}</p>
-                      <p className="mt-1 text-sm text-[#77857f]">
+                      <p className="mt-1 text-sm text-muted">
                         {taxonomyPath(txn.categoryKey)}
                         {tagsOf(txn).length > 0 ? ` / ${tagsOf(txn).join(" · ")}` : ""}
                         {txn.decidedBy === "ai" ? " · suggested by AI" : ""} · {txn.date} · {txn.sourceFile}
                       </p>
                     </div>
-                    <p className={`font-semibold ${txn.amount > 0 ? "text-[#257155]" : ""}`}>{formatSignedAud(txn.amount)}</p>
+                    <p className={`font-semibold ${txn.amount > 0 ? "text-positive" : ""}`}>{formatSignedAud(txn.amount)}</p>
                   </div>
                 ))
               )}
@@ -291,9 +291,9 @@ function NameArrivedAccounts({
   if (pending.length === 0) return null;
 
   return (
-    <section className="rounded-3xl border border-[#dce4df] bg-white p-6">
+    <section className="rounded-3xl border border-line bg-white p-6">
       <h2 className="text-lg font-bold">What should these accounts be called?</h2>
-      <p className="mt-1 text-sm text-[#60716a]">
+      <p className="mt-1 text-sm text-muted">
         Naming one now means the next statement from it lands in the same place, whichever
         format it arrives in. Skip and it keeps the name its statement gave it.
       </p>
@@ -303,11 +303,11 @@ function NameArrivedAccounts({
             drafts[account.id] ??
             suggestNameForKey(account.keys[0], account.transactions[0]?.sourceFile ?? account.keys[0]);
           return (
-            <div key={account.id} className="flex flex-wrap items-center gap-3 border-b border-[#edf0ee] pb-3 last:border-0">
+            <div key={account.id} className="flex flex-wrap items-center gap-3 border-b border-surface-subtle pb-3 last:border-0">
               <div className="min-w-40 flex-1">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">{account.institution}</p>
-                <p className="font-mono text-sm text-[#60716a]">{account.keys[0]}</p>
-                <p className="mt-1 text-sm text-[#77857f]">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{account.institution}</p>
+                <p className="font-mono text-sm text-muted">{account.keys[0]}</p>
+                <p className="mt-1 text-sm text-muted">
                   {account.transactions.length} movement{account.transactions.length === 1 ? "" : "s"} ·{" "}
                   {formatAud(account.flow.cashNet)} net
                 </p>
@@ -321,14 +321,14 @@ function NameArrivedAccounts({
                     for (const key of account.keys) onName(key, suggestion);
                   }
                 }}
-                className="w-48 rounded-full border border-[#dce4df] px-3 py-1.5 text-sm"
+                className="w-48 rounded-full border border-line px-3 py-1.5 text-sm"
               />
               <button
                 type="button"
                 onClick={() => {
                   for (const key of account.keys) onName(key, suggestion);
                 }}
-                className="rounded-full bg-[#173b31] px-4 py-1.5 text-sm font-semibold text-white"
+                className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
               >
                 Save
               </button>
