@@ -108,9 +108,6 @@ export function TransactionsView() {
           <TransactionTable transactions={scoped} tag={selectedTag} onTagChange={setSelectedTag} />
         </div>
       </article>
-      <ReviewQueue transactions={scoped} />
-      <UnsettledMoney transactions={scoped} />
-      <SettledMoney transactions={scoped} />
       <div className="mt-4">
         <TagChartCard
           transactions={scoped}
@@ -121,6 +118,9 @@ export function TransactionsView() {
           compact
         />
       </div>
+      <ReviewQueue transactions={scoped} />
+      <UnsettledMoney transactions={scoped} />
+      <SettledMoney transactions={scoped} />
       <LearnedList />
       <TagManager
         transactions={allTransactions}
