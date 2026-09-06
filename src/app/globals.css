@@ -1,9 +1,140 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   Design tokens
+   --------------------------------------------------------------------------
+   Three layers: primitives -> semantic -> component.
+   Components should reference the semantic layer only (via Tailwind
+   utilities such as `text-muted` or `border-line`), never a raw hex.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Layer 1 - Primitives
+   The raw palette. Nothing outside this file should use these directly;
+   they exist so the semantic layer has one place to change.
+   -------------------------------------------------------------------------- */
 :root {
-  --background: #f6f8f7;
-  --foreground: #17211e;
+  /* Forest - the core green ramp, darkest to lightest */
+  --forest-950: #17211e;
+  --forest-900: #173b31;
+  --forest-700: #355a3f;
+  --forest-500: #5f6a66;
+  --forest-300: #b9cdc4;
+  --forest-250: #c3d2ca;
+  --forest-200: #c3cfc8;
+  --forest-150: #dce4df;
+  --forest-100: #edf0ee;
+  --forest-50: #f6f8f7;
+
+  /* Lime - the accent used on calls to action */
+  --lime-400: #d5f06c;
+  --lime-100: #edf4dc;
+  --lime-50: #f4f8ec;
+
+  /* Status */
+  --green-600: #257155;
+  --red-700: #9b3b32;
+  --red-800: #8a2b2b;
+  --red-50: #f8e8e6;
+  --amber-700: #8a5a1e;
+  --amber-200: #d8c3a8;
+  --amber-100: #fdf2e3;
+  --amber-50: #fdf6ec;
+  --clay-700: #5c5142;
+
+  /* Categorical - charts only, chosen to stay distinct side by side */
+  --chart-sage: #73a883;
+  --chart-slate: #5b8a9a;
+  --chart-sand: #c4a35a;
+  --chart-plum: #8b6b9b;
+
+  --white: #ffffff;
 }
+
+/* --------------------------------------------------------------------------
+   Layer 2 - Semantic
+   Purpose-named aliases. `static` makes Tailwind emit every one even
+   before a utility references it; --color-muted also generates the
+   matching text-muted / bg-muted / border-muted utilities.
+   -------------------------------------------------------------------------- */
+@theme static {
+  /* Surfaces */
+  --color-canvas: var(--forest-50);
+  --color-surface: var(--white);
+  --color-surface-subtle: var(--forest-100);
+
+  /* Text
+     Three steps, all AA at body size on every surface above.
+     --color-muted is #5f6a66, replacing four tones that had drifted apart:
+     #60716a, #52625c, #527166 and #77857f (the last failed AA at 3.62:1). */
+  --color-ink: var(--forest-950);
+  --color-ink-soft: var(--forest-700);
+  --color-muted: var(--forest-500);
+
+  /* Text on dark surfaces */
+  --color-on-dark: var(--white);
+  --color-on-dark-muted: var(--forest-300);
+
+  /* Lines */
+  --color-line: var(--forest-150);
+  --color-line-dashed: var(--forest-250);
+  --color-axis: var(--forest-200);
+
+  /* Brand */
+  --color-primary: var(--forest-900);
+  --color-on-primary: var(--white);
+  --color-accent: var(--lime-400);
+  --color-on-accent: var(--forest-900);
+  --color-accent-surface: var(--lime-100);
+  --color-accent-surface-subtle: var(--lime-50);
+
+  /* Status - money moving the right way, the wrong way, or needing a look */
+  --color-positive: var(--green-600);
+  --color-negative: var(--red-700);
+  --color-negative-strong: var(--red-800);
+  --color-negative-surface: var(--red-50);
+  --color-attention: var(--amber-700);
+  --color-attention-ink: var(--clay-700);
+  --color-attention-line: var(--amber-200);
+  --color-attention-surface: var(--amber-50);
+  --color-attention-surface-strong: var(--amber-100);
+
+  /* Categorical - keep this order; charts read it as a sequence */
+  --color-chart-1: var(--forest-900);
+  --color-chart-2: var(--chart-sage);
+  --color-chart-3: var(--chart-slate);
+  --color-chart-4: var(--chart-sand);
+  --color-chart-5: var(--chart-plum);
+  --color-chart-6: var(--red-700);
+  --color-chart-7: var(--forest-700);
+  --color-chart-8: var(--green-600);
+}
+
+/* --------------------------------------------------------------------------
+   Layer 3 - Component
+   Recurring shapes the app already uses consistently. Radius is codified
+   because the existing usage is genuinely uniform: rounded-2xl on cards
+   (40 uses), rounded-full on pills and buttons (78 uses).
+   -------------------------------------------------------------------------- */
+:root {
+  --radius-card: 1rem;
+  --radius-pill: 9999px;
+  --radius-mark: 2px;
+
+  --card-bg: var(--color-surface);
+  --card-border: var(--color-line);
+
+  --field-border: var(--color-line);
+  --field-border-empty: var(--color-line-dashed);
+
+  /* Kept so `body` below and any existing reference keeps resolving */
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
 
 * {
   box-sizing: border-box;
