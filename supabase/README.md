@@ -42,9 +42,3 @@ Signed in as a test account, confirm:
 - An insert naming another person's `user_id` is rejected.
 - `revision` climbs by one on every write and is never accepted from the client — the
   `ledgers_touch` trigger sets it, which is what makes the concurrency check trustworthy.
-
-## The older migration
-
-`migrations/202608210001_initial_finance_schema.sql` describes a row-per-transaction schema
-from an earlier plan that the app never used. It is left in place because dropping tables is
-destructive; nothing reads or writes them.

@@ -71,8 +71,6 @@ const TYPES: Record<TransactionType, TypeMeaning> = {
   adjusted: { label: "A correction", side: "both", income: false, spending: false },
 };
 
-export const TRANSACTION_TYPES = Object.keys(TYPES) as TransactionType[];
-
 export function isTransactionType(value: unknown): value is TransactionType {
   return typeof value === "string" && value in TYPES;
 }
@@ -89,14 +87,6 @@ export function countsAsIncome(type: TransactionType): boolean {
 /** Whether a debit of this type belongs in the money-out figure. */
 export function countsAsSpending(type: TransactionType): boolean {
   return TYPES[type]?.spending ?? true;
-}
-
-/** The types worth offering for a movement of this direction, which is what a person picks from. */
-export function typesFor(amount: number): { type: TransactionType; label: string }[] {
-  const side = amount > 0 ? "in" : "out";
-  return TRANSACTION_TYPES.filter((type) => TYPES[type].side === side || TYPES[type].side === "both").map(
-    (type) => ({ type, label: TYPES[type].label }),
-  );
 }
 
 /**
@@ -636,8 +626,6 @@ function refreshKnown() {
   for (const key of CATEGORY_KEYS) KNOWN.add(key);
   SUGGESTIONS.length = 0;
   SUGGESTIONS.push(...computeSuggestions());
-  SUGGESTED_TAGS.length = 0;
-  SUGGESTED_TAGS.push(...computeSuggestedTags());
 }
 
 export function isCategoryKey(value: unknown): boolean {
@@ -649,11 +637,6 @@ export function categoryLabel(key: string | undefined): string {
   return overlay.labels.get(key) ?? LOOSE[key]?.label ?? BY_KEY.get(key)?.label ?? overlay.extras.get(key)?.label ?? titleCase(key);
 }
 
-/** Kept as its own name because callers mean "however this category should read on its own". */
-export function categoryPath(key: string | undefined): string {
-  return categoryLabel(key);
-}
-
 /** The tags this category offers. Suggestions only — a person can type anything. */
 export function tagsFor(categoryKey: string | undefined): string[] {
   return tagPairsFor(categoryKey ?? "").map(([, tag]) => tag);
@@ -663,19 +646,12 @@ function tagPairsFor(key: string): Suggestion[] {
   return overlay.tags.get(key) ?? BY_KEY.get(key)?.tags ?? [];
 }
 
-function computeSuggestedTags(): string[] {
-  return [...new Set(CATEGORY_KEYS.flatMap((key) => tagsFor(key)))].sort((a, b) => a.localeCompare(b));
-}
-
 function computeSuggestions(): string[] {
   return CATEGORY_KEYS.filter((key) => key !== UNCATEGORISED).flatMap((key) => [
     key,
     ...tagPairsFor(key).map(([slug]) => `${key}.${slug}`),
   ]);
 }
-
-/** Every tag the app suggests, for the pickers that are not scoped to one category. */
-export const SUGGESTED_TAGS: string[] = computeSuggestedTags();
 
 /**
  * Everything a rule or a model may answer with: a category on its own, or a category and
