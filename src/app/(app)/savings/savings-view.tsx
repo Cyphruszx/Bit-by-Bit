@@ -55,7 +55,7 @@ export function SavingsView() {
           positive
         />
       </section>
-      <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+      <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
         <h2 className="text-lg font-bold">Path to target</h2>
         <p className="mt-1 text-sm text-muted">
           {included.length === 1
@@ -74,7 +74,7 @@ export function SavingsView() {
         </div>
       </article>
       {included.length > 1 ? (
-        <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+        <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
           <h2 className="text-lg font-bold">Each pot</h2>
           <p className="mt-1 text-sm text-muted">How every included pot grows if you keep the same monthly amount.</p>
           <div className="mt-5">
@@ -83,7 +83,7 @@ export function SavingsView() {
         </article>
       ) : null}
       {hasUploads && monthlyTransferSeries(allTransactions).length >= 2 ? (
-        <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+        <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
           <h2 className="text-lg font-bold">Set aside by month</h2>
           <p className="mt-1 text-sm text-muted">Transfers from the documents you uploaded, grouped by month. Use the period filter to change the set-aside total above.</p>
           <div className="mt-5">
@@ -130,8 +130,8 @@ function PotVisibilityToggles({
             onClick={() => onToggle(pot.id)}
             className={
               included
-                ? "rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-white"
-                : "rounded-full border border-line bg-white px-3 py-1.5 text-sm font-medium text-muted"
+                ? "rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-on-primary"
+                : "rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted"
             }
           >
             {included ? pot.name : `${pot.name} · hidden`}
@@ -149,7 +149,7 @@ function AddPotForm({ onAdd }: { onAdd: (pot: Omit<SavingsPot, "id">) => void })
   const [monthly, setMonthly] = useState("");
 
   return (
-    <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+    <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
       <h2 className="text-lg font-bold">Add a pot</h2>
       <form
         className="mt-5 grid gap-3 md:grid-cols-4 md:items-end"
@@ -175,7 +175,7 @@ function AddPotForm({ onAdd }: { onAdd: (pot: Omit<SavingsPot, "id">) => void })
         <Field label="Target" value={target} onChange={setTarget} placeholder="10000" />
         <div className="flex items-end gap-2">
           <Field label="Each month" value={monthly} onChange={setMonthly} placeholder="0" />
-          <button type="submit" className="mb-0.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">
+          <button type="submit" className="mb-0.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary">
             Add
           </button>
         </div>
@@ -206,7 +206,7 @@ function PotCard({
   const included = isIncludedInTotal(pot);
 
   return (
-    <article className={`rounded-2xl border border-line bg-white p-6 ${included ? "" : "opacity-70"}`}>
+    <article className={`rounded-2xl border border-line bg-surface p-6 ${included ? "" : "opacity-70"}`}>
       {editing ? (
         <form
           onSubmit={(event) => {

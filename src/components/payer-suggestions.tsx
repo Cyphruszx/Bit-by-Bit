@@ -68,7 +68,7 @@ export function PayerSuggestions() {
                 <button
                   type="button"
                   onClick={() => mergePayers(suggestion.merge, suggestion.keep)}
-                  className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
+                  className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
                 >
                   Same payer
                 </button>
@@ -79,7 +79,7 @@ export function PayerSuggestions() {
       ) : null}
 
       {joined.length > 0 ? (
-        <article className="rounded-2xl border border-line bg-white p-6">
+        <article className="rounded-2xl border border-line bg-surface p-6">
           <h2 className="text-base font-bold">Payers you&apos;ve joined</h2>
           <ul className="mt-3 divide-y divide-surface-subtle">
             {joined.map((merge) => (

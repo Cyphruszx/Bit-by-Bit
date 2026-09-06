@@ -10,7 +10,7 @@ export default function NotFound() {
       <p className="mt-3 max-w-md text-muted">
         There is nothing at this address. Head back to the dashboard to find what {siteName} has read.
       </p>
-      <Link href="/dashboard" className="mt-8 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">
+      <Link href="/dashboard" className="mt-8 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary">
         Go to dashboard
       </Link>
     </main>

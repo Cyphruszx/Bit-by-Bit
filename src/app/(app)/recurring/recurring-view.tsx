@@ -65,7 +65,7 @@ export function RecurringView() {
         <SummaryCard label="Suggestions" value={String(suggestions.length)} detail="Seen in this period" />
       </section>
 
-      <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+      <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
         <h2 className="text-lg font-bold">Tracked</h2>
         {tracked.length === 0 ? (
           <p className="mt-4 text-sm text-muted">
@@ -89,7 +89,7 @@ export function RecurringView() {
         )}
       </article>
 
-      <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+      <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
         <h2 className="text-lg font-bold">Suggested from activity</h2>
         {suggestions.length === 0 ? (
           <p className="mt-4 text-sm text-muted">
@@ -156,7 +156,7 @@ function TrackedRow({
             type="date"
             value={item.nextDate}
             onChange={(event) => onDateChange(event.target.value)}
-            className="ml-2 rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
+            className="ml-2 rounded-full border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
           />
         </label>
         {snapshot.status === "paid" ? null : (
@@ -179,7 +179,7 @@ function StatusBadge({ status }: { status: TrackingStatus }) {
       : status === "overdue"
         ? "bg-negative-surface text-negative"
         : status === "due"
-          ? "bg-primary text-white"
+          ? "bg-primary text-on-primary"
           : "bg-surface-subtle text-muted";
   return <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${tone}`}>{statusLabel(status)}</span>;
 }
@@ -214,7 +214,7 @@ function SuggestionRow({
             type="date"
             value={nextDate}
             onChange={(event) => setNextDate(event.target.value)}
-            className="ml-2 rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
+            className="ml-2 rounded-full border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
           />
         </label>
         <button type="button" className="text-sm font-semibold text-ink-soft" onClick={() => onTrack(nextDate)}>
@@ -241,7 +241,7 @@ function AddPaymentForm({
   const [nextDate, setNextDate] = useState(today);
 
   return (
-    <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+    <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
       <h2 className="text-lg font-bold">Add a payment</h2>
       <form
         className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_8rem_10rem_11rem_auto] lg:items-end"
@@ -280,7 +280,7 @@ function AddPaymentForm({
           <select
             value={cadence}
             onChange={(event) => setCadence(event.target.value as Cadence)}
-            className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none focus:border-primary"
+            className="w-full rounded-full border border-line bg-surface px-4 py-2.5 text-sm outline-none focus:border-primary"
           >
             <option value="weekly">Weekly</option>
             <option value="fortnightly">Fortnightly</option>
@@ -295,10 +295,10 @@ function AddPaymentForm({
             value={nextDate}
             onChange={(event) => setNextDate(event.target.value)}
             required
-            className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none focus:border-primary"
+            className="w-full rounded-full border border-line bg-surface px-4 py-2.5 text-sm outline-none focus:border-primary"
           />
         </label>
-        <button type="submit" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">
+        <button type="submit" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary">
           Add
         </button>
       </form>

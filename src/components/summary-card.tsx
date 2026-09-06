@@ -12,8 +12,8 @@ export function SummaryCard({
   compact?: boolean;
 }) {
   return (
-    <article className={`rounded-2xl border border-line bg-white ${compact ? "px-3.5 py-2.5" : "p-5"}`}>
-      <p className="text-sm text-muted">{label}</p>
+    <article className={`rounded-2xl border border-line bg-surface ${compact ? "px-3.5 py-2.5" : "p-5"}`}>
+      <p className="text-sm text-primary">{label}</p>
       <p className={`${compact ? "mt-0.5 text-xl" : "mt-2 text-2xl"} break-words font-bold tabular-nums ${positive ? "text-positive" : ""}`}>
         {value}
       </p>

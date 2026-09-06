@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <main className="min-h-screen bg-canvas text-ink">
-      <header className="border-b border-line bg-white">
+      <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
           <BrandMark href="/dashboard" />
           <AppNav />
@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {!ready ? "Opening your ledger" : hasUploads ? "Interpreted from files" : "No statements yet"}
             </span>
             <AccountLink />
-            <Link href="/upload" className="rounded-full bg-accent px-4 py-2 text-sm font-bold text-primary">
+            <Link href="/upload" className="rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent">
               Upload
             </Link>
           </div>

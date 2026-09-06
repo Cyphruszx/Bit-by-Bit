@@ -6,7 +6,7 @@ import Link from "next/link";
  */
 export function EmptyLedger({ children }: { children?: React.ReactNode }) {
   return (
-    <section className="mt-8 rounded-2xl border border-dashed border-line-dashed bg-white p-8 text-center">
+    <section className="mt-8 rounded-2xl border border-dashed border-line-dashed bg-surface p-8 text-center">
       <h2 className="text-lg font-bold">No statements yet</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-muted">
         {children ??
@@ -14,7 +14,7 @@ export function EmptyLedger({ children }: { children?: React.ReactNode }) {
       </p>
       <Link
         href="/upload"
-        className="mt-5 inline-block rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-primary"
+        className="mt-5 inline-block rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-on-accent"
       >
         Upload a statement
       </Link>

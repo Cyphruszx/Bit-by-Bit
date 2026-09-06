@@ -21,7 +21,7 @@ export function SignInForm() {
 
   if (session) {
     return (
-      <div className="mt-8 rounded-2xl border border-line bg-white p-6">
+      <div className="mt-8 rounded-2xl border border-line bg-surface p-6">
         <p className="text-sm text-muted">
           Signed in as <span className="font-semibold">{session.email}</span>. Your ledger is backed
           up as you change it.
@@ -30,7 +30,7 @@ export function SignInForm() {
           <button
             type="button"
             onClick={() => router.push("/dashboard")}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
           >
             Back to the dashboard
           </button>
@@ -75,7 +75,7 @@ export function SignInForm() {
   const tooShort = making ? passwordError(password) : null;
 
   return (
-    <form onSubmit={submit} className="mt-8 rounded-2xl border border-line bg-white p-6">
+    <form onSubmit={submit} className="mt-8 rounded-2xl border border-line bg-surface p-6">
       <label className="block text-sm font-semibold" htmlFor="email">
         Email
       </label>
@@ -111,7 +111,7 @@ export function SignInForm() {
       <button
         type="submit"
         disabled={busy}
-        className="mt-5 w-full rounded-full bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+        className="mt-5 w-full rounded-full bg-primary px-4 py-2 text-sm font-bold text-on-primary disabled:opacity-60"
       >
         {busy ? "One moment…" : making ? "Make an account" : "Sign in"}
       </button>

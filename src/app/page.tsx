@@ -18,7 +18,7 @@ export default function Home() {
           <Link href="/dashboard" className="text-sm font-semibold text-ink-soft">
             Dashboard
           </Link>
-          <Link href="/upload" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">
+          <Link href="/upload" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary">
             Upload a document
           </Link>
         </div>
@@ -30,12 +30,12 @@ export default function Home() {
           <p className="mt-6 max-w-lg text-lg leading-8 text-muted">{siteDescription}</p>
           <Link
             href="/upload"
-            className="mt-9 inline-block rounded-full bg-accent px-6 py-3 font-bold text-primary"
+            className="mt-9 inline-block rounded-full bg-accent px-6 py-3 font-bold text-on-accent"
           >
             Interpret a statement
           </Link>
         </div>
-        <div className="rounded-3xl bg-primary p-7 text-white shadow-xl shadow-primary/15">
+        <div className="rounded-3xl bg-primary p-7 text-on-primary shadow-xl shadow-primary/15">
           <p className="text-sm text-on-dark-muted">What BitbyBit reads</p>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-on-dark-muted">
             <li>Bank CSV and Excel exports</li>
@@ -45,11 +45,11 @@ export default function Home() {
           </ul>
           <p className="mt-8 text-sm text-on-dark-muted">Then it shows</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-white/10 p-4">
+            <div className="rounded-2xl bg-surface/10 p-4">
               <p className="text-xs text-on-dark-muted">Money in</p>
               <p className="mt-1 font-bold">Income and refunds</p>
             </div>
-            <div className="rounded-2xl bg-white/10 p-4">
+            <div className="rounded-2xl bg-surface/10 p-4">
               <p className="text-xs text-on-dark-muted">Money out</p>
               <p className="mt-1 font-bold">Spending by category</p>
             </div>
@@ -58,7 +58,7 @@ export default function Home() {
       </section>
       <section className="mx-auto grid max-w-6xl gap-4 px-6 pb-16 md:grid-cols-2 lg:grid-cols-4">
         {features.map(([title, description]) => (
-          <article key={title} className="rounded-2xl border border-line bg-white p-6">
+          <article key={title} className="rounded-2xl border border-line bg-surface p-6">
             <h2 className="font-bold">{title}</h2>
             <p className="mt-2 leading-6 text-muted">{description}</p>
           </article>

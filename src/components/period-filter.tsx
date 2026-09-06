@@ -51,8 +51,8 @@ export function PeriodFilterBar() {
             }}
             className={`rounded-full border px-3 py-1.5 text-sm font-semibold outline-none focus:border-primary ${
               period.kind === "month"
-                ? "border-primary bg-primary text-white"
-                : "border-line bg-white text-ink-soft"
+                ? "border-primary bg-primary text-on-primary"
+                : "border-line bg-surface text-ink-soft"
             }`}
           >
             <option value="" disabled>
@@ -119,7 +119,7 @@ function PeriodChip({
       disabled={disabled}
       onClick={onClick}
       className={`rounded-full px-3 py-1.5 text-sm font-semibold disabled:opacity-35 ${
-        active ? "bg-primary text-white" : "border border-line bg-white text-ink-soft"
+        active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
       }`}
     >
       {children}
@@ -143,7 +143,7 @@ function DateField({
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-full border border-line bg-white px-3 py-1.5 text-sm font-semibold text-primary outline-none focus:border-primary"
+        className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-primary outline-none focus:border-primary"
       />
     </label>
   );

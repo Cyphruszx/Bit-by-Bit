@@ -28,7 +28,7 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
   if (groups.length === 0) {
     if (progress.total === 0) return null;
     return (
-      <article className="mt-4 rounded-2xl border border-line bg-white p-4">
+      <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="text-base font-bold">Everything is sorted</h2>
         <p className="mt-0.5 text-xs text-muted">
           All {formatCount(progress.total)} movements in this period have a category.
@@ -40,7 +40,7 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
   const shown = open ? groups : groups.slice(0, SHOWN);
 
   return (
-    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-bold">Needs a category</h2>
@@ -90,7 +90,7 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
                     setMerchantCategory(group.merchant, event.target.value);
                   }
                 }}
-                className="rounded-full border border-line bg-white px-2.5 py-1 text-xs outline-none focus:border-primary"
+                className="rounded-full border border-line bg-surface px-2.5 py-1 text-xs outline-none focus:border-primary"
               >
                 <option value={UNCATEGORISED}>Choose a category</option>
                 {pickerGroups().map((held) => (

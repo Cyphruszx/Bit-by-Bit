@@ -97,7 +97,7 @@ export function TransactionsView() {
           compact
         />
       </section>
-      <article className="mt-4 overflow-hidden rounded-2xl border border-line bg-white p-4">
+      <article className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface p-4">
         <h2 className="text-base font-bold">Transactions</h2>
         <p className="mt-0.5 text-xs text-muted">
           Every movement in this period — one row each, so the same shop appears as many times as you
@@ -151,7 +151,7 @@ function TagManager({
   }
 
   return (
-    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-bold">Your tags</h2>

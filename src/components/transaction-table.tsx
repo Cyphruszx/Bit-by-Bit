@@ -28,6 +28,12 @@ const RULE = "border-r border-surface-subtle";
 const CELL = "px-3 py-1.5";
 const SELECT = "w-full bg-transparent outline-none text-xs text-ink";
 
+function rowWash(amount: number) {
+  if (amount > 0) return "bg-positive-surface";
+  if (amount < 0) return "bg-negative-surface";
+  return "";
+}
+
 export function TransactionTable({
   transactions,
   tag,
@@ -118,13 +124,13 @@ export function TransactionTable({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search merchants, categories, accounts, or statement cells"
-          className="w-full rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary sm:max-w-xs"
+          className="w-full rounded-full border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary sm:max-w-xs"
         />
         <select
           value={activeTag}
           onChange={(event) => selectTag(event.target.value)}
           aria-label="Filter by category or tag"
-          className="rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
+          className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
         >
           {tagOptions.map((name) => (
             <option key={name} value={name}>
@@ -137,7 +143,7 @@ export function TransactionTable({
           aria-pressed={showStatement}
           onClick={() => setShowStatement((open) => !open)}
           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-            showStatement ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
+            showStatement ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
           }`}
         >
           {showStatement ? "Hide statement" : "Show statement"}
@@ -156,7 +162,7 @@ export function TransactionTable({
               aria-label={value === "all" ? "All directions" : value === "in" ? "Money in" : "Money out"}
               onClick={() => setDirection(value)}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                direction === value ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
+                direction === value ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
               }`}
             >
               {label}
@@ -171,7 +177,7 @@ export function TransactionTable({
       ) : (
         <div className="mt-3 overflow-x-auto rounded-xl border border-surface-subtle">
           <table className="w-full min-w-[900px] border-collapse text-left">
-            <thead className="sticky top-0 z-10 bg-accent-surface-subtle">
+            <thead className="sticky top-0 z-10 bg-surface">
               <tr>
                 <HeaderCell>Date</HeaderCell>
                 <HeaderCell>Merchant</HeaderCell>
@@ -183,7 +189,7 @@ export function TransactionTable({
                 <HeaderCell last>Tag</HeaderCell>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-subtle bg-white">
+            <tbody className="divide-y divide-surface-subtle bg-surface">
               {visible.map((txn) => {
                 const book = resolvedBook();
                 const groupId = groupOf(txn.categoryKey);
@@ -194,12 +200,12 @@ export function TransactionTable({
                 const name = txn.merchant;
                 return (
                   <Fragment key={txn.id}>
-                    <tr>
+                    <tr className={rowWash(txn.amount)}>
                       <td className={`${CELL} ${RULE} whitespace-nowrap text-xs text-ink`}>{txn.date}</td>
                       <td className={`${CELL} ${RULE} text-xs font-medium text-ink`}>{name}</td>
                       <td
                         className={`${CELL} ${RULE} text-xs font-semibold tabular-nums ${
-                          txn.amount > 0 ? "text-positive" : "text-ink"
+                          txn.amount > 0 ? "text-positive" : txn.amount < 0 ? "text-negative" : "text-ink"
                         }`}
                       >
                         {formatSignedAud(txn.amount)}
@@ -246,15 +252,15 @@ export function TransactionTable({
                       </td>
                     </tr>
                     {showStatement ? (
-                      <tr className="bg-surface-faint">
-                        <td colSpan={columns} className="px-3 py-2">
+                      <tr>
+                        <td colSpan={columns} className="border-l-[3px] border-l-line bg-surface py-2 pl-8 pr-3">
                           <ReadingBesideStatement txn={txn} />
                         </td>
                       </tr>
                     ) : null}
                     {spread?.id === txn.id ? (
-                      <tr className="bg-accent-surface-subtle">
-                        <td colSpan={columns} className="px-3 py-2 text-xs text-ink-soft" aria-live="polite">
+                      <tr>
+                        <td colSpan={columns} className="border-l-[3px] border-l-accent bg-surface py-2 pl-8 pr-3 text-xs text-ink-soft" aria-live="polite">
                           Saved.{" "}
                           {spread.others === 0
                             ? `${spread.merchant} will be filed here from now on.`
@@ -283,7 +289,7 @@ export function TransactionTable({
                 aria-label={`${size} rows per page`}
                 onClick={() => setPageSize(size)}
                 className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  pageSize === size ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
+                  pageSize === size ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
                 }`}
               >
                 {size}
@@ -324,8 +330,8 @@ export function TransactionTable({
 function HeaderCell({ children, last = false }: { children: string; last?: boolean }) {
   return (
     <th
-      className={`${CELL.replace("py-1.5", "py-2")} text-xs font-semibold uppercase tracking-wide text-muted ${
-        last ? "border-b border-surface-subtle" : `${RULE} border-b`
+      className={`${CELL.replace("py-1.5", "py-2")} text-xs font-semibold uppercase tracking-wide text-primary border-b-2 border-b-ink ${
+        last ? "" : "border-r border-r-surface-subtle"
       }`}
     >
       {children}
