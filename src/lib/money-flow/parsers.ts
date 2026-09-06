@@ -7,6 +7,7 @@ import { identifyAccounts } from "@/lib/money-flow/accounts";
 import { detectInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import { readBankSource } from "@/lib/money-flow/bank-filter";
+import { sourceFromPairs } from "@/lib/money-flow/source";
 import { interpretTable, rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
 import { transactionsFromText } from "@/lib/money-flow/text-lines";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
@@ -228,11 +229,24 @@ function parseOfx(text: string, sourceFile: string): InterpretedTransaction[] {
     const dateIso = parseDate(posted) ?? parseDate(posted.slice(0, 8));
     const name = ofxField(block, "NAME") || ofxField(block, "MEMO") || ofxField(block, "PAYEE");
     if (amount == null || !dateIso || !name) return [];
-    const read = readMovement(`${name} ${ofxField(block, "TRNTYPE")}`, amount, true);
+    const kind = ofxField(block, "TRNTYPE");
+    const read = readMovement(`${name} ${kind}`, amount, true);
     return [
       {
         id: `${sourceFile}-ofx-${index}`,
         merchant: tidyMerchant(name),
+        // The file's own fields for this movement. Only what the transaction block holds:
+        // the account and routing numbers live in the header above it, and a record of the
+        // money that moved has no need of them.
+        ...(kind.trim() ? { bank: { type: kind.trim() } } : {}),
+        source: sourceFromPairs([
+          ["Type", kind],
+          ["Date posted", posted],
+          ["Amount", ofxField(block, "TRNAMT")],
+          ["Name", ofxField(block, "NAME")],
+          ["Memo", ofxField(block, "MEMO")],
+          ["Reference", ofxField(block, "FITID")],
+        ]),
         categoryKey: read.categoryKey,
         ...(read.tag ? { tags: [read.tag] } : {}),
         decidedBy: read.decidedBy,
@@ -261,11 +275,26 @@ function parseQif(text: string, sourceFile: string): InterpretedTransaction[] {
     const amount = parseAmount(fieldLine(record, "T") || fieldLine(record, "U"));
     const name = fieldLine(record, "P") || fieldLine(record, "M") || fieldLine(record, "N");
     if (amount == null || !dateIso || !name) return [];
-    const read = readMovement(`${name} ${fieldLine(record, "L")}`, amount, true);
+    const kind = fieldLine(record, "N");
+    const category = fieldLine(record, "L");
+    const read = readMovement(`${name} ${category}`, amount, true);
+    const words = { ...(kind.trim() ? { type: kind.trim() } : {}), ...(category.trim() ? { category: category.trim() } : {}) };
     return [
       {
         id: `${sourceFile}-qif-${index}`,
         merchant: tidyMerchant(name),
+        // QIF's L is the file's own category and its N the cheque or reference kind. Both
+        // were read into the classification text and then dropped, so nothing downstream
+        // could tell that this file had called a movement a transfer.
+        ...(Object.keys(words).length > 0 ? { bank: words } : {}),
+        source: sourceFromPairs([
+          ["Date", fieldLine(record, "D")],
+          ["Amount", fieldLine(record, "T") || fieldLine(record, "U")],
+          ["Payee", fieldLine(record, "P")],
+          ["Memo", fieldLine(record, "M")],
+          ["Number", kind],
+          ["Category", category],
+        ]),
         categoryKey: read.categoryKey,
         ...(read.tag ? { tags: [read.tag] } : {}),
         decidedBy: read.decidedBy,

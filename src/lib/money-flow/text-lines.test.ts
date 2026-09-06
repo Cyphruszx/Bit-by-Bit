@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { sourceValue } from "./source";
+import { looksInternal } from "./statement-category";
 import { transactionsFromText } from "./text-lines";
 
 /**
@@ -159,5 +161,40 @@ Date Particulars Debits Credits Balance
     assert.equal(rows[1].amount, -50, "900 down to 850 is money out");
     assert.equal(rows[2].amount, -25);
     assert.equal(rows[0].confidence, 0.64, "the first row has nothing before it");
+  });
+});
+
+describe("what a text statement keeps beside its reading", () => {
+  const rows = transactionsFromText(NAB_LISTING, "listing.pdf");
+
+  it("keeps the cells it read, so a PDF is as inspectable as a spreadsheet", () => {
+    const row = rows[0];
+    assert.ok(row.source, "a movement read from text carries no source cells");
+    assert.deepEqual(row.source?.headers, ["Date", "Description", "Amount", "Balance"]);
+    assert.equal(sourceValue(row.source, "Date"), row.dateIso);
+    assert.equal(sourceValue(row.source, "Amount"), row.amount.toFixed(2));
+    assert.notEqual(sourceValue(row.source, "Balance"), "");
+  });
+
+  it("keeps the statement's own wording, so a transfer it named can be recognised", () => {
+    const internal = transactionsFromText(
+      [
+        "Opening Balance $500.00 CR",
+        "01 May 26 TRANSFER TO SAVINGS 082 $100.00 $400.00 CR",
+        "02 May 26 WOOLWORTHS METRO $50.00 $350.00 CR",
+        "03 May 26 COFFEE $50.00 $300.00 CR",
+        "Closing Balance $300.00 CR",
+      ].join("\n"),
+      "listing.pdf",
+    );
+    const moved = internal.find((row) => /transfer to savings/i.test(row.bank?.type ?? ""));
+    assert.ok(moved, "the statement's own wording was not kept");
+    assert.equal(looksInternal(moved), true);
+  });
+
+  it("still names a movement by its merchant, so no stored fingerprint moves", () => {
+    // This reader sets no description, so describe() falls back to the merchant. Writing
+    // one would re-key every movement already held and import the same money twice.
+    for (const row of rows) assert.equal(row.description, undefined);
   });
 });

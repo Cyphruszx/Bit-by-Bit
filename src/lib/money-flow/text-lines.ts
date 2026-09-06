@@ -1,6 +1,7 @@
 import { tidyMerchant } from "@/lib/money-flow/categorize";
 import { readMovement } from "@/lib/money-flow/interpret-row";
 import { formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { sourceFromPairs } from "@/lib/money-flow/source";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const DATE_PATTERN =
@@ -90,6 +91,21 @@ export function transactionsFromText(text: string, sourceFile: string): Interpre
     return {
       id: `${sourceFile}-line-${row.index}-${row.dateIso}`,
       merchant: tidyMerchant(row.description),
+      // What the statement printed on this line, kept the way a table's cells are kept, so
+      // a PDF is as inspectable as a CSV. The wording also goes to the bank layer, which is
+      // the only thing looksInternal and looksReturned read — without it a PDF saying
+      // "TRANSFER TO SAVINGS" was invisible to both, and only spreadsheets got that reading.
+      //
+      // Deliberately no `description`. This reader sets none today, so a movement here is
+      // identified by its merchant; writing one would move every stored fingerprint and
+      // import the same money a second time.
+      bank: { type: row.description },
+      source: sourceFromPairs([
+        ["Date", row.dateIso],
+        ["Description", row.description],
+        ["Amount", printed(read.amount)],
+        ["Balance", row.amounts.length >= 2 ? printed(last(row)) : ""],
+      ]),
       categoryKey: read.categoryKey,
       ...(read.tag ? { tags: [read.tag] } : {}),
       decidedBy: read.decidedBy,
@@ -213,6 +229,11 @@ function walk(rows: Row[], opening: number): number[] | null {
 /** The balance a row leaves behind: the last figure written on the line. */
 function last(row: Row): number {
   return row.amounts[row.amounts.length - 1];
+}
+
+/** A figure as a cell, so a stored source row reads like the page it came from. */
+function printed(amount: number): string {
+  return amount.toFixed(2);
 }
 
 /** What moved, which is whichever figure is not the balance. */

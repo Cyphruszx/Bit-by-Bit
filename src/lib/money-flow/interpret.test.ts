@@ -7,6 +7,7 @@ import { detectFileKind } from "./detect";
 import { interpretDocuments } from "./interpret";
 import { parseAmount, parseDate, roundMoney } from "./parse-values";
 import { sourceValue } from "./source";
+import { looksInternal } from "./statement-category";
 import { summarizeMoneyFlow, chartTagFlowSeries, tagFlowOverTime } from "./summary";
 import { filterByScope } from "./scope";
 import { markTransferLegs, matchTransfers, withoutMatchedLegs } from "./transfers";
@@ -120,6 +121,17 @@ describe("document interpretation", () => {
     assert.equal(result.flow.income, 2620);
     assert.equal(result.flow.spending, 1066.4);
     assert.equal(result.transactions.length, 3);
+
+    // The file's own fields, kept the way a spreadsheet's cells are kept.
+    const salary = result.transactions.find((txn) => /salary/i.test(txn.merchant));
+    assert.equal(sourceValue(salary?.source, "Type"), "CREDIT");
+    assert.equal(sourceValue(salary?.source, "Name"), "SALARY ACME PTY LTD");
+    assert.equal(salary?.bank?.type, "CREDIT");
+    // Never the account or routing numbers: those sit in the header above the movements,
+    // and a record of money that moved has no need of them.
+    assert.equal(salary?.source?.headers.some((header) => /acct|bank ?id|routing/i.test(header)), false);
+    // And no description, so the fingerprint this reader already gave a movement stands.
+    for (const txn of result.transactions) assert.equal(txn.description, undefined);
   });
 
   it("interprets unstructured receipt notes", async () => {
@@ -161,6 +173,25 @@ PSalary Acme
     const result = await interpretDocuments([file("export.qif", "application/qif", qif)]);
     assert.equal(result.flow.income, 2620);
     assert.equal(result.flow.spending, 86.4);
+
+    const shop = result.transactions.find((txn) => /woolworths/i.test(txn.merchant));
+    assert.equal(sourceValue(shop?.source, "Payee"), "Woolworths");
+    assert.equal(sourceValue(shop?.source, "Amount"), "-86.40");
+    for (const txn of result.transactions) assert.equal(txn.description, undefined);
+  });
+
+  it("keeps a QIF's own category, so a transfer it named can be recognised", async () => {
+    const qif = `!Type:Bank
+D25/08/2026
+T-250.00
+PMY SAVINGS
+LTransfer
+^
+`;
+    const result = await interpretDocuments([file("export.qif", "application/qif", qif)]);
+    const [moved] = result.transactions;
+    assert.equal(moved.bank?.category, "Transfer");
+    assert.equal(looksInternal(moved), true);
   });
 
   it("interprets an Excel statement", async () => {
