@@ -103,7 +103,6 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
       merchant: bank.merchant || raw.description,
       description: raw.description,
       bank,
-      source: raw.source,
     }),
     categoryKey: read.categoryKey,
     ...(read.tag ? { tags: [read.tag] } : {}),

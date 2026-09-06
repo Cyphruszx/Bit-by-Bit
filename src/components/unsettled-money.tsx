@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud } from "@/lib/format";
 import { accountLabel } from "@/lib/money-flow/accounts";
-import { displayName } from "@/lib/money-flow/display-name";
 import { unsettledGroups, type UnsettledGroup } from "@/lib/money-flow/income";
 import { describeSpan } from "@/lib/money-flow/parse-values";
 import { categoryLabel } from "@/lib/money-flow/taxonomy";
@@ -128,7 +127,7 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
 
   const groups = new Map<string, { rows: InterpretedTransaction[]; because: VerdictReason }>();
   for (const txn of settled) {
-    const label = displayName(txn);
+    const label = txn.merchant;
     // The account belongs in the key: one payer paying into two accounts is two verdicts,
     // and a single Undo can only ever clear the one it was given.
     const key = `${label}|${txn.verdict?.because}|${txn.accountId ?? txn.sourceFile}`;
@@ -144,7 +143,7 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
       <h2 className="text-base font-bold">What you&apos;ve told us</h2>
       <ul className="mt-3 divide-y divide-[#edf0ee]">
         {[...groups].map(([key, held]) => {
-          const label = displayName(held.rows[0]);
+          const label = held.rows[0].merchant;
           const amount = held.rows.reduce((sum, txn) => sum + Math.abs(txn.amount), 0);
           return (
             <li key={key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">

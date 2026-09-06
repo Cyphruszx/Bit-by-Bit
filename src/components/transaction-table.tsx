@@ -6,7 +6,6 @@ import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
 import { accountIdOf, accountLabel } from "@/lib/money-flow/accounts";
-import { displayName } from "@/lib/money-flow/display-name";
 import { hasSource, sourcePairs } from "@/lib/money-flow/source";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
 import {
@@ -84,7 +83,6 @@ export function TransactionTable({
         direction === "all" || (direction === "in" ? txn.amount > 0 : txn.amount < 0);
       const matchesQuery =
         needle.length === 0 ||
-        displayName(txn).toLowerCase().includes(needle) ||
         txn.merchant.toLowerCase().includes(needle) ||
         taxonomyPath(txn.categoryKey).toLowerCase().includes(needle) ||
         tags.some((name) => name.toLowerCase().includes(needle)) ||
@@ -109,7 +107,7 @@ export function TransactionTable({
     if (categoryKey === txn.categoryKey) return;
     setTransactionCategory(txn.id, categoryKey);
     const others = merchantRows(allTransactions, txn.merchant).filter((row) => row.id !== txn.id).length;
-    setSpread({ id: txn.id, merchant: displayName(txn), categoryKey, others });
+    setSpread({ id: txn.id, merchant: txn.merchant, categoryKey, others });
   }
 
   return (
@@ -193,7 +191,7 @@ export function TransactionTable({
                 const categories = inGroup.some((category) => category.key === txn.categoryKey)
                   ? inGroup
                   : [{ key: txn.categoryKey, label: categoryLabel(txn.categoryKey) }, ...inGroup];
-                const name = displayName(txn);
+                const name = txn.merchant;
                 return (
                   <Fragment key={txn.id}>
                     <tr>

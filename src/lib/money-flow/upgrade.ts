@@ -26,7 +26,9 @@ import {
   typeForCategory,
   UNCATEGORISED,
 } from "@/lib/money-flow/taxonomy";
-import type { DecidedBy, InterpretedTransaction } from "@/lib/money-flow/types";
+import { hasSource, sourceValue } from "@/lib/money-flow/source";
+import { nameFromPrintedLines } from "@/lib/money-flow/up-statement";
+import type { DecidedBy, InterpretedTransaction, SourceRow } from "@/lib/money-flow/types";
 
 /** A row as it may be sitting in storage: either shape, or halfway between. */
 export type StoredTransaction = Omit<InterpretedTransaction, "categoryKey" | "type"> & {
@@ -45,7 +47,8 @@ const FROM_TAG_SOURCE: Record<string, DecidedBy> = {
 };
 
 export function upgradeTransaction(row: StoredTransaction): InterpretedTransaction {
-  const { category, tagSource, ...rest } = row;
+  const { category, tagSource, ...stored } = row;
+  const rest = { ...stored, merchant: printedName(stored) };
 
   if (typeof row.categoryKey === "string" && row.categoryKey.trim()) {
     const migrated = migrateStoredCategory(row.categoryKey, row.tags);
@@ -99,6 +102,7 @@ export function storedInCurrentModel(row: StoredTransaction): boolean {
   if (!isCategoryKey(row.categoryKey)) return false;
   const upgraded = upgradeTransaction(row);
   return (
+    upgraded.merchant === row.merchant &&
     upgraded.categoryKey === row.categoryKey &&
     sameStrings(upgraded.tags, row.tags) &&
     upgraded.decidedBy === row.decidedBy
@@ -115,6 +119,47 @@ function sameStrings(a?: string[], b?: string[]): boolean {
   const left = [...(a ?? [])].map((value) => value.trim()).filter(Boolean).sort();
   const right = [...(b ?? [])].map((value) => value.trim()).filter(Boolean).sort();
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+/**
+ * The name a row would carry if its statement were read today.
+ *
+ * Movements imported before the bank adapters settled a name kept a tidied copy of it —
+ * "Kfc" for KFC, "Osko Payment Received" for the person who actually paid. Their source
+ * cells arrive later, when the same file is uploaded again, and this is what turns those
+ * cells back into the name the bank printed.
+ *
+ * Only rows the statement described. A movement identified by its name alone — OFX, QIF,
+ * a loose text statement — would take a new fingerprint if the name moved, and the same
+ * money would import a second time. Every row carrying source cells today also carries a
+ * description, so nothing that needs this is excluded by the guard.
+ */
+function printedName(row: Omit<StoredTransaction, "category" | "tagSource">): string {
+  if (!row.description?.trim()) return row.merchant;
+  if (!hasSource(row.source)) return collapse(row.bank?.merchant ?? "") || row.merchant;
+  return fromPrintedCells(row.source) || collapse(row.bank?.merchant ?? "") || row.merchant;
+}
+
+/**
+ * Which cell named a movement, in the two banks that existed before the adapters answered
+ * this themselves. Deliberately frozen: a bank added from here on names its movements as
+ * it reads them, so nothing new is ever added to this list.
+ */
+function fromPrintedCells(source: SourceRow | undefined): string {
+  const merchantName = collapse(sourceValue(source, "Merchant Name"));
+  if (merchantName) return merchantName;
+
+  const lines = sourceValue(source, "Lines");
+  if (lines) {
+    const printed = nameFromPrintedLines(lines.split(/\n/));
+    if (printed) return printed;
+  }
+
+  return collapse(sourceValue(source, "Transaction Details") || sourceValue(source, "Description"));
+}
+
+function collapse(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 /** The three old tags that meant something other than a category. */

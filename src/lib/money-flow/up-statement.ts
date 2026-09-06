@@ -1,4 +1,3 @@
-import { nameFromPrintedLines } from "@/lib/money-flow/display-name";
 import { interpretMovement, type RawMovement } from "@/lib/money-flow/interpret-row";
 import { parseAmount } from "@/lib/money-flow/parse-values";
 import { sourceFromPairs } from "@/lib/money-flow/source";
@@ -250,6 +249,48 @@ function timeFrom(lines: string[]): string {
 
 function merchantFrom(lines: string[], description: string): string {
   return nameFromPrintedLines(lines) || description;
+}
+
+/**
+ * The name Up printed inside one block, including the counterparty when it wrote one.
+ *
+ * Up puts the shop on the time line. For a payment between people it puts the rail there
+ * instead — "Osko Payment Received" — and the counterparty on the next line, in front of
+ * that same wording. Showing the rail names the pipe rather than the person, so where the
+ * second line ends with the first, what comes before it is the name.
+ *
+ * Lives here because it reads Up's layout and nothing else's. `upgrade.ts` borrows it to
+ * recover the name on rows stored before the adapters settled one.
+ */
+export function nameFromPrintedLines(lines: string[]): string {
+  const raw = lines.map((line) => line.trim()).filter(Boolean);
+  if (raw.length === 0) return "";
+
+  const timed = raw[0].match(TIME_LINE);
+  const onTimeLine = collapse(stripMoney(timed?.[2] ?? raw[0]));
+  const headline = onTimeLine.replace(/\b(purchase|refund|direct debit|eftpos withdrawal)$/i, "").trim();
+
+  const next = collapse(stripMoney((raw[1] ?? "").replace(TIME_LINE, "$2")));
+  if (headline && next) {
+    const cut = counterpartyBefore(next, headline);
+    if (cut) return cut;
+  }
+
+  return headline || next;
+}
+
+function counterpartyBefore(next: string, headline: string): string {
+  const escaped = headline.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const cut = next.replace(new RegExp(`(?:\\s+${escaped})+$`, "i"), "").trim();
+  return cut && cut !== next ? cut : "";
+}
+
+function stripMoney(text: string): string {
+  return text.replace(/([+-]?)\s*\$(\d{1,3}(?:,\d{3})*\.\d{2})/g, " ").replace(/\s+[+-]\s*$/g, " ");
+}
+
+function collapse(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function descriptionFrom(lines: string[]): string {
