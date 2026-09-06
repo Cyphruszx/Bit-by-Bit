@@ -63,9 +63,9 @@ export function AccountsView() {
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
+      <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Accounts and sources</h1>
-      <p className="mt-2 text-[#60716a]">
+      <p className="mt-2 text-muted">
         Every account BitbyBit has read, under the bank it belongs to. Name one to recognise it next
         time, or merge two that turned out to be the same account.
       </p>
@@ -94,7 +94,7 @@ export function AccountsView() {
       <IncomeRhythm />
 
       {suggestions.length > 0 ? (
-        <section className="mt-8 rounded-2xl border border-[#d8c3a8] bg-[#fdf6ec] p-6">
+        <section className="mt-8 rounded-2xl border border-attention-line bg-attention-surface p-6">
           <h2 className="text-lg font-bold">These might be the same account</h2>
           <div className="mt-4 space-y-3">
             {suggestions.map((suggestion) => {
@@ -103,11 +103,11 @@ export function AccountsView() {
               if (!keep || !drop) return null;
               return (
                 <div key={`${suggestion.keep}-${suggestion.merge}`} className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm text-[#5c5142]">{suggestion.reason}</p>
+                  <p className="text-sm text-attention-ink">{suggestion.reason}</p>
                   <button
                     type="button"
                     onClick={() => merge(drop, keep)}
-                    className="rounded-full bg-[#173b31] px-4 py-1.5 text-sm font-semibold text-white"
+                    className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
                   >
                     Merge them
                   </button>
@@ -121,9 +121,9 @@ export function AccountsView() {
       <section className="mt-8 space-y-8">
         {groups.map((group) => (
           <div key={group.institution}>
-            <div className="flex items-baseline justify-between border-b border-[#dce4df] pb-2">
-              <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{group.institution}</h2>
-              <p className="text-sm text-[#77857f]">
+            <div className="flex items-baseline justify-between border-b border-line pb-2">
+              <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{group.institution}</h2>
+              <p className="text-sm text-muted">
                 {group.accounts.length} account{group.accounts.length === 1 ? "" : "s"}
               </p>
             </div>
@@ -144,19 +144,19 @@ export function AccountsView() {
       </section>
 
       {files.length > 0 ? (
-        <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+        <article className="mt-8 rounded-2xl border border-line bg-white p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Uploaded documents</h2>
-            <Link href="/upload" className="text-sm font-semibold text-[#355a3f]">
+            <Link href="/upload" className="text-sm font-semibold text-ink-soft">
               Upload more
             </Link>
           </div>
-          <div className="mt-4 divide-y divide-[#edf0ee]">
+          <div className="mt-4 divide-y divide-surface-subtle">
             {files.map((file) => (
               <div className="flex flex-wrap items-center justify-between gap-3 py-3" key={file.filename}>
                 <div>
                   <p className="font-semibold">{file.filename}</p>
-                  <p className="mt-1 text-sm text-[#77857f]">
+                  <p className="mt-1 text-sm text-muted">
                     {file.kind.toUpperCase()} · {file.processingStatus}
                     {file.transactionCount ? ` · ${file.transactionCount} movements` : ""}
                   </p>
@@ -194,11 +194,11 @@ function AccountCard({
   onMerge: (into: AccountTotals) => void;
 }) {
   return (
-    <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
+    <article className="rounded-2xl border border-line bg-white p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold">{name}</h3>
-          <p className="mt-1 text-sm text-[#77857f]">
+          <p className="mt-1 text-sm text-muted">
             {account.transactions.length} movement{account.transactions.length === 1 ? "" : "s"}
             {account.named ? " · named" : ""}
           </p>
@@ -216,20 +216,20 @@ function AccountCard({
       </div>
 
       <p className="mt-4 text-2xl font-bold">{formatAud(account.flow.cashNet)}</p>
-      <p className="mt-1 text-sm text-[#77857f]">
+      <p className="mt-1 text-sm text-muted">
         {formatAud(account.flow.cashIn)} in · {formatAud(account.flow.cashOut)} out
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {account.keys.map((key) => (
-          <span key={key} className="rounded-full bg-[#f0f4f1] px-3 py-1 font-mono text-xs text-[#60716a]">
+          <span key={key} className="rounded-full bg-surface-subtle px-3 py-1 font-mono text-xs text-muted">
             {key}
           </span>
         ))}
       </div>
 
       {siblings.length > 0 ? (
-        <label className="mt-4 flex items-center gap-2 text-sm text-[#60716a]">
+        <label className="mt-4 flex items-center gap-2 text-sm text-muted">
           <span className="shrink-0">Same as</span>
           <select
             value=""
@@ -237,7 +237,7 @@ function AccountCard({
               const into = siblings.find((other) => other.id === event.target.value);
               if (into) onMerge(into);
             }}
-            className="w-full rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm"
+            className="w-full rounded-full border border-line bg-white px-3 py-1.5 text-sm"
           >
             <option value="">Another account…</option>
             {siblings.map((other) => (
@@ -286,8 +286,8 @@ function InlineName({
         }}
         className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold ${
           value === empty
-            ? "border-dashed border-[#c3d2ca] text-[#77857f]"
-            : "border-[#dce4df] bg-white text-[#355a3f]"
+            ? "border-dashed border-line-dashed text-muted"
+            : "border-line bg-white text-ink-soft"
         }`}
       >
         {value === empty ? emptyPrompt : "Rename"}
@@ -316,7 +316,7 @@ function InlineName({
           if (event.key === "Enter") save();
           if (event.key === "Escape") setEditing(false);
         }}
-        className="w-40 rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm"
+        className="w-40 rounded-full border border-line bg-white px-3 py-1.5 text-sm"
       />
       {options.length > 0 ? (
         <datalist id={`${listId}-list`}>
@@ -325,7 +325,7 @@ function InlineName({
           ))}
         </datalist>
       ) : null}
-      <button type="button" onClick={save} className="rounded-full bg-[#173b31] px-3 py-1.5 text-sm font-semibold text-white">
+      <button type="button" onClick={save} className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-white">
         Save
       </button>
     </div>

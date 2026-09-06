@@ -1,7 +1,7 @@
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import type { CategorySpend } from "@/lib/money-flow/types";
 
-export const TAG_CHART_COLORS = ["#173b31", "#73a883", "#5b8a9a", "#c4a35a", "#8b6b9b", "#9b3b32", "#355a3f", "#257155"];
+export const TAG_CHART_COLORS = ["var(--color-chart-1)", "var(--color-chart-2)", "var(--color-chart-3)", "var(--color-chart-4)", "var(--color-chart-5)", "var(--color-chart-6)", "var(--color-chart-7)", "var(--color-chart-8)"];
 
 const MIN_BAR_HEIGHT = 2;
 

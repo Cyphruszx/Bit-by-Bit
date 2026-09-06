@@ -24,9 +24,9 @@ type Direction = "all" | "in" | "out";
 
 const PAGE_SIZES = [5, 10, 25] as const;
 
-const RULE = "border-r border-[#edf0ee]";
+const RULE = "border-r border-surface-subtle";
 const CELL = "px-3 py-1.5";
-const SELECT = "w-full bg-transparent outline-none text-xs text-[#17211e]";
+const SELECT = "w-full bg-transparent outline-none text-xs text-ink";
 
 export function TransactionTable({
   transactions,
@@ -118,13 +118,13 @@ export function TransactionTable({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search merchants, categories, accounts, or statement cells"
-          className="w-full rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31] sm:max-w-xs"
+          className="w-full rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary sm:max-w-xs"
         />
         <select
           value={activeTag}
           onChange={(event) => selectTag(event.target.value)}
           aria-label="Filter by category or tag"
-          className="rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31]"
+          className="rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
         >
           {tagOptions.map((name) => (
             <option key={name} value={name}>
@@ -137,7 +137,7 @@ export function TransactionTable({
           aria-pressed={showStatement}
           onClick={() => setShowStatement((open) => !open)}
           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-            showStatement ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
+            showStatement ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
           }`}
         >
           {showStatement ? "Hide statement" : "Show statement"}
@@ -156,7 +156,7 @@ export function TransactionTable({
               aria-label={value === "all" ? "All directions" : value === "in" ? "Money in" : "Money out"}
               onClick={() => setDirection(value)}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                direction === value ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
+                direction === value ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
               }`}
             >
               {label}
@@ -165,13 +165,13 @@ export function TransactionTable({
         </div>
       </div>
       {rows.length === 0 ? (
-        <p className="mt-3 py-5 text-sm text-[#60716a]">
+        <p className="mt-3 py-5 text-sm text-muted">
           {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
         </p>
       ) : (
-        <div className="mt-3 overflow-x-auto rounded-xl border border-[#edf0ee]">
+        <div className="mt-3 overflow-x-auto rounded-xl border border-surface-subtle">
           <table className="w-full min-w-[900px] border-collapse text-left">
-            <thead className="sticky top-0 z-10 bg-[#f4f8ec]">
+            <thead className="sticky top-0 z-10 bg-accent-surface-subtle">
               <tr>
                 <HeaderCell>Date</HeaderCell>
                 <HeaderCell>Merchant</HeaderCell>
@@ -183,7 +183,7 @@ export function TransactionTable({
                 <HeaderCell last>Tag</HeaderCell>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#edf0ee] bg-white">
+            <tbody className="divide-y divide-surface-subtle bg-white">
               {visible.map((txn) => {
                 const book = resolvedBook();
                 const groupId = groupOf(txn.categoryKey);
@@ -195,19 +195,19 @@ export function TransactionTable({
                 return (
                   <Fragment key={txn.id}>
                     <tr>
-                      <td className={`${CELL} ${RULE} whitespace-nowrap text-xs text-[#17211e]`}>{txn.date}</td>
-                      <td className={`${CELL} ${RULE} text-xs font-medium text-[#17211e]`}>{name}</td>
+                      <td className={`${CELL} ${RULE} whitespace-nowrap text-xs text-ink`}>{txn.date}</td>
+                      <td className={`${CELL} ${RULE} text-xs font-medium text-ink`}>{name}</td>
                       <td
                         className={`${CELL} ${RULE} text-xs font-semibold tabular-nums ${
-                          txn.amount > 0 ? "text-[#257155]" : "text-[#17211e]"
+                          txn.amount > 0 ? "text-positive" : "text-ink"
                         }`}
                       >
                         {formatSignedAud(txn.amount)}
                       </td>
                       {showAccount ? (
-                        <td className={`${CELL} ${RULE} text-xs text-[#60716a]`}>{accountOf.get(txn.id)}</td>
+                        <td className={`${CELL} ${RULE} text-xs text-muted`}>{accountOf.get(txn.id)}</td>
                       ) : null}
-                      <td className={`${CELL} ${RULE} text-[11px] font-semibold text-[#77857f]`}>{txn.type}</td>
+                      <td className={`${CELL} ${RULE} text-[11px] font-semibold text-muted`}>{txn.type}</td>
                       <td className={`${CELL} ${RULE}`}>
                         <select
                           value={groupId}
@@ -246,22 +246,22 @@ export function TransactionTable({
                       </td>
                     </tr>
                     {showStatement ? (
-                      <tr className="bg-[#fafcf9]">
+                      <tr className="bg-surface-faint">
                         <td colSpan={columns} className="px-3 py-2">
                           <ReadingBesideStatement txn={txn} />
                         </td>
                       </tr>
                     ) : null}
                     {spread?.id === txn.id ? (
-                      <tr className="bg-[#f4f8ec]">
-                        <td colSpan={columns} className="px-3 py-2 text-xs text-[#355a3f]" aria-live="polite">
+                      <tr className="bg-accent-surface-subtle">
+                        <td colSpan={columns} className="px-3 py-2 text-xs text-ink-soft" aria-live="polite">
                           Saved.{" "}
                           {spread.others === 0
                             ? `${spread.merchant} will be filed here from now on.`
                             : spread.others === 1
                               ? `Also applied to one other ${spread.merchant} movement, and to any that arrive later.`
                               : `Also applied to ${formatCount(spread.others)} other ${spread.merchant} movements, and to any that arrive later.`}{" "}
-                          <span className="text-[#60716a]">You can undo this under What BitbyBit has learned.</span>
+                          <span className="text-muted">You can undo this under What BitbyBit has learned.</span>
                         </td>
                       </tr>
                     ) : null}
@@ -283,14 +283,14 @@ export function TransactionTable({
                 aria-label={`${size} rows per page`}
                 onClick={() => setPageSize(size)}
                 className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  pageSize === size ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
+                  pageSize === size ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
                 }`}
               >
                 {size}
               </button>
             ))}
           </div>
-          <p className="text-xs text-[#60716a]" aria-live="polite">
+          <p className="text-xs text-muted" aria-live="polite">
             Showing {formatCount(firstOnPage + 1)}–{formatCount(firstOnPage + visible.length)} of{" "}
             {formatCount(rows.length)}
           </p>
@@ -299,18 +299,18 @@ export function TransactionTable({
               type="button"
               onClick={() => setPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-40"
             >
               Previous
             </button>
-            <p className="text-xs font-semibold text-[#60716a]">
+            <p className="text-xs font-semibold text-muted">
               Page {formatCount(currentPage)} of {formatCount(pageCount)}
             </p>
             <button
               type="button"
               onClick={() => setPage(currentPage + 1)}
               disabled={currentPage === pageCount}
-              className="rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next
             </button>
@@ -324,8 +324,8 @@ export function TransactionTable({
 function HeaderCell({ children, last = false }: { children: string; last?: boolean }) {
   return (
     <th
-      className={`${CELL.replace("py-1.5", "py-2")} text-xs font-semibold uppercase tracking-wide text-[#527166] ${
-        last ? "border-b border-[#edf0ee]" : `${RULE} border-b`
+      className={`${CELL.replace("py-1.5", "py-2")} text-xs font-semibold uppercase tracking-wide text-muted ${
+        last ? "border-b border-surface-subtle" : `${RULE} border-b`
       }`}
     >
       {children}
@@ -363,14 +363,14 @@ function TagCell({
       {tags.map((name) => (
         <span
           key={name}
-          className="inline-flex items-center gap-1 rounded-full bg-[#edf4dc] px-2 py-0.5 text-[10px] font-semibold text-[#355a3f]"
+          className="inline-flex items-center gap-1 rounded-full bg-accent-surface px-2 py-0.5 text-[10px] font-semibold text-ink-soft"
         >
           {name}
           <button
             type="button"
             aria-label={`Remove ${name}`}
             onClick={() => onChange(tags.filter((tag) => tag !== name))}
-            className="text-[#527166] hover:text-[#173b31]"
+            className="text-muted hover:text-primary"
           >
             ×
           </button>
@@ -389,7 +389,7 @@ function TagCell({
           list={listId}
           placeholder={tags.length === 0 ? "Add tag..." : "Add..."}
           aria-label="Add a tag"
-          className={`border-b border-dashed border-[#c3d2ca] bg-transparent px-1 py-0.5 text-[11px] text-[#17211e] outline-none placeholder-[#77857f] ${
+          className={`border-b border-dashed border-line-dashed bg-transparent px-1 py-0.5 text-[11px] text-ink outline-none placeholder-muted ${
             tags.length === 0 ? "w-20" : "w-16"
           }`}
         />
@@ -419,14 +419,14 @@ function ReadingBesideStatement({ txn }: { txn: InterpretedTransaction }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#527166]">BitbyBit</p>
-        <p className="mt-1 text-[11px] text-[#60716a]">{typeLabel(txn.type)}</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">BitbyBit</p>
+        <p className="mt-1 text-[11px] text-muted">{typeLabel(txn.type)}</p>
         <div className="mt-1">
           <ClassificationChips txn={txn} />
         </div>
       </div>
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#527166]">Statement</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">Statement</p>
         <StatementCells txn={txn} />
       </div>
     </div>
@@ -440,8 +440,8 @@ function StatementCells({ txn }: { txn: InterpretedTransaction }) {
       <dl className="mt-1 grid grid-cols-[minmax(0,7.5rem)_1fr] gap-x-2 gap-y-0.5 text-[11px]">
         {pairs.map((cell, index) => (
           <div className="contents" key={`${cell.header}-${index}`}>
-            <dt className="truncate text-[#77857f]">{cell.header}</dt>
-            <dd className="min-w-0 break-words text-[#355a3f]">{cell.value || "—"}</dd>
+            <dt className="truncate text-muted">{cell.header}</dt>
+            <dd className="min-w-0 break-words text-ink-soft">{cell.value || "—"}</dd>
           </div>
         ))}
       </dl>
@@ -460,8 +460,8 @@ function StatementCells({ txn }: { txn: InterpretedTransaction }) {
       <dl className="mt-1 grid grid-cols-[minmax(0,7.5rem)_1fr] gap-x-2 gap-y-0.5 text-[11px]">
         {fallback.map(([header, value]) => (
           <div className="contents" key={header}>
-            <dt className="truncate text-[#77857f]">{header}</dt>
-            <dd className="min-w-0 break-words text-[#355a3f]">{value}</dd>
+            <dt className="truncate text-muted">{header}</dt>
+            <dd className="min-w-0 break-words text-ink-soft">{value}</dd>
           </div>
         ))}
       </dl>
@@ -469,7 +469,7 @@ function StatementCells({ txn }: { txn: InterpretedTransaction }) {
   }
 
   return (
-    <p className="mt-1 text-[11px] text-[#77857f]">
+    <p className="mt-1 text-[11px] text-muted">
       {hasSource(txn.source)
         ? "The statement row is empty."
         : "Re-upload the statement to keep every original cell."}

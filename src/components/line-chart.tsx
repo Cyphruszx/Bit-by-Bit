@@ -12,7 +12,7 @@ export type LineChartSeries = {
   points: ChartPoint[];
 };
 
-const POT_COLORS = ["#173b31", "#73a883", "#5b8a9a", "#c4a35a", "#8b6b9b", "#9b3b32"];
+const POT_COLORS = ["var(--color-chart-1)", "var(--color-chart-2)", "var(--color-chart-3)", "var(--color-chart-4)", "var(--color-chart-5)", "var(--color-chart-6)"];
 
 export function potLineColor(index: number) {
   return POT_COLORS[index % POT_COLORS.length];
@@ -31,7 +31,7 @@ export function LineChart({
 }) {
   const labels = sharedLabels(series);
   if (labels.length === 0) {
-    return <p className="text-sm text-[#60716a]">Nothing to plot yet.</p>;
+    return <p className="text-sm text-muted">Nothing to plot yet.</p>;
   }
 
   const width = 640;
@@ -65,16 +65,16 @@ export function LineChart({
               x2={width - pad.right}
               y1={y(tick)}
               y2={y(tick)}
-              stroke="#edf0ee"
+              stroke="var(--color-surface-subtle)"
               strokeWidth="1"
             />
-            <text x={pad.left - 8} y={y(tick) + 4} textAnchor="end" fill="#77857f" fontSize="11">
+            <text x={pad.left - 8} y={y(tick) + 4} textAnchor="end" fill="var(--color-muted)" fontSize="11">
               {formatAudCompact(tick)}
             </text>
           </g>
         ))}
         {minValue < 0 ? (
-          <line x1={pad.left} x2={width - pad.right} y1={y(0)} y2={y(0)} stroke="#c3cfc8" strokeWidth="1" />
+          <line x1={pad.left} x2={width - pad.right} y1={y(0)} y2={y(0)} stroke="var(--color-axis)" strokeWidth="1" />
         ) : null}
         {labels.map((label, index) =>
           index % xLabelEvery === 0 || index === labels.length - 1 ? (
@@ -83,7 +83,7 @@ export function LineChart({
               x={x(index)}
               y={height - 10}
               textAnchor="middle"
-              fill="#77857f"
+              fill="var(--color-muted)"
               fontSize="11"
             >
               {label.label}
@@ -126,7 +126,7 @@ export function LineChart({
           );
         })}
       </svg>
-      <figcaption className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-[#52625c]">
+      <figcaption className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted">
         {series.map((item) => (
           <span key={item.id} className="inline-flex items-center gap-2">
             <span

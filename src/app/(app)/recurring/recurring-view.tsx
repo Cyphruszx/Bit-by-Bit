@@ -44,9 +44,9 @@ export function RecurringView() {
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
+      <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Recurring payments</h1>
-      <p className="mt-2 max-w-2xl text-[#60716a]">
+      <p className="mt-2 max-w-2xl text-muted">
         {hasUploads
           ? "Track repeating money out from your documents. BitbyBit matches them against activity in this period."
           : "Add a repeating payment to track it. Upload a statement and BitbyBit will also suggest them from your own activity."}
@@ -65,16 +65,16 @@ export function RecurringView() {
         <SummaryCard label="Suggestions" value={String(suggestions.length)} detail="Seen in this period" />
       </section>
 
-      <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+      <article className="mt-8 rounded-2xl border border-line bg-white p-6">
         <h2 className="text-lg font-bold">Tracked</h2>
         {tracked.length === 0 ? (
-          <p className="mt-4 text-sm text-[#60716a]">
+          <p className="mt-4 text-sm text-muted">
             {period.kind === "all"
               ? "Nothing tracked yet. Confirm a suggestion or add a payment."
               : "Nothing tracked is due in this period."}
           </p>
         ) : (
-          <div className="mt-4 divide-y divide-[#edf0ee]">
+          <div className="mt-4 divide-y divide-surface-subtle">
             {tracked.map((item) => (
               <TrackedRow
                 key={item.id}
@@ -89,14 +89,14 @@ export function RecurringView() {
         )}
       </article>
 
-      <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+      <article className="mt-8 rounded-2xl border border-line bg-white p-6">
         <h2 className="text-lg font-bold">Suggested from activity</h2>
         {suggestions.length === 0 ? (
-          <p className="mt-4 text-sm text-[#60716a]">
+          <p className="mt-4 text-sm text-muted">
             {period.kind === "all" ? "No repeating money out to suggest right now." : "No repeating money out in this period."}
           </p>
         ) : (
-          <div className="mt-4 divide-y divide-[#edf0ee]">
+          <div className="mt-4 divide-y divide-surface-subtle">
             {suggestions.map((item) => (
               <SuggestionRow
                 key={item.fingerprint}
@@ -143,28 +143,28 @@ function TrackedRow({
           <p className="font-semibold">{item.name}</p>
           <StatusBadge status={snapshot.status} />
         </div>
-        <p className="mt-1 text-sm text-[#77857f]">
+        <p className="mt-1 text-sm text-muted">
           {formatAud(item.amount)} · {cadenceLabel(item.cadence)} · about {formatAud(monthlyEquivalent(item.amount, item.cadence))} / month
           {snapshot.matchedDate ? ` · seen ${formatDisplayDate(snapshot.matchedDate)}` : ""}
           {item.nextDate ? ` · next ${formatDisplayDate(item.nextDate)}` : ""}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <label className="text-sm text-[#60716a]">
+        <label className="text-sm text-muted">
           Date
           <input
             type="date"
             value={item.nextDate}
             onChange={(event) => onDateChange(event.target.value)}
-            className="ml-2 rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31]"
+            className="ml-2 rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
           />
         </label>
         {snapshot.status === "paid" ? null : (
-          <button type="button" className="text-sm font-semibold text-[#355a3f]" onClick={onMarkPaid}>
+          <button type="button" className="text-sm font-semibold text-ink-soft" onClick={onMarkPaid}>
             Mark paid
           </button>
         )}
-        <button type="button" className="text-sm font-semibold text-[#9b3b32]" onClick={onStop}>
+        <button type="button" className="text-sm font-semibold text-negative" onClick={onStop}>
           Stop tracking
         </button>
       </div>
@@ -175,12 +175,12 @@ function TrackedRow({
 function StatusBadge({ status }: { status: TrackingStatus }) {
   const tone =
     status === "paid"
-      ? "bg-[#edf4dc] text-[#257155]"
+      ? "bg-accent-surface text-positive"
       : status === "overdue"
-        ? "bg-[#f8e8e6] text-[#9b3b32]"
+        ? "bg-negative-surface text-negative"
         : status === "due"
-          ? "bg-[#173b31] text-white"
-          : "bg-[#edf0ee] text-[#60716a]";
+          ? "bg-primary text-white"
+          : "bg-surface-subtle text-muted";
   return <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${tone}`}>{statusLabel(status)}</span>;
 }
 
@@ -201,26 +201,26 @@ function SuggestionRow({
     <div className="flex flex-wrap items-center justify-between gap-3 py-4">
       <div>
         <p className="font-semibold">{item.merchant}</p>
-        <p className="mt-1 text-sm text-[#77857f]">
+        <p className="mt-1 text-sm text-muted">
           {formatAud(item.typicalAmount)} · {cadenceLabel(item.cadence)}
           {item.suggested ? " · seen once this period" : ` · ${item.count} times`}
           {item.lastDate ? ` · last ${item.lastDate}` : ""}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <label className="text-sm text-[#60716a]">
+        <label className="text-sm text-muted">
           Date
           <input
             type="date"
             value={nextDate}
             onChange={(event) => setNextDate(event.target.value)}
-            className="ml-2 rounded-full border border-[#dce4df] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#173b31]"
+            className="ml-2 rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
           />
         </label>
-        <button type="button" className="text-sm font-semibold text-[#355a3f]" onClick={() => onTrack(nextDate)}>
+        <button type="button" className="text-sm font-semibold text-ink-soft" onClick={() => onTrack(nextDate)}>
           Track
         </button>
-        <button type="button" className="text-sm font-semibold text-[#9b3b32]" onClick={onIgnore}>
+        <button type="button" className="text-sm font-semibold text-negative" onClick={onIgnore}>
           Ignore
         </button>
       </div>
@@ -241,7 +241,7 @@ function AddPaymentForm({
   const [nextDate, setNextDate] = useState(today);
 
   return (
-    <article className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+    <article className="mt-8 rounded-2xl border border-line bg-white p-6">
       <h2 className="text-lg font-bold">Add a payment</h2>
       <form
         className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_8rem_10rem_11rem_auto] lg:items-end"
@@ -257,30 +257,30 @@ function AddPaymentForm({
         }}
       >
         <label className="text-sm">
-          <span className="mb-1 block text-[#60716a]">Name</span>
+          <span className="mb-1 block text-muted">Name</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Rent, Netflix…"
-            className="w-full rounded-full border border-[#dce4df] px-4 py-2.5 text-sm outline-none focus:border-[#173b31]"
+            className="w-full rounded-full border border-line px-4 py-2.5 text-sm outline-none focus:border-primary"
           />
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-[#60716a]">Amount</span>
+          <span className="mb-1 block text-muted">Amount</span>
           <input
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
             inputMode="decimal"
             placeholder="0.00"
-            className="w-full rounded-full border border-[#dce4df] px-4 py-2.5 text-sm outline-none focus:border-[#173b31]"
+            className="w-full rounded-full border border-line px-4 py-2.5 text-sm outline-none focus:border-primary"
           />
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-[#60716a]">How often</span>
+          <span className="mb-1 block text-muted">How often</span>
           <select
             value={cadence}
             onChange={(event) => setCadence(event.target.value as Cadence)}
-            className="w-full rounded-full border border-[#dce4df] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#173b31]"
+            className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none focus:border-primary"
           >
             <option value="weekly">Weekly</option>
             <option value="fortnightly">Fortnightly</option>
@@ -289,16 +289,16 @@ function AddPaymentForm({
           </select>
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-[#60716a]">Date</span>
+          <span className="mb-1 block text-muted">Date</span>
           <input
             type="date"
             value={nextDate}
             onChange={(event) => setNextDate(event.target.value)}
             required
-            className="w-full rounded-full border border-[#dce4df] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#173b31]"
+            className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm outline-none focus:border-primary"
           />
         </label>
-        <button type="submit" className="rounded-full bg-[#173b31] px-5 py-2.5 text-sm font-semibold text-white">
+        <button type="submit" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">
           Add
         </button>
       </form>

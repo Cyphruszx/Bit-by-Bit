@@ -21,8 +21,8 @@ export function SignInForm() {
 
   if (session) {
     return (
-      <div className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
-        <p className="text-sm text-[#52625c]">
+      <div className="mt-8 rounded-2xl border border-line bg-white p-6">
+        <p className="text-sm text-muted">
           Signed in as <span className="font-semibold">{session.email}</span>. Your ledger is backed
           up as you change it.
         </p>
@@ -30,19 +30,19 @@ export function SignInForm() {
           <button
             type="button"
             onClick={() => router.push("/dashboard")}
-            className="rounded-full bg-[#173b31] px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white"
           >
             Back to the dashboard
           </button>
           <button
             type="button"
             onClick={() => void signOut()}
-            className="rounded-full border border-[#dce4df] px-4 py-2 text-sm font-semibold text-[#355a3f]"
+            className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft"
           >
             Sign out
           </button>
         </div>
-        <p className="mt-3 text-xs text-[#60716a]">
+        <p className="mt-3 text-xs text-muted">
           Signing out leaves this browser&apos;s copy alone. To remove your statements everywhere,
           use Clear on the upload screen.
         </p>
@@ -75,7 +75,7 @@ export function SignInForm() {
   const tooShort = making ? passwordError(password) : null;
 
   return (
-    <form onSubmit={submit} className="mt-8 rounded-2xl border border-[#dce4df] bg-white p-6">
+    <form onSubmit={submit} className="mt-8 rounded-2xl border border-line bg-white p-6">
       <label className="block text-sm font-semibold" htmlFor="email">
         Email
       </label>
@@ -85,7 +85,7 @@ export function SignInForm() {
         autoComplete="email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
-        className="mt-1 w-full rounded-xl border border-[#dce4df] px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm"
         required
       />
 
@@ -98,20 +98,20 @@ export function SignInForm() {
         autoComplete={making ? "new-password" : "current-password"}
         value={password}
         onChange={(event) => setPassword(event.target.value)}
-        className="mt-1 w-full rounded-xl border border-[#dce4df] px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm"
         required
       />
       {making && password.length > 0 && tooShort ? (
-        <p className="mt-1 text-xs text-[#8a5a2b]">{tooShort}</p>
+        <p className="mt-1 text-xs text-attention">{tooShort}</p>
       ) : null}
 
-      {problem ? <p className="mt-4 text-sm font-semibold text-[#8a2b2b]">{problem}</p> : null}
-      {note ? <p className="mt-4 text-sm font-semibold text-[#355a3f]">{note}</p> : null}
+      {problem ? <p className="mt-4 text-sm font-semibold text-negative-strong">{problem}</p> : null}
+      {note ? <p className="mt-4 text-sm font-semibold text-ink-soft">{note}</p> : null}
 
       <button
         type="submit"
         disabled={busy}
-        className="mt-5 w-full rounded-full bg-[#173b31] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+        className="mt-5 w-full rounded-full bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
       >
         {busy ? "One moment…" : making ? "Make an account" : "Sign in"}
       </button>
@@ -123,12 +123,12 @@ export function SignInForm() {
           setProblem(null);
           setNote(null);
         }}
-        className="mt-3 w-full text-sm font-semibold text-[#355a3f] underline"
+        className="mt-3 w-full text-sm font-semibold text-ink-soft underline"
       >
         {making ? "I already have an account" : "I need an account"}
       </button>
 
-      <p className="mt-4 text-xs text-[#60716a]">
+      <p className="mt-4 text-xs text-muted">
         Statements already in this browser are kept and added to the account, not replaced —
         unless they belong to someone else who signed in here, which stay theirs.
       </p>

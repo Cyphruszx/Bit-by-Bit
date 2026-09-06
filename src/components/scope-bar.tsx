@@ -50,7 +50,7 @@ export function ScopeBar({
 
       {openInstitution && openAccounts.length > 1 ? (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">In {openInstitution}</p>
+          <p className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-muted">In {openInstitution}</p>
           <Chip
             active={scope.kind === "institution"}
             onClick={() => onScope({ kind: "institution", institution: openInstitution })}
@@ -99,8 +99,8 @@ function Chip({
       onClick={onClick}
       className={`max-w-[16rem] truncate rounded-full px-3 py-1.5 font-semibold ${subdued ? "text-xs" : "text-sm"} ${
         active
-          ? "bg-[#173b31] text-white"
-          : `border bg-white text-[#355a3f] ${subdued ? "border-dashed border-[#c3d2ca]" : "border-[#dce4df]"}`
+          ? "bg-primary text-white"
+          : `border bg-white text-ink-soft ${subdued ? "border-dashed border-line-dashed" : "border-line"}`
       }`}
     >
       {children}

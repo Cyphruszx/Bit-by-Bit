@@ -71,11 +71,11 @@ export function TagChartCard({
     : "rounded-full px-3 py-1.5 text-sm font-semibold";
 
   return (
-    <article className={`rounded-2xl border border-[#dce4df] bg-white ${compact ? "p-4" : "p-6"}`}>
+    <article className={`rounded-2xl border border-line bg-white ${compact ? "p-4" : "p-6"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className={compact ? "text-base font-bold" : "text-lg font-bold"}>{title}</h2>
-          <p className={`text-[#60716a] ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"}`}>
+          <p className={`text-muted ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"}`}>
             {chart === "bar"
               ? "Money in sits above the line, money out below."
               : chart === "line"
@@ -98,7 +98,7 @@ export function TagChartCard({
               aria-pressed={chart === value}
               onClick={() => onChartChange(value)}
               className={`${toggleClass} ${
-                chart === value ? "bg-[#173b31] text-white" : "bg-[#edf4dc] text-[#355a3f]"
+                chart === value ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
               }`}
             >
               {compact ? short : long}
@@ -107,7 +107,7 @@ export function TagChartCard({
         </div>
       </div>
       {spend.length === 0 ? (
-        <p className={`${compact ? "mt-3" : "mt-5"} text-sm text-[#60716a]`}>{emptyLabel}</p>
+        <p className={`${compact ? "mt-3" : "mt-5"} text-sm text-muted`}>{emptyLabel}</p>
       ) : chart === "line" ? (
         <FlowLineChart points={timeline} compact={compact} />
       ) : chart === "pie" ? (
@@ -168,7 +168,7 @@ export function TagChartCard({
 function ChipRow({ label, children, compact = false }: { label: string; children: ReactNode; compact?: boolean }) {
   return (
     <div className={`flex flex-wrap items-center ${compact ? "gap-1.5" : "gap-2"}`}>
-      <span className={`shrink-0 text-[11px] font-semibold uppercase tracking-wide text-[#77857f] ${compact ? "w-12" : "w-16"}`}>
+      <span className={`shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted ${compact ? "w-12" : "w-16"}`}>
         {label}
       </span>
       {children}
@@ -193,7 +193,7 @@ function TagToggle({
       aria-pressed={active}
       onClick={onClick}
       className={`rounded-full font-semibold ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
-        active ? "bg-[#173b31] text-white" : "border border-[#dce4df] bg-white text-[#355a3f]"
+        active ? "bg-primary text-white" : "border border-line bg-white text-ink-soft"
       }`}
     >
       {children}
@@ -245,10 +245,10 @@ function BarGraph({
                 x2={width - pad.right}
                 y1={y}
                 y2={y}
-                stroke={isZero ? "#c3cfc8" : "#edf0ee"}
+                stroke={isZero ? "var(--color-axis)" : "var(--color-surface-subtle)"}
                 strokeWidth="1"
               />
-              <text x={pad.left - 8} y={y + 4} textAnchor="end" fill="#77857f" fontSize="11">
+              <text x={pad.left - 8} y={y + 4} textAnchor="end" fill="var(--color-muted)" fontSize="11">
                 {signedCompact(tick)}
               </text>
             </g>
@@ -284,7 +284,7 @@ function BarGraph({
                 x={pad.left + bar.x + bar.width / 2}
                 y={height - 14}
                 textAnchor="middle"
-                fill="#77857f"
+                fill="var(--color-muted)"
                 fontSize="11"
               >
                 {chartLabel(bar.name)}
@@ -302,7 +302,7 @@ function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[
     {
       id: "net",
       label: "Running total (money in adds, money out subtracts)",
-      color: "#173b31",
+      color: "var(--color-primary)",
       points: points.map((point) => ({ key: point.key, label: point.label, value: point.runningNet })),
     },
   ];
@@ -370,7 +370,7 @@ function PieChart({
               d={donutPath(cx, cy, outer, inner, slice.startAngle, slice.endAngle)}
               fill={slice.color}
               opacity={active(slice.name) ? 1 : 0.38}
-              stroke={slice.direction === "in" ? "#257155" : "transparent"}
+              stroke={slice.direction === "in" ? "var(--color-positive)" : "transparent"}
               strokeWidth={slice.direction === "in" ? 2 : 0}
               className="cursor-pointer"
               onClick={() => onSelectTag(slice.name)}
@@ -387,13 +387,13 @@ function PieChart({
           x={cx}
           y={cy - 6}
           textAnchor="middle"
-          fill={net >= 0 ? "#257155" : "#173b31"}
+          fill={net >= 0 ? "var(--color-positive)" : "var(--color-primary)"}
           fontSize="13"
           fontWeight="700"
         >
           {signedCompact(net)}
         </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="#77857f" fontSize="11">
+        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--color-muted)" fontSize="11">
           net
         </text>
       </svg>
@@ -408,22 +408,22 @@ function PieChart({
                 onClick={() => onSelectTag(slice.name)}
                 className={`flex w-full items-center justify-between gap-3 rounded-xl text-left ${
                   compact ? "px-2 py-1 text-xs" : "rounded-2xl px-3 py-2 text-sm"
-                } ${selected ? "bg-[#edf4dc]" : ""}`}
+                } ${selected ? "bg-accent-surface" : ""}`}
               >
                 <span className="inline-flex min-w-0 items-center gap-2">
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{
                       background: slice.color,
-                      boxShadow: slice.direction === "in" ? "0 0 0 2px #257155" : undefined,
+                      boxShadow: slice.direction === "in" ? "0 0 0 2px var(--color-positive)" : undefined,
                     }}
                   />
                   <span className="truncate font-medium">{chartLabel(slice.name)}</span>
-                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#77857f]">
+                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted">
                     {slice.direction}
                   </span>
                 </span>
-                <span className={`shrink-0 ${slice.amount >= 0 ? "text-[#257155]" : "text-[#60716a]"}`}>
+                <span className={`shrink-0 ${slice.amount >= 0 ? "text-positive" : "text-muted"}`}>
                   {formatSignedAud(slice.amount)} · {slice.share}%
                 </span>
               </button>

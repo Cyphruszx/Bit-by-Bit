@@ -67,14 +67,14 @@ export function TransactionsView() {
 
   return (
     <>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#527166]">{flow.periodLabel}</p>
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight">Transactions</h1>
-      <p className="mt-1 max-w-2xl text-sm text-[#60716a]">
+      <p className="mt-1 max-w-2xl text-sm text-muted">
         Money in and out from your uploaded documents. Charts group by category, so nothing is
         counted twice and money you moved, borrowed or paid back stays out of the totals.
       </p>
       <ScopeBar groups={groups} scope={scope} onScope={setScope} />
-      <p className="mt-3 text-sm text-[#60716a]">{describeScope(scope)}</p>
+      <p className="mt-3 text-sm text-muted">{describeScope(scope)}</p>
       <section className="mt-4 grid gap-3 sm:grid-cols-3">
         <SummaryCard
           label="Money in"
@@ -97,9 +97,9 @@ export function TransactionsView() {
           compact
         />
       </section>
-      <article className="mt-4 overflow-hidden rounded-2xl border border-[#dce4df] bg-white p-4">
+      <article className="mt-4 overflow-hidden rounded-2xl border border-line bg-white p-4">
         <h2 className="text-base font-bold">Transactions</h2>
-        <p className="mt-0.5 text-xs text-[#60716a]">
+        <p className="mt-0.5 text-xs text-muted">
           Every movement in this period — one row each, so the same shop appears as many times as you
           paid it. Show statement to put the bank&apos;s own cells beside BitbyBit&apos;s reading. The
           bank&apos;s words are evidence, not the answer.
@@ -151,11 +151,11 @@ function TagManager({
   }
 
   return (
-    <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-bold">Your tags</h2>
-          <p className="mt-0.5 text-xs text-[#60716a]">
+          <p className="mt-0.5 text-xs text-muted">
             Tags are yours to invent — anything you want to find a movement by. They never change a
             total; that is what the category on each movement is for.
           </p>
@@ -168,7 +168,7 @@ function TagManager({
             if (open) setEditing(null);
             setOpen(!open);
           }}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f]"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft"
         >
           {open ? "Hide" : `Show ${tags.length}`}
           <span aria-hidden="true" className={`inline-block leading-none ${open ? "rotate-180" : ""}`}>
@@ -176,9 +176,9 @@ function TagManager({
           </span>
         </button>
       </div>
-      <div id="tag-manager-list" hidden={!open} className="mt-3 divide-y divide-[#edf0ee]">
+      <div id="tag-manager-list" hidden={!open} className="mt-3 divide-y divide-surface-subtle">
         {tags.length === 0 ? (
-          <p className="py-2 text-sm text-[#60716a]">
+          <p className="py-2 text-sm text-muted">
             No tags yet. Add one to any movement and it will show up here.
           </p>
         ) : null}
@@ -197,19 +197,19 @@ function TagManager({
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   aria-label={`Rename ${tag}`}
-                  className="rounded-full border border-[#dce4df] px-3 py-1.5 text-sm outline-none focus:border-[#173b31]"
+                  className="rounded-full border border-line px-3 py-1.5 text-sm outline-none focus:border-primary"
                 />
-                <button type="submit" className="text-sm font-semibold text-[#355a3f]">
+                <button type="submit" className="text-sm font-semibold text-ink-soft">
                   Save
                 </button>
-                <button type="button" onClick={() => setEditing(null)} className="text-sm text-[#60716a]">
+                <button type="button" onClick={() => setEditing(null)} className="text-sm text-muted">
                   Cancel
                 </button>
               </form>
             ) : (
               <div>
                 <p className="text-sm font-semibold">{tag}</p>
-                <p className="text-xs text-[#77857f]">
+                <p className="text-xs text-muted">
                   On {counts.get(tag) ?? 0} transaction{counts.get(tag) === 1 ? "" : "s"}
                 </p>
               </div>
@@ -218,7 +218,7 @@ function TagManager({
               <div className="flex gap-3">
                 <button
                   type="button"
-                  className="text-sm font-semibold text-[#355a3f]"
+                  className="text-sm font-semibold text-ink-soft"
                   onClick={() => {
                     setEditing(tag);
                     setDraft(tag);
@@ -226,7 +226,7 @@ function TagManager({
                 >
                   Rename
                 </button>
-                <button type="button" className="text-sm font-semibold text-[#9b3b32]" onClick={() => onRemove(tag)}>
+                <button type="button" className="text-sm font-semibold text-negative" onClick={() => onRemove(tag)}>
                   Remove
                 </button>
               </div>

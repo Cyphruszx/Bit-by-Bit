@@ -25,11 +25,15 @@
   --forest-150: #dce4df;
   --forest-100: #edf0ee;
   --forest-50: #f6f8f7;
+  --forest-25: #fafcf9;
 
   /* Lime - the accent used on calls to action */
   --lime-400: #d5f06c;
   --lime-100: #edf4dc;
   --lime-50: #f4f8ec;
+
+  /* Sage - the third brand green, on progress fills and the mark */
+  --sage-500: #73a883;
 
   /* Status */
   --green-600: #257155;
@@ -43,7 +47,6 @@
   --clay-700: #5c5142;
 
   /* Categorical - charts only, chosen to stay distinct side by side */
-  --chart-sage: #73a883;
   --chart-slate: #5b8a9a;
   --chart-sand: #c4a35a;
   --chart-plum: #8b6b9b;
@@ -62,6 +65,7 @@
   --color-canvas: var(--forest-50);
   --color-surface: var(--white);
   --color-surface-subtle: var(--forest-100);
+  --color-surface-faint: var(--forest-25);
 
   /* Text
      Three steps, all AA at body size on every surface above.
@@ -83,6 +87,7 @@
   /* Brand */
   --color-primary: var(--forest-900);
   --color-on-primary: var(--white);
+  --color-secondary: var(--sage-500);
   --color-accent: var(--lime-400);
   --color-on-accent: var(--forest-900);
   --color-accent-surface: var(--lime-100);
@@ -101,7 +106,7 @@
 
   /* Categorical - keep this order; charts read it as a sequence */
   --color-chart-1: var(--forest-900);
-  --color-chart-2: var(--chart-sage);
+  --color-chart-2: var(--sage-500);
   --color-chart-3: var(--chart-slate);
   --color-chart-4: var(--chart-sand);
   --color-chart-5: var(--chart-plum);

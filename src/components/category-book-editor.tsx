@@ -53,7 +53,7 @@ export function CategoryBookEditor({
           <button
             type="button"
             onClick={() => setAddingGroup(true)}
-            className="rounded-full bg-[#173b31] px-4 py-1.5 text-sm font-semibold text-white"
+            className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
           >
             Add group
           </button>
@@ -77,10 +77,10 @@ export function CategoryBookEditor({
         );
       })}
 
-      <p className="pt-2 text-sm text-[#77857f]">
+      <p className="pt-2 text-sm text-muted">
         <button
           type="button"
-          className="font-semibold text-[#355a3f] underline"
+          className="font-semibold text-ink-soft underline"
           onClick={() => {
             if (window.confirm("Restore the usual categories, groups, and bank labels?")) {
               onChange(null);
@@ -118,14 +118,14 @@ function GroupCard({
   const canRemove = categories.every((category) => !category.builtin);
 
   return (
-    <section className="rounded-2xl border border-[#dce4df] bg-white">
+    <section className="rounded-2xl border border-line bg-white">
       <header className="flex flex-wrap items-center gap-2 px-5 py-4">
         <button
           type="button"
           aria-expanded={open}
           aria-controls={`group-${groupId}`}
           onClick={() => setOpen((held) => !held)}
-          className="rounded-full px-2 py-1 text-xs font-semibold text-[#527166] hover:bg-[#edf4dc]"
+          className="rounded-full px-2 py-1 text-xs font-semibold text-muted hover:bg-accent-surface"
         >
           {open ? "Hide" : "Show"}
         </button>
@@ -135,7 +135,7 @@ function GroupCard({
           className="text-lg font-bold"
           onSave={(next) => onChange(renameGroup(book, groupId, next))}
         />
-        <span className="text-sm text-[#77857f]">{categoryCount(categories.length)}</span>
+        <span className="text-sm text-muted">{categoryCount(categories.length)}</span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {adding ? (
             <NameForm
@@ -151,7 +151,7 @@ function GroupCard({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="text-sm font-semibold text-[#355a3f]"
+              className="text-sm font-semibold text-ink-soft"
             >
               Add category
             </button>
@@ -160,7 +160,7 @@ function GroupCard({
             <button
               type="button"
               onClick={() => onChange(removeGroup(book, groupId))}
-              className="text-sm font-semibold text-[#8a5a1e]"
+              className="text-sm font-semibold text-attention"
             >
               Remove group
             </button>
@@ -168,9 +168,9 @@ function GroupCard({
         </div>
       </header>
       {open ? (
-        <div id={`group-${groupId}`} className="border-t border-[#edf0ee] px-5 py-2">
+        <div id={`group-${groupId}`} className="border-t border-surface-subtle px-5 py-2">
           {categories.length === 0 ? (
-            <p className="py-4 text-sm text-[#60716a]">No categories in this group yet.</p>
+            <p className="py-4 text-sm text-muted">No categories in this group yet.</p>
           ) : (
             categories.map((category) => (
               <CategoryBlock
@@ -212,14 +212,14 @@ function CategoryBlock({
   );
 
   return (
-    <article className="border-b border-[#edf0ee] py-3 last:border-b-0">
+    <article className="border-b border-surface-subtle py-3 last:border-b-0">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           aria-expanded={open}
           aria-controls={`category-${category.key}`}
           onClick={() => setOpen((held) => !held)}
-          className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-[#527166] hover:bg-[#edf4dc]"
+          className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-muted hover:bg-accent-surface"
         >
           {open ? "Hide" : "Show"}
         </button>
@@ -229,19 +229,19 @@ function CategoryBlock({
           className="font-semibold"
           onSave={(next) => onChange(renameCategory(book, category.key, next))}
         />
-        <span className="text-xs text-[#77857f]">{bankCount(category.bankCategories.length)}</span>
+        <span className="text-xs text-muted">{bankCount(category.bankCategories.length)}</span>
         {hasUploads ? (
-          <span className="text-xs text-[#77857f]">
+          <span className="text-xs text-muted">
             {movements === 0 ? "No movements in this period" : `${formatCount(movements)} in this period`}
           </span>
         ) : null}
-        <label className="ml-auto flex items-center gap-1.5 text-[11px] text-[#77857f]">
+        <label className="ml-auto flex items-center gap-1.5 text-[11px] text-muted">
           Group
           <select
             value={category.groupId}
             aria-label={`Group for ${category.label}`}
             onChange={(event) => onChange(moveCategory(book, category.key, event.target.value))}
-            className="rounded-full border border-[#dce4df] bg-white px-2 py-0.5 text-[11px] outline-none focus:border-[#173b31]"
+            className="rounded-full border border-line bg-white px-2 py-0.5 text-[11px] outline-none focus:border-primary"
           >
             {book.groups.map((group) => (
               <option key={group.id} value={group.id}>
@@ -256,7 +256,7 @@ function CategoryBlock({
             title={movements > 0 ? "Remove after re-filing the movements that use this category" : "Remove category"}
             disabled={movements > 0}
             onClick={() => onChange(removeCategory(book, category.key))}
-            className="text-xs font-semibold text-[#8a5a1e] disabled:opacity-40"
+            className="text-xs font-semibold text-attention disabled:opacity-40"
           >
             Remove
           </button>
@@ -265,7 +265,7 @@ function CategoryBlock({
       {open ? (
         <div id={`category-${category.key}`} className="mt-2 pl-2 sm:pl-8">
           {category.bankCategories.length === 0 && unusedSeen.length === 0 ? (
-            <p className="text-xs text-[#77857f]">No bank categories mapped yet.</p>
+            <p className="text-xs text-muted">No bank categories mapped yet.</p>
           ) : null}
           <ul className="space-y-1">
             {category.bankCategories.map((name) => (
@@ -273,14 +273,14 @@ function CategoryBlock({
                 <EditableLabel
                   value={name}
                   ariaLabel={`Bank category, ${name}`}
-                  className="text-sm text-[#355a3f]"
+                  className="text-sm text-ink-soft"
                   onSave={(next) => onChange(renameBankCategory(book, category.key, name, next))}
                 />
                 <button
                   type="button"
                   aria-label={`Remove ${name}`}
                   onClick={() => onChange(removeBankCategory(book, category.key, name))}
-                  className="text-xs font-semibold text-[#77857f] hover:text-[#173b31]"
+                  className="text-xs font-semibold text-muted hover:text-primary"
                 >
                   ×
                 </button>
@@ -289,7 +289,7 @@ function CategoryBlock({
           </ul>
           {unusedSeen.length > 0 ? (
             <div className="mt-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#77857f]">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
                 Seen in your statements
               </p>
               <div className="mt-1 flex flex-wrap gap-1.5">
@@ -298,7 +298,7 @@ function CategoryBlock({
                     key={name}
                     type="button"
                     onClick={() => onChange(addBankCategory(book, category.key, name))}
-                    className="rounded-full bg-[#f4f8ec] px-2 py-0.5 text-[11px] font-semibold text-[#355a3f]"
+                    className="rounded-full bg-accent-surface-subtle px-2 py-0.5 text-[11px] font-semibold text-ink-soft"
                   >
                     + {name}
                   </button>
@@ -318,7 +318,7 @@ function CategoryBlock({
                 }}
               />
             ) : (
-              <button type="button" onClick={() => setAdding(true)} className="text-xs font-semibold text-[#355a3f]">
+              <button type="button" onClick={() => setAdding(true)} className="text-xs font-semibold text-ink-soft">
                 Add bank category
               </button>
             )}
@@ -360,7 +360,7 @@ function EditableLabel({
           setDraft(value);
           setEditing(true);
         }}
-        className={`rounded px-0.5 text-left hover:bg-[#edf4dc] ${className ?? ""}`}
+        className={`rounded px-0.5 text-left hover:bg-accent-surface ${className ?? ""}`}
       >
         {value}
       </button>
@@ -381,7 +381,7 @@ function EditableLabel({
         autoFocus
         onChange={(event) => setDraft(event.target.value)}
         onBlur={save}
-        className={`w-full rounded-full border border-[#dce4df] bg-white px-2.5 py-0.5 outline-none focus:border-[#173b31] ${className ?? ""}`}
+        className={`w-full rounded-full border border-line bg-white px-2.5 py-0.5 outline-none focus:border-primary ${className ?? ""}`}
       />
     </form>
   );
@@ -415,12 +415,12 @@ function NameForm({
         placeholder={placeholder}
         aria-label={placeholder}
         autoFocus
-        className="w-40 rounded-full border border-[#dce4df] bg-white px-2.5 py-1 text-sm outline-none focus:border-[#173b31]"
+        className="w-40 rounded-full border border-line bg-white px-2.5 py-1 text-sm outline-none focus:border-primary"
       />
-      <button type="submit" className="rounded-full bg-[#173b31] px-3 py-1 text-xs font-semibold text-white">
+      <button type="submit" className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white">
         {submitLabel}
       </button>
-      <button type="button" onClick={onCancel} className="text-xs font-semibold text-[#60716a]">
+      <button type="button" onClick={onCancel} className="text-xs font-semibold text-muted">
         Cancel
       </button>
     </form>

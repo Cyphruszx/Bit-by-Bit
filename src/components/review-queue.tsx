@@ -28,9 +28,9 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
   if (groups.length === 0) {
     if (progress.total === 0) return null;
     return (
-      <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
+      <article className="mt-4 rounded-2xl border border-line bg-white p-4">
         <h2 className="text-base font-bold">Everything is sorted</h2>
-        <p className="mt-0.5 text-xs text-[#60716a]">
+        <p className="mt-0.5 text-xs text-muted">
           All {formatCount(progress.total)} movements in this period have a category.
         </p>
       </article>
@@ -40,18 +40,18 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
   const shown = open ? groups : groups.slice(0, SHOWN);
 
   return (
-    <article className="mt-4 rounded-2xl border border-[#dce4df] bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-bold">Needs a category</h2>
-          <p className="mt-0.5 text-xs text-[#60716a]">
+          <p className="mt-0.5 text-xs text-muted">
             {groups.length === 1
               ? "One merchant to place."
               : `${formatCount(groups.length)} merchants to place, biggest first.`}{" "}
             Answer one and every movement of that merchant follows, now and later.
           </p>
         </div>
-        <p className="shrink-0 text-xs font-semibold text-[#355a3f]">
+        <p className="shrink-0 text-xs font-semibold text-ink-soft">
           {progress.percent}% sorted
         </p>
       </div>
@@ -62,21 +62,21 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label="How much of this period has a category"
-        className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#edf0ee]"
+        className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-subtle"
       >
-        <div className="h-full rounded-full bg-[#173b31]" style={{ width: `${progress.percent}%` }} />
+        <div className="h-full rounded-full bg-primary" style={{ width: `${progress.percent}%` }} />
       </div>
-      <p className="mt-1.5 text-xs text-[#77857f]">
+      <p className="mt-1.5 text-xs text-muted">
         {formatCount(progress.sorted)} of {formatCount(progress.total)} placed ·{" "}
         {formatAud(progress.unsorted)} still to account for
       </p>
 
-      <ul className="mt-3 divide-y divide-[#edf0ee]">
+      <ul className="mt-3 divide-y divide-surface-subtle">
         {shown.map((group) => (
           <li className="flex flex-wrap items-center justify-between gap-2 py-2" key={group.merchant}>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{group.merchant}</p>
-              <p className="text-xs text-[#77857f]">
+              <p className="text-xs text-muted">
                 {group.count === 1 ? "One movement" : `${formatCount(group.count)} movements`} ·{" "}
                 {formatAud(Math.abs(group.amount))} {group.amount > 0 ? "in" : "out"}
               </p>
@@ -90,7 +90,7 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
                     setMerchantCategory(group.merchant, event.target.value);
                   }
                 }}
-                className="rounded-full border border-[#dce4df] bg-white px-2.5 py-1 text-xs outline-none focus:border-[#173b31]"
+                className="rounded-full border border-line bg-white px-2.5 py-1 text-xs outline-none focus:border-primary"
               >
                 <option value={UNCATEGORISED}>Choose a category</option>
                 {pickerGroups().map((held) => (
@@ -112,7 +112,7 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          className="mt-2 rounded-full bg-[#edf4dc] px-2.5 py-1 text-xs font-semibold text-[#355a3f]"
+          className="mt-2 rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft"
         >
           {open ? "Show fewer" : `Show all ${formatCount(groups.length)}`}
         </button>

@@ -24,20 +24,20 @@ export function ClassificationChips({ txn }: { txn: InterpretedTransaction }) {
     <div className="flex flex-wrap items-center gap-1">
       <span
         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-          unsorted ? "bg-[#fdf2e3] text-[#8a5a1e]" : "bg-[#173b31] text-white"
+          unsorted ? "bg-attention-surface-strong text-attention" : "bg-primary text-white"
         }`}
       >
         {group}
       </span>
       {showCategory ? (
-        <span className="inline-flex items-center rounded-full bg-[#edf0ee] px-2 py-0.5 text-[11px] font-semibold text-[#173b31]">
+        <span className="inline-flex items-center rounded-full bg-surface-subtle px-2 py-0.5 text-[11px] font-semibold text-primary">
           {category}
         </span>
       ) : null}
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center rounded-full bg-[#edf4dc] px-2 py-0.5 text-[11px] font-semibold text-[#355a3f]"
+          className="inline-flex items-center rounded-full bg-accent-surface px-2 py-0.5 text-[11px] font-semibold text-ink-soft"
         >
           {tag}
         </span>
@@ -70,7 +70,7 @@ function Note({ tone, children }: { tone: "settled" | "offered"; children: React
   return (
     <span
       className={`text-[10px] font-semibold uppercase tracking-wide ${
-        tone === "settled" ? "text-[#527166]" : "text-[#8a5a1e]"
+        tone === "settled" ? "text-muted" : "text-attention"
       }`}
     >
       {children}

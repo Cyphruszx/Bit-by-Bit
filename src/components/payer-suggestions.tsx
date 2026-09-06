@@ -40,9 +40,9 @@ export function PayerSuggestions() {
   return (
     <section className="mt-8 space-y-4">
       {suggestions.length > 0 ? (
-        <article className="rounded-2xl border border-[#d8c3a8] bg-[#fdf6ec] p-6">
+        <article className="rounded-2xl border border-attention-line bg-attention-surface p-6">
           <h2 className="text-lg font-bold">These might be the same payer</h2>
-          <p className="mt-1 max-w-2xl text-sm text-[#5c5142]">
+          <p className="mt-1 max-w-2xl text-sm text-attention-ink">
             Your bank does not always write a payer&apos;s name the same way. Until you say, each
             wording is counted as its own stream, which splits a rate and asks you the same question
             twice.
@@ -54,21 +54,21 @@ export function PayerSuggestions() {
                 className="flex flex-wrap items-center justify-between gap-3"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[#3d3527]">
+                  <p className="truncate text-sm font-semibold text-attention-ink">
                     {suggestion.mergeLabel}
                   </p>
-                  <p className="mt-0.5 text-sm text-[#5c5142]">
+                  <p className="mt-0.5 text-sm text-attention-ink">
                     {suggestion.count} movement{suggestion.count === 1 ? "" : "s"} ·{" "}
                     <span className="tabular-nums">{formatAud(suggestion.amount)}</span> · {suggestion.reason}
                   </p>
-                  <p className="mt-0.5 truncate text-sm text-[#5c5142]">
+                  <p className="mt-0.5 truncate text-sm text-attention-ink">
                     Would join <span className="font-semibold">{suggestion.keepLabel}</span>
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => mergePayers(suggestion.merge, suggestion.keep)}
-                  className="rounded-full bg-[#173b31] px-4 py-1.5 text-sm font-semibold text-white"
+                  className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
                 >
                   Same payer
                 </button>
@@ -79,19 +79,19 @@ export function PayerSuggestions() {
       ) : null}
 
       {joined.length > 0 ? (
-        <article className="rounded-2xl border border-[#dce4df] bg-white p-6">
+        <article className="rounded-2xl border border-line bg-white p-6">
           <h2 className="text-base font-bold">Payers you&apos;ve joined</h2>
-          <ul className="mt-3 divide-y divide-[#edf0ee]">
+          <ul className="mt-3 divide-y divide-surface-subtle">
             {joined.map((merge) => (
               <li key={merge.from} className="flex flex-wrap items-baseline justify-between gap-3 py-2">
-                <p className="min-w-0 truncate text-sm text-[#52625c]">
+                <p className="min-w-0 truncate text-sm text-muted">
                   <span className="font-semibold">{merge.dropped}</span> counted as{" "}
                   <span className="font-semibold">{merge.label}</span>
                 </p>
                 <button
                   type="button"
                   onClick={() => mergePayers(merge.from, null)}
-                  className="rounded-full border border-[#dce4df] px-3 py-1.5 text-sm font-semibold text-[#355a3f]"
+                  className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft"
                 >
                   Separate
                 </button>
