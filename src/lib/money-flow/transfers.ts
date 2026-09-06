@@ -44,8 +44,6 @@ export type MatchOptions = {
   accounts?: AccountRegistry["names"];
 };
 
-export const EMPTY_MATCH: TransferMatch = { pairs: [], contested: [], matched: new Set() };
-
 /**
  * Pairs a debit with the credit that is the same money arriving in another of the
  * person's accounts. The bank's own wording is deliberately not consulted: NAB calls

@@ -134,14 +134,6 @@ export function countedMovements(transactions: InterpretedTransaction[]): Interp
   return transactions.filter((txn) => txn.verdict?.counts !== false && !settled(txn));
 }
 
-export function isOutflow(txn: InterpretedTransaction): boolean {
-  return txn.amount < 0 && !txn.transferPair;
-}
-
-export function isInflow(txn: InterpretedTransaction): boolean {
-  return txn.amount > 0 && !txn.transferPair;
-}
-
 /** A credit the household actually earned, rather than one that merely arrived. */
 export function isEarnings(txn: InterpretedTransaction): boolean {
   return txn.amount > 0 && countsAsIncome(txn.type);

@@ -60,8 +60,8 @@ export type InterpretedTransaction = {
   id: string;
   merchant: string;
   /**
-   * What the money was for, as a stable key like `food.groceries`. Stable because the
-   * display name used to be the identity, so renaming a tag rewrote every row that
+   * What the money was for, as a stable key like `groceries`. Stable because the
+   * display name used to be the identity, so renaming a category rewrote every row that
    * carried it and no report could be compared with one drawn a week earlier.
    */
   categoryKey: string;

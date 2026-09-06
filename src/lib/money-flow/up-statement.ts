@@ -1,8 +1,7 @@
 import { nameFromPrintedLines } from "@/lib/money-flow/display-name";
-import { interpretMovement, type RawMovement } from "@/lib/money-flow/interpret-row";
+import type { RawMovement } from "@/lib/money-flow/interpret-row";
 import { parseAmount } from "@/lib/money-flow/parse-values";
 import { sourceFromPairs } from "@/lib/money-flow/source";
-import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const MONTHS: Record<string, number> = {
   jan: 1,
@@ -33,10 +32,6 @@ export function looksLikeUpStatement(text: string): boolean {
     /zap card \*\*/i.test(text) ||
     /osko payment received/i.test(text)
   );
-}
-
-export function transactionsFromUpStatement(text: string, sourceFile: string): InterpretedTransaction[] {
-  return movementsFromUpStatement(text, sourceFile).map(interpretMovement);
 }
 
 export function movementsFromUpStatement(text: string, sourceFile: string): RawMovement[] {
