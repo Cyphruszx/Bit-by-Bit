@@ -18,8 +18,9 @@
   /* Alloy - aluminium and machined steel, now the supporting ground */
   /* Aluminium - true neutrals, sampled from the archive's own objects.
      No warm cast at all: the candles, trays and folding chairs photograph
-     as a clean grey ladder, and the site sets black on white over it. */
-  --aluminium-950: #000000;
+     as a clean grey ladder. The archive sets pure black on white over it;
+     this softens that by a hair, for tables read a column at a time. */
+  --aluminium-950: #1a1a1a;
   --aluminium-700: #333333;
   --aluminium-500: #696969;
   --aluminium-300: #b4b4b4;
