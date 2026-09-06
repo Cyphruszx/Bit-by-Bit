@@ -1,50 +1,52 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   Design tokens - the archive, cobalt forward
+   Design tokens - polished silver, navy and electric blue
    --------------------------------------------------------------------------
-   The same shelf of objects, but the blue one leads. Cobalt carries the
-   primary role: buttons, borders, the first chart series. Aluminium and
-   ceramic step back into a supporting neutral ground.
-
    Three layers: primitives -> semantic -> component.
-   Components reference the semantic layer only, never a raw hex.
+   Components should reference the semantic layer only (via Tailwind
+   utilities such as `text-muted` or `border-line`), never a raw hex.
+
+   Swapping the theme means rewriting the primitives below. The semantic
+   names and every component that uses them stay exactly as they are.
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
    Layer 1 - Primitives
+   The raw palette. Nothing outside this file should use these directly;
+   they exist so the semantic layer has one place to change.
    -------------------------------------------------------------------------- */
 :root {
-  /* Alloy - aluminium and machined steel, now the supporting ground */
-  /* Aluminium - true neutrals, sampled from the archive's own objects.
-     No warm cast at all: the candles, trays and folding chairs photograph
-     as a clean grey ladder. The archive sets pure black on white over it;
-     this softens that by a hair, for tables read a column at a time. */
-  --aluminium-950: #1a1a1a;
-  --aluminium-700: #333333;
-  --aluminium-500: #696969;
-  --aluminium-300: #b4b4b4;
-  --aluminium-250: #cfcfcf;
-  --aluminium-200: #d6d6d6;
-  --aluminium-150: #e4e4e4;
-  --aluminium-100: #ebebeb;
-  --aluminium-50: #f5f5f5;
-  --aluminium-25: #fafafa;
+  /* Silver - cool neutrals, darkest to lightest */
+  --silver-950: #0a0a0a;
+  --silver-700: #31353b;
+  --silver-500: #626976;
+  --silver-300: #b3b9c6;
+  --silver-250: #cdd2da;
+  --silver-200: #d6dae0;
+  --silver-150: #dfe1e5;
+  --silver-100: #e7e9ec;
+  --silver-50: #f2f3f5;
+  --silver-25: #fafbfc;
 
-  /* Blue - the only chroma in the room. Ultramarine is the deep blue of
-     the objects themselves; electric is the archive's own accent, used
-     the way it uses it: sparingly, at full strength, never diluted. */
-  --ultramarine-800: #16227f;
-  --ultramarine-500: #2f47b8;
-  --electric-500: #0000fe;
-  --wash-100: #e6e9ff;
+  /* Blue - navy carries the weight, electric makes the call */
+  --navy-800: #1e2a78;
+  --navy-500: #4a5bc4;
+  --electric-500: #0022ff;
+  --wash-100: #e4e8ff;
   --wash-50: #f2f4ff;
 
-  /* Status */
-  --verdigris-600: #0e755f;
-  --rust-700: #a63a2c;
-  --rust-800: #8a2c22;
-  --rust-50: #fbeae6;
+  /* Direction - money coming in reads blue, going out reads red.
+     Blue rather than green on purpose: red-green colour blindness
+     distorts one axis, and blue is not on it. The pair separates
+     four times better than green would. */
+  --inflow-600: #1155cc;
+  --inflow-50: #e6ebfc;
+  --outflow-600: #bb1626;
+  --outflow-700: #8a1019;
+  --outflow-50: #fce8e6;
+
+  /* Attention - warm, so it stands apart from the cool palette */
   --brass-700: #866117;
   --brass-200: #dcc7a0;
   --brass-100: #fdf1dd;
@@ -52,7 +54,7 @@
   --clay-700: #5a5140;
 
   /* Categorical - charts only, chosen to stay distinct side by side */
-  --chart-steel: #5f8fa8;
+  --chart-mid: #7e88b8;
   --chart-brass: #c09a52;
   --chart-plum: #8069a8;
 
@@ -67,41 +69,44 @@
    -------------------------------------------------------------------------- */
 @theme static {
   /* Surfaces */
-  --color-canvas: var(--aluminium-50);
+  --color-canvas: var(--silver-50);
   --color-surface: var(--white);
-  --color-surface-subtle: var(--aluminium-100);
-  --color-surface-faint: var(--aluminium-25);
+  --color-surface-subtle: var(--silver-100);
+  --color-surface-faint: var(--silver-25);
 
   /* Text - three steps, all AA at body size on every surface above */
-  --color-ink: var(--aluminium-950);
-  --color-ink-soft: var(--aluminium-700);
-  --color-muted: var(--aluminium-500);
+  --color-ink: var(--silver-950);
+  --color-ink-soft: var(--silver-700);
+  --color-muted: var(--silver-500);
 
   /* Text on dark surfaces */
   --color-on-dark: var(--white);
-  --color-on-dark-muted: var(--aluminium-300);
+  --color-on-dark-muted: var(--silver-300);
 
   /* Lines */
-  --color-line: var(--aluminium-150);
-  --color-line-dashed: var(--aluminium-250);
-  --color-axis: var(--aluminium-200);
+  --color-line: var(--silver-150);
+  --color-line-dashed: var(--silver-250);
+  --color-axis: var(--silver-200);
 
-  /* Brand - ultramarine carries the weight, electric makes the call.
-     Inactive chips sit on a pale wash so the full-strength blue stays
-     rare enough to still mean something. */
-  --color-primary: var(--ultramarine-800);
+  /* Brand */
+  --color-primary: var(--navy-800);
   --color-on-primary: var(--white);
-  --color-secondary: var(--ultramarine-500);
+  --color-secondary: var(--navy-500);
   --color-accent: var(--electric-500);
   --color-on-accent: var(--white);
   --color-accent-surface: var(--wash-100);
   --color-accent-surface-subtle: var(--wash-50);
 
-  /* Status - money moving the right way, the wrong way, or needing a look */
-  --color-positive: var(--verdigris-600);
-  --color-negative: var(--rust-700);
-  --color-negative-strong: var(--rust-800);
-  --color-negative-surface: var(--rust-50);
+  /* Direction - the figure carries the colour, the row carries the wash.
+     The wash is faint once colour vision is reduced, so the saturated
+     figure and the +/- sign are what actually do the telling. */
+  --color-positive: var(--inflow-600);
+  --color-positive-surface: var(--inflow-50);
+  --color-negative: var(--outflow-600);
+  --color-negative-strong: var(--outflow-700);
+  --color-negative-surface: var(--outflow-50);
+
+  /* Attention - money that needs a look */
   --color-attention: var(--brass-700);
   --color-attention-ink: var(--clay-700);
   --color-attention-line: var(--brass-200);
@@ -109,14 +114,14 @@
   --color-attention-surface-strong: var(--brass-100);
 
   /* Categorical - keep this order; charts read it as a sequence */
-  --color-chart-1: var(--ultramarine-800);
-  --color-chart-2: var(--ultramarine-500);
-  --color-chart-3: var(--chart-steel);
+  --color-chart-1: var(--navy-800);
+  --color-chart-2: var(--navy-500);
+  --color-chart-3: var(--chart-mid);
   --color-chart-4: var(--chart-brass);
   --color-chart-5: var(--chart-plum);
-  --color-chart-6: var(--rust-700);
-  --color-chart-7: var(--aluminium-500);
-  --color-chart-8: var(--verdigris-600);
+  --color-chart-6: var(--outflow-600);
+  --color-chart-7: var(--silver-500);
+  --color-chart-8: var(--inflow-600);
 }
 
 /* --------------------------------------------------------------------------
@@ -157,6 +162,15 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Headings are a tier of the type scale, so the accent lives here rather
+   than on any one component. A heading that sets its own colour class
+   still wins, since a utility outranks an element selector. */
+h1,
+h2,
+h3 {
+  color: var(--color-accent);
 }
 
 button,

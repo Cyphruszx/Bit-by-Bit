@@ -28,6 +28,12 @@ const RULE = "border-r border-surface-subtle";
 const CELL = "px-3 py-1.5";
 const SELECT = "w-full bg-transparent outline-none text-xs text-ink";
 
+function rowWash(amount: number) {
+  if (amount > 0) return "bg-positive-surface";
+  if (amount < 0) return "bg-negative-surface";
+  return "";
+}
+
 export function TransactionTable({
   transactions,
   tag,
@@ -171,7 +177,7 @@ export function TransactionTable({
       ) : (
         <div className="mt-3 overflow-x-auto rounded-xl border border-surface-subtle">
           <table className="w-full min-w-[900px] border-collapse text-left">
-            <thead className="sticky top-0 z-10 bg-accent-surface-subtle">
+            <thead className="sticky top-0 z-10 bg-surface">
               <tr>
                 <HeaderCell>Date</HeaderCell>
                 <HeaderCell>Merchant</HeaderCell>
@@ -194,12 +200,12 @@ export function TransactionTable({
                 const name = txn.merchant;
                 return (
                   <Fragment key={txn.id}>
-                    <tr>
+                    <tr className={rowWash(txn.amount)}>
                       <td className={`${CELL} ${RULE} whitespace-nowrap text-xs text-ink`}>{txn.date}</td>
                       <td className={`${CELL} ${RULE} text-xs font-medium text-ink`}>{name}</td>
                       <td
                         className={`${CELL} ${RULE} text-xs font-semibold tabular-nums ${
-                          txn.amount > 0 ? "text-positive" : "text-ink"
+                          txn.amount > 0 ? "text-positive" : txn.amount < 0 ? "text-negative" : "text-ink"
                         }`}
                       >
                         {formatSignedAud(txn.amount)}
@@ -246,15 +252,15 @@ export function TransactionTable({
                       </td>
                     </tr>
                     {showStatement ? (
-                      <tr className="bg-surface-faint">
-                        <td colSpan={columns} className="px-3 py-2">
+                      <tr>
+                        <td colSpan={columns} className="border-l-[3px] border-l-line bg-surface py-2 pl-8 pr-3">
                           <ReadingBesideStatement txn={txn} />
                         </td>
                       </tr>
                     ) : null}
                     {spread?.id === txn.id ? (
-                      <tr className="bg-accent-surface-subtle">
-                        <td colSpan={columns} className="px-3 py-2 text-xs text-ink-soft" aria-live="polite">
+                      <tr>
+                        <td colSpan={columns} className="border-l-[3px] border-l-accent bg-surface py-2 pl-8 pr-3 text-xs text-ink-soft" aria-live="polite">
                           Saved.{" "}
                           {spread.others === 0
                             ? `${spread.merchant} will be filed here from now on.`
@@ -324,8 +330,8 @@ export function TransactionTable({
 function HeaderCell({ children, last = false }: { children: string; last?: boolean }) {
   return (
     <th
-      className={`${CELL.replace("py-1.5", "py-2")} text-xs font-semibold uppercase tracking-wide text-muted ${
-        last ? "border-b border-surface-subtle" : `${RULE} border-b`
+      className={`${CELL.replace("py-1.5", "py-2")} text-xs font-semibold uppercase tracking-wide text-primary border-b-2 border-b-ink ${
+        last ? "" : "border-r border-r-surface-subtle"
       }`}
     >
       {children}
