@@ -5,7 +5,7 @@ import { siteDescription, siteName } from "@/lib/brand";
 const features = [
   ["Almost any document", "CSV, Excel, PDF, OFX, QIF, Word, HTML, JSON, photos of receipts, and plain text."],
   ["AI reads photos", "Vision extracts totals from receipts and statement photos, then suggests tags when the merchant is unclear."],
-  ["Interpreted money flow", "See money in, money out, and a primary tag plus optional sub-tag on each movement."],
+  ["Interpreted money flow", "See money in, money out, and a category on each movement, with optional tags."],
   ["Made for Australia", "Dates, dollars, and merchants parsed with local statements in mind."],
 ];
 
@@ -51,7 +51,7 @@ export default function Home() {
             </div>
             <div className="rounded-2xl bg-white/10 p-4">
               <p className="text-xs text-[#b9cdc4]">Money out</p>
-              <p className="mt-1 font-bold">Spending by primary tag</p>
+              <p className="mt-1 font-bold">Spending by category</p>
             </div>
           </div>
         </div>
@@ -65,7 +65,7 @@ export default function Home() {
         ))}
       </section>
       <footer className="border-t border-[#dce4df] px-6 py-8 text-center text-sm text-[#60716a]">
-        {siteName} · Your statements stay in this browser
+        {siteName} · Statements stay in this browser. Sign in to keep a backup.
       </footer>
     </main>
   );
