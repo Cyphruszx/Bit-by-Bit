@@ -107,7 +107,7 @@ export function AccountsView() {
                   <button
                     type="button"
                     onClick={() => merge(drop, keep)}
-                    className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
+                    className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
                   >
                     Merge them
                   </button>
@@ -144,7 +144,7 @@ export function AccountsView() {
       </section>
 
       {files.length > 0 ? (
-        <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+        <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Uploaded documents</h2>
             <Link href="/upload" className="text-sm font-semibold text-ink-soft">
@@ -194,7 +194,7 @@ function AccountCard({
   onMerge: (into: AccountTotals) => void;
 }) {
   return (
-    <article className="rounded-2xl border border-line bg-white p-6">
+    <article className="rounded-2xl border border-line bg-surface p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold">{name}</h3>
@@ -237,7 +237,7 @@ function AccountCard({
               const into = siblings.find((other) => other.id === event.target.value);
               if (into) onMerge(into);
             }}
-            className="w-full rounded-full border border-line bg-white px-3 py-1.5 text-sm"
+            className="w-full rounded-full border border-line bg-surface px-3 py-1.5 text-sm"
           >
             <option value="">Another account…</option>
             {siblings.map((other) => (
@@ -287,7 +287,7 @@ function InlineName({
         className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold ${
           value === empty
             ? "border-dashed border-line-dashed text-muted"
-            : "border-line bg-white text-ink-soft"
+            : "border-line bg-surface text-ink-soft"
         }`}
       >
         {value === empty ? emptyPrompt : "Rename"}
@@ -316,7 +316,7 @@ function InlineName({
           if (event.key === "Enter") save();
           if (event.key === "Escape") setEditing(false);
         }}
-        className="w-40 rounded-full border border-line bg-white px-3 py-1.5 text-sm"
+        className="w-40 rounded-full border border-line bg-surface px-3 py-1.5 text-sm"
       />
       {options.length > 0 ? (
         <datalist id={`${listId}-list`}>
@@ -325,7 +325,7 @@ function InlineName({
           ))}
         </datalist>
       ) : null}
-      <button type="button" onClick={save} className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-white">
+      <button type="button" onClick={save} className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary">
         Save
       </button>
     </div>

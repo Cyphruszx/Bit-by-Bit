@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <main className="min-h-screen bg-canvas text-ink">
-      <header className="border-b border-line bg-white">
+      <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
           <BrandMark href="/dashboard" />
           <AppNav />

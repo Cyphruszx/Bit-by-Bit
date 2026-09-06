@@ -53,7 +53,7 @@ export function CategoryBookEditor({
           <button
             type="button"
             onClick={() => setAddingGroup(true)}
-            className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
+            className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
           >
             Add group
           </button>
@@ -118,7 +118,7 @@ function GroupCard({
   const canRemove = categories.every((category) => !category.builtin);
 
   return (
-    <section className="rounded-2xl border border-line bg-white">
+    <section className="rounded-2xl border border-line bg-surface">
       <header className="flex flex-wrap items-center gap-2 px-5 py-4">
         <button
           type="button"
@@ -241,7 +241,7 @@ function CategoryBlock({
             value={category.groupId}
             aria-label={`Group for ${category.label}`}
             onChange={(event) => onChange(moveCategory(book, category.key, event.target.value))}
-            className="rounded-full border border-line bg-white px-2 py-0.5 text-[11px] outline-none focus:border-primary"
+            className="rounded-full border border-line bg-surface px-2 py-0.5 text-[11px] outline-none focus:border-primary"
           >
             {book.groups.map((group) => (
               <option key={group.id} value={group.id}>
@@ -381,7 +381,7 @@ function EditableLabel({
         autoFocus
         onChange={(event) => setDraft(event.target.value)}
         onBlur={save}
-        className={`w-full rounded-full border border-line bg-white px-2.5 py-0.5 outline-none focus:border-primary ${className ?? ""}`}
+        className={`w-full rounded-full border border-line bg-surface px-2.5 py-0.5 outline-none focus:border-primary ${className ?? ""}`}
       />
     </form>
   );
@@ -415,9 +415,9 @@ function NameForm({
         placeholder={placeholder}
         aria-label={placeholder}
         autoFocus
-        className="w-40 rounded-full border border-line bg-white px-2.5 py-1 text-sm outline-none focus:border-primary"
+        className="w-40 rounded-full border border-line bg-surface px-2.5 py-1 text-sm outline-none focus:border-primary"
       />
-      <button type="submit" className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white">
+      <button type="submit" className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-on-primary">
         {submitLabel}
       </button>
       <button type="button" onClick={onCancel} className="text-xs font-semibold text-muted">

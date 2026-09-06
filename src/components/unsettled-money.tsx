@@ -32,7 +32,7 @@ export function UnsettledMoney({ transactions }: { transactions: InterpretedTran
   const total = groups.reduce((sum, group) => sum + group.amount, 0);
 
   return (
-    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-base font-bold">Money in we can&apos;t place</h2>
         <p className="text-sm text-muted">
@@ -139,7 +139,7 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
   }
 
   return (
-    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
       <h2 className="text-base font-bold">What you&apos;ve told us</h2>
       <ul className="mt-3 divide-y divide-surface-subtle">
         {[...groups].map(([key, held]) => {

@@ -90,7 +90,7 @@ export function DashboardView() {
               <button
                 type="button"
                 onClick={() => toggleInstitution(institution)}
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-sm font-semibold text-ink-soft"
+                className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft"
               >
                 Show
               </button>
@@ -99,7 +99,7 @@ export function DashboardView() {
         </section>
       ) : null}
 
-      <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+      <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
         <h2 className="text-lg font-bold">How the money moved</h2>
         <ul className="mt-4 space-y-2 text-muted">
           {flow.insights.map((insight) => (
@@ -108,7 +108,7 @@ export function DashboardView() {
         </ul>
       </article>
       <section className="mt-8">
-        <article className="rounded-2xl border border-line bg-white p-6">
+        <article className="rounded-2xl border border-line bg-surface p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Savings</h2>
             <Link href="/savings" className="text-sm font-semibold text-ink-soft">
@@ -184,7 +184,7 @@ function IncomeBreakdown({ sources, income }: { sources: IncomeSource[]; income:
   if (sources.length < 2) return null;
 
   return (
-    <section className="mt-4 rounded-2xl border border-line bg-white p-6">
+    <section className="mt-4 rounded-2xl border border-line bg-surface p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-base font-bold">What&apos;s in money in</h2>
         <p className="text-sm text-muted">
@@ -271,7 +271,7 @@ function FlowCards({
  */
 function InstitutionSection({ group, onHide }: { group: InstitutionAccounts; onHide: () => void }) {
   return (
-    <article className="rounded-2xl border border-line bg-white p-6">
+    <article className="rounded-2xl border border-line bg-surface p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold">{group.institution}</h3>
