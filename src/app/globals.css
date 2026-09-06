@@ -1,70 +1,66 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   Design tokens - the archive
+   Design tokens - the archive at night
    --------------------------------------------------------------------------
-   Drawn from a shelf of objects rather than a colour wheel: brushed and
-   anodised aluminium, fog glass, soft white ceramic, and one saturated
-   cobalt sitting among them the way a single blue object sits on a shelf
-   of metal ones.
+   The same objects, photographed on black. Surfaces get lighter as they
+   raise off the page rather than darker, aluminium becomes the ink, and
+   the cobalt is the only thing in the room with a colour.
 
    Three layers: primitives -> semantic -> component.
-   Components reference the semantic layer only (via Tailwind utilities
-   such as `text-muted` or `border-line`), never a raw hex.
+   Components reference the semantic layer only, never a raw hex.
 
-   Swapping the theme means rewriting the primitives below. The semantic
-   names and every component that uses them stay exactly as they are.
+   One inversion is deliberate. --color-primary is used as a background
+   (28 places), a border (18) and as text on light chips (8). On black a
+   single value cannot be both a button ground and readable text, so here
+   primary is the PALE metal and --color-on-primary is the dark one. The
+   calls to action invert with it: a cobalt ground with pale metal on top.
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
    Layer 1 - Primitives
-   The raw palette. Nothing outside this file should use these directly;
-   they exist so the semantic layer has one place to change.
    -------------------------------------------------------------------------- */
 :root {
-  /* Alloy - aluminium and machined steel. Warm at the dark end where metal
-     is anodised, faintly green-grey through the middle where it is cut. */
-  --alloy-950: #1e1d1a;
-  --alloy-800: #2c2a26;
-  --alloy-700: #4b4944;
-  --alloy-500: #696760;
-  --alloy-300: #bcbab3;
-  --alloy-250: #c9c7c0;
-  --alloy-200: #d1cfc8;
-  --alloy-150: #dddbd4;
-  --alloy-100: #ecebe5;
+  /* Alloy - aluminium read the other way up. Light at the top because on
+     black it is the metal that carries the text. */
+  --alloy-50: #f2f1ed;
+  --alloy-150: #d6d3cb;
+  --alloy-300: #cdcbc4;
+  --alloy-500: #9a978f;
+  --alloy-700: #56534d;
+  --alloy-800: #3a3936;
+  --alloy-850: #34332f;
+  --alloy-900: #2e2d2a;
 
-  /* Ceramic and fog glass - the light surfaces. Off-white, never paper white. */
-  --ceramic-50: #f7f6f2;
-  --fog-25: #fcfbf8;
+  /* Ground - the black the objects sit on, and the surfaces that lift off it */
+  --ground-950: #0e0e0d;
+  --ground-900: #121211;
+  --ground-850: #191917;
+  --ground-800: #232220;
+  --ground-750: #1a1a18;
 
-  /* Cobalt - the one saturated object. Earns its place on the mark and the
-     progress fill, nowhere else. */
+  /* Cobalt - the one thing in the room with a colour. Deep enough to hold
+     pale metal on top as a button, bright enough to read as a chart bar. */
   --cobalt-600: #2338c8;
+  --cobalt-400: #5a6ee8;
+  --cobalt-900: #1b2352;
+  --cobalt-950: #151a3a;
 
-  /* Blue glass - the softer blue, thin enough to read dark text through. */
-  --glass-400: #7db3dd;
-  --glass-100: #dfeaf4;
-  --glass-50: #eff5fa;
+  /* Status - patina, oxide and brass, lifted to read on black */
+  --verdigris-400: #4fbfa2;
+  --rust-400: #e08376;
+  --rust-300: #f0a99e;
+  --rust-950: #2e1c18;
+  --brass-400: #d8ab52;
+  --brass-200: #e8dcc4;
+  --brass-900: #4a3c1e;
+  --brass-950: #2a2318;
+  --brass-925: #33291a;
 
-  /* Status - patina, oxide and brass, so warnings sit in the same material
-     world as the metal rather than arriving from a generic UI kit. */
-  --verdigris-600: #0e755f;
-  --rust-700: #a63a2c;
-  --rust-800: #8a2c22;
-  --rust-50: #fbeae6;
-  --brass-700: #866117;
-  --brass-200: #dcc7a0;
-  --brass-100: #fdf1dd;
-  --brass-50: #fdf7ed;
-  --clay-700: #5a5140;
-
-  /* Categorical - charts only, chosen to stay distinct side by side */
-  --chart-steel: #5f8fa8;
+  /* Categorical - charts only */
+  --chart-steel: #5f9fc0;
   --chart-brass: #c09a52;
-  --chart-plum: #8069a8;
-
-  --white: #ffffff;
+  --chart-plum: #a68ac8;
 }
 
 /* --------------------------------------------------------------------------
@@ -74,63 +70,60 @@
    matching text-muted / bg-muted / border-muted utilities.
    -------------------------------------------------------------------------- */
 @theme static {
-  /* Surfaces */
-  --color-canvas: var(--ceramic-50);
-  --color-surface: var(--white);
-  --color-surface-subtle: var(--alloy-100);
-  --color-surface-faint: var(--fog-25);
+  /* Surfaces - lighter as they raise */
+  --color-canvas: var(--ground-950);
+  --color-surface: var(--ground-850);
+  --color-surface-subtle: var(--ground-800);
+  --color-surface-faint: var(--ground-900);
 
   /* Text - three steps, all AA at body size on every surface above */
-  --color-ink: var(--alloy-950);
-  --color-ink-soft: var(--alloy-700);
+  --color-ink: var(--alloy-50);
+  --color-ink-soft: var(--alloy-300);
   --color-muted: var(--alloy-500);
 
-  /* Text on dark surfaces */
-  --color-on-dark: var(--white);
-  --color-on-dark-muted: var(--alloy-300);
+  /* Text on the primary block. Primary is pale here, so its muted
+     companion is dark rather than light. */
+  --color-on-dark: var(--ground-750);
+  --color-on-dark-muted: var(--alloy-700);
 
   /* Lines */
-  --color-line: var(--alloy-150);
-  --color-line-dashed: var(--alloy-250);
-  --color-axis: var(--alloy-200);
+  --color-line: var(--alloy-900);
+  --color-line-dashed: var(--alloy-800);
+  --color-axis: var(--alloy-850);
 
-  /* Brand - anodised metal carries the weight, glass takes the calls to
-     action, cobalt appears once. */
-  --color-primary: var(--alloy-800);
-  --color-on-primary: var(--white);
-  --color-secondary: var(--cobalt-600);
-  --color-accent: var(--glass-400);
-  --color-on-accent: var(--alloy-800);
-  --color-accent-surface: var(--glass-100);
-  --color-accent-surface-subtle: var(--glass-50);
+  /* Brand - pale metal carries the weight, cobalt takes the calls to action */
+  --color-primary: var(--alloy-150);
+  --color-on-primary: var(--ground-750);
+  --color-secondary: var(--cobalt-400);
+  --color-accent: var(--cobalt-600);
+  --color-on-accent: var(--alloy-150);
+  --color-accent-surface: var(--cobalt-900);
+  --color-accent-surface-subtle: var(--cobalt-950);
 
   /* Status - money moving the right way, the wrong way, or needing a look */
-  --color-positive: var(--verdigris-600);
-  --color-negative: var(--rust-700);
-  --color-negative-strong: var(--rust-800);
-  --color-negative-surface: var(--rust-50);
-  --color-attention: var(--brass-700);
-  --color-attention-ink: var(--clay-700);
-  --color-attention-line: var(--brass-200);
-  --color-attention-surface: var(--brass-50);
-  --color-attention-surface-strong: var(--brass-100);
+  --color-positive: var(--verdigris-400);
+  --color-negative: var(--rust-400);
+  --color-negative-strong: var(--rust-300);
+  --color-negative-surface: var(--rust-950);
+  --color-attention: var(--brass-400);
+  --color-attention-ink: var(--brass-200);
+  --color-attention-line: var(--brass-900);
+  --color-attention-surface: var(--brass-950);
+  --color-attention-surface-strong: var(--brass-925);
 
   /* Categorical - keep this order; charts read it as a sequence */
-  --color-chart-1: var(--alloy-800);
-  --color-chart-2: var(--cobalt-600);
+  --color-chart-1: var(--alloy-150);
+  --color-chart-2: var(--cobalt-400);
   --color-chart-3: var(--chart-steel);
   --color-chart-4: var(--chart-brass);
   --color-chart-5: var(--chart-plum);
-  --color-chart-6: var(--rust-700);
+  --color-chart-6: var(--rust-400);
   --color-chart-7: var(--alloy-500);
-  --color-chart-8: var(--verdigris-600);
+  --color-chart-8: var(--verdigris-400);
 }
 
 /* --------------------------------------------------------------------------
    Layer 3 - Component
-   Recurring shapes the app already uses consistently. Radius is codified
-   because the existing usage is genuinely uniform: rounded-2xl on cards
-   (40 uses), rounded-full on pills and buttons (78 uses).
    -------------------------------------------------------------------------- */
 :root {
   --radius-card: 1rem;
@@ -143,7 +136,6 @@
   --field-border: var(--color-line);
   --field-border-empty: var(--color-line-dashed);
 
-  /* Kept so `body` below and any existing reference keeps resolving */
   --background: var(--color-canvas);
   --foreground: var(--color-ink);
 }
@@ -158,6 +150,7 @@
 
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
