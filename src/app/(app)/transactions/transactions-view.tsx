@@ -97,19 +97,6 @@ export function TransactionsView() {
           compact
         />
       </section>
-      <ReviewQueue transactions={scoped} />
-      <UnsettledMoney transactions={scoped} />
-      <SettledMoney transactions={scoped} />
-      <div className="mt-4">
-        <TagChartCard
-          transactions={scoped}
-          selectedTag={selectedTag}
-          onSelectTag={setSelectedTag}
-          chart={chart}
-          onChartChange={setChart}
-          compact
-        />
-      </div>
       <article className="mt-4 overflow-hidden rounded-2xl border border-[#dce4df] bg-white p-4">
         <h2 className="text-base font-bold">Transactions</h2>
         <p className="mt-0.5 text-xs text-[#60716a]">
@@ -121,6 +108,19 @@ export function TransactionsView() {
           <TransactionTable transactions={scoped} tag={selectedTag} onTagChange={setSelectedTag} />
         </div>
       </article>
+      <div className="mt-4">
+        <TagChartCard
+          transactions={scoped}
+          selectedTag={selectedTag}
+          onSelectTag={setSelectedTag}
+          chart={chart}
+          onChartChange={setChart}
+          compact
+        />
+      </div>
+      <ReviewQueue transactions={scoped} />
+      <UnsettledMoney transactions={scoped} />
+      <SettledMoney transactions={scoped} />
       <LearnedList />
       <TagManager
         transactions={allTransactions}
