@@ -11,26 +11,26 @@ const features = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-canvas text-ink">
+    <main className="min-h-dvh bg-canvas text-ink">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <BrandMark />
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-sm font-semibold text-ink-soft">
+          <Link href="/dashboard" className="text-sm font-semibold text-ink-soft hover:text-accent">
             Dashboard
           </Link>
-          <Link href="/upload" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary">
+          <Link href="/upload" className="rounded-full bg-primary hover:bg-primary-hover px-5 py-2.5 text-sm font-semibold text-on-primary">
             Upload a document
           </Link>
         </div>
       </nav>
       <section className="mx-auto grid max-w-6xl gap-12 px-6 pb-20 pt-16 md:grid-cols-[1.1fr_.9fr] md:items-center md:pt-24">
         <div>
-          <p className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-muted">Core feature</p>
+          <p className="mb-5 text-sm font-semibold uppercase tracking-[0.2em] text-muted">Core feature</p>
           <h1 className="max-w-xl text-5xl font-bold tracking-tight md:text-6xl">Upload documents. See the money flow.</h1>
           <p className="mt-6 max-w-lg text-lg leading-8 text-muted">{siteDescription}</p>
           <Link
             href="/upload"
-            className="mt-9 inline-block rounded-full bg-accent px-6 py-3 font-bold text-on-accent"
+            className="mt-9 inline-block rounded-full bg-accent hover:bg-accent-hover px-6 py-3 font-bold text-on-accent"
           >
             Interpret a statement
           </Link>

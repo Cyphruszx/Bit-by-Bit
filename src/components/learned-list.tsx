@@ -35,7 +35,7 @@ export function LearnedList() {
           aria-expanded={open}
           aria-controls="learned-list"
           onClick={() => setOpen(!open)}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-surface hover:bg-accent-surface-hover px-2.5 py-1 text-xs font-semibold text-ink-soft"
         >
           {open ? "Hide" : `Show ${formatCount(learned.length)}`}
           <span aria-hidden="true" className={`inline-block leading-none ${open ? "rotate-180" : ""}`}>
@@ -60,7 +60,7 @@ export function LearnedList() {
             <button
               type="button"
               onClick={() => forgetLearned(thing.key)}
-              className="shrink-0 text-sm font-semibold text-negative"
+              className="shrink-0 text-sm font-semibold text-negative hover:text-negative-strong"
             >
               Forget this
             </button>

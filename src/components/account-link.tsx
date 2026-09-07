@@ -16,7 +16,7 @@ export function AccountLink() {
     <Link
       href="/sign-in"
       title={session ? `Signed in as ${session.email}` : "Sign in to back up your ledger"}
-      className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft"
+      className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-surface-hover"
     >
       {session ? "Backed up" : "Sign in"}
     </Link>

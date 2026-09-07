@@ -44,7 +44,7 @@ export function RecurringView() {
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Recurring payments</h1>
       <p className="mt-2 max-w-2xl text-muted">
         {hasUploads
@@ -160,11 +160,11 @@ function TrackedRow({
           />
         </label>
         {snapshot.status === "paid" ? null : (
-          <button type="button" className="text-sm font-semibold text-ink-soft" onClick={onMarkPaid}>
+          <button type="button" className="text-sm font-semibold text-ink-soft hover:text-accent" onClick={onMarkPaid}>
             Mark paid
           </button>
         )}
-        <button type="button" className="text-sm font-semibold text-negative" onClick={onStop}>
+        <button type="button" className="text-sm font-semibold text-negative hover:text-negative-strong" onClick={onStop}>
           Stop tracking
         </button>
       </div>
@@ -217,10 +217,10 @@ function SuggestionRow({
             className="ml-2 rounded-full border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
           />
         </label>
-        <button type="button" className="text-sm font-semibold text-ink-soft" onClick={() => onTrack(nextDate)}>
+        <button type="button" className="text-sm font-semibold text-ink-soft hover:text-accent" onClick={() => onTrack(nextDate)}>
           Track
         </button>
-        <button type="button" className="text-sm font-semibold text-negative" onClick={onIgnore}>
+        <button type="button" className="text-sm font-semibold text-negative hover:text-negative-strong" onClick={onIgnore}>
           Ignore
         </button>
       </div>
@@ -298,7 +298,7 @@ function AddPaymentForm({
             className="w-full rounded-full border border-line bg-surface px-4 py-2.5 text-sm outline-none focus:border-primary"
           />
         </label>
-        <button type="submit" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary">
+        <button type="submit" className="rounded-full bg-primary hover:bg-primary-hover px-5 py-2.5 text-sm font-semibold text-on-primary">
           Add
         </button>
       </form>

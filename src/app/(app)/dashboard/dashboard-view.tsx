@@ -50,7 +50,7 @@ export function DashboardView() {
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Your financial snapshot</h1>
       <p className="mt-2 text-muted">
         What actually came in and went out across every account, with money you moved between them
@@ -68,7 +68,7 @@ export function DashboardView() {
             {hidden.length > 0 ? (
               <p className="text-sm text-muted">
                 {hidden.length} bank{hidden.length === 1 ? "" : "s"} hidden, still counted above.{" "}
-                <button type="button" onClick={showEveryInstitution} className="font-semibold text-ink-soft underline">
+                <button type="button" onClick={showEveryInstitution} className="font-semibold text-ink-soft underline hover:text-accent">
                   Show all
                 </button>
               </p>
@@ -90,7 +90,7 @@ export function DashboardView() {
               <button
                 type="button"
                 onClick={() => toggleInstitution(institution)}
-                className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft"
+                className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-surface-hover"
               >
                 Show
               </button>
@@ -111,7 +111,7 @@ export function DashboardView() {
         <article className="rounded-2xl border border-line bg-surface p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Savings</h2>
-            <Link href="/savings" className="text-sm font-semibold text-ink-soft">
+            <Link href="/savings" className="text-sm font-semibold text-ink-soft hover:text-accent">
               View all
             </Link>
           </div>
@@ -121,7 +121,7 @@ export function DashboardView() {
             ) : included.length === 0 ? (
               <p className="text-sm text-muted">
                 All pots are hidden from the total.{" "}
-                <Link href="/savings" className="font-semibold text-ink-soft">
+                <Link href="/savings" className="font-semibold text-ink-soft hover:text-accent">
                   Include one on Savings
                 </Link>
                 .
@@ -208,7 +208,7 @@ function IncomeBreakdown({ sources, income }: { sources: IncomeSource[]; income:
               {source.askable ? (
                 <>
                   {" "}
-                  <Link href="/transactions" className="font-semibold text-ink-soft underline">
+                  <Link href="/transactions" className="font-semibold text-ink-soft underline hover:text-accent">
                     Tell us what these are
                   </Link>
                 </>
@@ -289,7 +289,7 @@ function InstitutionSection({ group, onHide }: { group: InstitutionAccounts; onH
           <button
             type="button"
             onClick={onHide}
-            className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft"
+            className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-surface-hover"
           >
             Hide
           </button>

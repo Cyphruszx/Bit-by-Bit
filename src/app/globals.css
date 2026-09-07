@@ -29,10 +29,15 @@
   --silver-50: #f2f3f5;
   --silver-25: #fafbfc;
 
-  /* Blue - navy carries the weight, electric makes the call */
+  /* Blue - navy carries the weight, electric makes the call.
+     The 900 and 600 steps exist only so a filled control has somewhere
+     to go on hover without fading its own label. */
+  --navy-900: #17205c;
   --navy-800: #1e2a78;
   --navy-500: #4a5bc4;
+  --electric-600: #001bcc;
   --electric-500: #0022ff;
+  --wash-200: #d3daff;
   --wash-100: #e4e8ff;
   --wash-50: #f2f4ff;
 
@@ -47,6 +52,7 @@
   --outflow-50: #fce8e6;
 
   /* Attention - warm, so it stands apart from the cool palette */
+  --brass-800: #6b4d12;
   --brass-700: #866117;
   --brass-200: #dcc7a0;
   --brass-100: #fdf1dd;
@@ -96,6 +102,16 @@
   --color-on-accent: var(--white);
   --color-accent-surface: var(--wash-100);
   --color-accent-surface-subtle: var(--wash-50);
+
+  /* Hover - one step along each surface a control can sit on.
+     A control darkens its own ground and leaves its label alone; the
+     blanket opacity fade this replaced dimmed both at once, so a filled
+     navy pill lost contrast at the moment it claimed to be reachable. */
+  --color-primary-hover: var(--navy-900);
+  --color-accent-hover: var(--electric-600);
+  --color-accent-surface-hover: var(--wash-200);
+  --color-surface-hover: var(--silver-100);
+  --color-attention-hover: var(--brass-800);
 
   /* Direction - the figure carries the colour, the row carries the wash.
      The wash is faint once colour vision is reduced, so the saturated
@@ -171,14 +187,33 @@ h1,
 h2,
 h3 {
   color: var(--color-accent);
+  /* Keeps the last line of a heading from stranding a single word. */
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 button,
 a {
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease, opacity 160ms ease,
+    transform 160ms ease;
 }
 
-button:hover,
-a:hover {
-  opacity: 0.86;
+/* Keyboard focus, and only keyboard focus. Every control the app draws is
+   a bare element with utility classes, so this is stated once here rather
+   than repeated across the seventy-odd pills that would each have to
+   remember it. `:where` keeps specificity at zero, so a component that
+   wants its own ring still wins. */
+:where(button, a, select, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-mark);
+}
+
+/* Pressed. A control that moves under the finger reads as a real one. */
+button:active:not(:disabled),
+a:active {
+  transform: translateY(1px);
 }

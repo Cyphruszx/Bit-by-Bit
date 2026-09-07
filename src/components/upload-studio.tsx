@@ -88,7 +88,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           dragging ? "border-primary bg-accent-surface" : "border-line bg-surface"
         }`}
       >
-        <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Core feature</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-muted">Core feature</p>
         <h2 className="mt-2 text-2xl font-bold">Drop almost any money document</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted">
           Bank CSV and Excel exports, OFX/QIF, PDFs, Word docs, HTML statements, JSON, photos of receipts, and plain
@@ -109,7 +109,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={pending}
-          className="mt-6 rounded-full bg-accent px-6 py-3 font-bold text-on-accent disabled:opacity-60"
+          className="mt-6 rounded-full bg-accent hover:bg-accent-hover px-6 py-3 font-bold text-on-accent disabled:opacity-60"
         >
           {pending ? (aiReady ? "Reading with AI…" : "Reading documents…") : "Choose documents"}
         </button>
@@ -120,7 +120,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               type="button"
               onClick={() => loadSample(sample.paths)}
               disabled={pending}
-              className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft"
+              className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-surface-hover"
             >
               Try {sample.label}
             </button>
@@ -155,7 +155,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           <article className="rounded-2xl border border-line bg-surface p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-bold">Interpreted money flow</h3>
-              <button type="button" onClick={clearInterpretation} className="text-sm font-semibold text-ink-soft">
+              <button type="button" onClick={clearInterpretation} className="text-sm font-semibold text-ink-soft hover:text-accent">
                 Clear uploads
               </button>
             </div>
@@ -197,7 +197,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
                   <button
                     type="button"
                     onClick={() => removeStatement(statement.key)}
-                    className="shrink-0 text-sm font-semibold text-negative"
+                    className="shrink-0 text-sm font-semibold text-negative hover:text-negative-strong"
                   >
                     Remove
                   </button>
@@ -305,7 +305,7 @@ function NameArrivedAccounts({
           return (
             <div key={account.id} className="flex flex-wrap items-center gap-3 border-b border-surface-subtle pb-3 last:border-0">
               <div className="min-w-40 flex-1">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{account.institution}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">{account.institution}</p>
                 <p className="font-mono text-sm text-muted">{account.keys[0]}</p>
                 <p className="mt-1 text-sm text-muted">
                   {account.transactions.length} movement{account.transactions.length === 1 ? "" : "s"} ·{" "}
@@ -328,7 +328,7 @@ function NameArrivedAccounts({
                 onClick={() => {
                   for (const key of account.keys) onName(key, suggestion);
                 }}
-                className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
+                className="rounded-full bg-primary hover:bg-primary-hover px-4 py-1.5 text-sm font-semibold text-on-primary"
               >
                 Save
               </button>

@@ -30,14 +30,14 @@ export function SignInForm() {
           <button
             type="button"
             onClick={() => router.push("/dashboard")}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
+            className="rounded-full bg-primary hover:bg-primary-hover px-4 py-2 text-sm font-semibold text-on-primary"
           >
             Back to the dashboard
           </button>
           <button
             type="button"
             onClick={() => void signOut()}
-            className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft"
+            className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-surface-hover"
           >
             Sign out
           </button>
@@ -111,7 +111,7 @@ export function SignInForm() {
       <button
         type="submit"
         disabled={busy}
-        className="mt-5 w-full rounded-full bg-primary px-4 py-2 text-sm font-bold text-on-primary disabled:opacity-60"
+        className="mt-5 w-full rounded-full bg-primary hover:bg-primary-hover px-4 py-2 text-sm font-bold text-on-primary disabled:opacity-60"
       >
         {busy ? "One moment…" : making ? "Make an account" : "Sign in"}
       </button>
@@ -123,7 +123,7 @@ export function SignInForm() {
           setProblem(null);
           setNote(null);
         }}
-        className="mt-3 w-full text-sm font-semibold text-ink-soft underline"
+        className="mt-3 w-full text-sm font-semibold text-ink-soft underline hover:text-accent"
       >
         {making ? "I already have an account" : "I need an account"}
       </button>

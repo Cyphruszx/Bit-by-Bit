@@ -93,7 +93,7 @@ function UnsettledRow({
             type="button"
             onClick={onOpen}
             aria-expanded={open}
-            className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft"
+            className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-surface-hover"
           >
             {open ? "Cancel" : "What is it?"}
           </button>
@@ -106,7 +106,7 @@ function UnsettledRow({
               key={choice.reason}
               type="button"
               onClick={() => onChoose(choice.reason)}
-              className="rounded-full border border-line-dashed bg-canvas px-3 py-1.5 text-sm font-semibold text-ink-soft"
+              className="rounded-full border border-line-dashed bg-canvas px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-surface-hover"
             >
               {choice.label}
               {group.count > 1 ? ` · all ${group.count}` : ""}
@@ -157,7 +157,7 @@ export function SettledMoney({ transactions }: { transactions: InterpretedTransa
               <button
                 type="button"
                 onClick={() => setVerdict(held.rows[0], null, "like")}
-                className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft"
+                className="rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-surface-hover"
               >
                 Undo
               </button>

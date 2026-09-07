@@ -67,7 +67,7 @@ export function TransactionsView() {
 
   return (
     <>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight">Transactions</h1>
       <p className="mt-1 max-w-2xl text-sm text-muted">
         Money in and out from your uploaded documents. Charts group by category, so nothing is
@@ -168,7 +168,7 @@ function TagManager({
             if (open) setEditing(null);
             setOpen(!open);
           }}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-surface hover:bg-accent-surface-hover px-2.5 py-1 text-xs font-semibold text-ink-soft"
         >
           {open ? "Hide" : `Show ${tags.length}`}
           <span aria-hidden="true" className={`inline-block leading-none ${open ? "rotate-180" : ""}`}>
@@ -199,10 +199,10 @@ function TagManager({
                   aria-label={`Rename ${tag}`}
                   className="rounded-full border border-line px-3 py-1.5 text-sm outline-none focus:border-primary"
                 />
-                <button type="submit" className="text-sm font-semibold text-ink-soft">
+                <button type="submit" className="text-sm font-semibold text-ink-soft hover:text-accent">
                   Save
                 </button>
-                <button type="button" onClick={() => setEditing(null)} className="text-sm text-muted">
+                <button type="button" onClick={() => setEditing(null)} className="text-sm text-muted hover:text-ink-soft">
                   Cancel
                 </button>
               </form>
@@ -218,7 +218,7 @@ function TagManager({
               <div className="flex gap-3">
                 <button
                   type="button"
-                  className="text-sm font-semibold text-ink-soft"
+                  className="text-sm font-semibold text-ink-soft hover:text-accent"
                   onClick={() => {
                     setEditing(tag);
                     setDraft(tag);
@@ -226,7 +226,7 @@ function TagManager({
                 >
                   Rename
                 </button>
-                <button type="button" className="text-sm font-semibold text-negative" onClick={() => onRemove(tag)}>
+                <button type="button" className="text-sm font-semibold text-negative hover:text-negative-strong" onClick={() => onRemove(tag)}>
                   Remove
                 </button>
               </div>

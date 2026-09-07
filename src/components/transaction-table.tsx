@@ -143,7 +143,7 @@ export function TransactionTable({
           aria-pressed={showStatement}
           onClick={() => setShowStatement((open) => !open)}
           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-            showStatement ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
+            showStatement ? "bg-primary text-on-primary hover:bg-primary-hover" : "bg-accent-surface text-ink-soft hover:bg-accent-surface-hover"
           }`}
         >
           {showStatement ? "Hide statement" : "Show statement"}
@@ -162,7 +162,7 @@ export function TransactionTable({
               aria-label={value === "all" ? "All directions" : value === "in" ? "Money in" : "Money out"}
               onClick={() => setDirection(value)}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                direction === value ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
+                direction === value ? "bg-primary text-on-primary hover:bg-primary-hover" : "bg-accent-surface text-ink-soft hover:bg-accent-surface-hover"
               }`}
             >
               {label}
@@ -289,7 +289,7 @@ export function TransactionTable({
                 aria-label={`${size} rows per page`}
                 onClick={() => setPageSize(size)}
                 className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  pageSize === size ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
+                  pageSize === size ? "bg-primary text-on-primary hover:bg-primary-hover" : "bg-accent-surface text-ink-soft hover:bg-accent-surface-hover"
                 }`}
               >
                 {size}
@@ -305,7 +305,7 @@ export function TransactionTable({
               type="button"
               onClick={() => setPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full bg-accent-surface hover:bg-accent-surface-hover px-2.5 py-1 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-40"
             >
               Previous
             </button>
@@ -316,7 +316,7 @@ export function TransactionTable({
               type="button"
               onClick={() => setPage(currentPage + 1)}
               disabled={currentPage === pageCount}
-              className="rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full bg-accent-surface hover:bg-accent-surface-hover px-2.5 py-1 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next
             </button>
@@ -425,14 +425,14 @@ function ReadingBesideStatement({ txn }: { txn: InterpretedTransaction }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">BitbyBit</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">BitbyBit</p>
         <p className="mt-1 text-[11px] text-muted">{typeLabel(txn.type)}</p>
         <div className="mt-1">
           <ClassificationChips txn={txn} />
         </div>
       </div>
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">Statement</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Statement</p>
         <StatementCells txn={txn} />
       </div>
     </div>

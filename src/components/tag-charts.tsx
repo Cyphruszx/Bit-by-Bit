@@ -98,7 +98,7 @@ export function TagChartCard({
               aria-pressed={chart === value}
               onClick={() => onChartChange(value)}
               className={`${toggleClass} ${
-                chart === value ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
+                chart === value ? "bg-primary text-on-primary hover:bg-primary-hover" : "bg-accent-surface text-ink-soft hover:bg-accent-surface-hover"
               }`}
             >
               {compact ? short : long}
@@ -193,7 +193,7 @@ function TagToggle({
       aria-pressed={active}
       onClick={onClick}
       className={`rounded-full font-semibold ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
-        active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
+        active ? "bg-primary text-on-primary hover:bg-primary-hover" : "border border-line bg-surface text-ink-soft hover:bg-surface-hover"
       }`}
     >
       {children}
@@ -408,7 +408,7 @@ function PieChart({
                 onClick={() => onSelectTag(slice.name)}
                 className={`flex w-full items-center justify-between gap-3 rounded-xl text-left ${
                   compact ? "px-2 py-1 text-xs" : "rounded-2xl px-3 py-2 text-sm"
-                } ${selected ? "bg-accent-surface" : ""}`}
+                } ${selected ? "bg-accent-surface hover:bg-accent-surface-hover" : "hover:bg-accent-surface-subtle"}`}
               >
                 <span className="inline-flex min-w-0 items-center gap-2">
                   <span

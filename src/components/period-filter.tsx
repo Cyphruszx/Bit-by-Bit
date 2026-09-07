@@ -27,7 +27,7 @@ export function PeriodFilterBar() {
   return (
     <div className="border-b border-line bg-canvas">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-6 py-3">
-        <p className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-muted">Period</p>
+        <p className="mr-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted">Period</p>
         <PeriodChip active={period.kind === "all"} onClick={() => setPeriod({ kind: "all" })}>
           All activity
         </PeriodChip>
@@ -51,8 +51,8 @@ export function PeriodFilterBar() {
             }}
             className={`rounded-full border px-3 py-1.5 text-sm font-semibold outline-none focus:border-primary ${
               period.kind === "month"
-                ? "border-primary bg-primary text-on-primary"
-                : "border-line bg-surface text-ink-soft"
+                ? "border-primary bg-primary text-on-primary hover:bg-primary-hover"
+                : "border-line bg-surface text-ink-soft hover:bg-surface-hover"
             }`}
           >
             <option value="" disabled>
@@ -119,7 +119,7 @@ function PeriodChip({
       disabled={disabled}
       onClick={onClick}
       className={`rounded-full px-3 py-1.5 text-sm font-semibold disabled:opacity-35 ${
-        active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
+        active ? "bg-primary text-on-primary hover:bg-primary-hover" : "border border-line bg-surface text-ink-soft hover:bg-surface-hover"
       }`}
     >
       {children}

@@ -53,7 +53,7 @@ export function CategoryBookEditor({
           <button
             type="button"
             onClick={() => setAddingGroup(true)}
-            className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
+            className="rounded-full bg-primary hover:bg-primary-hover px-4 py-1.5 text-sm font-semibold text-on-primary"
           >
             Add group
           </button>
@@ -80,7 +80,7 @@ export function CategoryBookEditor({
       <p className="pt-2 text-sm text-muted">
         <button
           type="button"
-          className="font-semibold text-ink-soft underline"
+          className="font-semibold text-ink-soft underline hover:text-accent"
           onClick={() => {
             if (window.confirm("Restore the usual categories, groups, and bank labels?")) {
               onChange(null);
@@ -151,7 +151,7 @@ function GroupCard({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="text-sm font-semibold text-ink-soft"
+              className="text-sm font-semibold text-ink-soft hover:text-accent"
             >
               Add category
             </button>
@@ -160,7 +160,7 @@ function GroupCard({
             <button
               type="button"
               onClick={() => onChange(removeGroup(book, groupId))}
-              className="text-sm font-semibold text-attention"
+              className="text-sm font-semibold text-attention hover:text-attention-ink"
             >
               Remove group
             </button>
@@ -298,7 +298,7 @@ function CategoryBlock({
                     key={name}
                     type="button"
                     onClick={() => onChange(addBankCategory(book, category.key, name))}
-                    className="rounded-full bg-accent-surface-subtle px-2 py-0.5 text-[11px] font-semibold text-ink-soft"
+                    className="rounded-full bg-accent-surface-subtle px-2 py-0.5 text-[11px] font-semibold text-ink-soft hover:bg-accent-surface"
                   >
                     + {name}
                   </button>
@@ -318,7 +318,7 @@ function CategoryBlock({
                 }}
               />
             ) : (
-              <button type="button" onClick={() => setAdding(true)} className="text-xs font-semibold text-ink-soft">
+              <button type="button" onClick={() => setAdding(true)} className="text-xs font-semibold text-ink-soft hover:text-accent">
                 Add bank category
               </button>
             )}
@@ -417,10 +417,10 @@ function NameForm({
         autoFocus
         className="w-40 rounded-full border border-line bg-surface px-2.5 py-1 text-sm outline-none focus:border-primary"
       />
-      <button type="submit" className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-on-primary">
+      <button type="submit" className="rounded-full bg-primary hover:bg-primary-hover px-3 py-1 text-xs font-semibold text-on-primary">
         {submitLabel}
       </button>
-      <button type="button" onClick={onCancel} className="text-xs font-semibold text-muted">
+      <button type="button" onClick={onCancel} className="text-xs font-semibold text-muted hover:text-ink-soft">
         Cancel
       </button>
     </form>

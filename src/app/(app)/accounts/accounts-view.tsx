@@ -63,7 +63,7 @@ export function AccountsView() {
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Accounts and sources</h1>
       <p className="mt-2 text-muted">
         Every account BitbyBit has read, under the bank it belongs to. Name one to recognise it next
@@ -107,7 +107,7 @@ export function AccountsView() {
                   <button
                     type="button"
                     onClick={() => merge(drop, keep)}
-                    className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
+                    className="rounded-full bg-primary hover:bg-primary-hover px-4 py-1.5 text-sm font-semibold text-on-primary"
                   >
                     Merge them
                   </button>
@@ -122,7 +122,7 @@ export function AccountsView() {
         {groups.map((group) => (
           <div key={group.institution}>
             <div className="flex items-baseline justify-between border-b border-line pb-2">
-              <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{group.institution}</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted">{group.institution}</h2>
               <p className="text-sm text-muted">
                 {group.accounts.length} account{group.accounts.length === 1 ? "" : "s"}
               </p>
@@ -147,7 +147,7 @@ export function AccountsView() {
         <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Uploaded documents</h2>
-            <Link href="/upload" className="text-sm font-semibold text-ink-soft">
+            <Link href="/upload" className="text-sm font-semibold text-ink-soft hover:text-accent">
               Upload more
             </Link>
           </div>
@@ -284,7 +284,7 @@ function InlineName({
           setDraft(value === empty ? "" : value);
           setEditing(true);
         }}
-        className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold ${
+        className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold hover:bg-surface-hover ${
           value === empty
             ? "border-dashed border-line-dashed text-muted"
             : "border-line bg-surface text-ink-soft"
@@ -325,7 +325,7 @@ function InlineName({
           ))}
         </datalist>
       ) : null}
-      <button type="button" onClick={save} className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary">
+      <button type="button" onClick={save} className="rounded-full bg-primary hover:bg-primary-hover px-3 py-1.5 text-sm font-semibold text-on-primary">
         Save
       </button>
     </div>

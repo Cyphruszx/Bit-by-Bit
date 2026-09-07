@@ -26,7 +26,7 @@ export function SavingsView() {
 
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Savings</h1>
       <p className="mt-2 max-w-2xl text-muted">
         Track pots toward the things you are saving for. Add one below to start. Hide a pot to keep it
@@ -130,8 +130,8 @@ function PotVisibilityToggles({
             onClick={() => onToggle(pot.id)}
             className={
               included
-                ? "rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-on-primary"
-                : "rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted"
+                ? "rounded-full bg-primary hover:bg-primary-hover px-3 py-1.5 text-sm font-medium text-on-primary"
+                : "rounded-full border border-line bg-surface hover:bg-surface-hover px-3 py-1.5 text-sm font-medium text-muted"
             }
           >
             {included ? pot.name : `${pot.name} · hidden`}
@@ -175,7 +175,7 @@ function AddPotForm({ onAdd }: { onAdd: (pot: Omit<SavingsPot, "id">) => void })
         <Field label="Target" value={target} onChange={setTarget} placeholder="10000" />
         <div className="flex items-end gap-2">
           <Field label="Each month" value={monthly} onChange={setMonthly} placeholder="0" />
-          <button type="submit" className="mb-0.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary">
+          <button type="submit" className="mb-0.5 rounded-full bg-primary hover:bg-primary-hover px-5 py-2.5 text-sm font-semibold text-on-primary">
             Add
           </button>
         </div>
@@ -227,10 +227,10 @@ function PotCard({
             <Field label="Monthly" value={monthly} onChange={setMonthly} />
           </div>
           <div className="mt-4 flex gap-3">
-            <button type="submit" className="text-sm font-semibold text-ink-soft">
+            <button type="submit" className="text-sm font-semibold text-ink-soft hover:text-accent">
               Save
             </button>
-            <button type="button" className="text-sm text-muted" onClick={() => setEditing(false)}>
+            <button type="button" className="text-sm text-muted hover:text-ink-soft" onClick={() => setEditing(false)}>
               Cancel
             </button>
           </div>
@@ -255,7 +255,7 @@ function PotCard({
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
-              className="text-sm font-semibold text-ink-soft"
+              className="text-sm font-semibold text-ink-soft hover:text-accent"
               onClick={() => {
                 setName(pot.name);
                 setSaved(String(pot.saved));
@@ -266,10 +266,10 @@ function PotCard({
             >
               Edit
             </button>
-            <button type="button" className="text-sm font-semibold text-ink-soft" onClick={onToggleIncluded}>
+            <button type="button" className="text-sm font-semibold text-ink-soft hover:text-accent" onClick={onToggleIncluded}>
               {included ? "Hide from total" : "Include in total"}
             </button>
-            <button type="button" className="text-sm font-semibold text-negative" onClick={onRemove}>
+            <button type="button" className="text-sm font-semibold text-negative hover:text-negative-strong" onClick={onRemove}>
               Remove
             </button>
           </div>

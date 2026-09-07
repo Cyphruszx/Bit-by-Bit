@@ -112,7 +112,7 @@ export function ReviewQueue({ transactions }: { transactions: InterpretedTransac
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          className="mt-2 rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft"
+          className="mt-2 rounded-full bg-accent-surface hover:bg-accent-surface-hover px-2.5 py-1 text-xs font-semibold text-ink-soft"
         >
           {open ? "Show fewer" : `Show all ${formatCount(groups.length)}`}
         </button>

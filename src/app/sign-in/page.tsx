@@ -7,7 +7,7 @@ export const metadata = { title: "Sign in · BitbyBit" };
 export default function SignInPage() {
   return (
     <main className="mx-auto w-full max-w-md px-6 py-16">
-      <Link href="/dashboard" className="text-sm font-semibold text-ink-soft">
+      <Link href="/dashboard" className="text-sm font-semibold text-ink-soft hover:text-accent">
         ← Back to BitbyBit
       </Link>
       <h1 className="mt-6 text-2xl font-bold tracking-tight">Keep your ledger</h1>

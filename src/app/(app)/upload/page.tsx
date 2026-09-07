@@ -14,7 +14,7 @@ export default async function UploadPage() {
   const aiReady = isAiConfigured();
   return (
     <>
-      <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Interpret money flow</p>
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-muted">Interpret money flow</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Upload documents</h1>
       <p className="mt-2 max-w-2xl text-muted">
         This is the core of BitbyBit. Drop bank files, invoices, receipts, and statements in almost any common format.

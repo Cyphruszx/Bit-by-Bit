@@ -14,7 +14,7 @@ export function EmptyLedger({ children }: { children?: React.ReactNode }) {
       </p>
       <Link
         href="/upload"
-        className="mt-5 inline-block rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-on-accent"
+        className="mt-5 inline-block rounded-full bg-accent hover:bg-accent-hover px-5 py-2.5 text-sm font-bold text-on-accent"
       >
         Upload a statement
       </Link>
