@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import { accountsByInstitution, accountsFrom } from "./accounts";
 import { detectFileKind } from "./detect";
 import { interpretDocuments } from "./interpret";
+import { parseDocument } from "./parsers";
 import { parseAmount, parseDate, roundMoney } from "./parse-values";
 import { sourcePairs, sourceValue } from "./source";
 import { looksInternal } from "./statement-category";
@@ -118,13 +119,14 @@ describe("document interpretation", () => {
 <NAME>RENT PAYMENT SMITH
 </STMTTRN>
 </BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
-    const result = await interpretDocuments([file("export.ofx", "application/x-ofx", ofx)]);
-    assert.equal(result.flow.income, 2620);
-    assert.equal(result.flow.spending, 1066.4);
-    assert.equal(result.transactions.length, 3);
+    const parsed = await parseDocument("export.ofx", "application/x-ofx", new TextEncoder().encode(ofx));
+    assert.equal(parsed.transactions.length, 3);
+    const gated = await interpretDocuments([file("export.ofx", "application/x-ofx", ofx)]);
+    assert.equal(gated.transactions.length, 0);
+    assert.match(gated.files[0]?.processingError ?? "", /unavailable/i);
 
     // The file's own fields, kept the way a spreadsheet's cells are kept.
-    const salary = result.transactions.find((txn) => /salary/i.test(txn.merchant));
+    const salary = parsed.transactions.find((txn) => /salary/i.test(txn.merchant));
     assert.equal(sourceValue(salary?.source, "Type"), "CREDIT");
     assert.equal(sourceValue(salary?.source, "Name"), "SALARY ACME PTY LTD");
     assert.equal(salary?.bank?.type, "CREDIT");
@@ -132,7 +134,7 @@ describe("document interpretation", () => {
     // and a record of money that moved has no need of them.
     assert.equal(salary?.source?.headers.some((header) => /acct|bank ?id|routing/i.test(header)), false);
     // And no description, so the fingerprint this reader already gave a movement stands.
-    for (const txn of result.transactions) assert.equal(txn.description, undefined);
+    for (const txn of parsed.transactions) assert.equal(txn.description, undefined);
   });
 
   it("interprets unstructured receipt notes", async () => {
@@ -156,10 +158,11 @@ describe("document interpretation", () => {
         { date: "2026-08-18", merchant: "Salary", amount: 2000 },
       ],
     });
-    const result = await interpretDocuments([file("export.json", "application/json", json)]);
-    assert.equal(result.transactions.length, 2);
-    assert.equal(result.flow.income, 2000);
-    assert.equal(result.flow.spending, 86.4);
+    const parsed = await parseDocument("export.json", "application/json", new TextEncoder().encode(json));
+    assert.equal(parsed.transactions.length, 2);
+    const gated = await interpretDocuments([file("export.json", "application/json", json)]);
+    assert.equal(gated.transactions.length, 0);
+    assert.match(gated.files[0]?.processingError ?? "", /unavailable/i);
   });
 
   it("interprets QIF bank records", async () => {
@@ -173,14 +176,16 @@ T2620.00
 PSalary Acme
 ^
 `;
-    const result = await interpretDocuments([file("export.qif", "application/qif", qif)]);
-    assert.equal(result.flow.income, 2620);
-    assert.equal(result.flow.spending, 86.4);
+    const parsed = await parseDocument("export.qif", "application/qif", new TextEncoder().encode(qif));
+    assert.equal(parsed.transactions.length, 2);
+    const gated = await interpretDocuments([file("export.qif", "application/qif", qif)]);
+    assert.equal(gated.transactions.length, 0);
+    assert.match(gated.files[0]?.processingError ?? "", /unavailable/i);
 
-    const shop = result.transactions.find((txn) => /woolworths/i.test(txn.merchant));
+    const shop = parsed.transactions.find((txn) => /woolworths/i.test(txn.merchant));
     assert.equal(sourceValue(shop?.source, "Payee"), "Woolworths");
     assert.equal(sourceValue(shop?.source, "Amount"), "-86.40");
-    for (const txn of result.transactions) assert.equal(txn.description, undefined);
+    for (const txn of parsed.transactions) assert.equal(txn.description, undefined);
   });
 
   it("keeps a QIF's own category, so a transfer it named can be recognised", async () => {
@@ -191,8 +196,10 @@ PMY SAVINGS
 LTransfer
 ^
 `;
-    const result = await interpretDocuments([file("export.qif", "application/qif", qif)]);
-    const [moved] = result.transactions;
+    const parsed = await parseDocument("export.qif", "application/qif", new TextEncoder().encode(qif));
+    const gated = await interpretDocuments([file("export.qif", "application/qif", qif)]);
+    assert.equal(gated.transactions.length, 0);
+    const [moved] = parsed.transactions;
     assert.equal(moved.bank?.category, "Transfer");
     assert.equal(looksInternal(moved), true);
   });
@@ -207,10 +214,18 @@ LTransfer
     ]);
     XLSX.utils.book_append_sheet(workbook, sheet, "Statement");
     const bytes = new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer);
-    const result = await interpretDocuments([file("statement.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes)]);
-    assert.equal(result.files[0].kind, "xlsx");
-    assert.equal(result.flow.income, 1500);
-    assert.equal(result.flow.spending, 86.4);
+    const parsed = await parseDocument(
+      "statement.xlsx",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      bytes,
+    );
+    assert.ok(parsed.transactions.length >= 2);
+    const gated = await interpretDocuments([
+      file("statement.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes),
+    ]);
+    assert.equal(gated.files[0].kind, "xlsx");
+    assert.equal(gated.transactions.length, 0);
+    assert.match(gated.files[0]?.processingError ?? "", /unavailable/i);
   });
 
   it("keeps Excel date cells on the calendar day, including month boundaries", async () => {
@@ -223,11 +238,13 @@ LTransfer
     ]);
     XLSX.utils.book_append_sheet(workbook, sheet, "Statement");
     const bytes = new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer);
-    const result = await interpretDocuments([
-      file("dates.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes),
-    ]);
-    assert.equal(result.transactions.find((txn) => txn.merchant === "Woolworths Bondi")?.dateIso, "2026-08-25");
-    assert.equal(result.transactions.find((txn) => txn.merchant.includes("Rent"))?.dateIso, "2026-08-01");
+    const parsed = await parseDocument(
+      "dates.xlsx",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      bytes,
+    );
+    assert.equal(parsed.transactions.find((txn) => txn.merchant === "Woolworths Bondi")?.dateIso, "2026-08-25");
+    assert.equal(parsed.transactions.find((txn) => txn.merchant.includes("Rent"))?.dateIso, "2026-08-01");
   });
 
   it("keeps two same-day purchases at the same shop, and merchants whose names include Total", async () => {
@@ -263,9 +280,12 @@ LTransfer
 
   it("interprets a text PDF statement", async () => {
     const pdf = minimalPdf("25/08/2026 Woolworths 86.40 DR\n18/08/2026 Salary Acme 1500.00 CR");
-    const result = await interpretDocuments([file("statement.pdf", "application/pdf", pdf)]);
     assert.equal(detectFileKind("statement.pdf", "application/pdf", pdf), "pdf");
-    assert.ok(result.transactions.length >= 1, JSON.stringify(result, null, 2));
+    const parsed = await parseDocument("statement.pdf", "application/pdf", pdf);
+    assert.ok(parsed.transactions.length >= 1, JSON.stringify(parsed, null, 2));
+    const gated = await interpretDocuments([file("statement.pdf", "application/pdf", pdf)]);
+    assert.equal(gated.transactions.length, 0);
+    assert.match(gated.files[0]?.processingError ?? "", /OCR|unavailable/i);
   });
 
   it("sniffs file kinds from names and bytes", () => {

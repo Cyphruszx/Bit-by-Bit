@@ -15,6 +15,7 @@ import { mergedReview, parseReviewItems, type ReviewItem } from "@/lib/money-flo
 import { isCategoryKey, migrateStoredCategory } from "@/lib/money-flow/taxonomy";
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import { hasSource } from "@/lib/money-flow/source";
+import { persistUploadStatus } from "@/lib/money-flow/core-ingest";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const LEDGER_VERSION = 1;
@@ -212,7 +213,13 @@ export function appendToLedger(
         continue;
       }
 
-      const entry: LedgerEntry = { ...row, fingerprint, importIds: [record.id], firstSeen: importedAt };
+      const entry: LedgerEntry = {
+        ...row,
+        status: persistUploadStatus(row.status),
+        fingerprint,
+        importIds: [record.id],
+        firstSeen: importedAt,
+      };
       held.set(fingerprint, entry);
       entries.push(entry);
       record.added += 1;

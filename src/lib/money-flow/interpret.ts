@@ -1,5 +1,6 @@
 import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFlowAi } from "@/lib/money-flow/ai";
 import { forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
+import { coreIngestUnavailable, ocrPagesFor } from "@/lib/money-flow/core-ingest";
 import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
 import { parseDocument } from "@/lib/money-flow/parsers";
 import { summarizeMoneyFlow, uniqueTransactions } from "@/lib/money-flow/summary";
@@ -33,12 +34,24 @@ export async function interpretDocuments(
       notes: [],
     };
 
+    const blocked = coreIngestUnavailable(kind);
+    if (blocked) {
+      interpretations.push({
+        ...base,
+        uploadStatus: "failed",
+        processingStatus: "failed",
+        processingError: blocked,
+      });
+      continue;
+    }
+
     if (file.bytes.byteLength === 0) {
       interpretations.push({
         ...base,
         uploadStatus: "failed",
         processingStatus: "failed",
         processingError: "The file was empty.",
+        ...(ocrPagesFor(kind) ? { ocrPages: ocrPagesFor(kind) } : {}),
       });
       continue;
     }
@@ -48,6 +61,7 @@ export async function interpretDocuments(
         uploadStatus: "failed",
         processingStatus: "failed",
         processingError: "Files can be up to 12MB.",
+        ...(ocrPagesFor(kind) ? { ocrPages: ocrPagesFor(kind) } : {}),
       });
       continue;
     }
@@ -61,9 +75,10 @@ export async function interpretDocuments(
         processingError:
           parsed.transactions.length > 0
             ? undefined
-            : "No money movement found. Try a bank CSV, Excel, OFX, QIF, PDF statement, or a clearer photo.",
+            : "No money movement found. Try a bank CSV or a clearer photo.",
         transactionCount: parsed.transactions.length,
         notes: parsed.notes,
+        ...(ocrPagesFor(kind) ? { ocrPages: ocrPagesFor(kind) } : {}),
       });
     } catch (error) {
       interpretations.push({
@@ -71,6 +86,7 @@ export async function interpretDocuments(
         uploadStatus: "uploaded",
         processingStatus: "failed",
         processingError: error instanceof Error ? error.message : "Could not read this document.",
+        ...(ocrPagesFor(kind) ? { ocrPages: ocrPagesFor(kind) } : {}),
       });
     }
   }
