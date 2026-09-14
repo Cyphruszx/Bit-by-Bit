@@ -1283,6 +1283,8 @@ describe("what each scope reports", () => {
     assert.equal(flow.refunds, 3255.59);
     assert.equal(flow.net, -25512.24);
     assert.equal(flow.cashNet, -507.51);
+    // Spec 10 Actual Savings: eight CLEARED TRANSFER INs to Up · Save!!. Household
+    // matched transfers are $118,183.87 — that figure is not Actual Savings.
     assert.equal(flow.actualSavings, 5800.4);
   });
 
