@@ -115,7 +115,7 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
     // Spec 7 Review Queue is out of this slice.
     baseAmount: read.amount,
     status: "CLEARED",
-    type: read.type;
+    type: read.type,
     sourceFile: raw.sourceFile,
     ...(Object.keys(bank).length > 0 ? { bank } : {}),
     ...(accountKey ? { accountKey } : {}),
