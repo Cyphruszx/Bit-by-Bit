@@ -1276,7 +1276,7 @@ describe("what each scope reports", () => {
     assert.equal(flow.spending, 289742.99);
     assert.equal(flow.refunds, 0);
     assert.equal(flow.net, -25961.13);
-    assert.equal(flow.net, flow.income - flow.spending + flow.refunds);
+    assert.equal(flow.net, roundMoney(flow.income - flow.spending + flow.refunds));
     assert.equal(flow.cashNet, -507.51);
     assert.equal(flow.transfers, 0);
     assert.equal(flow.actualSavings, 0);
