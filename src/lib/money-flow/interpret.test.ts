@@ -473,40 +473,32 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.equal(received?.merchant, "JORDAN LEE");
   });
 
-  it("reconciles the year sample to the summary the statement prints", async () => {
+  it("reconciles the year sample without silently pairing internals or refunds", async () => {
     const result = await readUpSample();
-    // The statement heads itself "Money In +$70,574.39 Money Out $71,631.34". Those count
-    // money entering and leaving Up, so they exclude the movements the holder makes between
-    // their own Spending account and their savers.
-    //
-    // Income sits $448.89 under the bank's money-in: a Bunnings charge of $418.94 and a
-    // Domino's one of $29.95 were reversed. Spec 10: those credits are Refund credits,
-    // never Income, and Spending keeps the original charges (month-freeze). Net is
-    // Income − Spending + Refund credits, which still matches the statement's cash net.
-    const reversed = 418.94 + 29.95;
-    assert.equal(result.flow.income, 70120.77);
-    assert.equal(result.flow.spending, 71631.34);
-    assert.equal(result.flow.refunds, reversed);
+    // The statement heads itself "Money In +$70,574.39 Money Out $71,631.34" excluding
+    // saver transfers. Spec 7: Core does not auto-write those pairs, so they stay in
+    // Income/Spending ($14,446.60 each). Unlinked Bunnings/Domino's refunds stay out of
+    // Income and are not Refund credits until confirmed. Cash net still ties to the file.
+    assert.equal(result.flow.income, 84567.37);
+    assert.equal(result.flow.spending, 86077.94);
+    assert.equal(result.flow.refunds, 0);
+    assert.equal(result.flow.transfers, 0);
+    assert.equal(result.flow.actualSavings, 0);
     assert.equal(result.flow.net, roundMoney(result.flow.income - result.flow.spending + result.flow.refunds));
-    assert.equal(result.flow.net, -1061.68);
+    assert.equal(result.flow.net, -1510.57);
+    assert.ok(result.transactions.every((txn) => !txn.transferPair && !txn.refundPair));
   });
 
-  it("keeps money moved between the holder's own Up accounts out of the totals", async () => {
+  it("detects Up saver transfers but does not mark them moved on ingest", async () => {
     const result = await readUpSample();
-    const internal = result.transactions.filter((txn) => txn.type === "moved");
+    assert.equal(result.transactions.filter((txn) => txn.type === "moved").length, 0);
+    const detected = matchTransfers(result.transactions);
+    assert.equal(detected.pairs.length, 42);
     const intoSavers = roundMoney(
-      internal.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+      detected.pairs.reduce((sum, pair) => sum + Math.abs(pair.debit.amount), 0),
     );
-    const backToSpending = roundMoney(
-      internal.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
-    );
-    // Every leg is written twice, once in the Spending account and once in the saver, so the
-    // two sides carry the same money and cancel. Counting either side as income or spending
-    // is what made the statement read high.
-    assert.equal(internal.length, 84);
     assert.equal(intoSavers, 14446.6);
-    assert.equal(backToSpending, 14446.6);
-    assert.equal(roundMoney(backToSpending - intoSavers), 0);
+    assert.ok(result.flow.insights.some((line) => /likely transfer/i.test(line)));
   });
 
   it("runs the server action against the year sample", async () => {
@@ -1008,11 +1000,11 @@ describe("grouping the samples by institution", () => {
     const up = accountsByInstitution(result.transactions).find((group) => group.institution === "Up");
 
     assert.equal(up?.flow.transactionCount, 1267);
-    // Income excludes the $448.89 of Bunnings/Domino's refunds. Spending keeps those
-    // original charges (month-freeze). Refund credits live on `flow.refunds`.
-    assert.equal(up?.flow.income, 70120.77);
-    assert.equal(up?.flow.spending, 71631.34);
-    assert.equal(up?.flow.refunds, 448.89);
+    // Spec 7: saver transfers are not auto-cancelled. Unlinked refunds are not Income
+    // and not Refund credits until confirmed.
+    assert.equal(up?.flow.income, 84567.37);
+    assert.equal(up?.flow.spending, 86077.94);
+    assert.equal(up?.flow.refunds, 0);
   });
 
   it("loses no movement and no dollar to the grouping", async () => {
@@ -1272,19 +1264,22 @@ describe("what each scope reports", () => {
   }
 
   it("reports the household's own figures across everything", async () => {
-    const flow = summarizeMoneyFlow(await ledger());
+    const rows = await ledger();
+    const flow = summarizeMoneyFlow(rows);
 
-    // Spec 10: linked refunds stay in Spending and return as Refund credits. Unlinked
-    // refund-shaped credits are not Income. Cash still counts both legs, so cash net
-    // is untouched. Income is $25,000 below cash in because SocietyOne is borrowed.
-    assert.equal(flow.income, 142791.29);
-    assert.equal(flow.spending, 171559.12);
-    assert.equal(flow.refunds, 3255.59);
-    assert.equal(flow.net, -25512.24);
+    // Spec 7: Core does not auto-write pairs, so likely transfers still sit in Income
+    // and Spending. Unlinked refund-shaped credits are not Income. Cash still counts
+    // both legs, so cash net is untouched. Income includes borrowed-excluded SocietyOne
+    // but also unconfirmed transfers. Net = Income − Spending + Refund credits (0).
+    assert.ok(rows.every((txn) => !txn.transferPair && !txn.refundPair && txn.decidedBy !== "paired"));
+    assert.equal(flow.income, 263781.86);
+    assert.equal(flow.spending, 289742.99);
+    assert.equal(flow.refunds, 0);
+    assert.equal(flow.net, -25961.13);
+    assert.equal(flow.net, flow.income - flow.spending + flow.refunds);
     assert.equal(flow.cashNet, -507.51);
-    // Spec 10 Actual Savings: eight CLEARED TRANSFER INs to Up · Save!!. Household
-    // matched transfers are $118,183.87 — that figure is not Actual Savings.
-    assert.equal(flow.actualSavings, 5800.4);
+    assert.equal(flow.transfers, 0);
+    assert.equal(flow.actualSavings, 0);
   });
 
   it("reports each bank's own figures, which tie to its statements", async () => {
@@ -1292,17 +1287,16 @@ describe("what each scope reports", () => {
     const nab = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "NAB" }));
     const up = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "Up" }));
 
-    // Spending keeps each bank's reversed charges. NAB is a further $25,000 down on
-    // Income because the SocietyOne drawdown landed there and borrowed money is not earnings.
-    assert.equal(nab.income, 134564.97);
-    assert.equal(nab.spending, 161822.23);
-    assert.equal(nab.refunds, 2806.7);
+    // SocietyOne still is not earnings. Unconfirmed transfers stay in each bank's tiles.
+    assert.equal(nab.income, 179214.49);
+    assert.equal(nab.spending, 203665.05);
+    assert.equal(nab.refunds, 0);
     assert.equal(nab.cashNet, 549.44);
-    assert.equal(up.income, 70120.77);
-    assert.equal(up.spending, 71631.34);
-    assert.equal(up.refunds, 448.89);
+    assert.equal(up.income, 84567.37);
+    assert.equal(up.spending, 86077.94);
+    assert.equal(up.refunds, 0);
     assert.equal(up.cashNet, -1056.95);
-    assert.equal(up.actualSavings, 5800.4);
+    assert.equal(up.actualSavings, 0);
   });
 
   it("reports one account on the numbers its own statement prints", async () => {
@@ -1319,18 +1313,14 @@ describe("what each scope reports", () => {
     assert.equal(everyday.cashNet, 3669.02);
   });
 
-  it("adds more money in one bank than the household, and that is correct", async () => {
+  it("does not cancel inter-bank money until a pair is confirmed", async () => {
     const rows = await ledger();
     const household = summarizeMoneyFlow(rows);
     const nab = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "NAB" }));
     const up = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "Up" }));
 
-    // Money NAB sent to Up left NAB, so both banks count it; only a view holding both
-    // can see it never left the household.
-    assert.ok(nab.income + up.income > household.income);
-    assert.equal(
-      roundMoney(nab.income + up.income - household.income),
-      roundMoney(nab.spending + up.spending - household.spending),
-    );
+    // Spec 7: Core does not auto-pair, so the household is the sum of the banks.
+    assert.equal(roundMoney(nab.income + up.income), household.income);
+    assert.equal(roundMoney(nab.spending + up.spending), household.spending);
   });
 });

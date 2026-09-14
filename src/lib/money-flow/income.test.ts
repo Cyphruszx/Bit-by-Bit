@@ -125,24 +125,24 @@ describe("the samples, split up", () => {
     const of = (kind: string) => sources.find((source) => source.kind === kind);
 
     // Medicare ($120,844.20) and the ATO rebates sit under Earned. SocietyOne is borrowed.
-    // Unlinked refund-shaped credits are not Income (Spec 10). What is left to ask about
-    // is $501 of unmatched internal transfers.
-    assert.equal(of("earned")?.amount, 142290.29);
+    // Unlinked refund-shaped credits are not Income (Spec 10). Unconfirmed transfers sit
+    // in Income until Spec 7 — arrived is the leftover internals still to ask about.
+    assert.equal(of("earned")?.amount, 204095.53);
     assert.equal(of("returned"), undefined);
-    assert.equal(of("arrived")?.amount, 501);
+    assert.equal(of("arrived")?.amount, 59686.33);
     assert.equal(
       roundMoney(sources.reduce((sum, source) => sum + source.amount, 0)),
       summarizeMoneyFlow(rows).income,
     );
-    assert.equal(unsettledIncome(rows), 501);
+    assert.equal(unsettledIncome(rows), 59686.33);
   });
 
   it("asks about leftover transfers and refunds by the name the statement printed", async () => {
     const rows = await sampleLedger();
     const groups = unsettledGroups(rows);
 
-    assert.ok(groups.length >= 1 && groups.length <= 4);
-    assert.equal(groups[0].amount, 500);
+    assert.ok(groups.length >= 1);
+    assert.equal(groups[0].amount, 28884.73);
     assert.match(groups[0].label, /Linked Acc Trns/i);
     assert.equal(groups[0].example.categoryKey, "uncategorised");
     assert.ok(!groups.some((group) => /medicare|mcare/i.test(group.label)), "billing is already income");
@@ -163,8 +163,8 @@ describe("the samples, split up", () => {
     });
     const flow = summarizeMoneyFlow(settled);
 
-    assert.equal(flow.income, 142291.29, "the $500 was not earnings");
+    assert.equal(flow.income, 234897.13, "the leftover transfer was not earnings");
     assert.equal(flow.cashNet, -507.51, "and the cash that moved is untouched");
-    assert.equal(unsettledIncome(settled), 1);
+    assert.equal(unsettledIncome(settled), 30801.6);
   });
 });

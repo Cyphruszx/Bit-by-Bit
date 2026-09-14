@@ -455,6 +455,8 @@ describe("the Up statement, downloaded twice over overlapping periods", () => {
     // Same Income as a single-file year: $70,574.39 less $448.89 of refunds. Spec 10
     // keeps the original charges in Spending and puts the credits in Refund credits.
     // The Bunnings pair fell either side of the cut, so only the whole ledger can link it.
+    // Spec 7 RESOLVE still produces Slice 1 numbers when pairs are written on purpose.
+    // Core ingest no longer does this automatically.
     const settle = (rows: InterpretedTransaction[]) => markRefundLegs(markTransferLegs(rows));
     const flow = summarizeMoneyFlow(settle(shown));
     assert.equal(flow.income, 70120.77);

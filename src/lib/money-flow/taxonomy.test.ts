@@ -123,9 +123,10 @@ describe("the movements the taxonomy has to get right", () => {
 
     // The statements write this payee as "Casey Lee Offset J8243077379", "…M7022577125"
     // and eight more, all different. Read literally that is ten questions about one payee,
-    // and ten separate things to teach the app.
-    assert.equal(offset[0].count, 10);
-    assert.equal(offset[0].amount, -30500);
+    // and ten separate things to teach the app. One more Offset debit now stays visible
+    // because Core no longer auto-cancels the matching transfer.
+    assert.equal(offset[0].count, 11);
+    assert.equal(offset[0].amount, -35500);
     assert.equal(offset[0].merchant, "Casey Lee Offset", "labelled by the payee, not by one row's reference");
   });
 
@@ -134,9 +135,9 @@ describe("the movements the taxonomy has to get right", () => {
     const groups = reviewGroups(rows);
     const progress = reviewProgress(rows);
 
-    // Two thirds of a year of statements place themselves. What is left is ordered by how
-    // much money is behind it, so the first few answers move the reports most.
-    assert.equal(progress.percent, 60);
+    // Unconfirmed transfers now sit in the counted set, so a smaller share is already
+    // placed. What is left is still ordered by how much money is behind it.
+    assert.equal(progress.percent, 48);
     assert.ok(groups.length < 250, `${groups.length} questions, not one per movement`);
     assert.ok(
       Math.abs(groups[0].amount) > Math.abs(groups[groups.length - 1].amount),
@@ -168,9 +169,10 @@ describe("the movements the taxonomy has to get right", () => {
     assert.equal(flow.cashIn, 289235.48);
     assert.equal(flow.cashOut, 289742.99);
     assert.equal(flow.cashNet, -507.51, "unchanged by the redesign, because no amount moved");
-    // $25,000 of what arrived was borrowed, so it is in the cash and not in the earnings.
-    assert.equal(flow.income, 142791.29);
-    assert.equal(flow.spending, 171559.12);
-    assert.equal(flow.refunds, 3255.59);
+    // Spec 7: unconfirmed transfers still sit in Income/Spending. $25,000 of what arrived
+    // was borrowed, so it is in the cash and not in the earnings.
+    assert.equal(flow.income, 263781.86);
+    assert.equal(flow.spending, 289742.99);
+    assert.equal(flow.refunds, 0);
   });
 });
