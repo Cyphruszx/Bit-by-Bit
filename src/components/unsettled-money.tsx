@@ -19,10 +19,10 @@ import { reasonLabel, reasonsFor, type VerdictReason } from "@/lib/money-flow/ve
  */
 export function UnsettledMoney({ transactions }: { transactions: InterpretedTransaction[] }) {
   const { accountNames, institutionOverrides,
-    payers, setVerdict } = useMoneyFlow();
+    payers, setVerdict, mergedInto } = useMoneyFlow();
   const registry = useMemo(
-    () => ({ names: accountNames, institutions: institutionOverrides, payers }),
-    [accountNames, institutionOverrides, payers],
+    () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
+    [accountNames, institutionOverrides, payers, mergedInto],
   );
   const groups = useMemo(() => unsettledGroups(transactions, registry), [registry, transactions]);
   const [open, setOpen] = useState<string | null>(null);

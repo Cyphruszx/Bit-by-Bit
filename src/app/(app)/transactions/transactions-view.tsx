@@ -26,6 +26,7 @@ export function TransactionsView() {
     hasUploads,
     institutionOverrides,
     payers,
+    mergedInto,
     removeTagEverywhere,
     renameTagEverywhere,
     transactions,
@@ -33,8 +34,8 @@ export function TransactionsView() {
   const [chart, setChart] = useState<ChartKind>("bar");
   const [selectedTag, setSelectedTag] = useState("All");
   const registry = useMemo(
-    () => ({ names: accountNames, institutions: institutionOverrides, payers }),
-    [accountNames, institutionOverrides, payers],
+    () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
+    [accountNames, institutionOverrides, payers, mergedInto],
   );
   const groups = useMemo(() => accountsByInstitution(transactions, registry), [registry, transactions]);
   const known = useMemo(

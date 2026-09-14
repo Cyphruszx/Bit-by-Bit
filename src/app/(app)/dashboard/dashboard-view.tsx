@@ -19,14 +19,14 @@ import type { MoneyFlowSummary } from "@/lib/money-flow/types";
 
 export function DashboardView() {
   const { accountNames, flow, hasUploads, institutionOverrides,
-    payers, transactions } = useMoneyFlow();
+    payers, transactions, mergedInto } = useMoneyFlow();
   const { pots, snapshots } = useSavingsPots();
   const included = potsInTotal(pots);
   const hiddenCount = pots.length - included.length;
   const [chart, setChart] = useState<ChartKind>("bar");
   const registry = useMemo(
-    () => ({ names: accountNames, institutions: institutionOverrides, payers }),
-    [accountNames, institutionOverrides, payers],
+    () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
+    [accountNames, institutionOverrides, payers, mergedInto],
   );
   const groups = useMemo(() => accountsByInstitution(transactions, registry), [registry, transactions]);
   const sources = useMemo(() => incomeSources(transactions), [transactions]);

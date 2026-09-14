@@ -40,8 +40,9 @@ export type MatchOptions = {
   /** And between two, where the money travels over slower rails. */
   acrossBanks?: number;
   institutions?: InstitutionOverrides;
-  /** Accounts a person has named or merged, so a merged pair stops looking like two. */
+  /** Display names. Spec 6c merge is `mergedInto`, not a shared name. */
   accounts?: AccountRegistry["names"];
+  mergedInto?: AccountRegistry["mergedInto"];
 };
 
 /**
@@ -61,7 +62,11 @@ export function matchTransfers(
   const acrossBanks = options.acrossBanks ?? 2;
   const overrides = options.institutions ?? {};
 
-  const registry: AccountRegistry = { institutions: overrides, ...(options.accounts ? { names: options.accounts } : {}) };
+  const registry: AccountRegistry = {
+    institutions: overrides,
+    ...(options.accounts ? { names: options.accounts } : {}),
+    ...(options.mergedInto ? { mergedInto: options.mergedInto } : {}),
+  };
   const account = new Map(transactions.map((txn) => [txn.id, accountIdOf(txn, registry)]));
   const bank = new Map(transactions.map((txn) => [txn.id, institutionOf(txn, overrides)]));
 

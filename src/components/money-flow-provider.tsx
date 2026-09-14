@@ -8,6 +8,7 @@ import {
   importedFiles,
   ledgerTransactions,
   mergeLedgers,
+  mergeAccounts,
   forgetCorrection,
   nameAccount,
   nameInstitution,
@@ -23,6 +24,7 @@ import {
   type HeldStatement,
   type ImportReport,
   type Ledger,
+  type MergeAccountsResult,
 } from "@/lib/money-flow/ledger";
 import { applyBook, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
 import type { AccountNames } from "@/lib/money-flow/accounts";
@@ -90,8 +92,11 @@ type MoneyFlowState = {
   setStatementInstitution: (statementKey: string, institution: string) => void;
   /** What the person calls each account, against the key its statement filed it under. */
   accountNames: AccountNames;
-  /** Names an account. Two keys given the same name become one account. */
+  /** Names an account. Display only — does not merge and does not undo a merge. */
   setAccountName: (accountKey: string, name: string) => void;
+  /** Spec 6c hard merge. Source is hidden afterwards. Cannot be undone. */
+  mergedInto: Record<string, string>;
+  mergeAccount: (sourceId: string, survivorId: string) => MergeAccountsResult;
   /** What the person says a movement really is, keyed by wording rather than by row. */
   verdicts: Verdicts;
   /**
@@ -156,8 +161,9 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const names = held.ledger.accounts ?? {};
     const institutions = held.ledger.institutions ?? {};
     const payers = held.ledger.payers ?? {};
-    const matching = { institutions, accounts: names };
-    const registry = { institutions, names, payers };
+    const mergedInto = held.ledger.mergedInto ?? {};
+    const matching = { institutions, accounts: names, mergedInto };
+    const registry = { institutions, names, payers, mergedInto };
     // Spec 7: Core never auto-resolves money-trust. Classify, drop any stored auto-pairs,
     // then apply what the person said. matchTransfers / matchRefunds still detect
     // candidates for the insight; they do not rewrite type or strip totals.
@@ -185,6 +191,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       setStatementInstitution,
       accountNames: held.ledger.accounts ?? {},
       setAccountName,
+      mergedInto,
+      mergeAccount,
       verdicts: held.ledger.verdicts ?? {},
       setVerdict,
       payers: held.ledger.payers ?? {},
@@ -323,6 +331,12 @@ function setAccountName(accountKey: string, name: string) {
   commit(nameAccount(snapshot.ledger, accountKey, name));
 }
 
+function mergeAccount(sourceId: string, survivorId: string): MergeAccountsResult {
+  const result = mergeAccounts(snapshot.ledger, sourceId, survivorId);
+  if (result.ok) commit(result.ledger);
+  return result;
+}
+
 function setCategoryBook(book: CategoryBook | null) {
   applyBook(book ? resolveBook(book) : null);
   commit(recordTaxonomy(snapshot.ledger, book));
@@ -398,6 +412,7 @@ function setVerdict(
     institutions: snapshot.ledger.institutions ?? {},
     names: snapshot.ledger.accounts ?? {},
     payers: snapshot.ledger.payers ?? {},
+    mergedInto: snapshot.ledger.mergedInto,
   };
   const held = { ...(snapshot.ledger.verdicts ?? {}) };
 
@@ -441,6 +456,7 @@ function declineReviewItem(item: ReviewItem) {
     institutions: snapshot.ledger.institutions ?? {},
     names: snapshot.ledger.accounts ?? {},
     payers: snapshot.ledger.payers ?? {},
+    mergedInto: snapshot.ledger.mergedInto,
   };
   const held = { ...(snapshot.ledger.verdicts ?? {}) };
   const now = new Date().toISOString();

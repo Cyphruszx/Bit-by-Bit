@@ -141,17 +141,106 @@ export type AccountRegistry = {
    * alone can settle whether two wordings are one payer or two.
    */
   payers?: Record<string, string>;
+  /**
+   * Spec 6c hard merge: source account id → survivor. Walked for identity and
+   * fingerprints. No undo.
+   */
+  mergedInto?: Record<string, string>;
 };
 
+export type AccountKind = "CHECKING" | "SAVINGS" | "CREDIT" | "LOAN" | "MORTGAGE";
+
+export type AccountMeta = {
+  currency?: string;
+  kind?: AccountKind;
+};
+
+const DEBT_KINDS = new Set<AccountKind>(["CREDIT", "LOAN", "MORTGAGE"]);
+const ASSET_KINDS = new Set<AccountKind>(["CHECKING", "SAVINGS"]);
+
+/** Follow `merged_into` to the survivor. A cycle returns the id unchanged. */
+export function canonicalAccountId(id: string, mergedInto: Record<string, string> = {}): string {
+  const seen = new Set<string>();
+  let at = id;
+  while (mergedInto[at]) {
+    if (seen.has(at)) return id;
+    seen.add(at);
+    at = mergedInto[at];
+  }
+  return at;
+}
+
+/** True when source → survivor would walk back into source. */
+export function mergeWouldCycle(
+  source: string,
+  survivor: string,
+  mergedInto: Record<string, string> = {},
+): boolean {
+  if (source === survivor) return true;
+  const seen = new Set<string>([source]);
+  let at: string | undefined = survivor;
+  while (at) {
+    if (seen.has(at)) return true;
+    seen.add(at);
+    at = mergedInto[at];
+  }
+  return false;
+}
+
+export function inferAccountKind(id: string): AccountKind {
+  if (/\bmortgage\b/i.test(id)) return "MORTGAGE";
+  if (/\bloan\b/i.test(id)) return "LOAN";
+  if (/\bcredit\b/i.test(id)) return "CREDIT";
+  if (/\bsavings?\b|\bsaver\b|save!!/i.test(id)) return "SAVINGS";
+  return "CHECKING";
+}
+
+export function inferAccountCurrency(id: string, meta: Record<string, AccountMeta> = {}): string {
+  return meta[id]?.currency?.trim() || "AUD";
+}
+
+export function accountKindOf(id: string, meta: Record<string, AccountMeta> = {}): AccountKind {
+  return meta[id]?.kind ?? inferAccountKind(id);
+}
+
 /**
- * Where a movement's money actually sits. Two keys given the same name are the same
- * account, which is how a statement that prints the number and one that hides all but
- * the last digits become one account once the person says they are.
+ * Spec 6 hard blocks: currency mismatch, and CREDIT/LOAN/MORTGAGE ↔ CHECKING/SAVINGS.
+ */
+export function mergeBlockedReason(
+  sourceId: string,
+  survivorId: string,
+  meta: Record<string, AccountMeta> = {},
+): string | null {
+  const sourceCur = inferAccountCurrency(sourceId, meta);
+  const survivorCur = inferAccountCurrency(survivorId, meta);
+  if (sourceCur !== survivorCur) {
+    return `Cannot merge a ${sourceCur} account into a ${survivorCur} account.`;
+  }
+  const sourceKind = accountKindOf(sourceId, meta);
+  const survivorKind = accountKindOf(survivorId, meta);
+  if (
+    (DEBT_KINDS.has(sourceKind) && ASSET_KINDS.has(survivorKind)) ||
+    (ASSET_KINDS.has(sourceKind) && DEBT_KINDS.has(survivorKind))
+  ) {
+    return `Cannot merge a ${sourceKind} account into a ${survivorKind} account.`;
+  }
+  return null;
+}
+
+/**
+ * Where a movement's money actually sits. Spec 6c walks `merged_into`.
+ * A display name is only a label, not a merge.
  */
 export function accountIdOf(txn: InterpretedTransaction, registry: AccountRegistry = {}): string {
-  const key = observedAccountKey(txn, registry.institutions ?? {});
-  const named = registry.names?.[key]?.trim();
-  if (!named) return key;
+  return canonicalAccountId(observedAccountKey(txn, registry.institutions ?? {}), registry.mergedInto ?? {});
+}
+
+/** What to show for an account. Naming never fuses two keys. */
+export function accountCaption(txn: InterpretedTransaction, registry: AccountRegistry = {}): string {
+  const id = accountIdOf(txn, registry);
+  const observed = observedAccountKey(txn, registry.institutions ?? {});
+  const named = registry.names?.[id]?.trim() || registry.names?.[observed]?.trim();
+  if (!named) return accountLabel(id);
   return `${institutionOf(txn, registry.institutions ?? {})}${SEPARATOR}${named}`;
 }
 

@@ -9,7 +9,7 @@ import {
   fingerprintOf,
   heldStatements,
   ledgerTransactions,
-  nameAccount,
+  mergeAccounts,
   parseLedger,
   persistTaxonomy,
   removeImport,
@@ -75,6 +75,13 @@ describe("movement fingerprints", () => {
     );
   });
 
+  it("walks merged_into so a source account files under the survivor", () => {
+    const source = txn({ accountId: "Up · ···000", description: "Coffee Roasters 123" });
+    const survivor = txn({ accountId: "Up · 700000000", description: "Coffee Roasters 123" });
+    const mergedInto = { "Up · ···000": "Up · 700000000" };
+    assert.equal(fingerprintOf(source, 0, mergedInto), fingerprintOf(survivor, 0, mergedInto));
+  });
+
   it("keeps two accounts apart even when the movements look identical", () => {
     const everyday = txn({ accountKey: "100200300", description: "Account fee" });
     const offset = txn({ accountKey: "400500600", description: "Account fee" });
@@ -103,8 +110,8 @@ describe("movement fingerprints", () => {
 
 describe("two downloads of one account that overlap", () => {
   // A letterhead names the account, so both statements file their movements under
-  // "Up · 700000000" — but each was fingerprinted against its own filename, so the week
-  // they share is held twice.
+  // the same account id. Spec 6c fingerprints that canonical account, so the week
+  // they share is recognised at import rather than stored twice.
   const shared = { accountId: "Up · 700000000", merchant: "Woolworths Bondi" };
   const may = txn({ ...shared, id: "may", dateIso: "2026-05-15", amount: -86.4 });
   const sept = txn({ ...shared, id: "sept", dateIso: "2026-09-20", amount: -30, merchant: "Coles" });
@@ -116,7 +123,7 @@ describe("two downloads of one account that overlap", () => {
     );
   }
 
-  it("holds every row, and shows the shared week once", () => {
+  it("holds the union once, and shows the shared week once", () => {
     const ledger = ledgerOf(
       [{ ...may, sourceFile: "jan-jun.csv" }],
       [
@@ -125,7 +132,7 @@ describe("two downloads of one account that overlap", () => {
       ],
     );
 
-    assert.equal(ledgerTransactions(ledger).length, 3, "both statements keep the rows they brought");
+    assert.equal(ledgerTransactions(ledger).length, 2, "the overlapping shop is already held");
     assert.equal(visibleTransactions(ledger).length, 2);
     assert.equal(summarizeMoneyFlow(visibleTransactions(ledger)).spending, 116.4);
   });
@@ -137,7 +144,7 @@ describe("two downloads of one account that overlap", () => {
     ];
     const ledger = ledgerOf(twice, [...twice.map((row) => ({ ...row, sourceFile: "may-sep.csv" }))]);
 
-    assert.equal(ledgerTransactions(ledger).length, 4);
+    assert.equal(ledgerTransactions(ledger).length, 2);
     assert.equal(visibleTransactions(ledger).length, 2, "two shops, seen by two statements");
   });
 
@@ -150,8 +157,7 @@ describe("two downloads of one account that overlap", () => {
     assert.equal(visibleTransactions(ledger).length, 2);
   });
 
-  it("folds the overlap away once a person says two statements are one account", () => {
-    // The same account, exported twice: once with the number printed, once without.
+  it("folds the overlap away once a person hard-merges two statements as one account", () => {
     const held = ledgerOf(
       [{ ...may, sourceFile: "up-number.csv" }],
       [{ ...may, id: "masked", accountId: "Up · ···000", sourceFile: "up-masked.csv" }],
@@ -159,9 +165,13 @@ describe("two downloads of one account that overlap", () => {
 
     assert.equal(visibleTransactions(held).length, 2, "two accounts until someone says otherwise");
 
-    const merged = nameAccount(nameAccount(held, "Up · 700000000", "Spending"), "Up · ···000", "Spending");
-    assert.equal(visibleTransactions(merged).length, 1);
-    assert.equal(ledgerTransactions(merged).length, 2, "naming an account moves no stored row");
+    const merged = mergeAccounts(held, "Up · ···000", "Up · 700000000");
+    assert.equal(merged.ok, true);
+    if (!merged.ok) return;
+    assert.equal(visibleTransactions(merged.ledger).length, 1);
+    assert.equal(ledgerTransactions(merged.ledger).length, 1, "collision drops the duplicate row");
+    assert.equal(merged.ledger.mergedInto?.["Up · ···000"], "Up · 700000000");
+    assert.ok((merged.ledger.review ?? []).some((item) => item.reason === "DUPLICATE_HOLD" && item.state === "OPEN"));
   });
 });
 
@@ -411,16 +421,14 @@ describe("accumulating the NAB statements", () => {
   it("names the account each import covered", async () => {
     const result = await readSamples(["nab-medicare.csv", "nab-rent.csv"]);
     const { report } = appendToLedger(EMPTY_LEDGER, result, { importedAt: "2026-09-01T00:00:00.000Z" });
-    assert.deepEqual(report.imports.map((entry) => entry.accountKeys), [["acct:100200300"], ["acct:400500600"]]);
+    assert.deepEqual(report.imports.map((entry) => entry.accountKeys), [["acct:nab · 100200300"], ["acct:nab · 400500600"]]);
     assert.equal(report.imports[0]?.from, "2025-07-01");
   });
 });
 
 describe("the Up statement, downloaded twice over overlapping periods", () => {
-  // Up prints its account on the letterhead rather than beside every movement, so each
-  // export was fingerprinted against its own filename and the months they share are held
-  // twice. Nothing stored can be dropped — either statement may be removed later — so the
-  // overlap is read past instead.
+  // Up prints its account on the letterhead. Spec 6c fingerprints that account, so the
+  // months two downloads share are recognised at import rather than stored twice.
   async function readText(filename: string, text: string) {
     return interpretDocuments(
       [{ filename, mime: "text/plain", bytes: new TextEncoder().encode(text) }],
@@ -449,8 +457,8 @@ describe("the Up statement, downloaded twice over overlapping periods", () => {
 
     const held = ledgerTransactions(ledger);
     const shown = visibleTransactions(ledger);
-    assert.equal(held.length, 1549, "every row both statements brought is kept");
     assert.equal(shown.length, 1267);
+    assert.equal(held.length, shown.length, "same-account overlap is recognised at import");
 
     // Same Income as a single-file year: $70,574.39 less $448.89 of refunds. Spec 10
     // keeps the original charges in Spending and puts the credits in Refund credits.
@@ -464,9 +472,6 @@ describe("the Up statement, downloaded twice over overlapping periods", () => {
     assert.equal(flow.refunds, 448.89);
     assert.equal(flow.net, -1061.68);
     assert.equal(flow.actualSavings, 5800.4);
-
-    const doubled = summarizeMoneyFlow(settle(held));
-    assert.equal(doubled.income, 84788.79, "overlap extras that stay unpaired are OPEN-held");
   });
 
   it("leaves a year uploaded once exactly as it is", async () => {

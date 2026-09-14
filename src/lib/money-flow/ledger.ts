@@ -1,4 +1,10 @@
-import type { AccountNames } from "@/lib/money-flow/account-identity";
+import {
+  canonicalAccountId,
+  mergeBlockedReason,
+  mergeWouldCycle,
+  type AccountMeta,
+  type AccountNames,
+} from "@/lib/money-flow/account-identity";
 import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import { uniqueTransactions } from "@/lib/money-flow/summary";
 import { persistStoredTransaction, upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
@@ -50,9 +56,16 @@ export type Ledger = {
   institutions?: InstitutionOverrides;
   /**
    * The name a person gave each account, against the key its statement filed movements
-   * under. Two keys sharing a name are one account, which is how a merge is recorded.
+   * under. Display only — Spec 6c merge is `mergedInto`, not a shared name.
    */
   accounts?: AccountNames;
+  /**
+   * Spec 6c hard merge: source account id → survivor. Walked for identity and
+   * fingerprints. No undo.
+   */
+  mergedInto?: Record<string, string>;
+  /** Optional currency/kind used to enforce Spec 6 hard blocks on merge. */
+  accountMeta?: Record<string, AccountMeta>;
   /**
    * What the person said about movements the statements cannot settle — a lender's
    * drawdown that reads as income, money from an account they have not uploaded. Keyed by
@@ -97,18 +110,34 @@ export type AppendOptions = {
   hashes?: Record<string, string>;
 };
 
+export type FingerprintInput = {
+  id?: string;
+  accountId?: string;
+  accountKey?: string;
+  sourceFile: string;
+  dateIso: string;
+  amount: number;
+  description?: string;
+  merchant: string;
+};
+
 /**
  * A movement's identity, independent of which file it arrived in. Two statements
  * covering the same week describe the same movement the same way, so the same
  * fingerprint falls out of both and the second one is recognised as already held.
+ * Spec 6c walks `merged_into` so a source account files under the survivor.
  */
-export function fingerprintOf(txn: InterpretedTransaction, occurrence = 0): string {
-  return [accountOf(txn), txn.dateIso, txn.amount.toFixed(2), normalize(describe(txn)), occurrence].join("|");
+export function fingerprintOf(
+  txn: FingerprintInput,
+  occurrence = 0,
+  mergedInto: Record<string, string> = {},
+): string {
+  return [accountOf(txn, mergedInto), txn.dateIso, txn.amount.toFixed(2), normalize(describe(txn)), occurrence].join("|");
 }
 
-export function accountOf(txn: InterpretedTransaction): string {
-  const key = txn.accountKey?.trim();
-  if (key) return `acct:${normalize(key)}`;
+export function accountOf(txn: FingerprintInput, mergedInto: Record<string, string> = {}): string {
+  const raw = txn.accountId?.trim() || txn.accountKey?.trim();
+  if (raw) return `acct:${normalize(canonicalAccountId(raw, mergedInto))}`;
   return `file:${normalize(txn.sourceFile)}`;
 }
 
@@ -118,6 +147,7 @@ export function appendToLedger(
   options: AppendOptions = {},
 ): { ledger: Ledger; report: ImportReport } {
   const importedAt = options.importedAt ?? new Date().toISOString();
+  const mergedInto = ledger.mergedInto ?? {};
   const held = new Map(ledger.entries.map((entry) => [entry.fingerprint, entry]));
   const entries = [...ledger.entries];
   const imports: LedgerImport[] = [];
@@ -134,7 +164,7 @@ export function appendToLedger(
       notes: file?.notes ?? [],
       ...(contentHash ? { contentHash } : {}),
       ...(file?.processingError ? { error: file.processingError } : {}),
-      accountKeys: unique(rows.map(accountOf)),
+      accountKeys: unique(rows.map((row) => accountOf(row, mergedInto))),
       from: rows.length > 0 ? rows.reduce((min, row) => (row.dateIso < min ? row.dateIso : min), rows[0].dateIso) : "",
       to: rows.length > 0 ? rows.reduce((max, row) => (row.dateIso > max ? row.dateIso : max), rows[0].dateIso) : "",
       rows: rows.length,
@@ -149,17 +179,17 @@ export function appendToLedger(
 
     const repeat = contentHash ? ledger.imports.find((prior) => prior.contentHash === contentHash) : undefined;
     if (repeat) {
-      backfillMissingSource(held, rows);
+      backfillMissingSource(held, rows, mergedInto);
       imports.push({ ...record, duplicates: rows.length, repeatOf: repeat.id });
       return;
     }
 
     const seen = new Map<string, number>();
     for (const row of rows) {
-      const base = fingerprintOf(row);
+      const base = fingerprintOf(row, 0, mergedInto);
       const occurrence = seen.get(base) ?? 0;
       seen.set(base, occurrence + 1);
-      const fingerprint = occurrence === 0 ? base : fingerprintOf(row, occurrence);
+      const fingerprint = occurrence === 0 ? base : fingerprintOf(row, occurrence, mergedInto);
 
       const existing = held.get(fingerprint);
       if (existing) {
@@ -276,9 +306,8 @@ export function removeImport(ledger: Ledger, importId: string): Ledger {
 }
 
 /**
- * Records what a person calls an account. Giving two keys the same name merges them;
- * an empty name forgets the naming, and the account goes back to the key its statement
- * filed it under.
+ * Records what a person calls an account. An empty name forgets the naming.
+ * Naming never merges two accounts and never undoes a hard merge.
  */
 export function nameAccount(ledger: Ledger, accountKey: string, name: string): Ledger {
   const called = tidyInstitutionName(name);
@@ -286,6 +315,161 @@ export function nameAccount(ledger: Ledger, accountKey: string, name: string): L
   if (called) accounts[accountKey] = called;
   else delete accounts[accountKey];
   return { ...ledger, accounts };
+}
+
+export type MergeAccountsResult = { ok: true; ledger: Ledger } | { ok: false; reason: string };
+
+/**
+ * Spec 6c hard merge: source → survivor. Remaps stored rows, recomputes fingerprints,
+ * collapses collisions to one CLEARED movement with an OPEN DUPLICATE_HOLD, and
+ * breaks same-account transfer pairs. No undo.
+ */
+export function mergeAccounts(ledger: Ledger, sourceId: string, survivorId: string): MergeAccountsResult {
+  const source = canonicalAccountId(sourceId.trim(), ledger.mergedInto);
+  const survivor = canonicalAccountId(survivorId.trim(), ledger.mergedInto);
+  if (!source || !survivor) return { ok: false, reason: "Pick two accounts." };
+  if (source === survivor) return { ok: false, reason: "Already the same account." };
+  if (mergeWouldCycle(source, survivor, ledger.mergedInto)) {
+    return { ok: false, reason: "That merge would loop." };
+  }
+  const blocked = mergeBlockedReason(source, survivor, ledger.accountMeta);
+  if (blocked) return { ok: false, reason: blocked };
+
+  const proposed = { ...(ledger.mergedInto ?? {}), [source]: survivor };
+  const mergedInto: Record<string, string> = {};
+  for (const from of Object.keys(proposed)) {
+    const to = canonicalAccountId(from, proposed);
+    if (to !== from) mergedInto[from] = to;
+  }
+
+  const remapped: Array<{ entry: LedgerEntry; filing: string }> = ledger.entries.map((entry) => {
+    const filing = filingAccount(entry, ledger);
+    const nextAccountId = canonicalAccountId(filing, mergedInto) || filing;
+    const occurrence = fingerprintOccurrence(entry.fingerprint);
+    const next: LedgerEntry = {
+      ...entry,
+      accountId: nextAccountId,
+      fingerprint: fingerprintOf({ ...entry, accountId: nextAccountId }, occurrence, mergedInto),
+    };
+    return { entry: next, filing };
+  });
+
+  const byFingerprint = new Map<string, Array<{ entry: LedgerEntry; filing: string }>>();
+  for (const row of remapped) {
+    const group = byFingerprint.get(row.entry.fingerprint) ?? [];
+    group.push(row);
+    byFingerprint.set(row.entry.fingerprint, group);
+  }
+
+  const entries: LedgerEntry[] = [];
+  const duplicateHolds: ReviewItem[] = [];
+  for (const [fingerprint, group] of byFingerprint) {
+    if (group.length === 1) {
+      entries.push(group[0].entry);
+      continue;
+    }
+    const winner = pickCollisionWinner(group, source, survivor);
+    const kept: LedgerEntry = { ...winner.entry, importIds: [...winner.entry.importIds] };
+    for (const other of group) {
+      if (other.entry.id === kept.id) continue;
+      kept.importIds = unique([...kept.importIds, ...other.entry.importIds]);
+      applySurvivorOverride(kept, other.entry);
+    }
+    entries.push(kept);
+    duplicateHolds.push({
+      id: `DUPLICATE_HOLD:${fingerprint}`,
+      reason: "DUPLICATE_HOLD",
+      state: "OPEN",
+      movementIds: [],
+      label: `Merge collapsed a duplicate of ${kept.merchant} on ${kept.dateIso} into one cleared movement`,
+    });
+  }
+
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const collapsed = entries.map((entry) => breakSameAccountTransfer(entry, byId, mergedInto));
+
+  const review = [
+    ...(ledger.review ?? []).filter((item) => !duplicateHolds.some((hold) => hold.id === item.id)),
+    ...duplicateHolds,
+  ];
+
+  return {
+    ok: true,
+    ledger: {
+      ...ledger,
+      version: LEDGER_VERSION,
+      mergedInto,
+      entries: sortEntries(collapsed),
+      ...(review.length > 0 ? { review } : {}),
+    },
+  };
+}
+
+function filingAccount(entry: LedgerEntry, ledger: Ledger): string {
+  const raw = entry.accountId?.trim() || entry.accountKey?.trim();
+  if (raw) return canonicalAccountId(raw, ledger.mergedInto ?? {});
+  const filed = `${entry.institution?.trim() || "Unknown source"} · ${entry.sourceFile}`;
+  return canonicalAccountId(filed, ledger.mergedInto ?? {});
+}
+
+function fingerprintOccurrence(fingerprint: string): number {
+  const tail = fingerprint.split("|").pop() ?? "0";
+  const n = Number(tail);
+  return Number.isInteger(n) && n >= 0 ? n : 0;
+}
+
+function pickCollisionWinner(
+  group: Array<{ entry: LedgerEntry; filing: string }>,
+  source: string,
+  survivor: string,
+): { entry: LedgerEntry; filing: string } {
+  return (
+    group.find((row) => row.filing === survivor) ??
+    group.find((row) => row.filing !== source) ??
+    group[0]
+  );
+}
+
+function isUserOverridden(row: LedgerEntry): boolean {
+  return row.decidedBy === "said" || row.userFlaggedSavings === true;
+}
+
+function applySurvivorOverride(winner: LedgerEntry, incoming: LedgerEntry): void {
+  if (isUserOverridden(winner) || !isUserOverridden(incoming)) return;
+  winner.decidedBy = incoming.decidedBy;
+  if (incoming.userFlaggedSavings) winner.userFlaggedSavings = true;
+  if (incoming.decidedBy === "said") {
+    winner.type = incoming.type;
+    winner.categoryKey = incoming.categoryKey;
+  }
+}
+
+function breakSameAccountTransfer(
+  entry: LedgerEntry,
+  byId: Map<string, LedgerEntry>,
+  mergedInto: Record<string, string>,
+): LedgerEntry {
+  const pairId = entry.transferPair;
+  if (!pairId) return entry;
+  const otherId = pairId
+    .split("~")
+    .find((id) => id && id !== entry.id);
+  const other = (otherId ? byId.get(otherId) : undefined) ??
+    [...byId.values()].find((row) => row.id !== entry.id && row.transferPair === pairId);
+  if (!other) return stripTransferPair(entry);
+  const a = canonicalAccountId(entry.accountId ?? entry.accountKey ?? "", mergedInto);
+  const b = canonicalAccountId(other.accountId ?? other.accountKey ?? "", mergedInto);
+  if (a && b && a === b) return stripTransferPair(entry);
+  return entry;
+}
+
+function stripTransferPair(entry: LedgerEntry): LedgerEntry {
+  const next: LedgerEntry = { ...entry };
+  delete next.transferPair;
+  if (entry.decidedBy === "said" || entry.decidedBy === "paired") {
+    next.decidedBy = "unreviewed";
+  }
+  return next;
 }
 
 /**
@@ -397,6 +581,8 @@ export function mergeLedgers(mine: Ledger, theirs: Ledger): Ledger {
     ...named({ ...theirs.institutions, ...mine.institutions }, "institutions"),
     ...named({ ...theirs.accounts, ...mine.accounts }, "accounts"),
     ...named({ ...theirs.payers, ...mine.payers }, "payers"),
+    ...named({ ...theirs.mergedInto, ...mine.mergedInto }, "mergedInto"),
+    ...mergedAccountMeta(mine.accountMeta, theirs.accountMeta),
     ...mergedVerdicts(mine.verdicts, theirs.verdicts),
     ...mergedRules(mine.rules, theirs.rules),
     ...pickedTaxonomy(mine.taxonomy, theirs.taxonomy),
@@ -420,8 +606,16 @@ function pickedReview(mine: ReviewItem[] | undefined, theirs: ReviewItem[] | und
 }
 
 /** Only carried when there is something to carry, so an empty ledger stays empty. */
-function named(map: Record<string, string>, key: "institutions" | "accounts" | "payers") {
+function named(map: Record<string, string>, key: "institutions" | "accounts" | "payers" | "mergedInto") {
   return Object.keys(map).length > 0 ? { [key]: map } : {};
+}
+
+function mergedAccountMeta(
+  mine: Record<string, AccountMeta> | undefined,
+  theirs: Record<string, AccountMeta> | undefined,
+) {
+  const held = { ...theirs, ...mine };
+  return Object.keys(held).length > 0 ? { accountMeta: held } : {};
 }
 
 /**
@@ -481,6 +675,7 @@ export function visibleTransactions(ledger: Ledger): InterpretedTransaction[] {
     ...(ledger.accounts ? { names: ledger.accounts } : {}),
     ...(ledger.institutions ? { institutions: ledger.institutions } : {}),
     ...(ledger.payers ? { payers: ledger.payers } : {}),
+    ...(ledger.mergedInto ? { mergedInto: ledger.mergedInto } : {}),
   });
 }
 
@@ -545,6 +740,10 @@ export function parseLedger(value: unknown): Ledger | null {
     imports: raw.imports,
     ...(raw.institutions && typeof raw.institutions === "object" ? { institutions: namesOnly(raw.institutions) } : {}),
     ...(raw.accounts && typeof raw.accounts === "object" ? { accounts: namesOnly(raw.accounts) } : {}),
+    ...(raw.mergedInto && typeof raw.mergedInto === "object" ? { mergedInto: stringsOnly(raw.mergedInto) } : {}),
+    ...(raw.accountMeta && typeof raw.accountMeta === "object"
+      ? { accountMeta: accountMetaOnly(raw.accountMeta) }
+      : {}),
     ...(raw.verdicts && typeof raw.verdicts === "object" ? { verdicts: verdictsOnly(raw.verdicts) } : {}),
     ...(raw.payers && typeof raw.payers === "object" ? { payers: stringsOnly(raw.payers) } : {}),
     ...(raw.rules && typeof raw.rules === "object" ? { rules: rulesOnly(raw.rules, extraKeys) } : {}),
@@ -654,17 +853,35 @@ function namesOnly(raw: Record<string, unknown>): InstitutionOverrides {
   );
 }
 
+function accountMetaOnly(raw: Record<string, unknown>): Record<string, AccountMeta> {
+  const kinds = new Set(["CHECKING", "SAVINGS", "CREDIT", "LOAN", "MORTGAGE"]);
+  const held: Record<string, AccountMeta> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!value || typeof value !== "object") continue;
+    const stored = value as Partial<AccountMeta>;
+    const next: AccountMeta = {};
+    if (typeof stored.currency === "string" && stored.currency.trim()) next.currency = stored.currency.trim();
+    if (typeof stored.kind === "string" && kinds.has(stored.kind)) next.kind = stored.kind as AccountMeta["kind"];
+    if (next.currency || next.kind) held[key] = next;
+  }
+  return held;
+}
+
 /**
  * A re-upload can land source cells on a movement stored before they existed.
  * Working columns stay as they were — source is evidence, not a rewrite.
  */
-function backfillMissingSource(held: Map<string, LedgerEntry>, rows: InterpretedTransaction[]): void {
+function backfillMissingSource(
+  held: Map<string, LedgerEntry>,
+  rows: InterpretedTransaction[],
+  mergedInto: Record<string, string>,
+): void {
   const seen = new Map<string, number>();
   for (const row of rows) {
-    const base = fingerprintOf(row);
+    const base = fingerprintOf(row, 0, mergedInto);
     const occurrence = seen.get(base) ?? 0;
     seen.set(base, occurrence + 1);
-    const existing = held.get(occurrence === 0 ? base : fingerprintOf(row, occurrence));
+    const existing = held.get(occurrence === 0 ? base : fingerprintOf(row, occurrence, mergedInto));
     if (existing) fillSource(existing, row);
   }
 }
@@ -673,7 +890,7 @@ function fillSource(existing: LedgerEntry, row: InterpretedTransaction): void {
   if (!hasSource(existing.source) && row.source) existing.source = row.source;
 }
 
-function describe(txn: InterpretedTransaction): string {
+function describe(txn: FingerprintInput): string {
   return txn.description?.trim() || txn.merchant;
 }
 

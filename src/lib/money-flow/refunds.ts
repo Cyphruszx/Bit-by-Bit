@@ -64,6 +64,7 @@ export type RefundOptions = {
   windowDays?: number;
   accounts?: AccountRegistry["names"];
   institutions?: AccountRegistry["institutions"];
+  mergedInto?: AccountRegistry["mergedInto"];
 };
 
 /**
@@ -81,6 +82,7 @@ export function matchRefunds(
   const registry: AccountRegistry = {
     ...(options.accounts ? { names: options.accounts } : {}),
     ...(options.institutions ? { institutions: options.institutions } : {}),
+    ...(options.mergedInto ? { mergedInto: options.mergedInto } : {}),
   };
 
   const open = transactions.filter((txn) => !txn.transferPair);

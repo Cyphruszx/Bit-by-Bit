@@ -46,9 +46,10 @@ describe("choosing what to look at", () => {
     assert.equal(everyday[0].amount, -50);
   });
 
-  it("follows an account through the name a person gave it", () => {
+  it("does not treat a display name as the account's id", () => {
     const named = { names: { "NAB · 100200300": "Everyday" } };
-    assert.equal(filterByScope(rows, { kind: "account", accountId: "NAB · Everyday" }, named).length, 1);
+    assert.equal(filterByScope(rows, { kind: "account", accountId: "NAB · Everyday" }, named).length, 0);
+    assert.equal(filterByScope(rows, { kind: "account", accountId: "NAB · 100200300" }, named).length, 1);
   });
 
   it("shortens an account number in the label", () => {

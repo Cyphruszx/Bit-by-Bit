@@ -458,8 +458,7 @@ export function uniqueTransactions(
   // statements that name no account are more likely one account downloaded twice over
   // overlapping periods, where the repeat is the same movement seen again.
   //
-  // The account is asked for by the name it currently goes by, so saying two statements
-  // are one account makes their overlap fold away without anything being re-imported.
+  // Spec 6c walks `merged_into` here. A display name is not a merge.
   const withinFile = new Map<string, number>();
   const seen = new Set<string>();
   return rows.filter((row) => {

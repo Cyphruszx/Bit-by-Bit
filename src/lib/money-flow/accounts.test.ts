@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  accountCaption,
   accountIdOf,
   accountLabel,
   accountsByInstitution,
@@ -104,19 +105,27 @@ describe("naming and merging accounts", () => {
   const nabNumber = txn({ accountId: "NAB · 100200300", institution: "NAB", amount: -50 });
   const nabMasked = txn({ accountId: "NAB · ···300", institution: "NAB", amount: -20 });
 
-  it("shows the name a person gave in place of the number", () => {
+  it("shows the name a person gave without fusing two keys", () => {
     const named = { "NAB · 100200300": "Everyday" };
-    assert.equal(accountIdOf(nabNumber, { names: named }), "NAB · Everyday");
+    assert.equal(accountIdOf(nabNumber, { names: named }), "NAB · 100200300");
+    assert.equal(accountCaption(nabNumber, { names: named }), "NAB · Everyday");
   });
 
-  it("makes two keys one account when both are given the same name", () => {
+  it("does not make two keys one account just because they share a name", () => {
     const named = { "NAB · 100200300": "Everyday", "NAB · ···300": "Everyday" };
     const accounts = accountsFrom([nabNumber, nabMasked], { names: named });
 
-    assert.equal(accounts.length, 1);
-    assert.equal(accounts[0].transactions.length, 2);
-    assert.deepEqual(accounts[0].keys.sort(), ["NAB · 100200300", "NAB · ···300"]);
+    assert.equal(accounts.length, 2);
     assert.equal(accounts[0].named, true);
+  });
+
+  it("hides the source once merged_into walks to the survivor", () => {
+    const accounts = accountsFrom([nabNumber, nabMasked], {
+      mergedInto: { "NAB · ···300": "NAB · 100200300" },
+    });
+    assert.equal(accounts.length, 1);
+    assert.equal(accounts[0].id, "NAB · 100200300");
+    assert.deepEqual(accounts[0].keys, ["NAB · 100200300"]);
   });
 
   it("keeps them apart until someone says otherwise", () => {

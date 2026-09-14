@@ -14,10 +14,10 @@ import { payerGroups, payerSuggestions } from "@/lib/money-flow/payers";
  * wrong merge fuses two payers' totals somewhere nobody will look again.
  */
 export function PayerSuggestions() {
-  const { accountNames, allTransactions, institutionOverrides, mergePayers, payers } = useMoneyFlow();
+  const { accountNames, allTransactions, institutionOverrides, mergePayers, payers, mergedInto } = useMoneyFlow();
   const registry = useMemo(
-    () => ({ names: accountNames, institutions: institutionOverrides, payers }),
-    [accountNames, institutionOverrides, payers],
+    () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
+    [accountNames, institutionOverrides, payers, mergedInto],
   );
   const suggestions = useMemo(
     () => payerSuggestions(allTransactions, registry),

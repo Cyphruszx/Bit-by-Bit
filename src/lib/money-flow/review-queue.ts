@@ -178,6 +178,20 @@ function detectReviewItems(
   for (const item of unreviewedKindItems(transactions, claimed)) push(item);
   for (const item of aiLowConfidenceItems(transactions, claimed)) push(item);
 
+  const seen = new Set(items.map((item) => item.id));
+  for (const item of options.stored ?? []) {
+    if (item.state !== "OPEN" || seen.has(item.id) || closed.has(item.id)) continue;
+    if (
+      item.reason !== "DUPLICATE_HOLD" &&
+      item.reason !== "FINGERPRINT_CONFLICT" &&
+      item.reason !== "RULE_CONFLICT"
+    ) {
+      continue;
+    }
+    items.push(item);
+    seen.add(item.id);
+  }
+
   return items;
 }
 
@@ -219,7 +233,7 @@ function unpairedTransfers(
   }
 
   for (const txn of open) {
-    if (used.has(txn.id) || !looksInternal(txn)) continue;
+    if (used.has(txn.id) || !unpairedTransferCandidate(txn)) continue;
     used.add(txn.id);
     items.push({
       id: `UNPAIRED_TRANSFER:${txn.id}`,
@@ -359,6 +373,11 @@ function aiLowConfidenceItems(
       movementIds: [txn.id],
       label: `AI filing for ${txn.merchant} is below the bar for ${money(txn.amount)}`,
     }));
+}
+
+function unpairedTransferCandidate(txn: InterpretedTransaction): boolean {
+  if (txn.transferPair) return false;
+  return looksInternal(txn) || txn.type === "moved";
 }
 
 function isRefundCandidate(txn: InterpretedTransaction): boolean {
