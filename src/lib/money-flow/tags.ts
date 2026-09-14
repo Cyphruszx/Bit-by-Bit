@@ -37,7 +37,7 @@ export function tagsOf(txn: Pick<InterpretedTransaction, "tags">): string[] {
 export function withCategory(
   txn: InterpretedTransaction,
   categoryKey: string,
-  decidedBy: DecidedBy = "said",
+  decidedBy: DecidedBy = "user_overridden",
 ): InterpretedTransaction {
   const next = isCategoryKey(categoryKey) ? categoryKey : UNCATEGORISED;
   return { ...txn, categoryKey: next, type: typeForCategory(next, txn.amount), decidedBy };

@@ -25,9 +25,11 @@ function txn(over: Partial<InterpretedTransaction> = {}): InterpretedTransaction
 
 describe("the order the app is allowed to decide", () => {
   it("puts what the person said above everything below it", () => {
-    for (const rung of ["learned", "paired", "merchant", "rules", "bank", "ai", "unreviewed"] as const) {
+    for (const rung of ["user_rule", "learned", "paired", "merchant", "rules", "bank", "ai", "unreviewed"] as const) {
       assert.ok(outranks("said", rung), `said should beat ${rung}`);
+      assert.ok(outranks("user_overridden", rung), `user_overridden should beat ${rung}`);
       assert.ok(!outranks(rung, "said"), `${rung} should not beat said`);
+      assert.ok(!outranks(rung, "user_overridden"), `${rung} should not beat user_overridden`);
     }
   });
 
@@ -108,8 +110,8 @@ describe("walking the ladder", () => {
 
     for (const row of rows) {
       assert.equal(row.categoryKey, "eating-out");
-      assert.equal(row.decidedBy, "learned");
-      assert.equal(row.type, "spent");
+      assert.equal(row.decidedBy, "user_rule");
+      assert.equal(row.type, "SPENDING");
     }
   });
 
@@ -139,7 +141,7 @@ describe("walking the ladder", () => {
   it("re-derives the type from the category and the direction", () => {
     const rules = learn({}, txn({ merchant: "Ato" }), "other-income", "2026-07-01T00:00:00.000Z");
     const credit = classify([txn({ merchant: "Ato", amount: 1067, type: "spent" })], { rules })[0];
-    assert.equal(credit.type, "earned");
+    assert.equal(credit.type, "INCOME");
   });
 
   it("reaches the same answer run twice, so importing again changes nothing", () => {

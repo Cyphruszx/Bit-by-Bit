@@ -6,14 +6,17 @@
  * model — only ever sees what nothing else could place, and a confident wrong answer can
  * never land on top of a right one.
  *
- *   said        the person chose this, on this movement
- *   learned     the person corrected this merchant before
- *   paired      Spec 7 RESOLVE wrote the other leg (Core ingest never does this)
- *   merchant    this ledger's own history for this merchant
- *   rules       the merchant table, applied when the statement was read
- *   bank        the statement's own label, which is a hint and never an answer
- *   ai          a model, constrained to the taxonomy
- *   unreviewed  nothing could say, and saying so is the honest answer
+ *   user_overridden / said   the person chose this, on this movement
+ *   user_rule / learned      the person corrected this merchant before
+ *   paired                   Spec 7 RESOLVE wrote the other leg (Core ingest never does this)
+ *   merchant                 this ledger's own history for this merchant
+ *   rules                    the merchant table, applied when the statement was read
+ *   bank                     the statement's own label, which is a hint and never an answer
+ *   ai                       a model, constrained to the taxonomy
+ *   unreviewed               nothing could say, and saying so is the honest answer
+ *
+ * Spec 3 lists user_rule before user_overridden. A merchant rule must not overwrite
+ * a row the person settled, or Spec 7 RESOLVE and Spec 6c merge overrides vanish.
  *
  * `paired` sits above the merchant and the rules because it is the only rung backed by
  * arithmetic rather than by a guess about words: two legs of the same amount in two
@@ -25,16 +28,26 @@
 
 import { merchantKey } from "@/lib/money-flow/redact";
 import { ruleFor, type Rules } from "@/lib/money-flow/rules";
+import { authorityOf, isUserOverridden } from "@/lib/money-flow/movement-kind";
+import { looksLikeCreditCardRepayment } from "@/lib/money-flow/statement-category";
 import { categoryForBankLabel, splitSuggestion, typeForCategory, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { DecidedBy, InterpretedTransaction } from "@/lib/money-flow/types";
 
-const RUNGS: DecidedBy[] = ["said", "learned", "paired", "merchant", "rules", "bank", "ai", "unreviewed"];
-
-const RANK = new Map<DecidedBy, number>(RUNGS.map((rung, index) => [rung, index]));
+function rank(decidedBy: DecidedBy | undefined): number {
+  const authority = authorityOf(decidedBy);
+  if (authority === "user_overridden") return 0;
+  if (authority === "user_rule") return 1;
+  if (decidedBy === "paired") return 2;
+  if (decidedBy === "merchant") return 3;
+  if (decidedBy === "rules") return 4;
+  if (decidedBy === "bank") return 5;
+  if (decidedBy === "ai") return 6;
+  return 7;
+}
 
 /** Whether the first rung outranks the second. Equal rungs do not beat each other. */
 export function outranks(rung: DecidedBy, held: DecidedBy | undefined): boolean {
-  return (RANK.get(rung) ?? RUNGS.length) < (RANK.get(held ?? "unreviewed") ?? RUNGS.length);
+  return rank(rung) < rank(held ?? "unreviewed");
 }
 
 /** Whether a movement is still waiting for somebody to say what it was for. */
@@ -64,16 +77,16 @@ export function classify(
   return transactions.map((txn) => {
     // A movement the person settled themselves is never re-decided. Nothing below them on
     // the ladder gets to argue, and that is the whole reason the ladder is ordered.
-    if (txn.decidedBy === "said") return txn;
+    if (isUserOverridden(txn)) return txn;
 
     const learned = ruleFor(rules, txn);
-    if (learned && outranks("learned", txn.decidedBy)) {
-      return placed(txn, learned.categoryKey, "learned");
+    if (learned && outranks("user_rule", txn.decidedBy)) {
+      return coreKind(placed(txn, learned.categoryKey, "user_rule"));
     }
 
     const known = remembered.get(merchantKey(txn));
     if (known && outranks("merchant", txn.decidedBy)) {
-      return placed(txn, known, "merchant");
+      return coreKind(placed(txn, known, "merchant"));
     }
 
     // Only unsorted rows: a bank label the person mapped, after the merchant ladder
@@ -82,11 +95,11 @@ export function classify(
       const mapped = categoryForBankLabel(txn.bank?.category);
       if (mapped) {
         const { categoryKey } = splitSuggestion(mapped);
-        if (categoryKey !== UNCATEGORISED) return placed(txn, categoryKey, "bank");
+        if (categoryKey !== UNCATEGORISED) return coreKind(placed(txn, categoryKey, "bank"));
       }
     }
 
-    return txn;
+    return coreKind(txn);
   });
 }
 
@@ -101,7 +114,7 @@ export function classify(
 function merchantMemory(transactions: InterpretedTransaction[]): Map<string, string> {
   const known = new Map<string, string>();
   for (const txn of transactions) {
-    if (txn.decidedBy !== "said" || txn.categoryKey === UNCATEGORISED) continue;
+    if (!isUserOverridden(txn) || txn.categoryKey === UNCATEGORISED) continue;
     known.set(merchantKey(txn), txn.categoryKey);
   }
   return known;
@@ -110,4 +123,12 @@ function merchantMemory(transactions: InterpretedTransaction[]): Map<string, str
 function placed(txn: InterpretedTransaction, categoryKey: string, decidedBy: DecidedBy): InterpretedTransaction {
   if (txn.categoryKey === categoryKey && txn.decidedBy === decidedBy) return txn;
   return { ...txn, categoryKey, type: typeForCategory(categoryKey, txn.amount), decidedBy };
+}
+
+/** Core heuristic: a credit-card repayment from a deposit account is TRANSFER, not Spending. */
+function coreKind(txn: InterpretedTransaction): InterpretedTransaction {
+  if (authorityOf(txn.decidedBy) !== "core" && txn.decidedBy !== "unreviewed") return txn;
+  if (!looksLikeCreditCardRepayment(txn)) return txn;
+  if (txn.type === "TRANSFER") return txn;
+  return { ...txn, type: "TRANSFER" };
 }

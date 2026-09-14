@@ -1,4 +1,5 @@
 import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/accounts";
+import { isTransferKind } from "@/lib/money-flow/movement-kind";
 import { institutionOf, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import { outranks } from "@/lib/money-flow/classify";
 import { typeForCategory } from "@/lib/money-flow/taxonomy";
@@ -198,18 +199,18 @@ export function markTransferLegs(
   }
 
   // Finding the other leg is the only thing that proves money moved between the person's
-  // own accounts, so this is the only place `moved` is ever written. A bank's own wording
-  // gets no vote: NAB calls 212 movements a transfer and 54 of them are.
+  // own accounts, so this is the only place TRANSFER is written from a pair. A bank's own
+  // wording gets no vote: NAB calls 212 movements a transfer and 54 of them are.
   return transactions.map((txn) => {
     const pair = pairOf.get(txn.id);
     if (pair) {
-      if (txn.transferPair === pair && txn.type === "moved") return txn;
+      if (txn.transferPair === pair && isTransferKind(txn.type)) return txn;
       // The pair proves the type. It does not get to relabel a category the person chose,
       // so `decidedBy` only ever moves up the ladder.
       return {
         ...txn,
         transferPair: pair,
-        type: "moved" as const,
+        type: "TRANSFER" as const,
         ...(outranks("paired", txn.decidedBy) ? { decidedBy: "paired" as const } : {}),
       };
     }

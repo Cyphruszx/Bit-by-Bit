@@ -5,6 +5,7 @@ import {
   type AccountMeta,
   type AccountNames,
 } from "@/lib/money-flow/account-identity";
+import { isUserOverridden, migrateStoredType } from "@/lib/money-flow/movement-kind";
 import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import { uniqueTransactions } from "@/lib/money-flow/summary";
 import { persistStoredTransaction, upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
@@ -132,6 +133,15 @@ export function fingerprintOf(
   occurrence = 0,
   mergedInto: Record<string, string> = {},
 ): string {
+  return [accountOf(txn, mergedInto), txn.dateIso, txn.amount.toFixed(2), hashDescription(describe(txn)), occurrence].join("|");
+}
+
+/** Pre-Spec 3 wording part, so a stored fingerprint still matches on first re-import. */
+export function legacyFingerprintOf(
+  txn: FingerprintInput,
+  occurrence = 0,
+  mergedInto: Record<string, string> = {},
+): string {
   return [accountOf(txn, mergedInto), txn.dateIso, txn.amount.toFixed(2), normalize(describe(txn)), occurrence].join("|");
 }
 
@@ -191,9 +201,11 @@ export function appendToLedger(
       seen.set(base, occurrence + 1);
       const fingerprint = occurrence === 0 ? base : fingerprintOf(row, occurrence, mergedInto);
 
-      const existing = held.get(fingerprint);
+      const existing = lookupHeld(held, row, occurrence, mergedInto);
       if (existing) {
         // Keep the held movement, tags and all, and only note that this import covered it too.
+        // Spec 3: user_overridden wins on the same fingerprint.
+        applyReimportOverride(existing, row);
         if (!existing.importIds.includes(record.id)) existing.importIds.push(record.id);
         fillSource(existing, row);
         record.duplicates += 1;
@@ -430,16 +442,12 @@ function pickCollisionWinner(
   );
 }
 
-function isUserOverridden(row: LedgerEntry): boolean {
-  return row.decidedBy === "said" || row.userFlaggedSavings === true;
-}
-
 function applySurvivorOverride(winner: LedgerEntry, incoming: LedgerEntry): void {
   if (isUserOverridden(winner) || !isUserOverridden(incoming)) return;
-  winner.decidedBy = incoming.decidedBy;
+  winner.decidedBy = incoming.decidedBy === "said" ? "user_overridden" : incoming.decidedBy;
   if (incoming.userFlaggedSavings) winner.userFlaggedSavings = true;
-  if (incoming.decidedBy === "said") {
-    winner.type = incoming.type;
+  if (isUserOverridden(incoming)) {
+    winner.type = migrateStoredType(incoming.type) ?? incoming.type;
     winner.categoryKey = incoming.categoryKey;
   }
 }
@@ -466,7 +474,11 @@ function breakSameAccountTransfer(
 function stripTransferPair(entry: LedgerEntry): LedgerEntry {
   const next: LedgerEntry = { ...entry };
   delete next.transferPair;
-  if (entry.decidedBy === "said" || entry.decidedBy === "paired") {
+  if (
+    entry.decidedBy === "said" ||
+    entry.decidedBy === "user_overridden" ||
+    entry.decidedBy === "paired"
+  ) {
     next.decidedBy = "unreviewed";
   }
   return next;
@@ -871,6 +883,32 @@ function accountMetaOnly(raw: Record<string, unknown>): Record<string, AccountMe
  * A re-upload can land source cells on a movement stored before they existed.
  * Working columns stay as they were — source is evidence, not a rewrite.
  */
+function lookupHeld(
+  held: Map<string, LedgerEntry>,
+  row: FingerprintInput,
+  occurrence: number,
+  mergedInto: Record<string, string>,
+): LedgerEntry | undefined {
+  const current = fingerprintOf(row, occurrence, mergedInto);
+  const existing = held.get(current);
+  if (existing) return existing;
+  const legacy = legacyFingerprintOf(row, occurrence, mergedInto);
+  const old = held.get(legacy);
+  if (!old) return undefined;
+  held.delete(legacy);
+  old.fingerprint = current;
+  held.set(current, old);
+  return old;
+}
+
+function applyReimportOverride(held: LedgerEntry, incoming: InterpretedTransaction): void {
+  if (isUserOverridden(held) || !isUserOverridden(incoming)) return;
+  held.decidedBy = incoming.decidedBy === "said" ? "user_overridden" : incoming.decidedBy;
+  held.type = migrateStoredType(incoming.type) ?? incoming.type;
+  held.categoryKey = incoming.categoryKey;
+  if (incoming.userFlaggedSavings) held.userFlaggedSavings = true;
+}
+
 function backfillMissingSource(
   held: Map<string, LedgerEntry>,
   rows: InterpretedTransaction[],
@@ -881,7 +919,7 @@ function backfillMissingSource(
     const base = fingerprintOf(row, 0, mergedInto);
     const occurrence = seen.get(base) ?? 0;
     seen.set(base, occurrence + 1);
-    const existing = held.get(occurrence === 0 ? base : fingerprintOf(row, occurrence, mergedInto));
+    const existing = lookupHeld(held, row, occurrence, mergedInto);
     if (existing) fillSource(existing, row);
   }
 }
@@ -896,6 +934,16 @@ function describe(txn: FingerprintInput): string {
 
 function normalize(value: string): string {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function hashDescription(value: string): string {
+  const raw = normalize(value);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < raw.length; i += 1) {
+    hash ^= raw.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 function unique(values: string[]): string[] {

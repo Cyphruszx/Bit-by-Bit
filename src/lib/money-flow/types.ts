@@ -23,10 +23,21 @@ export type { TransactionType };
  * worked out can be worked out again when the rules improve, while anything the person
  * settled is left alone.
  *
- * In the order they win. `unreviewed` is not a failure to record — it is the state that
- * fills the review queue, and it is the reason Other stopped having to mean two things.
+ * Spec 3: user_rule → user_overridden → Core → UNREVIEWED, except a row the person
+ * settled (`user_overridden` / `said`) is never overwritten by a merchant rule.
+ * `said` / `learned` remain as stored aliases.
  */
-export type DecidedBy = "said" | "learned" | "paired" | "merchant" | "rules" | "bank" | "ai" | "unreviewed";
+export type DecidedBy =
+  | "user_rule"
+  | "user_overridden"
+  | "said"
+  | "learned"
+  | "paired"
+  | "merchant"
+  | "rules"
+  | "bank"
+  | "ai"
+  | "unreviewed";
 
 export type ExtractionSource = "ai" | "ocr" | "parser";
 

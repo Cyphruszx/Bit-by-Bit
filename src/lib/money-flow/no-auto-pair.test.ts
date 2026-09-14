@@ -51,7 +51,7 @@ describe("Core ingest does not auto-write transfer pairs", () => {
 
     assert.equal(result.transactions.length, 2);
     assert.ok(result.transactions.every((row) => !row.transferPair));
-    assert.ok(result.transactions.every((row) => row.type !== "moved"));
+    assert.ok(result.transactions.every((row) => row.type !== "moved" && row.type !== "TRANSFER"));
     assert.ok(result.transactions.every((row) => row.decidedBy !== "paired"));
 
     const detected = matchTransfers(result.transactions);
@@ -84,6 +84,7 @@ describe("Core ingest does not auto-write refund pairs", () => {
     assert.equal(paid?.refundPair, undefined);
     assert.equal(back?.refundPair, undefined);
     assert.notEqual(back?.type, "returned");
+    assert.notEqual(back?.type, "REFUND");
 
     assert.equal(matchRefunds(result.transactions).pairs.length, 1);
 
@@ -236,7 +237,11 @@ describe("AI does not silently confirm pairs", () => {
       { id: "in", category: "other-income", confidence: 0.9 },
     ]);
     assert.ok(transactions.every((row) => !row.transferPair && !row.refundPair));
-    assert.ok(transactions.every((row) => row.type !== "moved" && row.type !== "returned"));
+    assert.ok(
+      transactions.every(
+        (row) => row.type !== "moved" && row.type !== "returned" && row.type !== "TRANSFER" && row.type !== "REFUND",
+      ),
+    );
     assert.ok(transactions.every((row) => row.decidedBy !== "paired"));
   });
 });

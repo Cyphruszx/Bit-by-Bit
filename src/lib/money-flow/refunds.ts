@@ -167,7 +167,7 @@ export function markRefundLegs(
   return transactions.map((txn) => {
     const pair = pairOf.get(txn.id);
     if (pair) {
-      const type = returned.has(txn.id) ? "returned" : txn.type;
+      const type = returned.has(txn.id) ? "REFUND" : txn.type;
       if (txn.refundPair === pair && txn.type === type) return txn;
       return {
         ...txn,

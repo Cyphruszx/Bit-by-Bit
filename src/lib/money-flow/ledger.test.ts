@@ -293,7 +293,7 @@ describe("accumulating a ledger", () => {
     const next = persistTaxonomy(ledger);
     assert.equal(next.entries[0]?.categoryKey, "groceries");
     assert.deepEqual(next.entries[0]?.tags, ["Groceries"]);
-    assert.equal(next.entries[0]?.type, "spent");
+    assert.equal(next.entries[0]?.type, "SPENDING");
     assert.equal(next.entries[0]?.fingerprint, held.fingerprint);
     assert.deepEqual(next.entries[0]?.source, source);
     assert.equal("category" in (next.entries[0] ?? {}), false);

@@ -173,7 +173,12 @@ export function applyTagSuggestions(
       ...(answered.tag ? { tags: [...new Set([...(txn.tags ?? []), answered.tag])] } : {}),
       // Slice 2: AI may suggest a filing category. It must not confirm a transfer or
       // refund pair — `moved` / `returned` are money-trust, reserved for Spec 7.
-      type: type === "moved" || type === "returned" ? (txn.amount > 0 ? "earned" : "spent") : type,
+      type:
+        type === "TRANSFER" || type === "REFUND" || type === "moved" || type === "returned"
+          ? txn.amount > 0
+            ? "INCOME"
+            : "SPENDING"
+          : type,
       decidedBy: "ai" as const,
       confidence: Math.max(txn.confidence, suggestion.confidence),
     };

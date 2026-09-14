@@ -2,6 +2,7 @@ import { formatAud } from "@/lib/format";
 import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { monthLabelFromKey } from "@/lib/money-flow/savings";
 import { accountIdOf, namesItsOwnAccount, type AccountRegistry } from "@/lib/money-flow/account-identity";
+import { isRefundKind } from "@/lib/money-flow/movement-kind";
 import { looksInternal, looksReturned } from "@/lib/money-flow/statement-category";
 import { chartLabel, groupOf, isGroupId } from "@/lib/money-flow/category-book";
 import { categoryOf } from "@/lib/money-flow/tags";
@@ -163,7 +164,7 @@ const EARNINGS_CATEGORIES = new Set(["salary", "other-income"]);
 /** Unlinked refund-shaped credit: type REFUND/`returned`, or a bank refund not filed as earnings. */
 export function isUnlinkedRefundShaped(txn: InterpretedTransaction): boolean {
   if (tileAmount(txn) <= 0 || txn.refundPair) return false;
-  if (txn.type === "returned") return true;
+  if (isRefundKind(txn.type)) return true;
   if (!looksReturned(txn)) return false;
   return !EARNINGS_CATEGORIES.has(txn.categoryKey);
 }

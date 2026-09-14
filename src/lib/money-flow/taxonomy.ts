@@ -20,8 +20,11 @@
  * One movement, one category, any number of tags — tags never move a figure.
  */
 
-/** Whether a movement changed what the household owns, and in which direction. */
+import { kindOf, migrateStoredType, type MovementKind } from "@/lib/money-flow/movement-kind";
+
+/** Spec 3 movement_kind, plus the stored names a ledger may still carry. */
 export type TransactionType =
+  | MovementKind
   | "earned"
   | "returned"
   | "borrowed"
@@ -56,33 +59,35 @@ type TypeMeaning = {
  * the original spend stays in Spending (month-freeze). Unlinked refund-shaped credits are
  * kept out of Income in summary.ts until they are linked or filed as earnings.
  */
-const TYPES: Record<TransactionType, TypeMeaning> = {
-  earned: { label: "Money you earned", side: "in", income: true, spending: false },
-  returned: { label: "Money coming back", side: "in", income: false, spending: false },
-  borrowed: { label: "Borrowed money", side: "in", income: false, spending: false },
-  moved: { label: "Between your own accounts", side: "both", income: true, spending: true },
-  spent: { label: "Money you spent", side: "out", income: false, spending: true },
-  repaid: { label: "Paying back what you borrowed", side: "out", income: false, spending: false },
-  invested: { label: "Money into an investment", side: "out", income: false, spending: false },
-  adjusted: { label: "A correction", side: "both", income: false, spending: false },
+const TYPES: Record<MovementKind, TypeMeaning> = {
+  INCOME: { label: "Income", side: "in", income: true, spending: false },
+  REFUND: { label: "Refund", side: "in", income: false, spending: false },
+  DEBT_PRINCIPAL: { label: "Debt principal", side: "both", income: false, spending: false },
+  TRANSFER: { label: "Between your own accounts", side: "both", income: true, spending: true },
+  SPENDING: { label: "Spending", side: "out", income: false, spending: true },
+  DEBT_COST: { label: "Debt cost", side: "out", income: false, spending: true },
+  INVESTMENT: { label: "Investment", side: "out", income: false, spending: false },
+  ADJUSTMENT: { label: "Adjustment", side: "both", income: false, spending: false },
+  // Unsorted still tiles by sign, same as the old uncategorised earned/spent pair.
+  UNREVIEWED: { label: "Unreviewed", side: "both", income: true, spending: true },
 };
 
 export function isTransactionType(value: unknown): value is TransactionType {
-  return typeof value === "string" && value in TYPES;
+  return migrateStoredType(value) != null || (typeof value === "string" && value in TYPES);
 }
 
 export function typeLabel(type: TransactionType): string {
-  return TYPES[type]?.label ?? type;
+  return TYPES[kindOf(type)]?.label ?? type;
 }
 
 /** Whether a credit of this type belongs in the money-in figure. */
 export function countsAsIncome(type: TransactionType): boolean {
-  return TYPES[type]?.income ?? true;
+  return TYPES[kindOf(type)]?.income ?? true;
 }
 
 /** Whether a debit of this type belongs in the money-out figure. */
 export function countsAsSpending(type: TransactionType): boolean {
-  return TYPES[type]?.spending ?? true;
+  return TYPES[kindOf(type)]?.spending ?? true;
 }
 
 /**
@@ -90,7 +95,7 @@ export function countsAsSpending(type: TransactionType): boolean {
  * anything else about it. A type that goes both ways leaves the sign alone.
  */
 export function inflowType(type: TransactionType): boolean {
-  return TYPES[type]?.side === "in";
+  return TYPES[kindOf(type)]?.side === "in";
 }
 
 // ---------------------------------------------------------------------------
@@ -758,10 +763,12 @@ function refineOldKey(key: string, tags?: string[]): { categoryKey: string; tag?
  * old model had to guess from the merchant alone and got it wrong in both directions.
  */
 export function typeForCategory(key: string | undefined, amount: number): TransactionType {
-  const extra = key ? overlay.extras.get(key) : undefined;
-  const held = key ? (LOOSE[key] ?? extra ?? BY_KEY.get(key)) : undefined;
+  if (key === UNCATEGORISED || !key) return "UNREVIEWED";
+  const extra = overlay.extras.get(key);
+  const held = LOOSE[key] ?? extra ?? BY_KEY.get(key);
   const meaning = held ?? LOOSE[UNCATEGORISED];
-  return amount > 0 ? meaning.inType : meaning.outType;
+  const raw = amount > 0 ? meaning.inType : meaning.outType;
+  return kindOf(raw);
 }
 
 /**

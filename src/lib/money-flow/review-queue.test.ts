@@ -187,11 +187,11 @@ describe("RESOLVE transfer writes ledger truth", () => {
   it("leaves Income, cancels both legs, and feeds Actual Savings on Save!!", () => {
     const confirmed = confirmTransferPair([out, intoSave], "out", "in-save");
     assert.equal(confirmed[0]?.transferPair, confirmed[1]?.transferPair);
-    assert.equal(confirmed[0]?.decidedBy, "said");
-    assert.equal(confirmed[0]?.type, "moved");
+    assert.equal(confirmed[0]?.decidedBy, "user_overridden");
+    assert.equal(confirmed[0]?.type, "TRANSFER");
 
     const forgotten = forgetAutoPairs(confirmed);
-    assert.equal(forgotten[0]?.transferPair, forgotten[1]?.transferPair, "said pairs survive forgetAutoPairs");
+    assert.equal(forgotten[0]?.transferPair, forgotten[1]?.transferPair, "user_overridden pairs survive forgetAutoPairs");
 
     const flow = summarizeMoneyFlow(forgotten);
     assert.equal(flow.income, 0, "confirmed transfer has left Income");

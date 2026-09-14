@@ -67,7 +67,7 @@ describe("movement interpretation", () => {
     assert.equal(txn.amount, -15.4);
     assert.equal(txn.baseAmount, -15.4);
     assert.equal(txn.status, "CLEARED");
-    assert.equal(txn.type, "spent");
+    assert.equal(txn.type, "SPENDING");
     assert.equal(txn.categoryKey, "groceries");
     assert.equal(txn.decidedBy, "bank");
     // The bank's own words are kept beside the movement, never written over.
@@ -95,7 +95,7 @@ describe("movement interpretation", () => {
     // direction decides which of the two it meant, which is the whole point of splitting
     // the category from the type.
     assert.equal(txn.categoryKey, "other-income");
-    assert.equal(txn.type, "earned");
+    assert.equal(txn.type, "INCOME");
     assert.equal(txn.amount, 662.4);
   });
 
@@ -110,7 +110,7 @@ describe("movement interpretation", () => {
       confidence: 0.92,
     });
     assert.equal(txn.categoryKey, "medical");
-    assert.equal(txn.type, "spent");
+    assert.equal(txn.type, "SPENDING");
   });
 
   it("reads a lender's drawdown as borrowing, not as income", () => {
@@ -129,7 +129,7 @@ describe("movement interpretation", () => {
     // $25,000 from a consumer lender is not money earned and never was. Counting it
     // destroyed the month it landed in; the bank calling it a transfer did not help.
     assert.equal(txn.categoryKey, "debt-payments");
-    assert.equal(txn.type, "borrowed");
+    assert.equal(txn.type, "DEBT_PRINCIPAL");
     assert.equal(txn.bank?.category, "Transfers in");
   });
 
@@ -152,7 +152,7 @@ describe("movement interpretation", () => {
     });
     assert.deepEqual(txn.source, source);
     assert.equal(txn.categoryKey, "debt-payments");
-    assert.equal(txn.type, "borrowed");
+    assert.equal(txn.type, "DEBT_PRINCIPAL");
     assert.equal(txn.amount, 25000);
   });
 });

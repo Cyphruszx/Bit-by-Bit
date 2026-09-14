@@ -12,11 +12,14 @@
  * that is exactly what a person needs told when a transfer's other leg never turned up.
  */
 
+import { inferAccountKind } from "@/lib/money-flow/account-identity";
 import { categoryForBankLabel } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /** Everything a statement said about a movement, in its own words. */
 type AsWritten = Pick<InterpretedTransaction, "bank" | "description" | "merchant">;
+type CardRepayment = AsWritten &
+  Pick<InterpretedTransaction, "amount" | "accountId" | "accountKey" | "categoryKey">;
 
 function asWritten(txn: AsWritten | undefined): string {
   return [txn?.bank?.category, txn?.bank?.type, txn?.description, txn?.merchant].filter(Boolean).join(" ");
@@ -85,6 +88,20 @@ export function looksInternal(txn: AsWritten | undefined): boolean {
  */
 export function looksReturned(txn: AsWritten | undefined): boolean {
   return /\b(refund|reversal|rebate|chargeback|returned)/i.test(asWritten(txn));
+}
+
+const CARD_REPAY =
+  /\b(credit\s*card(\s+payment)?|visa\s+payment|payment\s+to\s+visa|mastercard\s+payment|amex\s+payment|card\s+payment|cc\s+payment)\b/i;
+
+/**
+ * Spec 3: a credit-card repayment leaving a deposit account is TRANSFER, not Spending.
+ * Does not write a pair — Spec 7 still has to confirm the other leg.
+ */
+export function looksLikeCreditCardRepayment(txn: CardRepayment | undefined): boolean {
+  if (!txn || txn.amount >= 0) return false;
+  const account = inferAccountKind(txn.accountId ?? txn.accountKey ?? "");
+  if (account !== "CHECKING" && account !== "SAVINGS") return false;
+  return CARD_REPAY.test(asWritten(txn)) || CARD_REPAY.test(txn.categoryKey ?? "");
 }
 
 export function tableInterpretationNotes(headers: string[]): string[] {

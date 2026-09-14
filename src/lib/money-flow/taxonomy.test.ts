@@ -51,13 +51,13 @@ describe("the movements the taxonomy has to get right", () => {
     const drawdown = on(rows, "2026-06-30", 25000, /SocietyOne/i);
     assert.equal(drawdown.categoryKey, "debt-payments");
     assert.equal(drawdown.tags?.[0], "Drawdown", "the detail the rule knew, kept as a tag");
-    assert.equal(drawdown.type, "borrowed");
+    assert.equal(drawdown.type, "DEBT_PRINCIPAL");
     assert.equal(drawdown.bank?.category, "Transfers in");
 
     // The $24,800 that left the same day is ordinary spending and stays counted. Only the
     // credit was ever wrong.
     const paid = on(rows, "2026-06-30", -24800, /ecom Capital/i);
-    assert.equal(paid.type, "spent");
+    assert.equal(paid.type, "UNREVIEWED");
     assert.equal(paid.categoryKey, "uncategorised", "nothing recognises it, and saying so is honest");
   });
 
@@ -65,11 +65,11 @@ describe("the movements the taxonomy has to get right", () => {
     const rows = await ledger();
     const charged = on(rows, "2026-06-30", -0.61, /Interest Charged/i);
     assert.equal(charged.categoryKey, "bank-fees");
-    assert.equal(charged.type, "spent");
+    assert.equal(charged.type, "SPENDING");
 
     const earned = on(rows, "2026-06-30", 0.1, /^\s*Interest\b/i);
     assert.equal(earned.categoryKey, "other-income");
-    assert.equal(earned.type, "earned");
+    assert.equal(earned.type, "INCOME");
   });
 
   it("reads a government benefit as income, not as an expense category", async () => {
@@ -79,11 +79,11 @@ describe("the movements the taxonomy has to get right", () => {
     const medicare = on(rows, "2026-06-29", 662.4, /MCARE BENEFITS/i);
     assert.equal(medicare.categoryKey, "other-income");
     assert.deepEqual(medicare.tags, ["Rebate"]);
-    assert.equal(medicare.type, "earned");
+    assert.equal(medicare.type, "INCOME");
 
     const dva = on(rows, "2026-06-29", 41.45, /VTA BENEFITS/i);
     assert.equal(dva.categoryKey, "other-income");
-    assert.equal(dva.type, "earned");
+    assert.equal(dva.type, "INCOME");
   });
 
   it("recognises the everyday merchants, including the one that used to land in Other", async () => {
@@ -113,8 +113,8 @@ describe("the movements the taxonomy has to get right", () => {
     // visible until Review Queue confirms them.
     assert.equal(sent.transferPair, undefined);
     assert.equal(received.transferPair, undefined);
-    assert.notEqual(sent.type, "moved");
-    assert.notEqual(received.type, "moved");
+    assert.notEqual(sent.type, "TRANSFER");
+    assert.notEqual(received.type, "TRANSFER");
   });
 
   it("asks about a payee once, however many reference numbers the bank stamped on it", async () => {

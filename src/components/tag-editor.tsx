@@ -55,7 +55,7 @@ export function ClassificationChips({ txn }: { txn: InterpretedTransaction }) {
  * — a rule quietly getting it right needs no badge.
  */
 function Provenance({ txn }: { txn: InterpretedTransaction }) {
-  if (txn.decidedBy === "said") {
+  if (txn.decidedBy === "said" || txn.decidedBy === "user_overridden") {
     return <Note tone="settled">You chose this</Note>;
   }
   if (txn.decidedBy === "ai") return <Note tone="offered">AI suggestion</Note>;

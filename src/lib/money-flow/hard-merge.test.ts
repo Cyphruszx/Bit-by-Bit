@@ -155,7 +155,7 @@ describe("fingerprint collision on remap", () => {
     if (!merged.ok) return;
     const kept = merged.ledger.entries[0];
     assert.equal(kept?.id, "survivor");
-    assert.equal(kept?.decidedBy, "said");
+    assert.equal(kept?.decidedBy, "user_overridden");
     assert.equal(kept?.userFlaggedSavings, true);
   });
 });

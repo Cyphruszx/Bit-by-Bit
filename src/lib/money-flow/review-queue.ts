@@ -13,6 +13,7 @@ import { roundMoney } from "@/lib/money-flow/parse-values";
 import { merchantKey } from "@/lib/money-flow/redact";
 import { tidyMerchant } from "@/lib/money-flow/categorize";
 import { type RefundOptions } from "@/lib/money-flow/refunds";
+import { isRefundKind, isTransferKind } from "@/lib/money-flow/movement-kind";
 import { looksInternal, looksReturned } from "@/lib/money-flow/statement-category";
 import { calendarDaysBetween, matchTransfers, type MatchOptions } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretedTransaction } from "@/lib/money-flow/types";
@@ -92,7 +93,7 @@ export function resolveReviewItem(item: ReviewItem): ReviewItem {
 
 /**
  * Spec 7 RESOLVE: both legs of a confirmed transfer, decided by the person.
- * `said` is what lets the pair survive `forgetAutoPairs`.
+ * `user_overridden` is what lets the pair survive `forgetAutoPairs`.
  */
 export function confirmTransferPair(
   transactions: InterpretedTransaction[],
@@ -102,7 +103,7 @@ export function confirmTransferPair(
   const pair = `${debitId}~${creditId}`;
   return transactions.map((row) => {
     if (row.id !== debitId && row.id !== creditId) return row;
-    return { ...row, transferPair: pair, type: "moved" as const, decidedBy: "said" as const };
+    return { ...row, transferPair: pair, type: "TRANSFER" as const, decidedBy: "user_overridden" as const };
   });
 }
 
@@ -118,10 +119,10 @@ export function confirmRefundPair(
   const pair = `${paymentId}~${refundId}`;
   return transactions.map((row) => {
     if (row.id === refundId) {
-      return { ...row, refundPair: pair, type: "returned" as const, decidedBy: "said" as const };
+      return { ...row, refundPair: pair, type: "REFUND" as const, decidedBy: "user_overridden" as const };
     }
     if (row.id === paymentId) {
-      return { ...row, refundPair: pair, decidedBy: "said" as const };
+      return { ...row, refundPair: pair, decidedBy: "user_overridden" as const };
     }
     return row;
   });
@@ -377,19 +378,19 @@ function aiLowConfidenceItems(
 
 function unpairedTransferCandidate(txn: InterpretedTransaction): boolean {
   if (txn.transferPair) return false;
-  return looksInternal(txn) || txn.type === "moved";
+  return looksInternal(txn) || isTransferKind(txn.type);
 }
 
 function isRefundCandidate(txn: InterpretedTransaction): boolean {
   if (txn.amount <= 0 || settledMoneyTrust(txn)) return false;
   if (EARNINGS_CATEGORIES.has(txn.categoryKey)) return false;
-  return looksReturned(txn) || txn.type === "returned";
+  return looksReturned(txn) || isRefundKind(txn.type);
 }
 
 function settledMoneyTrust(txn: InterpretedTransaction): boolean {
   if (txn.transferPair || txn.refundPair) return true;
   if (txn.verdict) return true;
-  return txn.decidedBy === "said";
+  return txn.decidedBy === "said" || txn.decidedBy === "user_overridden";
 }
 
 function money(amount: number): string {

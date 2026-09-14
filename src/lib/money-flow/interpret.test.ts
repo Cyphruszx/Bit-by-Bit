@@ -317,7 +317,7 @@ describe("NAB CSV exports", () => {
     // NAB files this under "Transfers in". It is neither a transfer nor income: money from
     // a consumer lender changes nothing about what the household owns, and counting it as
     // earnings put $25,000 into a single month that was never earned.
-    assert.equal(drawdown?.type, "borrowed");
+    assert.equal(drawdown?.type, "DEBT_PRINCIPAL");
     assert.equal(drawdown?.categoryKey, "debt-payments");
     const outgoing = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === -200);
     assert.ok(outgoing, "the same day's outgoing transfer should stay negative");
@@ -330,14 +330,14 @@ describe("NAB CSV exports", () => {
     assert.equal(sourceValue(drawdown?.source, "Category"), "Transfers in");
     assert.equal(sourceValue(drawdown?.source, "Merchant Name"), "");
     assert.equal(sourceValue(drawdown?.source, "Processed On"), "30 Jun 26");
-    assert.equal(drawdown?.type, "borrowed");
+    assert.equal(drawdown?.type, "DEBT_PRINCIPAL");
     assert.equal(drawdown?.categoryKey, "debt-payments");
 
     const benefit = result.transactions.find((txn) => txn.dateIso === "2026-06-29" && txn.amount === 662.4);
     assert.equal(sourceValue(benefit?.source, "Category"), "Refund");
     assert.equal(sourceValue(benefit?.source, "Merchant Name"), "Medicare");
     assert.equal(benefit?.categoryKey, "other-income");
-    assert.equal(benefit?.type, "earned");
+    assert.equal(benefit?.type, "INCOME");
   });
 
   it("names the merchant from the Merchant Name column", async () => {
@@ -346,7 +346,7 @@ describe("NAB CSV exports", () => {
     assert.equal(medicare?.merchant, "Medicare");
     // A benefit arriving, not a payment to a doctor. The merchant is the same either way.
     assert.equal(medicare?.categoryKey, "other-income");
-    assert.equal(medicare?.type, "earned");
+    assert.equal(medicare?.type, "INCOME");
     assert.ok(result.transactions.some((txn) => txn.merchant === "Woolworths (Wagga Wagga North)"));
   });
 
@@ -354,9 +354,9 @@ describe("NAB CSV exports", () => {
     const result = await interpretNab();
     const charged = result.transactions.find((txn) => /interest charged/i.test(txn.merchant));
     assert.equal(charged?.amount, -0.61);
-    assert.equal(charged?.type, "spent");
+    assert.equal(charged?.type, "SPENDING");
     const paid = result.transactions.find((txn) => txn.dateIso === "2026-06-30" && txn.amount === 0.1);
-    assert.equal(paid?.type, "earned");
+    assert.equal(paid?.type, "INCOME");
   });
 
   it("drops the zero-value interest rate notices", async () => {
@@ -389,7 +389,7 @@ describe("NAB CSV exports", () => {
     const moved = tagged.transactions.find((txn) => txn.amount === -50);
     assert.equal(moved?.categoryKey, "uncategorised");
     assert.equal(moved?.bank?.category, "Transfers out");
-    assert.equal(moved?.type, "spent", "an unmatched leg counts, and is flagged rather than believed");
+    assert.equal(moved?.type, "UNREVIEWED", "an unmatched leg counts, and is flagged rather than believed");
   });
 });
 
@@ -420,8 +420,8 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     // Read on its own, neither is settled as `returned` / `moved`. Spec 10: the unlinked
     // Soul Origin refund stays out of Income. Spec 7: the unmatched Tax transfer is OPEN
     // and held out of Income until Review Queue confirms it.
-    assert.equal(result.transactions.find((txn) => txn.merchant === "Soul Origin")?.type, "earned");
-    assert.equal(result.transactions.find((txn) => txn.merchant === "Transfer from Tax")?.type, "earned");
+    assert.equal(result.transactions.find((txn) => txn.merchant === "Soul Origin")?.type, "INCOME");
+    assert.equal(result.transactions.find((txn) => txn.merchant === "Transfer from Tax")?.type, "UNREVIEWED");
     assert.equal(result.flow.spending, 10.5);
     assert.equal(result.flow.refunds, 0);
     assert.equal(result.flow.transfers, 0);

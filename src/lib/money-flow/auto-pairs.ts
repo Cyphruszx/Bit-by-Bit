@@ -14,11 +14,11 @@ import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /**
  * Drops auto-written pair marks so a ledger stored before Slice 2 cannot keep
- * silently cancelling totals. Spec 7 RESOLVE (`decidedBy: "said"`) is kept.
+ * silently cancelling totals. Spec 7 RESOLVE (`user_overridden` / `said`) is kept.
  */
 export function forgetAutoPairs(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
   return transactions.map((txn) => {
-    if (txn.decidedBy === "said") return txn;
+    if (txn.decidedBy === "said" || txn.decidedBy === "user_overridden") return txn;
     const auto = txn.decidedBy === "paired" || Boolean(txn.transferPair) || Boolean(txn.refundPair);
     if (!auto) return txn;
     const next: InterpretedTransaction = {
