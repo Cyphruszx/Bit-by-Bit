@@ -1,9 +1,8 @@
 import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFlowAi } from "@/lib/money-flow/ai";
+import { forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
 import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
 import { parseDocument } from "@/lib/money-flow/parsers";
 import { summarizeMoneyFlow, uniqueTransactions } from "@/lib/money-flow/summary";
-import { markRefundLegs } from "@/lib/money-flow/refunds";
-import { markTransferLegs } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const MAX_FILES = 8;
@@ -97,14 +96,13 @@ export async function interpretDocuments(
     }
   }
 
-  // Whatever arrived together can already be paired. The ledger decides again over
-  // everything it holds, because the other leg often lands in a later statement.
-  merged = markTransferLegs(merged);
-  // After transfers, so money that went to another of the person's own accounts is
-  // already accounted for and cannot also read as a payment being reversed.
-  merged = markRefundLegs(merged);
+  // Spec 7: Core never auto-resolves money-trust. Detect candidates for the insight;
+  // do not write transferPair / refundPair or rewrite type to moved / returned.
+  merged = forgetAutoPairs(merged);
 
   const flow = summarizeMoneyFlow(merged);
+  const pending = pendingPairInsight(merged);
+  if (pending) flow.insights.unshift(pending);
   if (taggedCount > 0) {
     flow.insights.unshift(
       `AI suggested tags for ${taggedCount} unlabelled movement${taggedCount === 1 ? "" : "s"}. You can change them on Transactions.`,

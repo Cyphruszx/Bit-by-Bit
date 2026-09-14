@@ -5,9 +5,7 @@ import { describe, it } from "node:test";
 import { classify } from "./classify";
 import { interpretDocuments } from "./interpret";
 import { reviewGroups, reviewProgress } from "./review";
-import { markRefundLegs } from "./refunds";
 import { summarizeMoneyFlow } from "./summary";
-import { markTransferLegs } from "./transfers";
 import type { InterpretedTransaction } from "./types";
 
 process.env.OPENAI_API_KEY = "";
@@ -26,7 +24,7 @@ async function ledger(): Promise<InterpretedTransaction[]> {
       bytes: new Uint8Array(readFileSync(path.join(samples, filename))),
     })),
   );
-  held = markRefundLegs(markTransferLegs(classify(result.transactions)));
+  held = classify(result.transactions);
   return held;
 }
 
@@ -107,16 +105,16 @@ describe("the movements the taxonomy has to get right", () => {
     }
   });
 
-  it("settles a payment to a person against the receipt in another bank", async () => {
+  it("does not silently settle a payment to a person against the receipt in another bank", async () => {
     const rows = await ledger();
     const sent = on(rows, "2026-06-30", -200, /JORDAN LEE/i);
     const received = on(rows, "2026-06-30", 200, /Osko Payment Received/i);
-    // Found, not believed: the two legs are the same money on the same day in two accounts
-    // the person holds. The old model called the debit "Goals" and the credit "Income",
-    // which is $200 of spending and $200 of earnings that never happened.
-    assert.equal(sent.type, "moved");
-    assert.equal(received.type, "moved");
-    assert.equal(sent.transferPair, received.transferPair);
+    // Spec 7: Core detects the candidate but does not write money-trust. Both legs stay
+    // visible until Review Queue confirms them.
+    assert.equal(sent.transferPair, undefined);
+    assert.equal(received.transferPair, undefined);
+    assert.notEqual(sent.type, "moved");
+    assert.notEqual(received.type, "moved");
   });
 
   it("asks about a payee once, however many reference numbers the bank stamped on it", async () => {

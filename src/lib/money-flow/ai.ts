@@ -165,12 +165,15 @@ export function applyTagSuggestions(
     // movement stays in the review queue rather than picking up an invented category.
     if (!answered || answered.categoryKey === UNCATEGORISED) return txn;
     taggedCount += 1;
+    const type = typeForCategory(answered.categoryKey, txn.amount);
     return {
       ...txn,
       categoryKey: answered.categoryKey,
       // The model's detail is kept as a tag, beside whatever the person already had.
       ...(answered.tag ? { tags: [...new Set([...(txn.tags ?? []), answered.tag])] } : {}),
-      type: typeForCategory(answered.categoryKey, txn.amount),
+      // Slice 2: AI may suggest a filing category. It must not confirm a transfer or
+      // refund pair — `moved` / `returned` are money-trust, reserved for Spec 7.
+      type: type === "moved" || type === "returned" ? (txn.amount > 0 ? "earned" : "spent") : type,
       decidedBy: "ai" as const,
       confidence: Math.max(txn.confidence, suggestion.confidence),
     };

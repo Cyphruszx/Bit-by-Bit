@@ -6,7 +6,6 @@ import { incomeSources, unsettledGroups, unsettledIncome } from "./income";
 import { interpretDocuments } from "./interpret";
 import { roundMoney } from "./parse-values";
 import { summarizeMoneyFlow } from "./summary";
-import { markTransferLegs } from "./transfers";
 import { applyVerdicts, likeKey, verdictFor } from "./verdicts";
 import type { InterpretedTransaction } from "./types";
 
@@ -117,7 +116,7 @@ describe("the samples, split up", () => {
       })),
       { ai: null },
     );
-    return markTransferLegs(result.transactions);
+    return result.transactions;
   }
 
   it("files the practice's billing under earned, and only asks about what is still unsorted", async () => {

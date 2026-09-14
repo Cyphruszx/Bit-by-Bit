@@ -8,7 +8,7 @@
  *
  *   said        the person chose this, on this movement
  *   learned     the person corrected this merchant before
- *   paired      the ledger found the other leg, or the payment being reversed
+ *   paired      Spec 7 RESOLVE wrote the other leg (Core ingest never does this)
  *   merchant    this ledger's own history for this merchant
  *   rules       the merchant table, applied when the statement was read
  *   bank        the statement's own label, which is a hint and never an answer

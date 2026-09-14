@@ -26,9 +26,9 @@ import {
 import { applyBook, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
+import { forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { categorizeMerchant, removeTag, renameTag, sameMerchant, tagMerchant, withCategory, withTags } from "@/lib/money-flow/tags";
-import { markRefundLegs } from "@/lib/money-flow/refunds";
 import {
   applyVerdicts,
   likeKey,
@@ -38,7 +38,6 @@ import {
   type VerdictReason,
   type Verdicts,
 } from "@/lib/money-flow/verdicts";
-import { markTransferLegs } from "@/lib/money-flow/transfers";
 import { classify } from "@/lib/money-flow/classify";
 import { whatWasLearned, type LearnedThing } from "@/lib/money-flow/rules";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
@@ -141,29 +140,22 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const payers = held.ledger.payers ?? {};
     const matching = { institutions, accounts: names };
     const registry = { institutions, names, payers };
-    // Transfers first, so money that went to another of the person's own accounts is
-    // already accounted for and cannot also read as a payment being reversed.
-    // What the person said last: a verdict settles what the statements could not, so it is
-    // applied over the reader's own pairing rather than under it.
-    // The ladder runs first, because what the person has corrected about a merchant is
-    // cheaper and better evidence than anything below it, and because the matchers need a
-    // settled category to fall back to when a pair stops holding.
-    //
-    // Then the pairs, which prove the type and leave the category alone. Then whatever the
-    // person said outright, which beats all of it.
+    // Spec 7: Core never auto-resolves money-trust. Classify, drop any stored auto-pairs,
+    // then apply what the person said. matchTransfers / matchRefunds still detect
+    // candidates for the insight; they do not rewrite type or strip totals.
     const categoryBook = resolveBook(held.ledger.taxonomy);
     applyBook(categoryBook);
-    const allTransactions = applyVerdicts(
-      markRefundLegs(markTransferLegs(classify(stored, { rules: held.ledger.rules ?? {} }), matching), matching),
-      held.ledger.verdicts ?? {},
-      registry,
-    );
+    const classified = forgetAutoPairs(classify(stored, { rules: held.ledger.rules ?? {} }));
+    const allTransactions = applyVerdicts(classified, held.ledger.verdicts ?? {}, registry);
+    const flow = summarizePeriod(allTransactions, period);
+    const pending = pendingPairInsight(allTransactions, matching);
+    if (pending) flow.insights.unshift(pending);
     return {
       files: importedFiles(held.ledger),
       statements: heldStatements(held.ledger),
       allTransactions,
       transactions: filterByPeriod(allTransactions, period),
-      flow: summarizePeriod(allTransactions, period),
+      flow,
       period,
       setPeriod: writePeriod,
       institutionOverrides: held.ledger.institutions ?? {},

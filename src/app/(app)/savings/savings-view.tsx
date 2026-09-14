@@ -53,7 +53,7 @@ export function SavingsView() {
           value={formatAud(hasUploads ? flow.actualSavings : monthly)}
           detail={
             hasUploads
-              ? "CLEARED TRANSFER IN to savings / user-flagged, inflow only"
+              ? "CLEARED TRANSFER IN to savings / user-flagged. Core does not auto-pair transfers (Spec 7)."
               : hiddenCount > 0
                 ? "Included pots each month"
                 : "Planned each month"

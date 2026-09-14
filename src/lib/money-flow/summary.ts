@@ -41,12 +41,13 @@ export type FlowOverTimePoint = {
 };
 
 /**
- * Money in and money out, with the person's own transfers counted once.
+ * Money in and money out.
  *
- * A movement leaves income and spending only when the other leg of the transfer was
- * found in another account — markTransferLegs decides that over the whole ledger, so a
- * transfer sent in January and received in February is still one movement of the same
- * money. A bank writing "transfer" on a movement is not enough on its own.
+ * Spec 7: Core does not auto-write transfer/refund pairs. A movement leaves income
+ * and spending only when both legs of a *confirmed* transfer are in the summarised
+ * set (`transferPair` set by Spec 7 RESOLVE, or a user verdict). Until then,
+ * contested, unpaired, and even likely matches stay visible. A bank writing
+ * "transfer" on a movement is not enough on its own.
  *
  * The second filter is what the type layer is for. Money arriving is not the same as money
  * earned: a $25,000 drawdown from a lender lands in the account like a salary does and

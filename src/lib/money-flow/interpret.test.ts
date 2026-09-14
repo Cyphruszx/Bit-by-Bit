@@ -587,8 +587,7 @@ describe("money flow summary", () => {
       ["misc", "food"],
     );
 
-    // Upload the savings account and the same $400 stops being spending, because both
-    // ends of the movement can now be seen.
+    // Spec 7 RESOLVE would mark both legs; until then the $400 stays in Spending.
     const settled = summarizeMoneyFlow(
       markTransferLegs([
         ...rows,
@@ -1269,7 +1268,7 @@ describe("what each scope reports", () => {
       ...nabFiles.map((filename) => file(filename, "text/csv", readFileSync(path.join(samples, filename)))),
       file("up-2025-07-to-2026-06.txt", "text/plain", readFileSync(upSample)),
     ]);
-    return markTransferLegs(result.transactions);
+    return result.transactions;
   }
 
   it("reports the household's own figures across everything", async () => {

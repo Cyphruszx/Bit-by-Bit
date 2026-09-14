@@ -174,10 +174,11 @@ function alike(a: InterpretedTransaction, b: InterpretedTransaction): boolean {
 }
 
 /**
- * Writes each pair onto its two legs, so every total, chart and card downstream reads
- * the same verdict without being handed the match. Legs of a pair that no longer holds
- * — a statement removed, an account renamed — lose the mark rather than keeping a
- * decision nothing supports any more.
+ * Writes each pair onto its two legs. Spec 7 RESOLVE will call this; Core ingest
+ * must not — silently marking `moved` strips money-trust from Income/Spending.
+ *
+ * Legs of a pair that no longer holds lose the mark rather than keeping a decision
+ * nothing supports any more.
  */
 export function markTransferLegs(
   transactions: InterpretedTransaction[],
