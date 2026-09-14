@@ -129,11 +129,36 @@ describe("months to pot", () => {
   });
 });
 
-describe("monthly transfers", () => {
-  it("totals set-aside transfers by month", () => {
+describe("monthly Actual Savings", () => {
+  it("totals CLEARED TRANSFER IN to savings by month, not every matched transfer", () => {
     const series = monthlyTransferSeries([
-      txn({ id: "1", merchant: "Transfer", amount: -400, dateIso: "2026-07-12", type: "moved" }),
-      txn({ id: "2", merchant: "Transfer", amount: -400, dateIso: "2026-08-12", type: "moved" }),
+      txn({
+        id: "1",
+        merchant: "Transfer",
+        amount: 400,
+        dateIso: "2026-07-12",
+        type: "moved",
+        transferPair: "pair-1",
+        accountId: "Up · Save!!",
+      }),
+      txn({
+        id: "2",
+        merchant: "Transfer",
+        amount: 400,
+        dateIso: "2026-08-12",
+        type: "moved",
+        transferPair: "pair-2",
+        accountId: "Up · Save!!",
+      }),
+      txn({
+        id: "spend-in",
+        merchant: "Transfer",
+        amount: 200,
+        dateIso: "2026-08-12",
+        type: "moved",
+        transferPair: "pair-3",
+        accountId: "Up · Spending",
+      }),
       txn({ id: "3", merchant: "Woolworths", amount: -86.4, dateIso: "2026-08-04", type: "spent" }),
     ]);
     assert.deepEqual(

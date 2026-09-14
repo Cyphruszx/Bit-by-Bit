@@ -6,8 +6,11 @@ import { looksInternal, looksReturned } from "@/lib/money-flow/statement-categor
 import { chartLabel, groupOf, isGroupId } from "@/lib/money-flow/category-book";
 import { categoryOf } from "@/lib/money-flow/tags";
 import { countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
+import { isActualSavings, isCleared, tileAmount } from "@/lib/money-flow/tile";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
+
+export { isActualSavings, isCleared, tileAmount } from "@/lib/money-flow/tile";
 
 export type TagFlowDirection = "out" | "in";
 
@@ -54,9 +57,9 @@ export type FlowOverTimePoint = {
 /**
  * Spec 10 tile path. Dashboard, transactions, and account cards all call this.
  *
- * Interim: there is no `base_amount` or `CLEARED` status yet (Spec 2/6c/7). Tiles sum
- * `amount`, the signed statement value, for every counted row. CLEARED-only lands when
- * that status exists.
+ * Tiles are Σ `base_amount` of CLEARED counted rows. Missing `status`/`baseAmount`
+ * on a stored row means CLEARED / `amount` (interim for ledgers written before
+ * those fields). Cash in/out still sum statement `amount` so they tie to the file.
  */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const counted = countedMovements(transactions);
@@ -73,14 +76,19 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
     transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   // One side of each transfer pair: the money that moved, not the two rows for it.
-  // This is not Spec 10 Actual Savings (TRANSFER IN to a savings account / user-flagged).
+  // Household cancellation — not Spec 10 Actual Savings.
   const settledTransfer = new Set(
     transactions.filter((txn) => txn.transferPair && !counted.includes(txn)).map((txn) => txn.id),
   );
   const transfers = roundMoney(
     transactions
-      .filter((txn) => txn.amount < 0 && settledTransfer.has(txn.id))
-      .reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+      .filter((txn) => isCleared(txn) && tileAmount(txn) < 0 && settledTransfer.has(txn.id))
+      .reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
+  );
+  // Matched TRANSFER IN to savings / user-flagged. Counted from the full set because
+  // settled transfer legs are excluded from `counted`.
+  const actualSavings = roundMoney(
+    transactions.filter(isActualSavings).reduce((sum, txn) => sum + tileAmount(txn), 0),
   );
   // Movements the *bank* called internal that no other leg was ever found for. Read from
   // the statement's own words rather than from a type, because that wording is the only
@@ -90,7 +98,7 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const unmatchedInternal = roundMoney(
     counted
       .filter((txn) => looksInternal(txn) && !txn.transferPair)
-      .reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+      .reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
   const refunds = roundMoney(
     counted.filter(isRefundCredit).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
@@ -107,6 +115,7 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
     cashOut,
     cashNet,
     transfers,
+    actualSavings,
     unmatchedInternal,
     refunds,
     transactionCount: transactions.length,
@@ -123,18 +132,20 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
  * Only a view holding both accounts can see that the money never left the household.
  */
 export function countedMovements(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
+  // Spec 10 tiles are CLEARED-only. Missing status is CLEARED (legacy rows).
+  const cleared = transactions.filter((txn) => isCleared(txn) && txn.verdict?.counts !== false);
   const legs = new Map<string, number>();
-  for (const txn of transactions) {
+  for (const txn of cleared) {
     if (txn.transferPair) legs.set(txn.transferPair, (legs.get(txn.transferPair) ?? 0) + 1);
   }
-  // Transfers cancel only when both legs are in the set being summarised. Refund pairs
-  // do not: Spec 10 month-freeze keeps the original spend, and the credit is Refund
+  // Transfers cancel only when both CLEARED legs are in the set being summarised. Refund
+  // pairs do not: Spec 10 month-freeze keeps the original spend, and the credit is Refund
   // credits in Net rather than a second cancellation of Spending.
   const settledTransfer = (txn: InterpretedTransaction) =>
     Boolean(txn.transferPair && (legs.get(txn.transferPair) ?? 0) >= 2);
   // A person saying a movement is not their own money in or out is the last word: they
   // can see what the statements cannot say, and nothing here should argue with them.
-  return transactions.filter((txn) => txn.verdict?.counts !== false && !settledTransfer(txn));
+  return cleared.filter((txn) => !settledTransfer(txn));
 }
 
 /** Linked REFUND whose refund date is in the set being summarised. Never Income. */
@@ -167,11 +178,6 @@ export function isSpending(txn: InterpretedTransaction): boolean {
   return tileAmount(txn) < 0 && countsAsSpending(txn.type);
 }
 
-/** ponytail: Spec 10 wants Σ base_amount; no such field exists, so amount is the tile value. */
-function tileAmount(txn: InterpretedTransaction): number {
-  return txn.amount;
-}
-
 export function spendByCategory(transactions: InterpretedTransaction[]): CategorySpend[] {
   return amountByCategory(transactions, "out");
 }
@@ -193,7 +199,7 @@ export function amountByCategory(
  * not split by tag.
  */
 export function chartTagFlowSeries(transactions: InterpretedTransaction[], selected: string): TagFlowSeries {
-  const rows = countedMovements(transactions).filter((txn) => txn.amount !== 0);
+  const rows = countedMovements(transactions).filter((txn) => tileAmount(txn) !== 0);
 
   if (selected !== "All" && isGroupId(selected)) {
     const inside = rows.filter((txn) => groupOf(categoryOf(txn)) === selected);
@@ -278,7 +284,7 @@ export function tagFlowOverTime(
   selected = "All",
 ): FlowOverTimePoint[] {
   const rows = countedMovements(transactions).filter(
-    (txn) => txn.amount !== 0 && Boolean(txn.dateIso) && (selected === "All" || matches(txn, selected)),
+    (txn) => tileAmount(txn) !== 0 && Boolean(txn.dateIso) && (selected === "All" || matches(txn, selected)),
   );
   if (rows.length === 0) return [];
 
@@ -410,7 +416,7 @@ function directed(transactions: InterpretedTransaction[], direction: TagFlowDire
 }
 
 function signedTotal(transactions: InterpretedTransaction[]): number {
-  return roundMoney(transactions.reduce((sum, txn) => sum + Math.abs(txn.amount), 0));
+  return roundMoney(transactions.reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0));
 }
 
 function aggregateByTag(
@@ -421,7 +427,7 @@ function aggregateByTag(
   const byTag = new Map<string, number>();
   for (const txn of transactions) {
     const name = keyOf(txn);
-    const amount = Math.abs(txn.amount);
+    const amount = Math.abs(tileAmount(txn));
     byTag.set(name, roundMoney((byTag.get(name) ?? 0) + amount));
   }
   return [...byTag.entries()]

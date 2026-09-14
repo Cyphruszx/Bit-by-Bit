@@ -1,6 +1,7 @@
 /**
  * Spec 10 tile math (Slice 1). These are the asserts Steven/Dev named for calc truth:
- * Net Money, unlinked-refund-not-Income, month-freeze, Sydney month bounds.
+ * Net Money, unlinked-refund-not-Income, month-freeze, Sydney month bounds,
+ * CLEARED `base_amount` tiles, and Actual Savings shape.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -14,7 +15,9 @@ import {
   monthKey,
   summarizePeriod,
 } from "./period";
-import { isEarnings, isRefundCredit, isSpending, summarizeMoneyFlow } from "./summary";
+import { isEarnings, isRefundCredit, isSpending, summarizeMoneyFlow, tileAmount } from "./summary";
+import { interpretMovement } from "./interpret-row";
+import { upgradeTransaction } from "./upgrade";
 import type { InterpretedTransaction } from "./types";
 
 function txn(over: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "amount" | "dateIso">): InterpretedTransaction {
@@ -183,5 +186,200 @@ describe("Spec 10 earnings vs spending helpers", () => {
     assert.equal(isEarnings(credit), false);
     assert.equal(isSpending(credit), false);
     assert.equal(isRefundCredit(credit), true);
+  });
+});
+
+describe("Spec 10 base_amount and CLEARED tiles", () => {
+  it("treats missing status as CLEARED and missing base_amount as amount", () => {
+    const salary = txn({ id: "pay", amount: 300, dateIso: "2026-03-06", type: "earned", categoryKey: "salary" });
+    const shop = txn({ id: "shop", amount: -40, dateIso: "2026-03-05", type: "spent" });
+    const flow = summarizeMoneyFlow([salary, shop]);
+    assert.equal(tileAmount(salary), 300);
+    assert.equal(flow.income, 300);
+    assert.equal(flow.spending, 40);
+    assert.equal(flow.net, 260);
+  });
+
+  it("sums base_amount on tiles when it differs from amount", () => {
+    const salary = txn({
+      id: "pay",
+      amount: 3000,
+      baseAmount: 2500,
+      dateIso: "2026-03-06",
+      type: "earned",
+      categoryKey: "salary",
+    });
+    const shop = txn({
+      id: "shop",
+      amount: -80,
+      baseAmount: -50,
+      dateIso: "2026-03-05",
+      type: "spent",
+    });
+    const flow = summarizeMoneyFlow([salary, shop]);
+    assert.equal(flow.income, 2500);
+    assert.equal(flow.spending, 50);
+    assert.equal(flow.net, 2450);
+    assert.equal(flow.cashIn, 3000, "cash still ties to statement amount");
+    assert.equal(flow.cashOut, 80);
+  });
+
+  it("excludes HOLD rows from Income, Spending, Net, and Refund credits", () => {
+    const salary = txn({ id: "pay", amount: 3000, dateIso: "2026-03-06", type: "earned", categoryKey: "salary" });
+    const heldPay = txn({
+      id: "held-pay",
+      amount: 500,
+      dateIso: "2026-03-07",
+      type: "earned",
+      categoryKey: "salary",
+      status: "HOLD",
+    });
+    const shop = txn({ id: "shop", amount: -40, dateIso: "2026-03-05", type: "spent" });
+    const heldShop = txn({
+      id: "held-shop",
+      amount: -90,
+      dateIso: "2026-03-08",
+      type: "spent",
+      status: "HOLD",
+    });
+    const refund = txn({
+      id: "back",
+      amount: 20,
+      dateIso: "2026-03-09",
+      type: "returned",
+      refundPair: "paid~back",
+      status: "HOLD",
+    });
+    const flow = summarizeMoneyFlow([salary, heldPay, shop, heldShop, refund]);
+    assert.equal(flow.income, 3000);
+    assert.equal(flow.spending, 40);
+    assert.equal(flow.refunds, 0);
+    assert.equal(flow.net, 2960);
+    assert.equal(flow.cashIn, 3520, "HOLD still sits on the statement cash figures");
+  });
+
+  it("commits base_amount = amount and CLEARED on interpret", () => {
+    const row = interpretMovement({
+      dateIso: "2026-06-01",
+      amount: -15.4,
+      directionKnown: true,
+      description: "XYZ MART 999",
+      bankCategory: "Groceries",
+      sourceFile: "nab.csv",
+      id: "1",
+      confidence: 0.92,
+    });
+    assert.equal(row.baseAmount, row.amount);
+    assert.equal(row.status, "CLEARED");
+  });
+
+  it("fills CLEARED and base_amount when a stored row has neither", () => {
+    const upgraded = upgradeTransaction({
+      id: "row-1",
+      merchant: "Kfc",
+      categoryKey: "eating-out",
+      date: "30 Jun",
+      dateIso: "2026-06-30",
+      amount: -14.95,
+      sourceFile: "up.txt",
+      confidence: 0.9,
+    });
+    assert.equal(upgraded.baseAmount, -14.95);
+    assert.equal(upgraded.status, "CLEARED");
+  });
+});
+
+describe("Spec 10 Actual Savings", () => {
+  it("counts a CLEARED TRANSFER IN to Save!! and ignores the outflow and a spending-account IN", () => {
+    const out = txn({
+      id: "out",
+      amount: -400,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-save",
+      accountId: "Up · Spending",
+    });
+    const intoSave = txn({
+      id: "in-save",
+      amount: 400,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-save",
+      accountId: "Up · Save!!",
+    });
+    const intoSpend = txn({
+      id: "in-spend",
+      amount: 80,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-spend",
+      accountId: "Up · Spending",
+    });
+    const spendOut = txn({
+      id: "spend-out",
+      amount: -80,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-spend",
+      accountId: "Up · Tax",
+    });
+    const flow = summarizeMoneyFlow([out, intoSave, intoSpend, spendOut]);
+    assert.equal(flow.transfers, 480);
+    assert.equal(flow.actualSavings, 400);
+    assert.equal(flow.income, 0);
+    assert.equal(flow.spending, 0);
+  });
+
+  it("does not count unmatched internals or HOLD credits as Actual Savings", () => {
+    const unmatched = txn({
+      id: "orphan",
+      amount: 200,
+      dateIso: "2026-03-12",
+      type: "moved",
+      accountId: "Up · Save!!",
+    });
+    const held = txn({
+      id: "held",
+      amount: 150,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-held",
+      accountId: "Up · Save!!",
+      status: "HOLD",
+    });
+    const heldOut = txn({
+      id: "held-out",
+      amount: -150,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-held",
+      accountId: "Up · Spending",
+      status: "HOLD",
+    });
+    const flow = summarizeMoneyFlow([unmatched, held, heldOut]);
+    assert.equal(flow.actualSavings, 0);
+  });
+
+  it("counts a user-flagged TRANSFER IN even when the destination name is not savings", () => {
+    const out = txn({
+      id: "out",
+      amount: -90,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-flag",
+      accountId: "Up · Spending",
+    });
+    const flagged = txn({
+      id: "flag",
+      amount: 90,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-flag",
+      accountId: "Up · Tax",
+      userFlaggedSavings: true,
+    });
+    const flow = summarizeMoneyFlow([out, flagged]);
+    assert.equal(flow.actualSavings, 90);
+    assert.equal(flow.transfers, 90);
   });
 });

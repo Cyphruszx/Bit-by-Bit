@@ -65,6 +65,8 @@ describe("movement interpretation", () => {
       confidence: 0.92,
     });
     assert.equal(txn.amount, -15.4);
+    assert.equal(txn.baseAmount, -15.4);
+    assert.equal(txn.status, "CLEARED");
     assert.equal(txn.type, "spent");
     assert.equal(txn.categoryKey, "groceries");
     assert.equal(txn.decidedBy, "bank");

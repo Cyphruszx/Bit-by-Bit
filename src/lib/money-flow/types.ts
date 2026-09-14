@@ -68,6 +68,23 @@ export type InterpretedTransaction = {
   date: string;
   dateIso: string;
   amount: number;
+  /**
+   * Spec 10 `base_amount`. Core AUD: equal to `amount` at commit. Tiles sum this,
+   * not a converted figure. Absent on rows stored before the field existed;
+   * those read as `amount`.
+   */
+  baseAmount?: number;
+  /**
+   * Spec 10 tile status. Missing means CLEARED, so existing ledgers keep
+   * counting. HOLD is only a stub so CLEARED-only tiles can exclude a row —
+   * not Spec 7 Review Queue (no reason codes / no-dismiss / badge).
+   */
+  status?: "CLEARED" | "HOLD";
+  /**
+   * Spec 10 Actual Savings: a person marked this inflow as savings. Used when
+   * the destination account is not recognisable as savings from its name.
+   */
+  userFlaggedSavings?: boolean;
   type: TransactionType;
   /** The statement's own words. Read as a signal, never shown as the answer. */
   bank?: BankWords;
@@ -144,6 +161,11 @@ export type MoneyFlowSummary = {
   cashNet: number;
   /** Money moved between the person's own accounts, counted once rather than twice. */
   transfers: number;
+  /**
+   * Spec 10 Actual Savings: CLEARED TRANSFER IN to a savings account or
+   * user-flagged, inflow only. Not “any matched transfer”.
+   */
+  actualSavings: number;
   /** Movements a bank calls internal that have no partner here, so they still count. */
   unmatchedInternal: number;
   refunds: number;

@@ -53,13 +53,13 @@ export function upgradeTransaction(row: StoredTransaction): InterpretedTransacti
   if (typeof row.categoryKey === "string" && row.categoryKey.trim()) {
     const migrated = migrateStoredCategory(row.categoryKey, row.tags);
     const tags = [...new Set([...(migrated.tag ? [migrated.tag] : []), ...(row.tags ?? [])])];
-    return {
+    return withLedgerDefaults({
       ...rest,
       categoryKey: migrated.categoryKey,
       type: typeForCategory(migrated.categoryKey, row.amount),
       ...(tags.length > 0 ? { tags } : {}),
       ...(row.decidedBy ? { decidedBy: row.decidedBy } : {}),
-    };
+    });
   }
 
   // The old model kept the category in the first tag as well as its own field, so the
@@ -79,12 +79,21 @@ export function upgradeTransaction(row: StoredTransaction): InterpretedTransacti
   // The detail the old tag carried — Groceries under Food & Drink — survives as a tag.
   const tags = [...new Set([...(fromLegacy?.tag ? [fromLegacy.tag] : []), ...carried])];
 
-  return {
+  return withLedgerDefaults({
     ...rest,
     categoryKey,
     type: typeForCategory(categoryKey, row.amount),
     decidedBy: decided(categoryKey, tagSource),
     ...(tags.length > 0 ? { tags } : {}),
+  });
+}
+
+/** Spec 10: stored rows without `base_amount` / status still tile as CLEARED amount. */
+function withLedgerDefaults(row: InterpretedTransaction): InterpretedTransaction {
+  return {
+    ...row,
+    baseAmount: row.baseAmount ?? row.amount,
+    status: row.status ?? "CLEARED",
   };
 }
 

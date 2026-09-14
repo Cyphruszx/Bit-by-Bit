@@ -14,7 +14,7 @@ import { needsReview } from "@/lib/money-flow/classify";
 import { displayName } from "@/lib/money-flow/display-name";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { looksInternal, looksReturned } from "@/lib/money-flow/statement-category";
-import { countedMovements, isEarnings } from "@/lib/money-flow/summary";
+import { countedMovements, isEarnings, tileAmount } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import { likeKey } from "@/lib/money-flow/verdicts";
 
@@ -105,7 +105,7 @@ export function unsettledIncome(transactions: InterpretedTransaction[]): number 
 }
 
 function total(rows: InterpretedTransaction[]): number {
-  return roundMoney(rows.reduce((sum, txn) => sum + txn.amount, 0));
+  return roundMoney(rows.reduce((sum, txn) => sum + tileAmount(txn), 0));
 }
 
 export type UnsettledGroup = {
@@ -151,7 +151,7 @@ export function unsettledGroups(
       label: held?.label ?? displayName(txn),
       account: held?.account ?? accountIdOf(txn, registry),
       count: (held?.count ?? 0) + 1,
-      amount: roundMoney((held?.amount ?? 0) + txn.amount),
+      amount: roundMoney((held?.amount ?? 0) + tileAmount(txn)),
       // Held like every other field: one wording carrying both a refund and a transfer row
       // should not change its caption depending on which came last in the array.
       kind: held?.kind ?? (looksReturned(txn) ? "returned" : "arrived"),

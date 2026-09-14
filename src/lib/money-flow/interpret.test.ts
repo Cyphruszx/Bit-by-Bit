@@ -574,6 +574,7 @@ describe("money flow summary", () => {
     assert.equal(summary.income, 2000);
     assert.equal(summary.spending, 480);
     assert.equal(summary.transfers, 0);
+    assert.equal(summary.actualSavings, 0);
     assert.equal(summary.unmatchedInternal, 400);
     assert.equal(summary.net, 1520);
     assert.equal(summary.cashIn, 2000);
@@ -608,6 +609,7 @@ describe("money flow summary", () => {
 
     assert.equal(settled.spending, 80);
     assert.equal(settled.transfers, 400);
+    assert.equal(settled.actualSavings, 400);
     assert.equal(settled.unmatchedInternal, 0);
     assert.equal(settled.income, 2000);
   });

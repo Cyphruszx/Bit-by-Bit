@@ -111,7 +111,11 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
     date: formatDisplayDate(raw.dateIso),
     dateIso: raw.dateIso,
     amount: read.amount,
-    type: read.type,
+    // Spec 10 Core AUD: base_amount = amount at commit. New rows are CLEARED;
+    // Spec 7 Review Queue is out of this slice.
+    baseAmount: read.amount,
+    status: "CLEARED",
+    type: read.type;
     sourceFile: raw.sourceFile,
     ...(Object.keys(bank).length > 0 ? { bank } : {}),
     ...(accountKey ? { accountKey } : {}),

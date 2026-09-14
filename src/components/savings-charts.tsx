@@ -78,15 +78,15 @@ export function SetAsideLineChart({ transactions }: { transactions: InterpretedT
     <LineChart
       series={[
         {
-          id: "set-aside",
-          label: "Set aside",
+          id: "actual-savings",
+          label: "Actual Savings",
           color: "var(--color-primary)",
           fill: "var(--color-accent)",
           points,
         },
       ]}
       height={200}
-      ariaLabel="Line graph of money set aside by month"
+      ariaLabel="Line graph of Actual Savings by month"
     />
   );
 }
