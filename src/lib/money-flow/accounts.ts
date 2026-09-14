@@ -1,4 +1,5 @@
 import {
+  accountCaption,
   accountIdOf,
   accountKeyFrom,
   accountLabel,
@@ -50,8 +51,8 @@ export function identifyAccounts(
 
 // Identity lives with the rest of identity, so a summary can ask which account a
 // movement belongs to without waiting on the totals this file computes.
-export { accountIdOf, accountLabel, observedAccountKey };
-export type { AccountNames, AccountRegistry } from "@/lib/money-flow/account-identity";
+export { accountCaption, accountIdOf, accountLabel, observedAccountKey };
+export type { AccountMeta, AccountNames, AccountRegistry } from "@/lib/money-flow/account-identity";
 
 /** What to offer when asking the person to name an account nobody has named yet. */
 export function suggestNameForKey(key: string, statement: string): string {
@@ -77,17 +78,18 @@ export function accountsFrom(
     const id = accountIdOf(txn, registry);
     const held = grouped.get(id) ?? { rows: [], keys: new Set<string>() };
     held.rows.push(txn);
-    held.keys.add(observedAccountKey(txn, registry.institutions ?? {}));
+    held.keys.add(id);
     grouped.set(id, held);
   }
 
   return [...grouped.entries()]
     .map(([id, held]) => ({
       id,
-      label: accountLabel(id),
+      label: accountCaption(held.rows[0], registry),
       institution: institutionOf(held.rows[0], registry.institutions ?? {}),
       keys: [...held.keys],
-      named: [...held.keys].some((key) => Boolean(registry.names?.[key]?.trim())),
+      named: Boolean(registry.names?.[id]?.trim()) ||
+        [...held.keys].some((key) => Boolean(registry.names?.[key]?.trim())),
       transactions: held.rows,
       flow: summarizeMoneyFlow(held.rows),
     }))

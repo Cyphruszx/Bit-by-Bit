@@ -45,12 +45,12 @@ const REASONS: Record<
   VerdictReason,
   { counts: boolean; label: string; forCredit: boolean; type: TransactionType }
 > = {
-  earned: { counts: true, label: "Money I earned", forCredit: true, type: "earned" },
-  "money-back": { counts: false, label: "Money coming back to me", forCredit: true, type: "returned" },
-  "own-account": { counts: false, label: "From another of my accounts", forCredit: true, type: "moved" },
-  borrowed: { counts: false, label: "Borrowed money", forCredit: true, type: "borrowed" },
-  spent: { counts: true, label: "Money I spent", forCredit: false, type: "spent" },
-  "not-mine": { counts: false, label: "Moved to another of my accounts", forCredit: false, type: "moved" },
+  earned: { counts: true, label: "Money I earned", forCredit: true, type: "INCOME" },
+  "money-back": { counts: false, label: "Money coming back to me", forCredit: true, type: "REFUND" },
+  "own-account": { counts: false, label: "From another of my accounts", forCredit: true, type: "TRANSFER" },
+  borrowed: { counts: false, label: "Borrowed money", forCredit: true, type: "DEBT_PRINCIPAL" },
+  spent: { counts: true, label: "Money I spent", forCredit: false, type: "SPENDING" },
+  "not-mine": { counts: false, label: "Moved to another of my accounts", forCredit: false, type: "TRANSFER" },
 };
 
 export function reasonsFor(amount: number): { reason: VerdictReason; label: string }[] {
@@ -62,7 +62,7 @@ export function reasonsFor(amount: number): { reason: VerdictReason; label: stri
 
 /** The type a verdict sets on the movements it settles. */
 export function typeForReason(reason: VerdictReason): TransactionType {
-  return REASONS[reason]?.type ?? "earned";
+  return REASONS[reason]?.type ?? "INCOME";
 }
 
 export function reasonLabel(reason: VerdictReason): string {
@@ -180,7 +180,7 @@ export function applyVerdicts(
     // reads the type rather than the record.
     const type = typeForReason(found.because);
     if (same(txn.verdict, found) && txn.type === type) return txn;
-    return { ...txn, verdict: found, type, decidedBy: "said" };
+    return { ...txn, verdict: found, type, decidedBy: "user_overridden" };
   });
 }
 

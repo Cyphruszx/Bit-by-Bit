@@ -14,7 +14,7 @@ import { tidyMerchant } from "@/lib/money-flow/categorize";
 import { needsReview } from "@/lib/money-flow/classify";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { merchantKey } from "@/lib/money-flow/redact";
-import { countedMovements } from "@/lib/money-flow/summary";
+import { countedMovements, isRefundCredit } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export type ReviewGroup = {
@@ -34,12 +34,12 @@ export type ReviewGroup = {
 };
 
 /**
- * Only what a total actually counts. A movement already settled as a transfer or a
- * reversal is not in any figure, so asking what it was for would be asking a person to
- * tidy something nothing is reading.
+ * Only what a total actually counts. A settled transfer is not in any figure. A linked
+ * refund credit is Refund credits, not Income — skip asking about it. The original
+ * spend still counts, so an unsorted payment stays here.
  */
 export function unsortedMovements(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
-  return countedMovements(transactions).filter(needsReview);
+  return countedMovements(transactions).filter((txn) => needsReview(txn) && !isRefundCredit(txn));
 }
 
 export function reviewGroups(transactions: InterpretedTransaction[]): ReviewGroup[] {

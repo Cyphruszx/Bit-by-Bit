@@ -5,7 +5,7 @@ import { ClassificationChips } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
-import { accountIdOf, accountLabel } from "@/lib/money-flow/accounts";
+import { accountCaption } from "@/lib/money-flow/accounts";
 import { hasSource, sourcePairs } from "@/lib/money-flow/source";
 import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
 import {
@@ -37,14 +37,14 @@ export function TransactionTable({
   tag?: string;
   onTagChange?: (tag: string) => void;
 }) {
-  const { accountNames, allTransactions, institutionOverrides, payers,
+  const { accountNames, allTransactions, institutionOverrides, payers, mergedInto,
     setTransactionCategory, setTransactionTags } = useMoneyFlow();
   const registry = useMemo(
-    () => ({ names: accountNames, institutions: institutionOverrides, payers }),
-    [accountNames, institutionOverrides, payers],
+    () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
+    [accountNames, institutionOverrides, payers, mergedInto],
   );
   const accountOf = useMemo(
-    () => new Map(transactions.map((txn) => [txn.id, accountLabel(accountIdOf(txn, registry))])),
+    () => new Map(transactions.map((txn) => [txn.id, accountCaption(txn, registry)])),
     [registry, transactions],
   );
   // Saying which account every movement is in only helps once there is more than one.

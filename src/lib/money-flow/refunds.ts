@@ -64,6 +64,7 @@ export type RefundOptions = {
   windowDays?: number;
   accounts?: AccountRegistry["names"];
   institutions?: AccountRegistry["institutions"];
+  mergedInto?: AccountRegistry["mergedInto"];
 };
 
 /**
@@ -81,6 +82,7 @@ export function matchRefunds(
   const registry: AccountRegistry = {
     ...(options.accounts ? { names: options.accounts } : {}),
     ...(options.institutions ? { institutions: options.institutions } : {}),
+    ...(options.mergedInto ? { mergedInto: options.mergedInto } : {}),
   };
 
   const open = transactions.filter((txn) => !txn.transferPair);
@@ -140,9 +142,11 @@ export function matchRefunds(
 }
 
 /**
- * Writes each pair onto its two legs, so every total, chart and card downstream reads the
- * same verdict. Legs of a pair that no longer holds lose the mark rather than keeping a
- * decision nothing supports any more.
+ * Writes each pair onto its two legs. Spec 7 RESOLVE will call this; Core ingest
+ * must not — silently marking `returned` turns a guess into Refund credits.
+ *
+ * Legs of a pair that no longer holds lose the mark rather than keeping a decision
+ * nothing supports any more.
  */
 export function markRefundLegs(
   transactions: InterpretedTransaction[],
@@ -163,7 +167,7 @@ export function markRefundLegs(
   return transactions.map((txn) => {
     const pair = pairOf.get(txn.id);
     if (pair) {
-      const type = returned.has(txn.id) ? "returned" : txn.type;
+      const type = returned.has(txn.id) ? "REFUND" : txn.type;
       if (txn.refundPair === pair && txn.type === type) return txn;
       return {
         ...txn,

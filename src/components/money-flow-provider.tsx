@@ -8,11 +8,13 @@ import {
   importedFiles,
   ledgerTransactions,
   mergeLedgers,
+  mergeAccounts,
   forgetCorrection,
   nameAccount,
   nameInstitution,
   persistTaxonomy,
   recordCorrection,
+  recordReview,
   removeStatement as dropStatement,
   recordPayerMerge,
   recordVerdict,
@@ -22,13 +24,24 @@ import {
   type HeldStatement,
   type ImportReport,
   type Ledger,
+  type MergeAccountsResult,
 } from "@/lib/money-flow/ledger";
 import { applyBook, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
+import { forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
+import {
+  buildReviewQueue,
+  canDismiss,
+  confirmRefundPair,
+  confirmTransferPair,
+  dismissReviewItem as closeParseItem,
+  openReviewCount,
+  resolveReviewItem,
+  type ReviewItem,
+} from "@/lib/money-flow/review-queue";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { categorizeMerchant, removeTag, renameTag, sameMerchant, tagMerchant, withCategory, withTags } from "@/lib/money-flow/tags";
-import { markRefundLegs } from "@/lib/money-flow/refunds";
 import {
   applyVerdicts,
   likeKey,
@@ -38,7 +51,6 @@ import {
   type VerdictReason,
   type Verdicts,
 } from "@/lib/money-flow/verdicts";
-import { markTransferLegs } from "@/lib/money-flow/transfers";
 import { classify } from "@/lib/money-flow/classify";
 import { whatWasLearned, type LearnedThing } from "@/lib/money-flow/rules";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
@@ -80,8 +92,11 @@ type MoneyFlowState = {
   setStatementInstitution: (statementKey: string, institution: string) => void;
   /** What the person calls each account, against the key its statement filed it under. */
   accountNames: AccountNames;
-  /** Names an account. Two keys given the same name become one account. */
+  /** Names an account. Display only — does not merge and does not undo a merge. */
   setAccountName: (accountKey: string, name: string) => void;
+  /** Spec 6c hard merge. Source is hidden afterwards. Cannot be undone. */
+  mergedInto: Record<string, string>;
+  mergeAccount: (sourceId: string, survivorId: string) => MergeAccountsResult;
   /** What the person says a movement really is, keyed by wording rather than by row. */
   verdicts: Verdicts;
   /**
@@ -101,6 +116,13 @@ type MoneyFlowState = {
   forgetLearned: (key: string) => void;
   /** Joins two wordings, or with a null target, separates them again. */
   mergePayers: (from: string, into: string | null) => void;
+  /** Spec 7 Review Queue. Badge is the OPEN count. */
+  review: ReviewItem[];
+  openReviewCount: number;
+  confirmReviewTransfer: (item: ReviewItem) => void;
+  confirmReviewRefund: (item: ReviewItem) => void;
+  declineReviewItem: (item: ReviewItem) => void;
+  dismissReviewItem: (item: ReviewItem) => void;
   clearInterpretation: () => void;
   /** What one movement was for. A person choosing settles it against every later re-read. */
   setTransactionCategory: (id: string, categoryKey: string) => void;
@@ -139,37 +161,38 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const names = held.ledger.accounts ?? {};
     const institutions = held.ledger.institutions ?? {};
     const payers = held.ledger.payers ?? {};
-    const matching = { institutions, accounts: names };
-    const registry = { institutions, names, payers };
-    // Transfers first, so money that went to another of the person's own accounts is
-    // already accounted for and cannot also read as a payment being reversed.
-    // What the person said last: a verdict settles what the statements could not, so it is
-    // applied over the reader's own pairing rather than under it.
-    // The ladder runs first, because what the person has corrected about a merchant is
-    // cheaper and better evidence than anything below it, and because the matchers need a
-    // settled category to fall back to when a pair stops holding.
-    //
-    // Then the pairs, which prove the type and leave the category alone. Then whatever the
-    // person said outright, which beats all of it.
+    const mergedInto = held.ledger.mergedInto ?? {};
+    const matching = { institutions, accounts: names, mergedInto };
+    const registry = { institutions, names, payers, mergedInto };
+    // Spec 7: Core never auto-resolves money-trust. Classify, drop any stored auto-pairs,
+    // then apply what the person said. matchTransfers / matchRefunds still detect
+    // candidates for the insight; they do not rewrite type or strip totals.
     const categoryBook = resolveBook(held.ledger.taxonomy);
     applyBook(categoryBook);
-    const allTransactions = applyVerdicts(
-      markRefundLegs(markTransferLegs(classify(stored, { rules: held.ledger.rules ?? {} }), matching), matching),
-      held.ledger.verdicts ?? {},
-      registry,
-    );
+    const classified = forgetAutoPairs(classify(stored, { rules: held.ledger.rules ?? {} }));
+    const allTransactions = applyVerdicts(classified, held.ledger.verdicts ?? {}, registry);
+    const review = buildReviewQueue(allTransactions, {
+      ...matching,
+      imports: held.ledger.imports,
+      stored: held.ledger.review,
+    });
+    const flow = summarizePeriod(allTransactions, period);
+    const pending = pendingPairInsight(allTransactions, matching);
+    if (pending) flow.insights.unshift(pending);
     return {
       files: importedFiles(held.ledger),
       statements: heldStatements(held.ledger),
       allTransactions,
       transactions: filterByPeriod(allTransactions, period),
-      flow: summarizePeriod(allTransactions, period),
+      flow,
       period,
       setPeriod: writePeriod,
       institutionOverrides: held.ledger.institutions ?? {},
       setStatementInstitution,
       accountNames: held.ledger.accounts ?? {},
       setAccountName,
+      mergedInto,
+      mergeAccount,
       verdicts: held.ledger.verdicts ?? {},
       setVerdict,
       payers: held.ledger.payers ?? {},
@@ -178,6 +201,12 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       forgetLearned,
       hasUploads: held.ledger.imports.length > 0,
       ready: held.ready,
+      review,
+      openReviewCount: openReviewCount(review),
+      confirmReviewTransfer,
+      confirmReviewRefund,
+      declineReviewItem,
+      dismissReviewItem,
       importDocuments,
       removeStatement,
       clearInterpretation: clearLedger,
@@ -302,6 +331,12 @@ function setAccountName(accountKey: string, name: string) {
   commit(nameAccount(snapshot.ledger, accountKey, name));
 }
 
+function mergeAccount(sourceId: string, survivorId: string): MergeAccountsResult {
+  const result = mergeAccounts(snapshot.ledger, sourceId, survivorId);
+  if (result.ok) commit(result.ledger);
+  return result;
+}
+
 function setCategoryBook(book: CategoryBook | null) {
   applyBook(book ? resolveBook(book) : null);
   commit(recordTaxonomy(snapshot.ledger, book));
@@ -377,6 +412,7 @@ function setVerdict(
     institutions: snapshot.ledger.institutions ?? {},
     names: snapshot.ledger.accounts ?? {},
     payers: snapshot.ledger.payers ?? {},
+    mergedInto: snapshot.ledger.mergedInto,
   };
   const held = { ...(snapshot.ledger.verdicts ?? {}) };
 
@@ -395,6 +431,48 @@ function setVerdict(
 
 function mergePayers(from: string, into: string | null) {
   commit(recordPayerMerge(snapshot.ledger, from, into));
+}
+
+function confirmReviewTransfer(item: ReviewItem) {
+  if (item.reason !== "UNPAIRED_TRANSFER" || !item.debitId || !item.creditId) return;
+  editWith(
+    (ledger) => recordReview(ledger, resolveReviewItem(item)),
+    (rows) => confirmTransferPair(rows, item.debitId!, item.creditId!),
+  );
+}
+
+function confirmReviewRefund(item: ReviewItem) {
+  if (!item.creditId || !item.debitId) return;
+  if (item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") return;
+  editWith(
+    (ledger) => recordReview(ledger, resolveReviewItem(item)),
+    (rows) => confirmRefundPair(rows, item.debitId!, item.creditId!),
+  );
+}
+
+function declineReviewItem(item: ReviewItem) {
+  if (item.reason === "INGEST_PARSE") return;
+  const settings = {
+    institutions: snapshot.ledger.institutions ?? {},
+    names: snapshot.ledger.accounts ?? {},
+    payers: snapshot.ledger.payers ?? {},
+    mergedInto: snapshot.ledger.mergedInto,
+  };
+  const held = { ...(snapshot.ledger.verdicts ?? {}) };
+  const now = new Date().toISOString();
+  const stored = ledgerTransactions(snapshot.ledger);
+  for (const id of item.movementIds) {
+    const txn = stored.find((row) => row.id === id);
+    if (!txn) continue;
+    const reason = txn.amount > 0 ? "earned" : "spent";
+    held[oneKey(txn, settings)] = verdictFor(reason, now);
+  }
+  commit(recordReview({ ...snapshot.ledger, verdicts: held }, resolveReviewItem(item)));
+}
+
+function dismissReviewItem(item: ReviewItem) {
+  if (!canDismiss(item.reason)) return;
+  commit(recordReview(snapshot.ledger, closeParseItem(item)));
 }
 
 function setMerchantTags(merchant: string, tags: string[]) {

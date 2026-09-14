@@ -23,10 +23,21 @@ export type { TransactionType };
  * worked out can be worked out again when the rules improve, while anything the person
  * settled is left alone.
  *
- * In the order they win. `unreviewed` is not a failure to record — it is the state that
- * fills the review queue, and it is the reason Other stopped having to mean two things.
+ * Spec 3: user_rule → user_overridden → Core → UNREVIEWED, except a row the person
+ * settled (`user_overridden` / `said`) is never overwritten by a merchant rule.
+ * `said` / `learned` remain as stored aliases.
  */
-export type DecidedBy = "said" | "learned" | "paired" | "merchant" | "rules" | "bank" | "ai" | "unreviewed";
+export type DecidedBy =
+  | "user_rule"
+  | "user_overridden"
+  | "said"
+  | "learned"
+  | "paired"
+  | "merchant"
+  | "rules"
+  | "bank"
+  | "ai"
+  | "unreviewed";
 
 export type ExtractionSource = "ai" | "ocr" | "parser";
 
@@ -68,6 +79,23 @@ export type InterpretedTransaction = {
   date: string;
   dateIso: string;
   amount: number;
+  /**
+   * Spec 10 `base_amount`. Core AUD: equal to `amount` at commit. Tiles sum this,
+   * not a converted figure. Absent on rows stored before the field existed;
+   * those read as `amount`.
+   */
+  baseAmount?: number;
+  /**
+   * Spec 10 tile status. Missing means CLEARED, so existing ledgers keep
+   * counting. HOLD is a CLEARED-only stub. Spec 7 OPEN exclusion uses the
+   * Review Queue hold set, not a persisted HOLD status.
+   */
+  status?: "CLEARED" | "HOLD";
+  /**
+   * Spec 10 Actual Savings: a person marked this inflow as savings. Used when
+   * the destination account is not recognisable as savings from its name.
+   */
+  userFlaggedSavings?: boolean;
   type: TransactionType;
   /** The statement's own words. Read as a signal, never shown as the answer. */
   bank?: BankWords;
@@ -96,9 +124,9 @@ export type InterpretedTransaction = {
    */
   transferPair?: string;
   /**
-   * Set when the payment this credit reverses was found in the same account. A refund is
-   * not income and the payment it cancels is not spending, so both legs leave the totals
-   * together — but only on the evidence of the pair, never on a bank's own wording.
+   * Set when the payment this credit reverses was found in the same account. Spec 10:
+   * the credit is Refund credits in Net (never Income). The original spend stays in
+   * Spending — month-freeze. Unlinked refund-shaped credits stay out of Income.
    */
   refundPair?: string;
   /**
@@ -144,6 +172,11 @@ export type MoneyFlowSummary = {
   cashNet: number;
   /** Money moved between the person's own accounts, counted once rather than twice. */
   transfers: number;
+  /**
+   * Spec 10 Actual Savings: CLEARED TRANSFER IN to a savings account or
+   * user-flagged, inflow only. Not “any matched transfer”.
+   */
+  actualSavings: number;
   /** Movements a bank calls internal that have no partner here, so they still count. */
   unmatchedInternal: number;
   refunds: number;

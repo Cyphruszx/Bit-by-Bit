@@ -27,12 +27,16 @@ export function AccountsView() {
     setStatementInstitution,
     accountNames,
     setAccountName,
+    mergeAccount,
+    mergedInto,
   } = useMoneyFlow();
 
-  const registry = { names: accountNames, institutions: institutionOverrides, payers };
+  const registry = { names: accountNames, institutions: institutionOverrides, payers, mergedInto };
   const groups = accountsByInstitution(allTransactions, registry);
   const accounts = groups.flatMap((group) => group.accounts);
   const suggestions = mergeSuggestions(accounts.flatMap((account) => account.keys));
+
+  const [mergeError, setMergeError] = useState<string | null>(null);
 
   const nameOf = (account: AccountTotals) =>
     accountNames[account.keys[0]]?.trim() ||
@@ -43,8 +47,11 @@ export function AccountsView() {
   };
 
   const merge = (account: AccountTotals, into: AccountTotals) => {
-    const name = nameOf(into);
-    for (const key of [...into.keys, ...account.keys]) setAccountName(key, name);
+    const survivor = into.keys[0];
+    const source = account.keys.find((key) => key !== survivor) ?? account.keys[0];
+    if (!survivor || !source) return;
+    const result = mergeAccount(source, survivor);
+    setMergeError(result.ok ? null : result.reason);
   };
 
   const accountFor = (key: string) => accounts.find((account) => account.keys.includes(key));
@@ -67,8 +74,9 @@ export function AccountsView() {
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Accounts and sources</h1>
       <p className="mt-2 text-muted">
         Every account BitbyBit has read, under the bank it belongs to. Name one to recognise it next
-        time, or merge two that turned out to be the same account.
+        time, or merge two that turned out to be the same account. Merging cannot be undone.
       </p>
+      {mergeError ? <p className="mt-3 text-sm text-negative">{mergeError}</p> : null}
 
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <SummaryCard
@@ -247,6 +255,9 @@ function AccountCard({
             ))}
           </select>
         </label>
+      ) : null}
+      {siblings.length > 0 ? (
+        <p className="mt-2 text-xs text-muted">Merging cannot be undone.</p>
       ) : null}
     </article>
   );

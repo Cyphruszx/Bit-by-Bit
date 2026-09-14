@@ -26,6 +26,7 @@ export function TransactionsView() {
     hasUploads,
     institutionOverrides,
     payers,
+    mergedInto,
     removeTagEverywhere,
     renameTagEverywhere,
     transactions,
@@ -33,8 +34,8 @@ export function TransactionsView() {
   const [chart, setChart] = useState<ChartKind>("bar");
   const [selectedTag, setSelectedTag] = useState("All");
   const registry = useMemo(
-    () => ({ names: accountNames, institutions: institutionOverrides, payers }),
-    [accountNames, institutionOverrides, payers],
+    () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
+    [accountNames, institutionOverrides, payers, mergedInto],
   );
   const groups = useMemo(() => accountsByInstitution(transactions, registry), [registry, transactions]);
   const known = useMemo(
@@ -92,7 +93,11 @@ export function TransactionsView() {
         <SummaryCard
           label="Net"
           value={formatAud(scopedFlow.net)}
-          detail={`${scopedFlow.transactionCount} movements`}
+          detail={
+            scopedFlow.refunds > 0
+              ? `Income − Spending + ${formatAud(scopedFlow.refunds)} refund credits`
+              : `${scopedFlow.transactionCount} movements`
+          }
           positive={scopedFlow.net >= 0}
           compact
         />
@@ -118,7 +123,7 @@ export function TransactionsView() {
           compact
         />
       </div>
-      <ReviewQueue transactions={scoped} />
+      <ReviewQueue />
       <UnsettledMoney transactions={scoped} />
       <SettledMoney transactions={scoped} />
       <LearnedList />

@@ -5,9 +5,7 @@ import { describe, it } from "node:test";
 import { classify } from "./classify";
 import { interpretDocuments } from "./interpret";
 import { reviewGroups, reviewProgress } from "./review";
-import { markRefundLegs } from "./refunds";
 import { summarizeMoneyFlow } from "./summary";
-import { markTransferLegs } from "./transfers";
 import type { InterpretedTransaction } from "./types";
 
 process.env.OPENAI_API_KEY = "";
@@ -26,7 +24,7 @@ async function ledger(): Promise<InterpretedTransaction[]> {
       bytes: new Uint8Array(readFileSync(path.join(samples, filename))),
     })),
   );
-  held = markRefundLegs(markTransferLegs(classify(result.transactions)));
+  held = classify(result.transactions);
   return held;
 }
 
@@ -53,13 +51,13 @@ describe("the movements the taxonomy has to get right", () => {
     const drawdown = on(rows, "2026-06-30", 25000, /SocietyOne/i);
     assert.equal(drawdown.categoryKey, "debt-payments");
     assert.equal(drawdown.tags?.[0], "Drawdown", "the detail the rule knew, kept as a tag");
-    assert.equal(drawdown.type, "borrowed");
+    assert.equal(drawdown.type, "DEBT_PRINCIPAL");
     assert.equal(drawdown.bank?.category, "Transfers in");
 
     // The $24,800 that left the same day is ordinary spending and stays counted. Only the
     // credit was ever wrong.
     const paid = on(rows, "2026-06-30", -24800, /ecom Capital/i);
-    assert.equal(paid.type, "spent");
+    assert.equal(paid.type, "UNREVIEWED");
     assert.equal(paid.categoryKey, "uncategorised", "nothing recognises it, and saying so is honest");
   });
 
@@ -67,11 +65,11 @@ describe("the movements the taxonomy has to get right", () => {
     const rows = await ledger();
     const charged = on(rows, "2026-06-30", -0.61, /Interest Charged/i);
     assert.equal(charged.categoryKey, "bank-fees");
-    assert.equal(charged.type, "spent");
+    assert.equal(charged.type, "SPENDING");
 
     const earned = on(rows, "2026-06-30", 0.1, /^\s*Interest\b/i);
     assert.equal(earned.categoryKey, "other-income");
-    assert.equal(earned.type, "earned");
+    assert.equal(earned.type, "INCOME");
   });
 
   it("reads a government benefit as income, not as an expense category", async () => {
@@ -81,11 +79,11 @@ describe("the movements the taxonomy has to get right", () => {
     const medicare = on(rows, "2026-06-29", 662.4, /MCARE BENEFITS/i);
     assert.equal(medicare.categoryKey, "other-income");
     assert.deepEqual(medicare.tags, ["Rebate"]);
-    assert.equal(medicare.type, "earned");
+    assert.equal(medicare.type, "INCOME");
 
     const dva = on(rows, "2026-06-29", 41.45, /VTA BENEFITS/i);
     assert.equal(dva.categoryKey, "other-income");
-    assert.equal(dva.type, "earned");
+    assert.equal(dva.type, "INCOME");
   });
 
   it("recognises the everyday merchants, including the one that used to land in Other", async () => {
@@ -107,28 +105,24 @@ describe("the movements the taxonomy has to get right", () => {
     }
   });
 
-  it("settles a payment to a person against the receipt in another bank", async () => {
+  it("does not silently settle a payment to a person against the receipt in another bank", async () => {
     const rows = await ledger();
     const sent = on(rows, "2026-06-30", -200, /JORDAN LEE/i);
     const received = on(rows, "2026-06-30", 200, /Osko Payment Received/i);
-    // Found, not believed: the two legs are the same money on the same day in two accounts
-    // the person holds. The old model called the debit "Goals" and the credit "Income",
-    // which is $200 of spending and $200 of earnings that never happened.
-    assert.equal(sent.type, "moved");
-    assert.equal(received.type, "moved");
-    assert.equal(sent.transferPair, received.transferPair);
+    // Spec 7: Core detects the candidate but does not write money-trust. Both legs stay
+    // visible until Review Queue confirms them.
+    assert.equal(sent.transferPair, undefined);
+    assert.equal(received.transferPair, undefined);
+    assert.notEqual(sent.type, "TRANSFER");
+    assert.notEqual(received.type, "TRANSFER");
   });
 
   it("asks about a payee once, however many reference numbers the bank stamped on it", async () => {
     const groups = reviewGroups(await ledger());
     const offset = groups.filter((group) => /casey lee offset/i.test(group.merchant));
 
-    // The statements write this payee as "Casey Lee Offset J8243077379", "…M7022577125"
-    // and eight more, all different. Read literally that is ten questions about one payee,
-    // and ten separate things to teach the app.
-    assert.equal(offset[0].count, 10);
-    assert.equal(offset[0].amount, -30500);
-    assert.equal(offset[0].merchant, "Casey Lee Offset", "labelled by the payee, not by one row's reference");
+    // OPEN unpaired offsets leave the merchant queue; Review Queue holds them instead.
+    assert.equal(offset.length, 0);
   });
 
   it("puts the money in front of the person in the order it matters", async () => {
@@ -136,9 +130,9 @@ describe("the movements the taxonomy has to get right", () => {
     const groups = reviewGroups(rows);
     const progress = reviewProgress(rows);
 
-    // Two thirds of a year of statements place themselves. What is left is ordered by how
-    // much money is behind it, so the first few answers move the reports most.
-    assert.equal(progress.percent, 59);
+    // OPEN unpaired transfers leave the counted set, so a larger share is already
+    // placed. What is left is still ordered by how much money is behind it.
+    assert.equal(progress.percent, 62);
     assert.ok(groups.length < 250, `${groups.length} questions, not one per movement`);
     assert.ok(
       Math.abs(groups[0].amount) > Math.abs(groups[groups.length - 1].amount),
@@ -170,8 +164,10 @@ describe("the movements the taxonomy has to get right", () => {
     assert.equal(flow.cashIn, 289235.48);
     assert.equal(flow.cashOut, 289742.99);
     assert.equal(flow.cashNet, -507.51, "unchanged by the redesign, because no amount moved");
-    // $25,000 of what arrived was borrowed, so it is in the cash and not in the earnings.
-    assert.equal(flow.income, 142796.02);
-    assert.equal(flow.spending, 168303.53);
+    // Spec 7: OPEN unpaired transfers are held out of Income/Spending. $25,000 of what
+    // arrived was borrowed, so it is in the cash and not in the earnings.
+    assert.equal(flow.income, 145096.99);
+    assert.equal(flow.spending, 89913.17);
+    assert.equal(flow.refunds, 0);
   });
 });

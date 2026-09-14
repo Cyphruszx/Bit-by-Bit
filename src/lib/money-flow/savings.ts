@@ -1,4 +1,5 @@
 import { roundMoney } from "@/lib/money-flow/parse-values";
+import { isActualSavings, tileAmount } from "@/lib/money-flow/tile";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export type SavingsPot = {
@@ -152,13 +153,14 @@ export function prependRecordedMonths(snapshots: SavingsSnapshot[], projected: C
   return [...past, ...projected];
 }
 
+/** Spec 10 Actual Savings by month: CLEARED TRANSFER IN to savings / user-flagged. */
 export function monthlyTransferSeries(transactions: InterpretedTransaction[]): ChartPoint[] {
   const byMonth = new Map<string, number>();
   for (const txn of transactions) {
-    if (txn.type !== "moved" || !txn.dateIso) continue;
+    if (!isActualSavings(txn) || !txn.dateIso) continue;
     const key = txn.dateIso.slice(0, 7);
     if (key.length !== 7) continue;
-    byMonth.set(key, roundMoney((byMonth.get(key) ?? 0) + Math.abs(txn.amount)));
+    byMonth.set(key, roundMoney((byMonth.get(key) ?? 0) + tileAmount(txn)));
   }
   return [...byMonth.entries()]
     .sort(([left], [right]) => left.localeCompare(right))

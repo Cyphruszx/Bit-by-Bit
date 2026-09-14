@@ -16,10 +16,10 @@ import { incomeRhythms, type Rhythm, type RhythmBreak } from "@/lib/money-flow/r
  * practice look smaller than it is.
  */
 export function IncomeRhythm() {
-  const { accountNames, allTransactions, institutionOverrides, payers } = useMoneyFlow();
+  const { accountNames, allTransactions, institutionOverrides, payers, mergedInto } = useMoneyFlow();
   const registry = useMemo(
-    () => ({ names: accountNames, institutions: institutionOverrides, payers }),
-    [accountNames, institutionOverrides, payers],
+    () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
+    [accountNames, institutionOverrides, payers, mergedInto],
   );
   const rhythms = useMemo(
     () => incomeRhythms(allTransactions, { registry }),

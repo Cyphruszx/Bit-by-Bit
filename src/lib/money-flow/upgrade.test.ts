@@ -126,3 +126,17 @@ describe("whether a stored row still needs writing", () => {
     assert.equal(storedInCurrentModel(row), true);
   });
 });
+
+describe("Spec 10 ledger defaults on read", () => {
+  it("fills base_amount and CLEARED for rows stored before those fields", () => {
+    const upgraded = upgradeTransaction(stored({ amount: -14.95 }));
+    assert.equal(upgraded.baseAmount, -14.95);
+    assert.equal(upgraded.status, "CLEARED");
+  });
+
+  it("keeps an explicit HOLD and a distinct base_amount", () => {
+    const upgraded = upgradeTransaction(stored({ amount: -14.95, baseAmount: -10, status: "HOLD" }));
+    assert.equal(upgraded.baseAmount, -10);
+    assert.equal(upgraded.status, "HOLD");
+  });
+});

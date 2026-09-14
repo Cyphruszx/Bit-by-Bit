@@ -49,9 +49,15 @@ export function SavingsView() {
           detail={hiddenCount > 0 ? "Included pots only" : "Across your savings pots"}
         />
         <SummaryCard
-          label={hasUploads ? "Set aside this period" : "Monthly contributions"}
-          value={formatAud(hasUploads ? flow.transfers : monthly)}
-          detail={hasUploads ? flow.periodLabel : hiddenCount > 0 ? "Included pots each month" : "Planned each month"}
+          label={hasUploads ? "Actual Savings" : "Monthly contributions"}
+          value={formatAud(hasUploads ? flow.actualSavings : monthly)}
+          detail={
+            hasUploads
+              ? "CLEARED TRANSFER IN to savings / user-flagged. Core does not auto-pair transfers (Spec 7)."
+              : hiddenCount > 0
+                ? "Included pots each month"
+                : "Planned each month"
+          }
           positive
         />
       </section>
@@ -84,8 +90,11 @@ export function SavingsView() {
       ) : null}
       {hasUploads && monthlyTransferSeries(allTransactions).length >= 2 ? (
         <article className="mt-8 rounded-2xl border border-line bg-white p-6">
-          <h2 className="text-lg font-bold">Set aside by month</h2>
-          <p className="mt-1 text-sm text-muted">Transfers from the documents you uploaded, grouped by month. Use the period filter to change the set-aside total above.</p>
+          <h2 className="text-lg font-bold">Actual Savings by month</h2>
+          <p className="mt-1 text-sm text-muted">
+            CLEARED transfers in to a savings account, or inflows you flagged as savings. Use the
+            period filter to change the Actual Savings total above.
+          </p>
           <div className="mt-5">
             <SetAsideLineChart transactions={allTransactions} />
           </div>

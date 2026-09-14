@@ -1,4 +1,5 @@
 import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/accounts";
+import { isTransferKind } from "@/lib/money-flow/movement-kind";
 import { institutionOf, type InstitutionOverrides } from "@/lib/money-flow/institution";
 import { outranks } from "@/lib/money-flow/classify";
 import { typeForCategory } from "@/lib/money-flow/taxonomy";
@@ -40,8 +41,9 @@ export type MatchOptions = {
   /** And between two, where the money travels over slower rails. */
   acrossBanks?: number;
   institutions?: InstitutionOverrides;
-  /** Accounts a person has named or merged, so a merged pair stops looking like two. */
+  /** Display names. Spec 6c merge is `mergedInto`, not a shared name. */
   accounts?: AccountRegistry["names"];
+  mergedInto?: AccountRegistry["mergedInto"];
 };
 
 /**
@@ -61,7 +63,11 @@ export function matchTransfers(
   const acrossBanks = options.acrossBanks ?? 2;
   const overrides = options.institutions ?? {};
 
-  const registry: AccountRegistry = { institutions: overrides, ...(options.accounts ? { names: options.accounts } : {}) };
+  const registry: AccountRegistry = {
+    institutions: overrides,
+    ...(options.accounts ? { names: options.accounts } : {}),
+    ...(options.mergedInto ? { mergedInto: options.mergedInto } : {}),
+  };
   const account = new Map(transactions.map((txn) => [txn.id, accountIdOf(txn, registry)]));
   const bank = new Map(transactions.map((txn) => [txn.id, institutionOf(txn, overrides)]));
 
@@ -174,10 +180,11 @@ function alike(a: InterpretedTransaction, b: InterpretedTransaction): boolean {
 }
 
 /**
- * Writes each pair onto its two legs, so every total, chart and card downstream reads
- * the same verdict without being handed the match. Legs of a pair that no longer holds
- * — a statement removed, an account renamed — lose the mark rather than keeping a
- * decision nothing supports any more.
+ * Writes each pair onto its two legs. Spec 7 RESOLVE will call this; Core ingest
+ * must not — silently marking `moved` strips money-trust from Income/Spending.
+ *
+ * Legs of a pair that no longer holds lose the mark rather than keeping a decision
+ * nothing supports any more.
  */
 export function markTransferLegs(
   transactions: InterpretedTransaction[],
@@ -192,18 +199,18 @@ export function markTransferLegs(
   }
 
   // Finding the other leg is the only thing that proves money moved between the person's
-  // own accounts, so this is the only place `moved` is ever written. A bank's own wording
-  // gets no vote: NAB calls 212 movements a transfer and 54 of them are.
+  // own accounts, so this is the only place TRANSFER is written from a pair. A bank's own
+  // wording gets no vote: NAB calls 212 movements a transfer and 54 of them are.
   return transactions.map((txn) => {
     const pair = pairOf.get(txn.id);
     if (pair) {
-      if (txn.transferPair === pair && txn.type === "moved") return txn;
+      if (txn.transferPair === pair && isTransferKind(txn.type)) return txn;
       // The pair proves the type. It does not get to relabel a category the person chose,
       // so `decidedBy` only ever moves up the ladder.
       return {
         ...txn,
         transferPair: pair,
-        type: "moved" as const,
+        type: "TRANSFER" as const,
         ...(outranks("paired", txn.decidedBy) ? { decidedBy: "paired" as const } : {}),
       };
     }

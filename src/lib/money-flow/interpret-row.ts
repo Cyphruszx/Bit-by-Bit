@@ -1,4 +1,5 @@
 import { categorize, inferType } from "@/lib/money-flow/categorize";
+import { looksLikeCreditCardRepayment } from "@/lib/money-flow/statement-category";
 import { displayName } from "@/lib/money-flow/display-name";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
 import { categoryFromBankLabel } from "@/lib/money-flow/statement-category";
@@ -96,6 +97,15 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
 
   const accountKey = raw.accountKey?.trim();
   const accountId = raw.accountId?.trim();
+  const cardRepayment = looksLikeCreditCardRepayment({
+    amount: read.amount,
+    accountId,
+    accountKey,
+    categoryKey: read.categoryKey,
+    merchant: bank.merchant || raw.description,
+    description: raw.description,
+    bank,
+  });
 
   return {
     id: raw.id,
@@ -111,7 +121,11 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
     date: formatDisplayDate(raw.dateIso),
     dateIso: raw.dateIso,
     amount: read.amount,
-    type: read.type,
+    // Spec 10 Core AUD: base_amount = amount at commit. New rows are CLEARED;
+    // Spec 7 Review Queue is out of this slice.
+    baseAmount: read.amount,
+    status: "CLEARED",
+    type: cardRepayment ? "TRANSFER" : read.type,
     sourceFile: raw.sourceFile,
     ...(Object.keys(bank).length > 0 ? { bank } : {}),
     ...(accountKey ? { accountKey } : {}),

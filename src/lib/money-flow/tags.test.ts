@@ -50,13 +50,13 @@ describe("transaction tags", () => {
   it("treats a category a person chose as settled", () => {
     const next = withCategory(txn("uncategorised"), "groceries");
     assert.equal(next.categoryKey, "groceries");
-    assert.equal(next.decidedBy, "said");
-    assert.equal(next.type, "spent");
+    assert.equal(next.decidedBy, "user_overridden");
+    assert.equal(next.type, "SPENDING");
   });
 
   it("lets the type follow the category, so the two cannot disagree", () => {
     // A debit filed under Income is a reversal or a misread, not spending wearing a wage.
-    assert.equal(withCategory(txn("groceries"), "salary").type, "adjusted");
+    assert.equal(withCategory(txn("groceries"), "salary").type, "ADJUSTMENT");
   });
 
   it("refuses a category the taxonomy has never heard of", () => {
@@ -100,7 +100,7 @@ describe("applying a change to every movement of a merchant", () => {
     for (const id of ["1", "2", "4"]) {
       const changed = next.find((r) => r.id === id);
       assert.equal(changed?.categoryKey, "shopping", `row ${id}`);
-      assert.equal(changed?.decidedBy, "said");
+      assert.equal(changed?.decidedBy, "user_overridden");
     }
     const untouched = next.find((r) => r.id === "3");
     assert.equal(untouched?.categoryKey, "groceries");

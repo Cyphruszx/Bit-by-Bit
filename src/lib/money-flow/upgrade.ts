@@ -28,6 +28,7 @@ import {
 } from "@/lib/money-flow/taxonomy";
 import { hasSource, sourceValue } from "@/lib/money-flow/source";
 import { nameFromPrintedLines } from "@/lib/money-flow/up-statement";
+import { migrateDecidedBy, migrateStoredType } from "@/lib/money-flow/movement-kind";
 import type { DecidedBy, InterpretedTransaction, SourceRow } from "@/lib/money-flow/types";
 
 /** A row as it may be sitting in storage: either shape, or halfway between. */
@@ -41,7 +42,7 @@ export type StoredTransaction = Omit<InterpretedTransaction, "categoryKey" | "ty
 };
 
 const FROM_TAG_SOURCE: Record<string, DecidedBy> = {
-  user: "said",
+  user: "user_overridden",
   ai: "ai",
   rules: "rules",
 };
@@ -53,13 +54,15 @@ export function upgradeTransaction(row: StoredTransaction): InterpretedTransacti
   if (typeof row.categoryKey === "string" && row.categoryKey.trim()) {
     const migrated = migrateStoredCategory(row.categoryKey, row.tags);
     const tags = [...new Set([...(migrated.tag ? [migrated.tag] : []), ...(row.tags ?? [])])];
-    return {
+    return withLedgerDefaults({
       ...rest,
       categoryKey: migrated.categoryKey,
-      type: typeForCategory(migrated.categoryKey, row.amount),
+      type: migrateStoredType(row.type) ?? typeForCategory(migrated.categoryKey, row.amount),
       ...(tags.length > 0 ? { tags } : {}),
-      ...(row.decidedBy ? { decidedBy: row.decidedBy } : {}),
-    };
+      ...(row.decidedBy
+        ? { decidedBy: (migrateDecidedBy(row.decidedBy) as DecidedBy | undefined) ?? row.decidedBy }
+        : {}),
+    });
   }
 
   // The old model kept the category in the first tag as well as its own field, so the
@@ -79,12 +82,21 @@ export function upgradeTransaction(row: StoredTransaction): InterpretedTransacti
   // The detail the old tag carried — Groceries under Food & Drink — survives as a tag.
   const tags = [...new Set([...(fromLegacy?.tag ? [fromLegacy.tag] : []), ...carried])];
 
-  return {
+  return withLedgerDefaults({
     ...rest,
     categoryKey,
-    type: typeForCategory(categoryKey, row.amount),
-    decidedBy: decided(categoryKey, tagSource),
+    type: migrateStoredType(row.type) ?? typeForCategory(categoryKey, row.amount),
+    decidedBy: (migrateDecidedBy(row.decidedBy) as DecidedBy | undefined) ?? decided(categoryKey, tagSource),
     ...(tags.length > 0 ? { tags } : {}),
+  });
+}
+
+/** Spec 10: stored rows without `base_amount` / status still tile as CLEARED amount. */
+function withLedgerDefaults(row: InterpretedTransaction): InterpretedTransaction {
+  return {
+    ...row,
+    baseAmount: row.baseAmount ?? row.amount,
+    status: row.status ?? "CLEARED",
   };
 }
 
