@@ -6,6 +6,7 @@ import { looksInternal, looksReturned } from "@/lib/money-flow/statement-categor
 import { chartLabel, groupOf, isGroupId } from "@/lib/money-flow/category-book";
 import { categoryOf } from "@/lib/money-flow/tags";
 import { countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
+import { moneyTrustHoldIds } from "@/lib/money-flow/review-queue";
 import { isActualSavings, isCleared, tileAmount } from "@/lib/money-flow/tile";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
@@ -43,11 +44,9 @@ export type FlowOverTimePoint = {
 /**
  * Money in and money out.
  *
- * Spec 7: Core does not auto-write transfer/refund pairs. A movement leaves income
- * and spending only when both legs of a *confirmed* transfer are in the summarised
- * set (`transferPair` set by Spec 7 RESOLVE, or a user verdict). Until then,
- * contested, unpaired, and even likely matches stay visible. A bank writing
- * "transfer" on a movement is not enough on its own.
+ * Spec 7: Core does not auto-write transfer/refund pairs. OPEN money-trust
+ * items are held out of Income / Spending / Refund credits / Net until RESOLVE
+ * writes `transferPair` / `refundPair`. A bank writing "transfer" is not enough.
  *
  * The second filter is what the type layer is for. Money arriving is not the same as money
  * earned: a $25,000 drawdown from a lender lands in the account like a salary does and
@@ -134,7 +133,11 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
  */
 export function countedMovements(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
   // Spec 10 tiles are CLEARED-only. Missing status is CLEARED (legacy rows).
-  const cleared = transactions.filter((txn) => isCleared(txn) && txn.verdict?.counts !== false);
+  // Spec 7 OPEN money-trust ids are held out of tiles until RESOLVE.
+  const held = moneyTrustHoldIds(transactions);
+  const cleared = transactions.filter(
+    (txn) => isCleared(txn) && !held.has(txn.id) && txn.verdict?.counts !== false,
+  );
   const legs = new Map<string, number>();
   for (const txn of cleared) {
     if (txn.transferPair) legs.set(txn.transferPair, (legs.get(txn.transferPair) ?? 0) + 1);

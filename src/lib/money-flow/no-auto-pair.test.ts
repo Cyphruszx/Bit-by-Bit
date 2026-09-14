@@ -33,7 +33,7 @@ function txn(
 }
 
 describe("Core ingest does not auto-write transfer pairs", () => {
-  it("detects a two-account transfer but leaves both legs in Income/Spending", async () => {
+  it("detects a two-account transfer without writing pairs or counting them as Income", async () => {
     const csv = (account: string, rows: string) =>
       `Date,Amount,Account Number,,Transaction Type,Transaction Details,Balance,Category,Merchant Name,Processed On\n${rows.replaceAll("ACCOUNT", account)}`;
     const everyday = csv(
@@ -60,7 +60,10 @@ describe("Core ingest does not auto-write transfer pairs", () => {
     const flow = result.flow;
     assert.equal(flow.transfers, 0);
     assert.equal(flow.actualSavings, 0);
-    assert.ok(flow.spending >= 400 || flow.unmatchedInternal >= 400, "the debit did not silently leave Spending");
+    assert.equal(flow.income, 0, "OPEN unpaired transfer is held out of Income");
+    assert.equal(flow.spending, 0, "OPEN unpaired transfer is held out of Spending");
+    assert.equal(flow.cashIn, 400);
+    assert.equal(flow.cashOut, 400);
     assert.ok(flow.insights.some((line) => /likely transfer/i.test(line)));
   });
 });
@@ -119,8 +122,34 @@ describe("forgetAutoPairs", () => {
     assert.ok(forgotten.every((row) => !row.transferPair));
     assert.ok(forgotten.every((row) => row.decidedBy !== "paired"));
     const flow = summarizeMoneyFlow(forgotten);
-    assert.equal(flow.transfers, 0);
-    assert.notEqual(flow.spending + flow.income, 0);
+    assert.equal(flow.transfers, 0, "auto-marks cannot keep cancelling as confirmed transfers");
+    assert.equal(flow.income, 0, "OPEN unpaired legs are held out of tiles");
+    assert.equal(flow.spending, 0);
+    assert.equal(flow.cashOut, 400);
+  });
+
+  it("keeps Spec 7 RESOLVE pairs that the person said", () => {
+    const debit = txn({
+      id: "out",
+      amount: -400,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-save",
+      decidedBy: "said",
+      accountId: "Up · Spending",
+    });
+    const credit = txn({
+      id: "in",
+      amount: 400,
+      dateIso: "2026-03-12",
+      type: "moved",
+      transferPair: "pair-save",
+      decidedBy: "said",
+      accountId: "Up · Save!!",
+    });
+    const kept = forgetAutoPairs([debit, credit]);
+    assert.equal(kept[0]?.transferPair, "pair-save");
+    assert.equal(summarizeMoneyFlow(kept).actualSavings, 400);
   });
 });
 

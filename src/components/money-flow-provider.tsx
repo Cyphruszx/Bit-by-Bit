@@ -13,6 +13,7 @@ import {
   nameInstitution,
   persistTaxonomy,
   recordCorrection,
+  recordReview,
   removeStatement as dropStatement,
   recordPayerMerge,
   recordVerdict,
@@ -27,6 +28,16 @@ import { applyBook, resolveBook, type CategoryBook } from "@/lib/money-flow/cate
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
+import {
+  buildReviewQueue,
+  canDismiss,
+  confirmRefundPair,
+  confirmTransferPair,
+  dismissReviewItem as closeParseItem,
+  openReviewCount,
+  resolveReviewItem,
+  type ReviewItem,
+} from "@/lib/money-flow/review-queue";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { categorizeMerchant, removeTag, renameTag, sameMerchant, tagMerchant, withCategory, withTags } from "@/lib/money-flow/tags";
 import {
@@ -100,6 +111,13 @@ type MoneyFlowState = {
   forgetLearned: (key: string) => void;
   /** Joins two wordings, or with a null target, separates them again. */
   mergePayers: (from: string, into: string | null) => void;
+  /** Spec 7 Review Queue. Badge is the OPEN count. */
+  review: ReviewItem[];
+  openReviewCount: number;
+  confirmReviewTransfer: (item: ReviewItem) => void;
+  confirmReviewRefund: (item: ReviewItem) => void;
+  declineReviewItem: (item: ReviewItem) => void;
+  dismissReviewItem: (item: ReviewItem) => void;
   clearInterpretation: () => void;
   /** What one movement was for. A person choosing settles it against every later re-read. */
   setTransactionCategory: (id: string, categoryKey: string) => void;
@@ -147,6 +165,11 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     applyBook(categoryBook);
     const classified = forgetAutoPairs(classify(stored, { rules: held.ledger.rules ?? {} }));
     const allTransactions = applyVerdicts(classified, held.ledger.verdicts ?? {}, registry);
+    const review = buildReviewQueue(allTransactions, {
+      ...matching,
+      imports: held.ledger.imports,
+      stored: held.ledger.review,
+    });
     const flow = summarizePeriod(allTransactions, period);
     const pending = pendingPairInsight(allTransactions, matching);
     if (pending) flow.insights.unshift(pending);
@@ -170,6 +193,12 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       forgetLearned,
       hasUploads: held.ledger.imports.length > 0,
       ready: held.ready,
+      review,
+      openReviewCount: openReviewCount(review),
+      confirmReviewTransfer,
+      confirmReviewRefund,
+      declineReviewItem,
+      dismissReviewItem,
       importDocuments,
       removeStatement,
       clearInterpretation: clearLedger,
@@ -387,6 +416,47 @@ function setVerdict(
 
 function mergePayers(from: string, into: string | null) {
   commit(recordPayerMerge(snapshot.ledger, from, into));
+}
+
+function confirmReviewTransfer(item: ReviewItem) {
+  if (item.reason !== "UNPAIRED_TRANSFER" || !item.debitId || !item.creditId) return;
+  editWith(
+    (ledger) => recordReview(ledger, resolveReviewItem(item)),
+    (rows) => confirmTransferPair(rows, item.debitId!, item.creditId!),
+  );
+}
+
+function confirmReviewRefund(item: ReviewItem) {
+  if (!item.creditId || !item.debitId) return;
+  if (item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") return;
+  editWith(
+    (ledger) => recordReview(ledger, resolveReviewItem(item)),
+    (rows) => confirmRefundPair(rows, item.debitId!, item.creditId!),
+  );
+}
+
+function declineReviewItem(item: ReviewItem) {
+  if (item.reason === "INGEST_PARSE") return;
+  const settings = {
+    institutions: snapshot.ledger.institutions ?? {},
+    names: snapshot.ledger.accounts ?? {},
+    payers: snapshot.ledger.payers ?? {},
+  };
+  const held = { ...(snapshot.ledger.verdicts ?? {}) };
+  const now = new Date().toISOString();
+  const stored = ledgerTransactions(snapshot.ledger);
+  for (const id of item.movementIds) {
+    const txn = stored.find((row) => row.id === id);
+    if (!txn) continue;
+    const reason = txn.amount > 0 ? "earned" : "spent";
+    held[oneKey(txn, settings)] = verdictFor(reason, now);
+  }
+  commit(recordReview({ ...snapshot.ledger, verdicts: held }, resolveReviewItem(item)));
+}
+
+function dismissReviewItem(item: ReviewItem) {
+  if (!canDismiss(item.reason)) return;
+  commit(recordReview(snapshot.ledger, closeParseItem(item)));
 }
 
 function setMerchantTags(merchant: string, tags: string[]) {

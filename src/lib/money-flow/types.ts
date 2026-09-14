@@ -76,8 +76,8 @@ export type InterpretedTransaction = {
   baseAmount?: number;
   /**
    * Spec 10 tile status. Missing means CLEARED, so existing ledgers keep
-   * counting. HOLD is only a stub so CLEARED-only tiles can exclude a row —
-   * not Spec 7 Review Queue (no reason codes / no-dismiss / badge).
+   * counting. HOLD is a CLEARED-only stub. Spec 7 OPEN exclusion uses the
+   * Review Queue hold set, not a persisted HOLD status.
    */
   status?: "CLEARED" | "HOLD";
   /**

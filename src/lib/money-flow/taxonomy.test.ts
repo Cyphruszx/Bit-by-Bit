@@ -121,13 +121,8 @@ describe("the movements the taxonomy has to get right", () => {
     const groups = reviewGroups(await ledger());
     const offset = groups.filter((group) => /casey lee offset/i.test(group.merchant));
 
-    // The statements write this payee as "Casey Lee Offset J8243077379", "…M7022577125"
-    // and eight more, all different. Read literally that is ten questions about one payee,
-    // and ten separate things to teach the app. One more Offset debit now stays visible
-    // because Core no longer auto-cancels the matching transfer.
-    assert.equal(offset[0].count, 11);
-    assert.equal(offset[0].amount, -35500);
-    assert.equal(offset[0].merchant, "Casey Lee Offset", "labelled by the payee, not by one row's reference");
+    // OPEN unpaired offsets leave the merchant queue; Review Queue holds them instead.
+    assert.equal(offset.length, 0);
   });
 
   it("puts the money in front of the person in the order it matters", async () => {
@@ -135,9 +130,9 @@ describe("the movements the taxonomy has to get right", () => {
     const groups = reviewGroups(rows);
     const progress = reviewProgress(rows);
 
-    // Unconfirmed transfers now sit in the counted set, so a smaller share is already
+    // OPEN unpaired transfers leave the counted set, so a larger share is already
     // placed. What is left is still ordered by how much money is behind it.
-    assert.equal(progress.percent, 48);
+    assert.equal(progress.percent, 62);
     assert.ok(groups.length < 250, `${groups.length} questions, not one per movement`);
     assert.ok(
       Math.abs(groups[0].amount) > Math.abs(groups[groups.length - 1].amount),
@@ -169,10 +164,10 @@ describe("the movements the taxonomy has to get right", () => {
     assert.equal(flow.cashIn, 289235.48);
     assert.equal(flow.cashOut, 289742.99);
     assert.equal(flow.cashNet, -507.51, "unchanged by the redesign, because no amount moved");
-    // Spec 7: unconfirmed transfers still sit in Income/Spending. $25,000 of what arrived
-    // was borrowed, so it is in the cash and not in the earnings.
-    assert.equal(flow.income, 263781.86);
-    assert.equal(flow.spending, 289742.99);
+    // Spec 7: OPEN unpaired transfers are held out of Income/Spending. $25,000 of what
+    // arrived was borrowed, so it is in the cash and not in the earnings.
+    assert.equal(flow.income, 145096.99);
+    assert.equal(flow.spending, 89913.17);
     assert.equal(flow.refunds, 0);
   });
 });

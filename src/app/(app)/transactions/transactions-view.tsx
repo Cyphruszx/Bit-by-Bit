@@ -122,7 +122,7 @@ export function TransactionsView() {
           compact
         />
       </div>
-      <ReviewQueue transactions={scoped} />
+      <ReviewQueue />
       <UnsettledMoney transactions={scoped} />
       <SettledMoney transactions={scoped} />
       <LearnedList />

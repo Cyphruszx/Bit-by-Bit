@@ -4,6 +4,7 @@ import { uniqueTransactions } from "@/lib/money-flow/summary";
 import { persistStoredTransaction, upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
 import { forget, learn, type LearnedRule, type Rules } from "@/lib/money-flow/rules";
 import { parseCategoryBook, type CategoryBook } from "@/lib/money-flow/category-book";
+import { mergedReview, parseReviewItems, type ReviewItem } from "@/lib/money-flow/review-queue";
 import { isCategoryKey, migrateStoredCategory } from "@/lib/money-flow/taxonomy";
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import { hasSource } from "@/lib/money-flow/source";
@@ -75,6 +76,11 @@ export type Ledger = {
    * at each one. Absent while they are still using the usual fourteen.
    */
   taxonomy?: CategoryBook;
+  /**
+   * Spec 7 Review Queue items the person has already closed. OPEN items are
+   * rebuilt from the current movements each read, so they are not stored here.
+   */
+  review?: ReviewItem[];
 };
 
 export type ImportReport = {
@@ -332,6 +338,13 @@ export function recordTaxonomy(ledger: Ledger, book: CategoryBook | null): Ledge
   return { ...ledger, taxonomy: book };
 }
 
+/** Records a closed Review Queue item (RESOLVED or DISMISSED). OPEN is rebuilt. */
+export function recordReview(ledger: Ledger, item: ReviewItem): Ledger {
+  if (item.state === "OPEN") return ledger;
+  const held = (ledger.review ?? []).filter((row) => row.id !== item.id);
+  return { ...ledger, review: [...held, item] };
+}
+
 /**
  * Records that two wordings are one payer. An empty target takes the merge back, and the
  * wordings go back to being read as they were written.
@@ -387,6 +400,7 @@ export function mergeLedgers(mine: Ledger, theirs: Ledger): Ledger {
     ...mergedVerdicts(mine.verdicts, theirs.verdicts),
     ...mergedRules(mine.rules, theirs.rules),
     ...pickedTaxonomy(mine.taxonomy, theirs.taxonomy),
+    ...pickedReview(mine.review, theirs.review),
   };
 }
 
@@ -398,6 +412,11 @@ function mergedRules(mine: Rules | undefined, theirs: Rules | undefined) {
 function pickedTaxonomy(mine: CategoryBook | undefined, theirs: CategoryBook | undefined) {
   const held = mine ?? theirs;
   return held ? { taxonomy: held } : {};
+}
+
+function pickedReview(mine: ReviewItem[] | undefined, theirs: ReviewItem[] | undefined) {
+  const held = mergedReview(mine, theirs);
+  return held.length > 0 ? { review: held } : {};
 }
 
 /** Only carried when there is something to carry, so an empty ledger stays empty. */
@@ -519,6 +538,7 @@ export function parseLedger(value: unknown): Ledger | null {
   );
   const taxonomy = parseCategoryBook(raw.taxonomy);
   const extraKeys = taxonomy?.categories.map((category) => category.key) ?? [];
+  const review = parseReviewItems(raw.review);
   return {
     version: LEDGER_VERSION,
     entries: sortEntries(entries),
@@ -529,6 +549,7 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(raw.payers && typeof raw.payers === "object" ? { payers: stringsOnly(raw.payers) } : {}),
     ...(raw.rules && typeof raw.rules === "object" ? { rules: rulesOnly(raw.rules, extraKeys) } : {}),
     ...(taxonomy ? { taxonomy } : {}),
+    ...(review.length > 0 ? { review } : {}),
   };
 }
 

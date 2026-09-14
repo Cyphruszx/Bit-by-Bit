@@ -466,7 +466,7 @@ describe("the Up statement, downloaded twice over overlapping periods", () => {
     assert.equal(flow.actualSavings, 5800.4);
 
     const doubled = summarizeMoneyFlow(settle(held));
-    assert.equal(doubled.income, 94488.79, "what the overlap would otherwise read as");
+    assert.equal(doubled.income, 84788.79, "overlap extras that stay unpaired are OPEN-held");
   });
 
   it("leaves a year uploaded once exactly as it is", async () => {

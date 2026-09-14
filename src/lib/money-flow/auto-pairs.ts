@@ -3,7 +3,8 @@
  *
  * `matchTransfers` / `matchRefunds` still detect candidates. Writing `transferPair` /
  * `refundPair` and `type: moved` / `returned` is ledger truth — that is Spec 7 RESOLVE,
- * not ingest. Until then, candidates stay visible in Income/Spending.
+ * not ingest. OPEN candidates are held out of Income / Spending / Refund credits / Net
+ * until that write.
  */
 
 import { matchRefunds, type RefundOptions } from "@/lib/money-flow/refunds";
@@ -13,10 +14,11 @@ import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /**
  * Drops auto-written pair marks so a ledger stored before Slice 2 cannot keep
- * silently cancelling totals. User verdicts are applied after this.
+ * silently cancelling totals. Spec 7 RESOLVE (`decidedBy: "said"`) is kept.
  */
 export function forgetAutoPairs(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
   return transactions.map((txn) => {
+    if (txn.decidedBy === "said") return txn;
     const auto = txn.decidedBy === "paired" || Boolean(txn.transferPair) || Boolean(txn.refundPair);
     if (!auto) return txn;
     const next: InterpretedTransaction = {
@@ -35,7 +37,7 @@ export function forgetAutoPairs(transactions: InterpretedTransaction[]): Interpr
   });
 }
 
-/** Interim UX: candidates were found, none were applied. */
+/** Candidates were found; tiles hold them out until the Review Queue confirms. */
 export function pendingPairInsight(
   transactions: InterpretedTransaction[],
   options: MatchOptions & RefundOptions = {},
@@ -50,5 +52,5 @@ export function pendingPairInsight(
   if (n) bits.push(`${n} likely transfer${n === 1 ? "" : "s"}`);
   if (m) bits.push(`${m} likely refund${m === 1 ? "" : "s"}`);
   if (contested) bits.push(`${contested} contested transfer${contested === 1 ? "" : "s"}`);
-  return `Detected ${bits.join(", ")}. They still count in Income and Spending until confirmed (Review Queue, Spec 7).`;
+  return `Detected ${bits.join(", ")}. Held out of Income, Spending, Refund credits and Net until confirmed (Review Queue, Spec 7).`;
 }

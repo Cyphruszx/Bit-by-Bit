@@ -6,7 +6,6 @@ import { incomeSources, unsettledGroups, unsettledIncome } from "./income";
 import { interpretDocuments } from "./interpret";
 import { roundMoney } from "./parse-values";
 import { summarizeMoneyFlow } from "./summary";
-import { applyVerdicts, likeKey, verdictFor } from "./verdicts";
 import type { InterpretedTransaction } from "./types";
 
 let made = 0;
@@ -48,10 +47,7 @@ describe("saying where money in came from", () => {
 
     assert.deepEqual(
       sources.map((source) => [source.kind, source.amount, source.count]),
-      [
-        ["earned", 3500, 2],
-        ["arrived", 25000, 1],
-      ],
+      [["earned", 3500, 2]],
     );
   });
 
@@ -86,7 +82,7 @@ describe("saying where money in came from", () => {
 
   it("counts only what a person could still argue with", () => {
     const rows = [credit(3000, "Salary"), credit(1200, "Refund"), credit(25000, "Transfers in")];
-    assert.equal(unsettledIncome(rows), 25000);
+    assert.equal(unsettledIncome(rows), 0, "OPEN refund and transfer credits are not in the income figure");
   });
 
   it("does not ask about a refund the rules already filed as income", () => {
@@ -125,46 +121,22 @@ describe("the samples, split up", () => {
     const of = (kind: string) => sources.find((source) => source.kind === kind);
 
     // Medicare ($120,844.20) and the ATO rebates sit under Earned. SocietyOne is borrowed.
-    // Unlinked refund-shaped credits are not Income (Spec 10). Unconfirmed transfers sit
-    // in Income until Spec 7 — arrived is the leftover internals still to ask about.
-    assert.equal(of("earned")?.amount, 204095.53);
+    // Unlinked refund-shaped credits are not Income (Spec 10). OPEN unpaired transfers
+    // are held out of Income (Spec 7), so the income card has nothing left to ask about.
+    assert.equal(of("earned")?.amount, 145096.99);
     assert.equal(of("returned"), undefined);
-    assert.equal(of("arrived")?.amount, 59686.33);
+    assert.equal(of("arrived"), undefined);
     assert.equal(
       roundMoney(sources.reduce((sum, source) => sum + source.amount, 0)),
       summarizeMoneyFlow(rows).income,
     );
-    assert.equal(unsettledIncome(rows), 59686.33);
+    assert.equal(unsettledIncome(rows), 0);
   });
 
-  it("asks about leftover transfers and refunds by the name the statement printed", async () => {
+  it("does not keep leftover transfers in the income card once they are OPEN", async () => {
     const rows = await sampleLedger();
-    const groups = unsettledGroups(rows);
-
-    assert.ok(groups.length >= 1);
-    assert.equal(groups[0].amount, 28884.73);
-    assert.match(groups[0].label, /Linked Acc Trns/i);
-    assert.equal(groups[0].example.categoryKey, "uncategorised");
-    assert.ok(!groups.some((group) => /medicare|mcare/i.test(group.label)), "billing is already income");
-    assert.ok(!groups.some((group) => /SocietyOne/.test(group.label)), "the drawdown needs no answer");
-    assert.ok(!groups.some((group) => /ato/i.test(group.label)), "ATO rebates are already income");
-    assert.equal(
-      roundMoney(groups.reduce((sum, group) => sum + group.amount, 0)),
-      unsettledIncome(rows),
-    );
-  });
-
-  it("still lets a leftover transfer be taken out of money in", async () => {
-    const rows = await sampleLedger();
-    const groups = unsettledGroups(rows);
-    const at = "2026-09-03T00:00:00.000Z";
-    const settled = applyVerdicts(rows, {
-      [likeKey(groups[0].example)]: verdictFor("own-account", at),
-    });
-    const flow = summarizeMoneyFlow(settled);
-
-    assert.equal(flow.income, 234897.13, "the leftover transfer was not earnings");
-    assert.equal(flow.cashNet, -507.51, "and the cash that moved is untouched");
-    assert.equal(unsettledIncome(settled), 30801.6);
+    assert.equal(unsettledGroups(rows).length, 0);
+    assert.equal(summarizeMoneyFlow(rows).income, 145096.99);
+    assert.equal(summarizeMoneyFlow(rows).cashNet, -507.51);
   });
 });
