@@ -269,11 +269,9 @@ describe("image interpretation with AI", () => {
         return [];
       },
     };
-    const json = JSON.stringify({
-      transactions: [{ date: "2026-08-25", description: "Woolworths", amount: -86.4 }],
-    });
+    const csv = "Date,Description,Amount\n25/08/2026,Woolworths,-86.40\n";
     const result = await interpretDocuments(
-      [{ filename: "export.json", mime: "application/json", bytes: new TextEncoder().encode(json) }],
+      [{ filename: "export.csv", mime: "text/csv", bytes: new TextEncoder().encode(csv) }],
       { ai },
     );
     assert.equal(suggested, false);
@@ -289,11 +287,9 @@ describe("image interpretation with AI", () => {
         return transactions.map((row) => ({ id: row.id, category: "utilities", confidence: 0.7 }));
       },
     };
-    const json = JSON.stringify({
-      transactions: [{ date: "2026-08-25", description: "Acme Power Co", amount: -120 }],
-    });
+    const csv = "Date,Description,Amount\n25/08/2026,Acme Power Co,-120.00\n";
     const result = await interpretDocuments(
-      [{ filename: "export.json", mime: "application/json", bytes: new TextEncoder().encode(json) }],
+      [{ filename: "export.csv", mime: "text/csv", bytes: new TextEncoder().encode(csv) }],
       { ai },
     );
     assert.equal(asked, 1);
