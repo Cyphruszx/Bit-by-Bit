@@ -50,19 +50,15 @@ type TypeMeaning = {
  * in the sample statements. Both legs move cash and neither changes what is owned, so both
  * sit outside income and spending while staying in the raw cash figures.
  *
- * `moved` and `returned` still count, which reads like a contradiction and is not. The two
- * of them are the only types that are *proved* rather than inferred — written by the
- * matcher that found the other leg or the payment being reversed — and the pair is what
- * takes the money out, in summary.ts, and only when both legs are in the set being
- * summarised. Taking it out here as well would take it out twice, and would break scoping:
- * seen from inside Up alone, money that arrived from NAB did arrive, and Up's figures have
- * to tie to Up's own statement. So the rule is: a type the reader *proved* leaves the
- * arithmetic to the pair, and a type it *inferred from a category* does the arithmetic
- * itself.
+ * `moved` still counts here and is cancelled in summary.ts only when both legs are in view:
+ * seen from inside Up alone, money that arrived from NAB did arrive. `returned` does not
+ * count as income (Spec 10): a linked refund is Refund credits in Net, never Income, and
+ * the original spend stays in Spending (month-freeze). Unlinked refund-shaped credits are
+ * kept out of Income in summary.ts until they are linked or filed as earnings.
  */
 const TYPES: Record<TransactionType, TypeMeaning> = {
   earned: { label: "Money you earned", side: "in", income: true, spending: false },
-  returned: { label: "Money coming back", side: "in", income: true, spending: false },
+  returned: { label: "Money coming back", side: "in", income: false, spending: false },
   borrowed: { label: "Borrowed money", side: "in", income: false, spending: false },
   moved: { label: "Between your own accounts", side: "both", income: true, spending: true },
   spent: { label: "Money you spent", side: "out", income: false, spending: true },

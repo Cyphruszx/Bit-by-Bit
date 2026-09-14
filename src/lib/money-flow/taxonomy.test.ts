@@ -138,7 +138,7 @@ describe("the movements the taxonomy has to get right", () => {
 
     // Two thirds of a year of statements place themselves. What is left is ordered by how
     // much money is behind it, so the first few answers move the reports most.
-    assert.equal(progress.percent, 59);
+    assert.equal(progress.percent, 60);
     assert.ok(groups.length < 250, `${groups.length} questions, not one per movement`);
     assert.ok(
       Math.abs(groups[0].amount) > Math.abs(groups[groups.length - 1].amount),
@@ -171,7 +171,8 @@ describe("the movements the taxonomy has to get right", () => {
     assert.equal(flow.cashOut, 289742.99);
     assert.equal(flow.cashNet, -507.51, "unchanged by the redesign, because no amount moved");
     // $25,000 of what arrived was borrowed, so it is in the cash and not in the earnings.
-    assert.equal(flow.income, 142796.02);
-    assert.equal(flow.spending, 168303.53);
+    assert.equal(flow.income, 142791.29);
+    assert.equal(flow.spending, 171559.12);
+    assert.equal(flow.refunds, 3255.59);
   });
 });

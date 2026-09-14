@@ -49,9 +49,15 @@ export function SavingsView() {
           detail={hiddenCount > 0 ? "Included pots only" : "Across your savings pots"}
         />
         <SummaryCard
-          label={hasUploads ? "Set aside this period" : "Monthly contributions"}
+          label={hasUploads ? "Moved this period" : "Monthly contributions"}
           value={formatAud(hasUploads ? flow.transfers : monthly)}
-          detail={hasUploads ? flow.periodLabel : hiddenCount > 0 ? "Included pots each month" : "Planned each month"}
+          detail={
+            hasUploads
+              ? "Matched transfers — not Spec 10 Actual Savings (TRANSFER IN to savings / user-flagged; out of this slice)"
+              : hiddenCount > 0
+                ? "Included pots each month"
+                : "Planned each month"
+          }
           positive
         />
       </section>

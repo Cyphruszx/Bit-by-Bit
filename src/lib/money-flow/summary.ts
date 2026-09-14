@@ -2,7 +2,7 @@ import { formatAud } from "@/lib/format";
 import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { monthLabelFromKey } from "@/lib/money-flow/savings";
 import { accountIdOf, namesItsOwnAccount, type AccountRegistry } from "@/lib/money-flow/account-identity";
-import { looksInternal } from "@/lib/money-flow/statement-category";
+import { looksInternal, looksReturned } from "@/lib/money-flow/statement-category";
 import { chartLabel, groupOf, isGroupId } from "@/lib/money-flow/category-book";
 import { categoryOf } from "@/lib/money-flow/tags";
 import { countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
@@ -51,13 +51,20 @@ export type FlowOverTimePoint = {
  * one such row destroys a month. So a credit reaches the income figure only if its type
  * says it was earned, and a debit reaches spending only if its type says it was spent.
  */
+/**
+ * Spec 10 tile path. Dashboard, transactions, and account cards all call this.
+ *
+ * Interim: there is no `base_amount` or `CLEARED` status yet (Spec 2/6c/7). Tiles sum
+ * `amount`, the signed statement value, for every counted row. CLEARED-only lands when
+ * that status exists.
+ */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const counted = countedMovements(transactions);
   const income = roundMoney(
-    counted.filter(isEarnings).reduce((sum, txn) => sum + txn.amount, 0),
+    counted.filter(isEarnings).reduce((sum, txn) => sum + tileAmount(txn), 0),
   );
   const spending = roundMoney(
-    counted.filter(isSpending).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    counted.filter(isSpending).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
   const cashIn = roundMoney(
     transactions.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
@@ -65,10 +72,8 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const cashOut = roundMoney(
     transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
-  // One side of each transfer pair: the money that moved, not the two rows for it. A
-  // refund's two legs are settled the same way but are not money moving between the
-  // person's own accounts, so they are no part of this figure — it is rendered as
-  // "moved between these accounts" and as "set aside this period".
+  // One side of each transfer pair: the money that moved, not the two rows for it.
+  // This is not Spec 10 Actual Savings (TRANSFER IN to a savings account / user-flagged).
   const settledTransfer = new Set(
     transactions.filter((txn) => txn.transferPair && !counted.includes(txn)).map((txn) => txn.id),
   );
@@ -88,9 +93,9 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
       .reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   const refunds = roundMoney(
-    transactions.filter((txn) => txn.type === "returned").reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    counted.filter(isRefundCredit).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
-  const net = roundMoney(income - spending);
+  const net = roundMoney(income - spending + refunds);
   const cashNet = roundMoney(cashIn - cashOut);
   const categories = spendByCategory(transactions);
 
@@ -120,28 +125,51 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
 export function countedMovements(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
   const legs = new Map<string, number>();
   for (const txn of transactions) {
-    for (const pair of [txn.transferPair, txn.refundPair]) {
-      if (pair) legs.set(pair, (legs.get(pair) ?? 0) + 1);
-    }
+    if (txn.transferPair) legs.set(txn.transferPair, (legs.get(txn.transferPair) ?? 0) + 1);
   }
-  // A pair only cancels when both its legs are in the set being summarised: one account's
-  // own figures still show money leaving it for another, and a refund still counts as
-  // money in when the payment it reverses is not in view.
-  const settled = (txn: InterpretedTransaction) =>
-    [txn.transferPair, txn.refundPair].some((pair) => pair && (legs.get(pair) ?? 0) >= 2);
+  // Transfers cancel only when both legs are in the set being summarised. Refund pairs
+  // do not: Spec 10 month-freeze keeps the original spend, and the credit is Refund
+  // credits in Net rather than a second cancellation of Spending.
+  const settledTransfer = (txn: InterpretedTransaction) =>
+    Boolean(txn.transferPair && (legs.get(txn.transferPair) ?? 0) >= 2);
   // A person saying a movement is not their own money in or out is the last word: they
   // can see what the statements cannot say, and nothing here should argue with them.
-  return transactions.filter((txn) => txn.verdict?.counts !== false && !settled(txn));
+  return transactions.filter((txn) => txn.verdict?.counts !== false && !settledTransfer(txn));
+}
+
+/** Linked REFUND whose refund date is in the set being summarised. Never Income. */
+export function isRefundCredit(txn: InterpretedTransaction): boolean {
+  return tileAmount(txn) > 0 && Boolean(txn.refundPair);
+}
+
+/** Filing keys whose credits are earnings even when the bank labelled them Refund. */
+const EARNINGS_CATEGORIES = new Set(["salary", "other-income"]);
+
+/** Unlinked refund-shaped credit: type REFUND/`returned`, or a bank refund not filed as earnings. */
+export function isUnlinkedRefundShaped(txn: InterpretedTransaction): boolean {
+  if (tileAmount(txn) <= 0 || txn.refundPair) return false;
+  if (txn.type === "returned") return true;
+  if (!looksReturned(txn)) return false;
+  return !EARNINGS_CATEGORIES.has(txn.categoryKey);
 }
 
 /** A credit the household actually earned, rather than one that merely arrived. */
 export function isEarnings(txn: InterpretedTransaction): boolean {
-  return txn.amount > 0 && countsAsIncome(txn.type);
+  if (tileAmount(txn) <= 0) return false;
+  if (isRefundCredit(txn)) return false;
+  if (txn.verdict?.counts === true) return true;
+  if (isUnlinkedRefundShaped(txn)) return false;
+  return countsAsIncome(txn.type);
 }
 
 /** A payment that was really spent, rather than moved, repaid or invested. */
 export function isSpending(txn: InterpretedTransaction): boolean {
-  return txn.amount < 0 && countsAsSpending(txn.type);
+  return tileAmount(txn) < 0 && countsAsSpending(txn.type);
+}
+
+/** ponytail: Spec 10 wants Σ base_amount; no such field exists, so amount is the tile value. */
+function tileAmount(txn: InterpretedTransaction): number {
+  return txn.amount;
 }
 
 export function spendByCategory(transactions: InterpretedTransaction[]): CategorySpend[] {
@@ -258,13 +286,14 @@ export function tagFlowOverTime(
   const firstDay = days[0];
   const lastDay = days[days.length - 1];
   const byDay = spanInDays(firstDay, lastDay) <= MAX_DAILY_SPAN;
-  const totals = new Map<string, { income: number; spending: number }>();
+  const totals = new Map<string, { income: number; spending: number; refunds: number }>();
 
   for (const txn of rows) {
     const key = txn.dateIso.slice(0, byDay ? 10 : 7);
-    const entry = totals.get(key) ?? { income: 0, spending: 0 };
-    if (txn.amount > 0) entry.income = roundMoney(entry.income + txn.amount);
-    else entry.spending = roundMoney(entry.spending + Math.abs(txn.amount));
+    const entry = totals.get(key) ?? { income: 0, spending: 0, refunds: 0 };
+    if (isEarnings(txn)) entry.income = roundMoney(entry.income + tileAmount(txn));
+    else if (isSpending(txn)) entry.spending = roundMoney(entry.spending + Math.abs(tileAmount(txn)));
+    else if (isRefundCredit(txn)) entry.refunds = roundMoney(entry.refunds + Math.abs(tileAmount(txn)));
     totals.set(key, entry);
   }
 
@@ -274,8 +303,8 @@ export function tagFlowOverTime(
 
   let running = 0;
   return keys.map((key) => {
-    const entry = totals.get(key) ?? { income: 0, spending: 0 };
-    const net = roundMoney(entry.income - entry.spending);
+    const entry = totals.get(key) ?? { income: 0, spending: 0, refunds: 0 };
+    const net = roundMoney(entry.income - entry.spending + entry.refunds);
     running = roundMoney(running + net);
     return {
       key,
@@ -333,11 +362,14 @@ function daySpan(first: string, last: string): string[] {
 }
 
 function flowTotals(transactions: InterpretedTransaction[]): { income: number; spending: number; net: number } {
-  const income = roundMoney(transactions.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0));
+  const income = roundMoney(transactions.filter(isEarnings).reduce((sum, txn) => sum + tileAmount(txn), 0));
   const spending = roundMoney(
-    transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    transactions.filter(isSpending).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
-  return { income, spending, net: roundMoney(income - spending) };
+  const refunds = roundMoney(
+    transactions.filter(isRefundCredit).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
+  );
+  return { income, spending, net: roundMoney(income - spending + refunds) };
 }
 
 function netByTag(
@@ -348,8 +380,8 @@ function netByTag(
   for (const txn of transactions) {
     const name = keyOf(txn);
     const entry = byTag.get(name) ?? { income: 0, spending: 0 };
-    if (txn.amount > 0) entry.income = roundMoney(entry.income + txn.amount);
-    else entry.spending = roundMoney(entry.spending + Math.abs(txn.amount));
+    if (isEarnings(txn)) entry.income = roundMoney(entry.income + tileAmount(txn));
+    else if (isSpending(txn)) entry.spending = roundMoney(entry.spending + Math.abs(tileAmount(txn)));
     byTag.set(name, entry);
   }
 

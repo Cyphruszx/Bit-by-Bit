@@ -249,7 +249,13 @@ function FlowCards({
         <SummaryCard
           label="Net"
           value={formatAud(flow.net)}
-          detail={hasUploads ? `${flow.transactionCount} movements` : "Money in minus money out"}
+          detail={
+            flow.refunds > 0
+              ? `Income − Spending + ${formatAud(flow.refunds)} refund credits`
+              : hasUploads
+                ? `${flow.transactionCount} movements`
+                : "Income − Spending"
+          }
           positive={flow.net >= 0}
           compact={compact}
         />

@@ -152,6 +152,7 @@ export function prependRecordedMonths(snapshots: SavingsSnapshot[], projected: C
   return [...past, ...projected];
 }
 
+/** Matched `moved` legs by month. Not Spec 10 Actual Savings (no savings-account flag yet). */
 export function monthlyTransferSeries(transactions: InterpretedTransaction[]): ChartPoint[] {
   const byMonth = new Map<string, number>();
   for (const txn of transactions) {

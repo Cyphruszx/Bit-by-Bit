@@ -92,7 +92,11 @@ export function TransactionsView() {
         <SummaryCard
           label="Net"
           value={formatAud(scopedFlow.net)}
-          detail={`${scopedFlow.transactionCount} movements`}
+          detail={
+            scopedFlow.refunds > 0
+              ? `Income − Spending + ${formatAud(scopedFlow.refunds)} refund credits`
+              : `${scopedFlow.transactionCount} movements`
+          }
           positive={scopedFlow.net >= 0}
           compact
         />

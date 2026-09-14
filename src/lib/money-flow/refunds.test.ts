@@ -65,20 +65,25 @@ describe("recognising money that came back", () => {
       move(ACCOUNT, -100, "2026-03-03", "Domino Pizza"),
       move(ACCOUNT, 100, "2026-03-04", "Domino Pizza"),
       move(ACCOUNT, -40, "2026-03-05", "Woolworths Bondi"),
-      move(ACCOUNT, 3000, "2026-03-06", "Acme Payroll", { type: "earned" }),
+      move(ACCOUNT, 3000, "2026-03-06", "Acme Payroll", { type: "earned", categoryKey: "salary", bank: { category: "Salary" } }),
       ...filler(),
     ]);
     const flow = summarizeMoneyFlow(rows);
 
     assert.equal(flow.income, 3000, "money handed back is not money earned");
-    assert.equal(flow.spending, 40 + FILLER_SPENDING, "the cancelled payment is gone, the filler remains");
+    assert.equal(flow.spending, 140 + FILLER_SPENDING, "month-freeze: the original payment stays in Spending");
+    assert.equal(flow.refunds, 100, "linked refund is Refund credits, not a Spending cut");
+    assert.equal(flow.net, 3000 - (140 + FILLER_SPENDING) + 100);
     assert.equal(flow.cashIn, 3100, "the cash that actually moved is still reported");
   });
 
   it("refuses a benefit the bank happens to file under Refund", () => {
     // What NAB does with a practice's Medicare income: 172 credits, all called "Refund".
     const benefits = Array.from({ length: 30 }, (_, index) =>
-      move(ACCOUNT, 500, `2026-03-${String(index + 1).padStart(2, "0")}`, `MC BBS${index} MCARE BENEFITS JORDAN LEE`),
+      move(ACCOUNT, 500, `2026-03-${String(index + 1).padStart(2, "0")}`, `MC BBS${index} MCARE BENEFITS JORDAN LEE`, {
+        type: "earned",
+        categoryKey: "other-income",
+      }),
     );
     // Debits of the same amount in the same account, sharing only the person's own name.
     const rent = Array.from({ length: 30 }, (_, index) =>
@@ -151,7 +156,7 @@ describe("recognising money that came back", () => {
       ...filler(),
     ];
     assert.equal(matchRefunds(rows).pairs.length, 1);
-    assert.equal(summarizeMoneyFlow(markRefundLegs(rows)).spending, 120 + FILLER_SPENDING);
+    assert.equal(summarizeMoneyFlow(markRefundLegs(rows)).spending, 180 + FILLER_SPENDING);
   });
 
   it("reaches the same pairs whatever order the movements arrive in", () => {
@@ -179,7 +184,7 @@ describe("money that only looks like it came back", () => {
     // A landlord receiving rent and paying the same agent the same amount. Same account,
     // same cent, inside the window, sharing the rare word "smith" — and both real.
     const rows = [
-      move(ACCOUNT, 2300, "2026-03-01", "SMITH PROPERTY RENT RECEIVED", { type: "earned" }),
+      move(ACCOUNT, 2300, "2026-03-01", "SMITH PROPERTY RENT RECEIVED", { type: "earned", categoryKey: "other-income" }),
       move(ACCOUNT, -2300, "2026-03-20", "SMITH PROPERTY MANAGEMENT"),
       ...filler(),
     ];

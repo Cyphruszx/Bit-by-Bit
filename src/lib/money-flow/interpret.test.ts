@@ -92,7 +92,7 @@ describe("document interpretation", () => {
     assert.equal(result.flow.unmatchedInternal, 400);
     assert.ok(result.transactions.some((txn) => /woolworths/i.test(txn.merchant)));
     assert.ok(result.transactions.some((txn) => txn.categoryKey === "rent-mortgage"));
-    assert.equal(result.flow.net, result.flow.income - result.flow.spending);
+    assert.equal(result.flow.net, result.flow.income - result.flow.spending + result.flow.refunds);
     assert.equal(result.flow.cashIn, 5240);
     assert.equal(result.flow.cashOut, 1692.44);
     assert.equal(result.flow.cashNet, 3547.56);
@@ -417,20 +417,16 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.equal(result.transactions.find((txn) => txn.merchant === "Woolworths")?.amount, -10.5);
     assert.equal(result.transactions.find((txn) => txn.merchant === "JANE CITIZEN")?.amount, 300);
     // Read on its own, with no payment to reverse and no other account in sight, neither
-    // of these is settled. Both are money that arrived, counted and flagged rather than
-    // quietly removed on the strength of a word — `returned` and `moved` are written only
-    // once the matcher has found the payment or the other leg.
+    // of these is settled. `returned` and `moved` are written only once the matcher has
+    // found the payment or the other leg. Spec 10: the unlinked Soul Origin refund stays
+    // out of Income; the unmatched Tax transfer still counts until its other leg arrives.
     assert.equal(result.transactions.find((txn) => txn.merchant === "Soul Origin")?.type, "earned");
     assert.equal(result.transactions.find((txn) => txn.merchant === "Transfer from Tax")?.type, "earned");
     assert.equal(result.flow.spending, 10.5);
-    // Nothing was reversed here: the payment this credit would cancel is not in the file.
-    // It counts as money in and is put to the person, rather than being removed because
-    // Up wrote the word "Refund" beside it.
     assert.equal(result.flow.refunds, 0);
-    // The Tax saver's own leg is not in this excerpt, so the $75 is not yet a transfer.
     assert.equal(result.flow.transfers, 0);
     assert.equal(result.flow.unmatchedInternal, 75);
-    assert.equal(result.flow.income, 382.9);
+    assert.equal(result.flow.income, 375);
   });
 
   async function readUpSample() {
@@ -483,13 +479,16 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     // money entering and leaving Up, so they exclude the movements the holder makes between
     // their own Spending account and their savers.
     //
-    // Income and spending sit $448.89 under the bank's own figures, and deliberately: a
-    // Bunnings charge of $418.94 and a Domino's one of $29.95 were reversed, and money
-    // handed back is neither earned nor spent. The bank counts the cash both ways.
+    // Income sits $448.89 under the bank's money-in: a Bunnings charge of $418.94 and a
+    // Domino's one of $29.95 were reversed. Spec 10: those credits are Refund credits,
+    // never Income, and Spending keeps the original charges (month-freeze). Net is
+    // Income − Spending + Refund credits, which still matches the statement's cash net.
     const reversed = 418.94 + 29.95;
-    assert.equal(result.flow.income, roundMoney(70574.39 - reversed));
-    assert.equal(result.flow.spending, roundMoney(71631.34 - reversed));
-    assert.equal(roundMoney(result.flow.income - result.flow.spending), -1056.95);
+    assert.equal(result.flow.income, 70120.77);
+    assert.equal(result.flow.spending, 71631.34);
+    assert.equal(result.flow.refunds, reversed);
+    assert.equal(result.flow.net, roundMoney(result.flow.income - result.flow.spending + result.flow.refunds));
+    assert.equal(result.flow.net, -1061.68);
   });
 
   it("keeps money moved between the holder's own Up accounts out of the totals", async () => {
@@ -750,14 +749,15 @@ describe("money flow summary", () => {
       },
     ];
     const combined = chartTagFlowSeries(rows, "All");
-    assert.equal(combined.income, 2660);
+    // Unlinked `returned` is not Income and grants no Refund credits until linked.
+    assert.equal(combined.income, 2620);
     assert.equal(combined.spending, 128.4);
-    assert.equal(combined.net, 2531.6);
+    assert.equal(combined.net, 2491.6);
     assert.deepEqual(
       combined.rows.map((row) => [row.name, row.amount]),
       [
         ["income", 2620],
-        ["lifestyle", -60],
+        ["lifestyle", -100],
         ["food", -28.4],
       ],
     );
@@ -1007,10 +1007,11 @@ describe("grouping the samples by institution", () => {
     const up = accountsByInstitution(result.transactions).find((group) => group.institution === "Up");
 
     assert.equal(up?.flow.transactionCount, 1267);
-    // The statement's own $70,574.39 and $71,631.34, less the $448.89 of charges Bunnings
-    // and Domino's reversed, which neither earned nor cost the holder anything.
-    assert.equal(up?.flow.income, 70125.5);
-    assert.equal(up?.flow.spending, 71182.45);
+    // Income excludes the $448.89 of Bunnings/Domino's refunds. Spending keeps those
+    // original charges (month-freeze). Refund credits live on `flow.refunds`.
+    assert.equal(up?.flow.income, 70120.77);
+    assert.equal(up?.flow.spending, 71631.34);
+    assert.equal(up?.flow.refunds, 448.89);
   });
 
   it("loses no movement and no dollar to the grouping", async () => {
@@ -1272,18 +1273,13 @@ describe("what each scope reports", () => {
   it("reports the household's own figures across everything", async () => {
     const flow = summarizeMoneyFlow(await ledger());
 
-    // $3,255.59 of reversed charges are on neither side: an optical charge NAB reversed
-    // the next day, and two Up purchases refunded. Cash still counts them both ways, so
-    // cash net is untouched — which is what says nothing was lost rather than moved.
-    //
-    // Income is $25,000 below the cash that arrived, and that gap is the whole point of
-    // the type layer: a SocietyOne drawdown landed in the everyday account on 30 June and
-    // $24,800 left for a company the same day. Counting the credit as earnings put a
-    // year's income into one month. It is borrowed money, so it is money in the account
-    // and not money the household earned.
-    assert.equal(flow.income, 142796.02);
-    assert.equal(flow.spending, 168303.53);
-    assert.equal(flow.net, -25507.51);
+    // Spec 10: linked refunds stay in Spending and return as Refund credits. Unlinked
+    // refund-shaped credits are not Income. Cash still counts both legs, so cash net
+    // is untouched. Income is $25,000 below cash in because SocietyOne is borrowed.
+    assert.equal(flow.income, 142791.29);
+    assert.equal(flow.spending, 171559.12);
+    assert.equal(flow.refunds, 3255.59);
+    assert.equal(flow.net, -25512.24);
     assert.equal(flow.cashNet, -507.51);
   });
 
@@ -1292,14 +1288,15 @@ describe("what each scope reports", () => {
     const nab = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "NAB" }));
     const up = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "Up" }));
 
-    // Each bank's figures fall by the reversals inside it: NAB's $2,806.70 optical charge,
-    // Up's $448.89. Neither bank's cash position moves. NAB is a further $25,000 down,
-    // because the drawdown landed there and borrowed money is not earnings.
+    // Spending keeps each bank's reversed charges. NAB is a further $25,000 down on
+    // Income because the SocietyOne drawdown landed there and borrowed money is not earnings.
     assert.equal(nab.income, 134564.97);
-    assert.equal(nab.spending, 159015.53);
+    assert.equal(nab.spending, 161822.23);
+    assert.equal(nab.refunds, 2806.7);
     assert.equal(nab.cashNet, 549.44);
-    assert.equal(up.income, 70125.5);
-    assert.equal(up.spending, 71182.45);
+    assert.equal(up.income, 70120.77);
+    assert.equal(up.spending, 71631.34);
+    assert.equal(up.refunds, 448.89);
     assert.equal(up.cashNet, -1056.95);
   });
 
@@ -1313,6 +1310,7 @@ describe("what each scope reports", () => {
     // to it exactly. Income is $25,000 lower because $25,000 of what arrived was borrowed.
     assert.equal(everyday.income, 139344.9);
     assert.equal(everyday.spending, 160675.88);
+    assert.equal(everyday.refunds, 0);
     assert.equal(everyday.cashNet, 3669.02);
   });
 

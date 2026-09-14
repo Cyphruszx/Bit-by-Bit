@@ -96,9 +96,9 @@ export type InterpretedTransaction = {
    */
   transferPair?: string;
   /**
-   * Set when the payment this credit reverses was found in the same account. A refund is
-   * not income and the payment it cancels is not spending, so both legs leave the totals
-   * together — but only on the evidence of the pair, never on a bank's own wording.
+   * Set when the payment this credit reverses was found in the same account. Spec 10:
+   * the credit is Refund credits in Net (never Income). The original spend stays in
+   * Spending — month-freeze. Unlinked refund-shaped credits stay out of Income.
    */
   refundPair?: string;
   /**

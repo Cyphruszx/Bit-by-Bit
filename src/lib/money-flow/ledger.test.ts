@@ -452,20 +452,18 @@ describe("the Up statement, downloaded twice over overlapping periods", () => {
     assert.equal(held.length, 1549, "every row both statements brought is kept");
     assert.equal(shown.length, 1267);
 
-    // The same figures the app shows when the year is uploaded as one file: the
-    // statement's own $70,574.39 and $71,631.34, less the $448.89 of charges that were
-    // reversed, which the bank counts as cash both ways but nobody earned or spent.
-    // Decided over everything held, the way the app reads it. The Bunnings charge and the
-    // refund that reversed it fell either side of the cut, so neither statement could pair
-    // them on its own — only the whole ledger can.
+    // Same Income as a single-file year: $70,574.39 less $448.89 of refunds. Spec 10
+    // keeps the original charges in Spending and puts the credits in Refund credits.
+    // The Bunnings pair fell either side of the cut, so only the whole ledger can link it.
     const settle = (rows: InterpretedTransaction[]) => markRefundLegs(markTransferLegs(rows));
     const flow = summarizeMoneyFlow(settle(shown));
-    assert.equal(flow.income, 70125.5);
-    assert.equal(flow.spending, 71182.45);
-    assert.equal(flow.net, -1056.95);
+    assert.equal(flow.income, 70120.77);
+    assert.equal(flow.spending, 71631.34);
+    assert.equal(flow.refunds, 448.89);
+    assert.equal(flow.net, -1061.68);
 
     const doubled = summarizeMoneyFlow(settle(held));
-    assert.equal(doubled.income, 94912.46, "what the overlap would otherwise read as");
+    assert.equal(doubled.income, 94488.79, "what the overlap would otherwise read as");
   });
 
   it("leaves a year uploaded once exactly as it is", async () => {

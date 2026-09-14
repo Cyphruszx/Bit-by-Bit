@@ -37,9 +37,9 @@ export type IncomeSource = {
 /**
  * Income split by how sure the reader is about it, surest first.
  *
- * Only movements the totals actually counted are included, so a refund that cancelled its
- * payment and a transfer whose other leg was found are both absent — they are not income
- * and they are not in the figure this explains.
+ * Only movements the totals actually counted as earnings are included. Linked refunds
+ * are Refund credits, not Income. Unlinked refund-shaped credits stay out of this
+ * figure until they are linked or filed as earnings.
  */
 export function incomeSources(transactions: InterpretedTransaction[]): IncomeSource[] {
   // Only what the money-in figure actually holds. A drawdown the reader has already typed
