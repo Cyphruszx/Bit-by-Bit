@@ -461,6 +461,7 @@ describe("the Up statement, downloaded twice over overlapping periods", () => {
     assert.equal(flow.spending, 71631.34);
     assert.equal(flow.refunds, 448.89);
     assert.equal(flow.net, -1061.68);
+    assert.equal(flow.actualSavings, 5800.4);
 
     const doubled = summarizeMoneyFlow(settle(held));
     assert.equal(doubled.income, 94488.79, "what the overlap would otherwise read as");

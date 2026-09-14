@@ -1283,6 +1283,7 @@ describe("what each scope reports", () => {
     assert.equal(flow.refunds, 3255.59);
     assert.equal(flow.net, -25512.24);
     assert.equal(flow.cashNet, -507.51);
+    assert.equal(flow.actualSavings, 5800.4);
   });
 
   it("reports each bank's own figures, which tie to its statements", async () => {
@@ -1300,6 +1301,7 @@ describe("what each scope reports", () => {
     assert.equal(up.spending, 71631.34);
     assert.equal(up.refunds, 448.89);
     assert.equal(up.cashNet, -1056.95);
+    assert.equal(up.actualSavings, 5800.4);
   });
 
   it("reports one account on the numbers its own statement prints", async () => {
