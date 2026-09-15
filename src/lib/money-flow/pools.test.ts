@@ -30,12 +30,12 @@ import {
   livePools,
   memberSignedBalance,
   migrateGuestPools,
-  parsePoolBook,
   POOL_SOFT_LIMIT,
   remapPoolMemberAccountIds,
   removePoolMember,
   renamePool,
   type PoolBook,
+  type PoolWriteResult,
 } from "./pools";
 import {
   appendToLedger,
@@ -64,9 +64,12 @@ const META: Record<string, AccountMeta> = {
 };
 
 function bookWith(name = "Holiday"): { book: PoolBook; poolId: string } {
-  const created = createPool(EMPTY_POOL_BOOK, { id: "pool-1", userId: "guest", name, now: NOW });
-  assert.equal(created.ok, true);
-  return { book: created.book, poolId: "pool-1" };
+  return { book: mustOk(createPool(EMPTY_POOL_BOOK, { id: "pool-1", userId: "guest", name, now: NOW })).book, poolId: "pool-1" };
+}
+
+function mustOk(result: PoolWriteResult): Extract<PoolWriteResult, { ok: true }> {
+  if (!result.ok) throw new Error(result.reason);
+  return result;
 }
 
 function txn(over: Partial<InterpretedTransaction> = {}): InterpretedTransaction {
@@ -100,8 +103,7 @@ function file(filename: string): FileInterpretation {
 describe("pool membership", () => {
   it("enforces unique (pool_id, account_id)", () => {
     const { book, poolId } = bookWith();
-    const first = addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW });
-    assert.equal(first.ok, true);
+    const first = mustOk(addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW }));
     const again = addPoolMember(first.book, poolId, EVERYDAY, { meta: META, now: NOW });
     assert.equal(again.ok, false);
     if (again.ok) return;
@@ -111,12 +113,9 @@ describe("pool membership", () => {
 
   it("lets one account sit in more than one pool", () => {
     const holiday = bookWith("Holiday");
-    const bills = createPool(holiday.book, { id: "pool-2", userId: "guest", name: "Bills", now: NOW });
-    assert.equal(bills.ok, true);
-    const inHoliday = addPoolMember(bills.book, holiday.poolId, EVERYDAY, { meta: META, now: NOW });
-    assert.equal(inHoliday.ok, true);
-    const inBills = addPoolMember(inHoliday.book, "pool-2", EVERYDAY, { meta: META, now: NOW });
-    assert.equal(inBills.ok, true);
+    const bills = mustOk(createPool(holiday.book, { id: "pool-2", userId: "guest", name: "Bills", now: NOW }));
+    const inHoliday = mustOk(addPoolMember(bills.book, holiday.poolId, EVERYDAY, { meta: META, now: NOW }));
+    const inBills = mustOk(addPoolMember(inHoliday.book, "pool-2", EVERYDAY, { meta: META, now: NOW }));
     assert.equal(inBills.book.members.length, 2);
     assert.equal(hasMultiPoolOverlap(inBills.book), true);
   });
@@ -125,26 +124,22 @@ describe("pool membership", () => {
     const { book, poolId } = bookWith();
     assert.equal(livePools(book).length, 1);
     assert.equal(book.members.length, 0);
-    const archived = archivePool(book, poolId, NOW);
-    assert.equal(archived.ok, true);
+    const archived = mustOk(archivePool(book, poolId, NOW));
     assert.equal(livePools(archived.book).length, 0);
     assert.equal(archived.book.pools[0]?.deletedAt, NOW);
   });
 
   it("undoes membership by removing the member row", () => {
     const { book, poolId } = bookWith();
-    const added = addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW });
-    assert.equal(added.ok, true);
-    const removed = removePoolMember(added.book, poolId, EVERYDAY);
-    assert.equal(removed.ok, true);
+    const added = mustOk(addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW }));
+    const removed = mustOk(removePoolMember(added.book, poolId, EVERYDAY));
     assert.equal(removed.book.members.length, 0);
     assert.equal(removed.book.pools[0]?.id, poolId);
   });
 
   it("blocks a currency mismatch on add", () => {
     const { book, poolId } = bookWith();
-    const aud = addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW });
-    assert.equal(aud.ok, true);
+    const aud = mustOk(addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW }));
     const usd = addPoolMember(aud.book, poolId, USD, { meta: META, now: NOW });
     assert.equal(usd.ok, false);
     if (usd.ok) return;
@@ -155,8 +150,7 @@ describe("pool membership", () => {
   it("files a merged source under the survivor and never keeps both", () => {
     const { book, poolId } = bookWith();
     const mergedInto = { "Up · ···000": EVERYDAY };
-    const added = addPoolMember(book, poolId, "Up · ···000", { meta: META, mergedInto, now: NOW });
-    assert.equal(added.ok, true);
+    const added = mustOk(addPoolMember(book, poolId, "Up · ···000", { meta: META, mergedInto, now: NOW }));
     assert.equal(added.book.members[0]?.accountId, EVERYDAY);
     const again = addPoolMember(added.book, poolId, EVERYDAY, { meta: META, mergedInto, now: NOW });
     assert.equal(again.ok, false);
@@ -165,20 +159,17 @@ describe("pool membership", () => {
   it("warns softly at 20 or more live pools", () => {
     let book = EMPTY_POOL_BOOK;
     for (let i = 0; i < POOL_SOFT_LIMIT - 1; i += 1) {
-      const next = createPool(book, { id: `p${i}`, userId: "guest", name: `Pool ${i}`, now: NOW });
-      assert.equal(next.ok, true);
+      const next = mustOk(createPool(book, { id: `p${i}`, userId: "guest", name: `Pool ${i}`, now: NOW }));
       book = next.book;
       assert.equal(next.softWarning, undefined);
     }
-    const twentieth = createPool(book, { id: "p19", userId: "guest", name: "Pool 19", now: NOW });
-    assert.equal(twentieth.ok, true);
+    const twentieth = mustOk(createPool(book, { id: "p19", userId: "guest", name: "Pool 19", now: NOW }));
     assert.match(twentieth.softWarning ?? "", /20/);
   });
 
   it("renames a live pool and refuses a blank name", () => {
     const { book, poolId } = bookWith();
-    const renamed = renamePool(book, poolId, "Trip", NOW);
-    assert.equal(renamed.ok, true);
+    const renamed = mustOk(renamePool(book, poolId, "Trip", NOW));
     assert.equal(renamed.book.pools[0]?.name, "Trip");
     const blank = renamePool(book, poolId, "   ");
     assert.equal(blank.ok, false);
@@ -188,9 +179,9 @@ describe("pool membership", () => {
 describe("Cash in pool", () => {
   it("sums CHECKING/SAVINGS cleared_balance and excludes debt", () => {
     const { book, poolId } = bookWith();
-    let next = addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW }).book;
-    next = addPoolMember(next, poolId, SAVER, { meta: META, now: NOW }).book;
-    next = addPoolMember(next, poolId, VISA, { meta: META, now: NOW }).book;
+    let next = mustOk(addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW })).book;
+    next = mustOk(addPoolMember(next, poolId, SAVER, { meta: META, now: NOW })).book;
+    next = mustOk(addPoolMember(next, poolId, VISA, { meta: META, now: NOW })).book;
 
     const cash = cashInPool(next, poolId, META);
     assert.equal(cash.amount, 1200);
@@ -201,7 +192,7 @@ describe("Cash in pool", () => {
 
   it("hides Cash in pool when there are no cash members", () => {
     const { book, poolId } = bookWith();
-    const debtOnly = addPoolMember(book, poolId, VISA, { meta: META, now: NOW });
+    const debtOnly = mustOk(addPoolMember(book, poolId, VISA, { meta: META, now: NOW }));
     const cash = cashInPool(debtOnly.book, poolId, META);
     assert.equal(cash.amount, null);
     assert.equal(cash.cashMemberCount, 0);
@@ -210,14 +201,14 @@ describe("Cash in pool", () => {
   it("may go negative when Everyday is negative", () => {
     const { book, poolId } = bookWith();
     const meta = { ...META, [EVERYDAY]: { ...META[EVERYDAY], clearedBalance: -50 } };
-    const added = addPoolMember(book, poolId, EVERYDAY, { meta, now: NOW });
+    const added = mustOk(addPoolMember(book, poolId, EVERYDAY, { meta, now: NOW }));
     assert.equal(cashInPool(added.book, poolId, meta).amount, -50);
   });
 
   it("treats a missing cleared_balance as 0 with a soft hint and does not invent Σ movements", () => {
     const { book, poolId } = bookWith();
     const meta: Record<string, AccountMeta> = { [EVERYDAY]: { kind: "CHECKING", currency: "AUD" } };
-    const added = addPoolMember(book, poolId, EVERYDAY, { meta, now: NOW });
+    const added = mustOk(addPoolMember(book, poolId, EVERYDAY, { meta, now: NOW }));
     const cash = cashInPool(added.book, poolId, meta);
     assert.equal(cash.amount, 0);
     assert.equal(cash.missingBalances, true);
@@ -226,7 +217,7 @@ describe("Cash in pool", () => {
 
   it("does not use movement totals when a stored cleared_balance is present", () => {
     const { book, poolId } = bookWith();
-    const added = addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW });
+    const added = mustOk(addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW }));
     const ledger = appendToLedger(
       EMPTY_LEDGER,
       {
@@ -255,12 +246,11 @@ describe("Cash in pool", () => {
 
 describe("Spec 4 migrate remaps pool member account_ids", () => {
   it("rewrites guest account_ids onto the registered survivor", () => {
-    const guestPool = createPool(EMPTY_POOL_BOOK, { id: "pool-g", userId: "guest", name: "Holiday", now: NOW });
-    const guest = addPoolMember(guestPool.book, "pool-g", "guest-everyday", {
+    const guestPool = mustOk(createPool(EMPTY_POOL_BOOK, { id: "pool-g", userId: "guest", name: "Holiday", now: NOW }));
+    const guest = mustOk(addPoolMember(guestPool.book, "pool-g", "guest-everyday", {
       meta: { "guest-everyday": { kind: "CHECKING", currency: "AUD", clearedBalance: 10 } },
       now: NOW,
-    });
-    assert.equal(guest.ok, true);
+    }));
 
     const migrated = migrateGuestPools(guest.book, EMPTY_POOL_BOOK, { "guest-everyday": "acct-1" }, {
       "acct-1": EVERYDAY,
@@ -272,10 +262,10 @@ describe("Spec 4 migrate remaps pool member account_ids", () => {
   });
 
   it("merges guest and registered books and collapses duplicate members", () => {
-    const guestMade = createPool(EMPTY_POOL_BOOK, { id: "shared", userId: "guest", name: "Guest name", now: NOW });
-    const guest = addPoolMember(guestMade.book, "shared", EVERYDAY, { meta: META, now: NOW });
-    const mineMade = createPool(EMPTY_POOL_BOOK, { id: "shared", userId: "user", name: "Mine", now: NOW });
-    const mine = addPoolMember(mineMade.book, "shared", EVERYDAY, { meta: META, now: NOW });
+    const guestMade = mustOk(createPool(EMPTY_POOL_BOOK, { id: "shared", userId: "guest", name: "Guest name", now: NOW }));
+    const guest = mustOk(addPoolMember(guestMade.book, "shared", EVERYDAY, { meta: META, now: NOW }));
+    const mineMade = mustOk(createPool(EMPTY_POOL_BOOK, { id: "shared", userId: "user", name: "Mine", now: NOW }));
+    const mine = mustOk(addPoolMember(mineMade.book, "shared", EVERYDAY, { meta: META, now: NOW }));
 
     const merged = migrateGuestPools(guest.book, mine.book, {});
     assert.equal(merged.pools.length, 1);
@@ -301,7 +291,7 @@ describe("Spec 4 migrate remaps pool member account_ids", () => {
 describe("ledger copy/merge keeps pools and does not rewrite fingerprints", () => {
   it("round-trips account_pools through parseLedger, including Spec column names", () => {
     const { book, poolId } = bookWith();
-    const added = addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW });
+    const added = mustOk(addPoolMember(book, poolId, EVERYDAY, { meta: META, now: NOW }));
     const ledger: Ledger = {
       ...EMPTY_LEDGER,
       accountPools: added.book.pools,
@@ -331,11 +321,11 @@ describe("ledger copy/merge keeps pools and does not rewrite fingerprints", () =
   });
 
   it("mergeLedgers copies guest pools and remaps members through merged_into", () => {
-    const guestMade = createPool(EMPTY_POOL_BOOK, { id: "pool-g", userId: "guest", name: "Holiday", now: NOW });
-    const guest = addPoolMember(guestMade.book, "pool-g", "Up · ···000", {
+    const guestMade = mustOk(createPool(EMPTY_POOL_BOOK, { id: "pool-g", userId: "guest", name: "Holiday", now: NOW }));
+    const guest = mustOk(addPoolMember(guestMade.book, "pool-g", "Up · ···000", {
       meta: { "Up · ···000": { kind: "CHECKING", currency: "AUD", clearedBalance: 5 } },
       now: NOW,
-    });
+    }));
     const guestLedger: Ledger = {
       ...EMPTY_LEDGER,
       accountPools: guest.book.pools,
@@ -357,8 +347,8 @@ describe("ledger copy/merge keeps pools and does not rewrite fingerprints", () =
     const beforePrints = held.entries.map((entry) => entry.fingerprint);
     const beforeMerged = held.mergedInto;
 
-    const created = createPool(EMPTY_POOL_BOOK, { id: "pool-1", userId: "guest", name: "Holiday", now: NOW });
-    const withMember = addPoolMember(created.book, "pool-1", EVERYDAY, { meta: META, now: NOW });
+    const created = mustOk(createPool(EMPTY_POOL_BOOK, { id: "pool-1", userId: "guest", name: "Holiday", now: NOW }));
+    const withMember = mustOk(addPoolMember(created.book, "pool-1", EVERYDAY, { meta: META, now: NOW }));
     const ledger: Ledger = {
       ...held,
       accountPools: withMember.book.pools,
@@ -386,11 +376,11 @@ describe("ledger copy/merge keeps pools and does not rewrite fingerprints", () =
       },
       { importedAt: NOW },
     ).ledger;
-    const created = createPool(EMPTY_POOL_BOOK, { id: "pool-1", userId: "guest", name: "Holiday", now: NOW });
-    const withMember = addPoolMember(created.book, "pool-1", source, {
+    const created = mustOk(createPool(EMPTY_POOL_BOOK, { id: "pool-1", userId: "guest", name: "Holiday", now: NOW }));
+    const withMember = mustOk(addPoolMember(created.book, "pool-1", source, {
       meta: { [source]: { kind: "CHECKING", currency: "AUD" } },
       now: NOW,
-    });
+    }));
     const before = {
       ...held,
       accountPools: withMember.book.pools,
