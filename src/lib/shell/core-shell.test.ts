@@ -13,8 +13,12 @@ import {
   offerLabels,
   parseShell,
   persistable,
+  resolveDevUnlocked,
+  resolveTablePreset,
+  setDevMode,
   setFeature,
   setLinkedAccounts,
+  setTablePreset,
   upsertGoal,
   visibleWidgets,
 } from "./core-shell";
@@ -140,5 +144,48 @@ describe("Spec 5 layout archive + restore + persist", () => {
     assert.equal(empty.enabled.goals, false);
     assert.deepEqual(visibleWidgets(empty), ["money-tiles"]);
     assert.equal(parseShell({ theme: "nocturne", enabled: { goals: true } }).theme, "default");
+    assert.equal(empty.devMode, false);
+    assert.equal(empty.tablePreset, "core");
+  });
+});
+
+describe("Transactions table preset (Core vs Dev mode)", () => {
+  it("defaults to the Spec 5 Core columns and hides the raw preset", () => {
+    assert.equal(DEFAULT_SHELL.devMode, false);
+    assert.equal(DEFAULT_SHELL.tablePreset, "core");
+    assert.equal(resolveTablePreset(DEFAULT_SHELL), "core");
+    assert.equal(resolveDevUnlocked(DEFAULT_SHELL), false);
+  });
+
+  it("enables the raw-ledger preset from ?dev=1 without changing the stored default until persisted", () => {
+    assert.equal(resolveTablePreset(DEFAULT_SHELL, "1"), "dev");
+    assert.equal(resolveDevUnlocked(DEFAULT_SHELL, "1"), true);
+    assert.equal(resolveTablePreset(DEFAULT_SHELL, "0"), "core");
+    assert.equal(resolveDevUnlocked(DEFAULT_SHELL, "0"), false);
+  });
+
+  it("persists unlock + preset in the Spec 5 layout blob", () => {
+    const unlocked = setDevMode(DEFAULT_SHELL, true);
+    assert.equal(unlocked.devMode, true);
+    assert.equal(unlocked.tablePreset, "dev");
+    const coreAgain = setTablePreset(unlocked, "core");
+    assert.equal(coreAgain.devMode, true);
+    assert.equal(coreAgain.tablePreset, "core");
+    assert.equal(resolveTablePreset(coreAgain), "core");
+    assert.equal(resolveDevUnlocked(coreAgain), true);
+
+    const blob = persistable(coreAgain);
+    const again = parseShell(JSON.parse(JSON.stringify(blob)));
+    assert.equal(again.devMode, true);
+    assert.equal(again.tablePreset, "core");
+    assert.equal(parseShell({ enabled: { goals: true } }).tablePreset, "core");
+    assert.equal(parseShell({ tablePreset: "dev" }).devMode, true);
+  });
+
+  it("turning Dev mode off restores the Core preset", () => {
+    const off = setDevMode(setTablePreset(DEFAULT_SHELL, "dev"), false);
+    assert.equal(off.devMode, false);
+    assert.equal(off.tablePreset, "core");
+    assert.equal(resolveTablePreset(off), "core");
   });
 });

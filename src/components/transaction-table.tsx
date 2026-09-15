@@ -18,7 +18,9 @@ import {
 } from "@/lib/money-flow/category-book";
 import { categoryLabel, tagsFor, typeLabel } from "@/lib/money-flow/taxonomy";
 import { matches, tableFilterKeys, tableFilterValue } from "@/lib/money-flow/summary";
+import { DEV_TABLE_LABEL, devTableCell, devTableColumns } from "@/lib/money-flow/dev-table";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
+import type { TablePreset } from "@/lib/shell/core-shell";
 
 type Direction = "all" | "in" | "out";
 
@@ -32,13 +34,21 @@ export function TransactionTable({
   transactions,
   tag,
   onTagChange,
+  preset = "core",
+  showDevToggle = false,
+  onPresetChange,
 }: {
   transactions: InterpretedTransaction[];
   tag?: string;
   onTagChange?: (tag: string) => void;
+  preset?: TablePreset;
+  showDevToggle?: boolean;
+  onPresetChange?: (preset: TablePreset) => void;
 }) {
-  const { accountNames, allTransactions, institutionOverrides, payers, mergedInto,
+  const { accountNames, allTransactions, entryMeta, institutionOverrides, payers, mergedInto, review,
     setTransactionCategory, setTransactionTags } = useMoneyFlow();
+  const raw = preset === "dev";
+  const rawColumns = useMemo(() => (raw ? devTableColumns(transactions) : []), [raw, transactions]);
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
     [accountNames, institutionOverrides, payers, mergedInto],
@@ -49,7 +59,7 @@ export function TransactionTable({
   );
   // Saying which account every movement is in only helps once there is more than one.
   const showAccount = new Set(accountOf.values()).size > 1;
-  const columns = showAccount ? 8 : 7;
+  const columns = raw ? rawColumns.length : showAccount ? 8 : 7;
   const [query, setQuery] = useState("");
   const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
@@ -142,6 +152,19 @@ export function TransactionTable({
         >
           {showStatement ? "Hide statement" : "Show statement"}
         </button>
+        {showDevToggle ? (
+          <button
+            type="button"
+            aria-pressed={raw}
+            aria-label={DEV_TABLE_LABEL}
+            onClick={() => onPresetChange?.(raw ? "core" : "dev")}
+            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+              raw ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
+            }`}
+          >
+            {DEV_TABLE_LABEL}
+          </button>
+        ) : null}
         <div className="flex gap-1">
           {(
             [
@@ -170,18 +193,28 @@ export function TransactionTable({
         </p>
       ) : (
         <div className="mt-3 overflow-x-auto rounded-xl border border-surface-subtle">
-          <table className="w-full min-w-[900px] border-collapse text-left">
+          <table className={`w-full border-collapse text-left ${raw ? "min-w-max" : "min-w-[900px]"}`}>
             <thead className="sticky top-0 z-10 bg-accent-surface-subtle">
-              <tr>
-                <HeaderCell>Date</HeaderCell>
-                <HeaderCell>Merchant</HeaderCell>
-                <HeaderCell>Amount</HeaderCell>
-                {showAccount ? <HeaderCell>Account</HeaderCell> : null}
-                <HeaderCell>Type</HeaderCell>
-                <HeaderCell>Group</HeaderCell>
-                <HeaderCell>Category</HeaderCell>
-                <HeaderCell last>Tag</HeaderCell>
-              </tr>
+              {raw ? (
+                <tr>
+                  {rawColumns.map((key, index) => (
+                    <HeaderCell key={key} last={index === rawColumns.length - 1}>
+                      {key}
+                    </HeaderCell>
+                  ))}
+                </tr>
+              ) : (
+                <tr>
+                  <HeaderCell>Date</HeaderCell>
+                  <HeaderCell>Merchant</HeaderCell>
+                  <HeaderCell>Amount</HeaderCell>
+                  {showAccount ? <HeaderCell>Account</HeaderCell> : null}
+                  <HeaderCell>Type</HeaderCell>
+                  <HeaderCell>Group</HeaderCell>
+                  <HeaderCell>Category</HeaderCell>
+                  <HeaderCell last>Tag</HeaderCell>
+                </tr>
+              )}
             </thead>
             <tbody className="divide-y divide-surface-subtle bg-white">
               {visible.map((txn) => {
@@ -194,6 +227,18 @@ export function TransactionTable({
                 const name = txn.merchant;
                 return (
                   <Fragment key={txn.id}>
+                    {raw ? (
+                      <tr>
+                        {rawColumns.map((key, index) => (
+                          <td
+                            key={key}
+                            className={`${CELL} ${index === rawColumns.length - 1 ? "" : RULE} whitespace-nowrap text-[11px] text-ink`}
+                          >
+                            {devTableCell(txn, key, { meta: entryMeta[txn.id], review })}
+                          </td>
+                        ))}
+                      </tr>
+                    ) : (
                     <tr>
                       <td className={`${CELL} ${RULE} whitespace-nowrap text-xs text-ink`}>{txn.date}</td>
                       <td className={`${CELL} ${RULE} text-xs font-medium text-ink`}>{name}</td>
@@ -245,6 +290,7 @@ export function TransactionTable({
                         />
                       </td>
                     </tr>
+                    )}
                     {showStatement ? (
                       <tr className="bg-surface-faint">
                         <td colSpan={columns} className="px-3 py-2">
