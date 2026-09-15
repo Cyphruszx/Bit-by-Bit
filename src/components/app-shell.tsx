@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { AccountLink } from "@/components/account-link";
 import { AppNav } from "@/components/app-nav";
 import { BrandMark } from "@/components/brand-mark";
 import { PeriodFilterBar } from "@/components/period-filter";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { useShell } from "@/components/shell-store";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { hasUploads, ready } = useMoneyFlow();
+  const { theme } = useShell();
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   return (
     <main className="min-h-screen bg-canvas text-ink">
