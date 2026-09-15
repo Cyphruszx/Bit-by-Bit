@@ -1,5 +1,10 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { GoalsView } from "./goals-view";
+
+export const metadata: Metadata = {
+  title: "Goals",
+};
 
 export default function GoalsPage() {
-  redirect("/savings");
+  return <GoalsView />;
 }
