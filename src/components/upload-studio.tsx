@@ -12,10 +12,12 @@ import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import {
   applyDraft,
   canConfirmDraft,
+  confirmDraftIssues,
+  confirmPreviewRows,
   createDraft,
   CSV_WEEKLY_LIMIT,
+  detectedBankLabel,
   guestDeviceId,
-  LAUNCH_BANK_PRESETS,
   localQuotaStore,
   OCR_PAGE_WEEKLY_LIMIT,
   peekQuota,
@@ -204,6 +206,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
       {draft ? (
         <ConfirmMapper
           draft={draft}
+          quotaLabel={quotaLabel}
           onChange={setDraft}
           onConfirm={confirmDraft}
           onAbandon={abandonDraft}
@@ -345,51 +348,44 @@ async function hashFiles(list: File[]): Promise<Record<string, string>> {
 
 function ConfirmMapper({
   draft,
+  quotaLabel,
   onChange,
   onConfirm,
   onAbandon,
 }: {
   draft: IngestDraft;
+  quotaLabel: string;
   onChange: (draft: IngestDraft) => void;
   onConfirm: () => void;
   onAbandon: () => void;
 }) {
   const ready = canConfirmDraft(draft);
   const multi = draft.sections.length > 1;
+  const bank = detectedBankLabel(draft);
+  const issues = confirmDraftIssues(draft);
+  const blockers = issues.filter((issue) => issue.severity === "block");
+  const notes = issues.filter((issue) => issue.severity === "warn");
+  const preview = confirmPreviewRows(draft);
+  const total = draft.result.transactions.length;
   return (
     <section className="rounded-3xl border border-line bg-surface p-6">
       <h2 className="text-lg font-bold">Confirm & import</h2>
       <p className="mt-1 text-sm text-muted">
         {draft.channel === "csv"
-          ? "A CSV slot is used only when you confirm. Leave now and nothing is charged."
+          ? "A CSV slot is used only when you confirm. Discard now and nothing is charged."
           : "OCR pages were charged when this photo was read. Confirm writes the rows."}
       </p>
-      <label className="mt-4 block text-sm font-semibold">
-        Bank
-        <select
-          className="mt-1 w-full rounded-full border border-line px-3 py-2 text-sm font-normal"
-          value={LAUNCH_BANK_PRESETS.includes(draft.institution) ? draft.institution : ""}
-          onChange={(event) => onChange({ ...draft, institution: event.target.value })}
-        >
-          <option value="">{draft.detectedInstitution ? "Unknown — map it" : "Choose a launch preset"}</option>
-          {LAUNCH_BANK_PRESETS.map((bank) => (
-            <option key={bank} value={bank}>
-              {bank}
-            </option>
-          ))}
-        </select>
-      </label>
-      {!LAUNCH_BANK_PRESETS.includes(draft.institution) ? (
-        <label className="mt-3 block text-sm font-semibold">
-          Manual map
-          <input
-            className="mt-1 w-full rounded-full border border-line px-3 py-2 text-sm font-normal"
-            placeholder="Type the bank if it is not in the list"
-            value={draft.institution}
-            onChange={(event) => onChange({ ...draft, institution: event.target.value })}
-          />
-        </label>
-      ) : null}
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Detected bank</dt>
+          <dd className="mt-1 font-semibold">{bank}</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Channel</dt>
+          <dd className="mt-1 font-semibold">{draft.channel === "csv" ? "CSV" : "OCR"}</dd>
+        </div>
+      </dl>
+      {quotaLabel ? <p className="mt-3 text-sm text-muted">{quotaLabel}</p> : null}
       {multi ? (
         <div className="mt-4 space-y-2">
           <p className="text-sm font-semibold">Assign every account before import</p>
@@ -411,13 +407,32 @@ function ConfirmMapper({
           ))}
         </div>
       ) : null}
-      {draft.result.files[0]?.processingError ? (
-        <p className="mt-3 text-sm text-negative">{draft.result.files[0].processingError}</p>
+      {blockers.length > 0 ? (
+        <div className="mt-4 space-y-2 rounded-2xl border border-negative bg-negative-surface p-4">
+          {blockers.map((issue) => (
+            <p className="text-sm font-semibold text-negative" key={issue.message}>
+              {issue.message}
+            </p>
+          ))}
+        </div>
       ) : (
-        <p className="mt-3 text-sm text-muted">
-          {draft.result.transactions.length} movement{draft.result.transactions.length === 1 ? "" : "s"} ready.
+        <p className="mt-4 text-sm text-muted">
+          {total} movement{total === 1 ? "" : "s"} ready to import.
         </p>
       )}
+      {notes.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-attention-line bg-attention-surface p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-attention">How this file was read</p>
+          <ul className="mt-2 space-y-1">
+            {notes.map((issue) => (
+              <li className="text-sm text-attention-ink" key={issue.message}>
+                {issue.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <MappedPreviewTable rows={preview} total={total} showAccount={multi} />
       <div className="mt-4 flex flex-wrap gap-3">
         <button
           type="button"
@@ -432,6 +447,62 @@ function ConfirmMapper({
         </button>
       </div>
     </section>
+  );
+}
+
+function MappedPreviewTable({
+  rows,
+  total,
+  showAccount,
+}: {
+  rows: ReturnType<typeof confirmPreviewRows>;
+  total: number;
+  showAccount: boolean;
+}) {
+  if (total === 0) return null;
+  return (
+    <div className="mt-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-bold">Mapped preview</h3>
+        <p className="text-xs text-muted">
+          {rows.length < total
+            ? `Showing first ${rows.length} of ${total} movements`
+            : `${total} movement${total === 1 ? "" : "s"}`}
+        </p>
+      </div>
+      <div className="mt-2 overflow-x-auto rounded-2xl border border-line">
+        <table className="w-full min-w-[28rem] text-left text-sm">
+          <thead className="bg-accent-surface-subtle text-xs font-bold uppercase tracking-[0.12em] text-muted">
+            <tr>
+              <th className="px-3 py-2">Date</th>
+              <th className="px-3 py-2">Description</th>
+              {showAccount ? <th className="px-3 py-2">Account</th> : null}
+              <th className="px-3 py-2">Direction</th>
+              <th className="px-3 py-2 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-surface-subtle">
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td className="whitespace-nowrap px-3 py-2 text-muted">{row.date}</td>
+                <td className="px-3 py-2 font-medium">{row.description}</td>
+                {showAccount ? <td className="px-3 py-2 text-muted">{row.account ?? "—"}</td> : null}
+                <td className="px-3 py-2 text-muted">
+                  {row.direction === "in" ? "In" : row.direction === "out" ? "Out" : "—"}
+                </td>
+                <td
+                  className={`whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums ${
+                    row.amount > 0 ? "text-positive" : ""
+                  }`}
+                >
+                  {formatSignedAud(row.amount)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
