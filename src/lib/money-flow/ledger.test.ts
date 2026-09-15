@@ -8,6 +8,7 @@ import {
   EMPTY_LEDGER,
   fingerprintOf,
   heldStatements,
+  ledgerRowMeta,
   ledgerTransactions,
   mergeAccounts,
   parseLedger,
@@ -90,6 +91,16 @@ describe("movement fingerprints", () => {
 
   it("falls back to the file when the export never names an account", () => {
     assert.equal(fingerprintOf(txn({ sourceFile: "one.csv" })).startsWith("file:one.csv"), true);
+  });
+
+  it("exposes stored fingerprint, importIds and firstSeen by movement id", () => {
+    const { ledger } = appendToLedger(EMPTY_LEDGER, upload([txn({ id: "held-1" })]), {
+      importedAt: "2026-09-15T01:00:00.000Z",
+    });
+    const meta = ledgerRowMeta(ledger);
+    assert.equal(meta["held-1"]?.fingerprint, ledger.entries[0]?.fingerprint);
+    assert.deepEqual(meta["held-1"]?.importIds, ledger.entries[0]?.importIds);
+    assert.equal(meta["held-1"]?.firstSeen, "2026-09-15T01:00:00.000Z");
   });
 
   it("does not change identity when source cells are added or differ", () => {

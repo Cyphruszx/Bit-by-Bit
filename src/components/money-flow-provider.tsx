@@ -6,6 +6,7 @@ import {
   EMPTY_LEDGER,
   heldStatements,
   importedFiles,
+  ledgerRowMeta,
   ledgerTransactions,
   mergeLedgers,
   mergeAccounts,
@@ -24,6 +25,7 @@ import {
   type HeldStatement,
   type ImportReport,
   type Ledger,
+  type LedgerRowMeta,
   type MergeAccountsResult,
 } from "@/lib/money-flow/ledger";
 import { applyBook, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
@@ -118,6 +120,8 @@ type MoneyFlowState = {
   mergePayers: (from: string, into: string | null) => void;
   /** Spec 7 Review Queue. Badge is the OPEN count. */
   review: ReviewItem[];
+  /** Ledger identity fields (fingerprint, importIds, firstSeen) keyed by movement id. */
+  entryMeta: Record<string, LedgerRowMeta>;
   openReviewCount: number;
   confirmReviewTransfer: (item: ReviewItem) => void;
   confirmReviewRefund: (item: ReviewItem) => void;
@@ -202,6 +206,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       hasUploads: held.ledger.imports.length > 0,
       ready: held.ready,
       review,
+      entryMeta: ledgerRowMeta(held.ledger),
       openReviewCount: openReviewCount(review),
       confirmReviewTransfer,
       confirmReviewRefund,
