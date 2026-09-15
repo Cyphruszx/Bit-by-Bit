@@ -181,7 +181,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={pending || Boolean(draft)}
-          className="mt-6 rounded-full bg-accent px-6 py-3 font-bold text-primary disabled:opacity-60"
+          className="mt-6 rounded-full bg-primary px-6 py-3 font-bold text-on-primary disabled:opacity-60"
         >
           {pending ? (aiReady ? "Reading with AI…" : "Reading documents…") : "Choose a file"}
         </button>
@@ -192,7 +192,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               type="button"
               onClick={() => loadSample(sample.path)}
               disabled={pending || Boolean(draft)}
-              className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft"
+              className="rounded-full border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft"
             >
               Try {sample.label}
             </button>
@@ -235,7 +235,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               positive={flow.cashNet >= 0}
             />
           </section>
-          <article className="rounded-2xl border border-line bg-surface p-6">
+          <article className="card p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-bold">Interpreted money flow</h3>
               <button type="button" onClick={clearInterpretation} className="text-sm font-semibold text-ink-soft">
@@ -259,12 +259,12 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               ))}
             </div>
           </article>
-          <article className="rounded-2xl border border-line bg-surface p-6">
+          <article className="card p-6">
             <h3 className="text-lg font-bold">Statements you have added</h3>
             <p className="mt-1 text-sm text-muted">
               Every upload is kept, so you can build up months of activity. Uploading a statement twice adds nothing.
             </p>
-            <div className="mt-4 divide-y divide-surface-subtle">
+            <div className="mt-4 divide-y divide-line">
               {statements.map((statement) => (
                 <div className="flex flex-wrap items-start justify-between gap-3 py-3" key={statement.key}>
                   <div className="min-w-0">
@@ -288,9 +288,9 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               ))}
             </div>
           </article>
-          <article className="rounded-2xl border border-line bg-surface p-6">
+          <article className="card p-6">
             <h3 className="text-lg font-bold">Extracted activity</h3>
-            <div className="mt-4 divide-y divide-surface-subtle">
+            <div className="mt-4 divide-y divide-line">
               {transactions.length === 0 ? (
                 <p className="py-4 text-sm text-muted">No movements in this period.</p>
               ) : (
@@ -368,7 +368,7 @@ function ConfirmMapper({
   const preview = confirmPreviewRows(draft);
   const total = draft.result.transactions.length;
   return (
-    <section className="rounded-3xl border border-line bg-surface p-6">
+    <section className="card p-6">
       <h2 className="text-lg font-bold">Confirm & import</h2>
       <p className="mt-1 text-sm text-muted">
         {draft.channel === "csv"
@@ -393,7 +393,7 @@ function ConfirmMapper({
             <label key={section.accountId} className="block text-sm">
               {section.accountId}
               <input
-                className="mt-1 w-full rounded-full border border-line px-3 py-2"
+                className="mt-1 w-full rounded-full border border-line bg-surface px-3 py-2 text-ink"
                 value={section.assignedTo}
                 placeholder="Assign this section"
                 onChange={(event) => {
@@ -438,11 +438,15 @@ function ConfirmMapper({
           type="button"
           disabled={!ready}
           onClick={onConfirm}
-          className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-on-primary disabled:opacity-50"
         >
           Confirm & import
         </button>
-        <button type="button" onClick={onAbandon} className="rounded-full border border-line px-5 py-2 text-sm font-semibold">
+        <button
+          type="button"
+          onClick={onAbandon}
+          className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-semibold text-ink-soft"
+        >
           Discard
         </button>
       </div>
@@ -470,9 +474,9 @@ function MappedPreviewTable({
             : `${total} movement${total === 1 ? "" : "s"}`}
         </p>
       </div>
-      <div className="mt-2 overflow-x-auto rounded-2xl border border-line">
+      <div className="mt-2 overflow-x-auto rounded-2xl border border-line bg-surface">
         <table className="w-full min-w-[28rem] text-left text-sm">
-          <thead className="bg-accent-surface-subtle text-xs font-bold uppercase tracking-[0.12em] text-muted">
+          <thead className="bg-surface-subtle text-xs font-bold uppercase tracking-[0.12em] text-muted">
             <tr>
               <th className="px-3 py-2">Date</th>
               <th className="px-3 py-2">Description</th>
@@ -481,7 +485,7 @@ function MappedPreviewTable({
               <th className="px-3 py-2 text-right">Amount</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-surface-subtle">
+          <tbody className="divide-y divide-line">
             {rows.map((row) => (
               <tr key={row.id}>
                 <td className="whitespace-nowrap px-3 py-2 text-muted">{row.date}</td>
@@ -534,7 +538,7 @@ function NameArrivedAccounts({
   if (pending.length === 0) return null;
 
   return (
-    <section className="rounded-3xl border border-line bg-surface p-6">
+    <section className="card p-6">
       <h2 className="text-lg font-bold">What should these accounts be called?</h2>
       <p className="mt-1 text-sm text-muted">
         Naming one now means the next statement from it lands in the same place, whichever
@@ -546,7 +550,7 @@ function NameArrivedAccounts({
             drafts[account.id] ??
             suggestNameForKey(account.keys[0], account.transactions[0]?.sourceFile ?? account.keys[0]);
           return (
-            <div key={account.id} className="flex flex-wrap items-center gap-3 border-b border-surface-subtle pb-3 last:border-0">
+            <div key={account.id} className="flex flex-wrap items-center gap-3 border-b border-line pb-3 last:border-0">
               <div className="min-w-40 flex-1">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{account.institution}</p>
                 <p className="font-mono text-sm text-muted">{account.keys[0]}</p>
@@ -564,14 +568,14 @@ function NameArrivedAccounts({
                     for (const key of account.keys) onName(key, suggestion);
                   }
                 }}
-                className="w-48 rounded-full border border-line px-3 py-1.5 text-sm"
+                className="w-48 rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-ink"
               />
               <button
                 type="button"
                 onClick={() => {
                   for (const key of account.keys) onName(key, suggestion);
                 }}
-                className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
+                className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
               >
                 Save
               </button>
