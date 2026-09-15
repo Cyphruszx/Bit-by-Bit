@@ -186,6 +186,47 @@ export function transactionsFromTable(
   return interpretTable(rows, sourceFile).transactions;
 }
 
+/** First N mapped movements shown on Confirm. Not a remapper — rows are already interpreted. */
+export const MAPPED_PREVIEW_LIMIT = 12;
+
+export type MappedPreviewRow = {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  direction: "in" | "out" | "zero";
+  account?: string;
+};
+
+/**
+ * Read-only Confirm preview from movements tabular (or a bank reader) already mapped.
+ * Does not re-guess column roles.
+ */
+export function mappedPreviewRows(
+  transactions: InterpretedTransaction[],
+  options: {
+    limit?: number;
+    showAccount?: boolean;
+    accountLabel?: (txn: InterpretedTransaction) => string | undefined;
+  } = {},
+): MappedPreviewRow[] {
+  const limit = options.limit ?? MAPPED_PREVIEW_LIMIT;
+  const showAccount =
+    options.showAccount ??
+    new Set(transactions.map((txn) => txn.accountId).filter(Boolean)).size > 1;
+  return transactions.slice(0, limit).map((txn) => {
+    const account = options.accountLabel?.(txn) ?? txn.accountId;
+    return {
+      id: txn.id,
+      date: txn.date,
+      description: (txn.merchant || txn.description || "").trim() || "Unknown",
+      amount: txn.amount,
+      direction: txn.amount > 0 ? "in" : txn.amount < 0 ? "out" : "zero",
+      ...(showAccount && account ? { account } : {}),
+    };
+  });
+}
+
 function directionFrom(typeHint: string): number {
   if (/\b(cr|credit|deposit)\b/i.test(typeHint)) return 1;
   if (/\b(dr|debit|withdrawal)\b/i.test(typeHint)) return -1;

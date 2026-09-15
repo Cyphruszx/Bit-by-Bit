@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 import {
   applyDraft,
@@ -6,10 +8,14 @@ import {
   canChargeCsv,
   canChargeOcr,
   canConfirmDraft,
+  confirmDraftIssues,
+  confirmPreviewRows,
+  CONFIRM_PREVIEW_LIMIT,
   CORE_FILES_PER_ATTEMPT,
   coreIngestUnavailable,
   createDraft,
   CSV_WEEKLY_LIMIT,
+  detectedBankLabel,
   ingestChannel,
   isLaunchPreset,
   LAUNCH_BANK_PRESETS,
@@ -27,7 +33,10 @@ import {
 import { interpretDocuments } from "./interpret";
 import { interpretMovement } from "./interpret-row";
 import { resolveReviewItem } from "./review-queue";
+import { mappedPreviewRows } from "./tabular";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction } from "./types";
+
+process.env.OPENAI_API_KEY = "";
 
 function file(filename: string, mime: string, contents: string) {
   return { filename, mime, bytes: new TextEncoder().encode(contents) };
@@ -248,6 +257,128 @@ describe("Spec 2 Confirm and mapper", () => {
     assert.equal(canConfirmDraft(multi), false);
     multi.sections[1].assignedTo = "NAB · offset";
     assert.equal(canConfirmDraft(multi), true);
+  });
+
+  it("blocks Confirm when nothing mapped, and surfaces parse notes as warnings", () => {
+    const empty = createDraft(interpretation([], { processingError: "No money movement found." }));
+    assert.equal(empty.result.transactions.length, 0);
+    assert.equal(canConfirmDraft(empty), false);
+    assert.equal(detectedBankLabel(empty), "Unknown");
+    const issues = confirmDraftIssues(empty);
+    assert.ok(issues.some((issue) => issue.severity === "block" && /0 movements/i.test(issue.message)));
+    assert.ok(issues.some((issue) => issue.severity === "block" && /No money movement found/i.test(issue.message)));
+    assert.deepEqual(confirmPreviewRows(empty), []);
+
+    const noted = createDraft(
+      interpretation([txn({ id: "a", institution: "NAB", accountId: "NAB · 1" })], {
+        notes: ["Read as a NAB account export."],
+      }),
+    );
+    assert.equal(canConfirmDraft(noted), true);
+    assert.deepEqual(
+      confirmDraftIssues(noted).filter((issue) => issue.severity === "warn").map((issue) => issue.message),
+      ["Read as a NAB account export."],
+    );
+  });
+
+  it("builds a read-only preview from already-mapped draft movements", () => {
+    const draft = createDraft(
+      interpretation([
+        txn({
+          id: "a",
+          institution: "NAB",
+          accountId: "NAB · everyday",
+          merchant: "Medicare",
+          date: "29 Jun 2026",
+          dateIso: "2026-06-29",
+          amount: 662.4,
+        }),
+        txn({
+          id: "b",
+          institution: "NAB",
+          accountId: "NAB · offset",
+          merchant: "Interest charged",
+          date: "30 Jun 2026",
+          dateIso: "2026-06-30",
+          amount: -0.61,
+        }),
+      ]),
+    );
+    draft.sections[0].assignedTo = "Everyday";
+    draft.sections[1].assignedTo = "Offset";
+    const preview = confirmPreviewRows(draft);
+    assert.equal(preview.length, 2);
+    assert.deepEqual(preview[0], {
+      id: "a",
+      date: "29 Jun 2026",
+      description: "Medicare",
+      amount: 662.4,
+      direction: "in",
+      account: "Everyday",
+    });
+    assert.equal(preview[1].direction, "out");
+    assert.equal(preview[1].account, "Offset");
+    assert.equal(mappedPreviewRows(draft.result.transactions, { showAccount: false })[0]?.account, undefined);
+  });
+});
+
+const samples = path.join(process.cwd(), "public/samples");
+
+describe("Spec 2 Confirm preview against sample files", () => {
+  it("maps NAB and Up sample files into a confirmable preview", async () => {
+    const nabMedicare = await interpretDocuments([
+      {
+        filename: "nab-medicare.csv",
+        mime: "text/csv",
+        bytes: new Uint8Array(readFileSync(path.join(samples, "nab-medicare.csv"))),
+      },
+    ]);
+    const nabDraft = createDraft(nabMedicare);
+    assert.equal(detectedBankLabel(nabDraft), "NAB");
+    assert.equal(nabDraft.channel, "csv");
+    assert.equal(canConfirmDraft(nabDraft), true);
+    assert.equal(nabMedicare.transactions.length, 378);
+    const nabPreview = confirmPreviewRows(nabDraft);
+    assert.equal(nabPreview.length, CONFIRM_PREVIEW_LIMIT);
+    assert.ok(nabPreview.every((row) => row.date && row.description && typeof row.amount === "number"));
+    const nabFirst = nabMedicare.transactions[0];
+    assert.equal(nabPreview[0]?.id, nabFirst?.id);
+    assert.equal(nabPreview[0]?.description, nabFirst?.merchant);
+    assert.equal(nabPreview[0]?.amount, nabFirst?.amount);
+
+    const nabRent = await interpretDocuments([
+      {
+        filename: "nab-rent.csv",
+        mime: "text/csv",
+        bytes: new Uint8Array(readFileSync(path.join(samples, "nab-rent.csv"))),
+      },
+    ]);
+    const rentDraft = createDraft(nabRent);
+    assert.equal(detectedBankLabel(rentDraft), "NAB");
+    assert.equal(canConfirmDraft(rentDraft), true);
+    assert.equal(nabRent.transactions.length, 59);
+    assert.equal(nabMedicare.transactions.length + nabRent.transactions.length, 437);
+
+    const up = await interpretDocuments([
+      {
+        filename: "up-2025-07-to-2026-06.txt",
+        mime: "text/plain",
+        bytes: new Uint8Array(readFileSync(path.join(samples, "up-2025-07-to-2026-06.txt"))),
+      },
+    ]);
+    const upDraft = createDraft(up);
+    assert.equal(detectedBankLabel(upDraft), "Up");
+    assert.equal(up.transactions.length, 1267);
+    assert.ok(upDraft.sections.length > 1, "Up year sample has several saver accounts");
+    assert.equal(canConfirmDraft(upDraft), false);
+    upDraft.sections = upDraft.sections.map((section) => ({ ...section, assignedTo: section.accountId }));
+    assert.equal(canConfirmDraft(upDraft), true);
+    const upPreview = confirmPreviewRows(upDraft);
+    assert.equal(upPreview.length, CONFIRM_PREVIEW_LIMIT);
+    assert.ok(upPreview.every((row) => row.account));
+    const kfc = up.transactions.find((row) => row.dateIso === "2026-06-30" && row.amount === -14.95 && row.merchant === "KFC");
+    assert.ok(kfc, "Up sample still reads the 30 Jun 2026 KFC $14.95 purchase");
+    assert.ok(upPreview.some((row) => row.description === "KFC" && row.amount === -14.95));
   });
 });
 

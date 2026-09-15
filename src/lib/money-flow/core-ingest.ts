@@ -7,7 +7,15 @@
 
 import { knownInstitutions } from "@/lib/money-flow/institution";
 import { APP_TIME_ZONE, calendarDate } from "@/lib/money-flow/period";
+import {
+  mappedPreviewRows,
+  MAPPED_PREVIEW_LIMIT,
+  type MappedPreviewRow,
+} from "@/lib/money-flow/tabular";
 import type { FileKind, InterpretationResult, InterpretedTransaction } from "@/lib/money-flow/types";
+
+export { MAPPED_PREVIEW_LIMIT as CONFIRM_PREVIEW_LIMIT };
+export type { MappedPreviewRow };
 
 export const CSV_WEEKLY_LIMIT = 5;
 export const OCR_PAGE_WEEKLY_LIMIT = 20;
@@ -199,9 +207,57 @@ export function createDraft(
 }
 
 export function canConfirmDraft(draft: IngestDraft): boolean {
+  if (draft.result.transactions.length === 0) return false;
+  if (draft.result.files.some((file) => file.processingError)) return false;
   if (needsManualMap(draft.detectedInstitution) && !draft.institution.trim()) return false;
   if (draft.sections.length > 1 && draft.sections.some((section) => !section.assignedTo.trim())) return false;
   return true;
+}
+
+export function detectedBankLabel(draft: IngestDraft): string {
+  return draft.detectedInstitution?.trim() || "Unknown";
+}
+
+export type ConfirmIssue = {
+  severity: "block" | "warn";
+  message: string;
+};
+
+/** Blocking issues and parse notes for the Confirm step. Empty drafts cannot be confirmed. */
+export function confirmDraftIssues(draft: IngestDraft): ConfirmIssue[] {
+  const issues: ConfirmIssue[] = [];
+  const error = draft.result.files.find((file) => file.processingError)?.processingError;
+  if (error) issues.push({ severity: "block", message: error });
+  if (draft.result.transactions.length === 0) {
+    issues.push({ severity: "block", message: "0 movements — nothing will import." });
+  }
+  if (needsManualMap(draft.detectedInstitution) && !draft.institution.trim()) {
+    issues.push({
+      severity: "block",
+      message:
+        "Bank was not recognised as a launch-bank template. Discard this file — unknown files are a later fail path, not a mapper.",
+    });
+  }
+  if (draft.sections.length > 1 && draft.sections.some((section) => !section.assignedTo.trim())) {
+    issues.push({ severity: "block", message: "Assign every account before import." });
+  }
+  for (const note of draft.result.files.flatMap((file) => file.notes)) {
+    issues.push({ severity: "warn", message: note });
+  }
+  return issues;
+}
+
+/** Preview of mapped draft movements that Confirm will commit. Not a remapper. */
+export function confirmPreviewRows(draft: IngestDraft, limit = MAPPED_PREVIEW_LIMIT): MappedPreviewRow[] {
+  const assigned = new Map(draft.sections.map((section) => [section.accountId, section.assignedTo.trim()]));
+  return mappedPreviewRows(draft.result.transactions, {
+    limit,
+    showAccount: draft.sections.length > 1,
+    accountLabel: (txn) => {
+      if (!txn.accountId) return undefined;
+      return assigned.get(txn.accountId) || txn.accountId;
+    },
+  });
 }
 
 export function applyDraft(draft: IngestDraft): InterpretationResult {
