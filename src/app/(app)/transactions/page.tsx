@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: "Transactions",
 };
 
-export default function TransactionsPage() {
-  return <TransactionsView />;
+export default async function TransactionsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ dev?: string | string[] }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const raw = params.dev;
+  return <TransactionsView devQuery={Array.isArray(raw) ? raw[0] : raw} />;
 }

@@ -23,6 +23,9 @@ export type WidgetId = "money-tiles" | "goals" | "linked-balances";
 export type FeatureId = "goals" | "linked-balances";
 export type ThemeId = "default";
 
+/** Spec 5 day-one columns vs the raw-ledger developer preset. */
+export type TablePreset = "core" | "dev";
+
 export type LayoutEntry = {
   id: WidgetId;
   archived?: boolean;
@@ -42,6 +45,13 @@ export type ShellState = {
   offerDismissed: boolean;
   goals: Goal[];
   linkedAccountIds: string[];
+  /**
+   * Unlocks the Transactions "Dev mode (raw ledger)" preset. Off by default.
+   * Turned on by `?dev=1` or an explicit toggle after that.
+   */
+  devMode: boolean;
+  /** Transactions table columns. Default stays Spec 5 day-one. */
+  tablePreset: TablePreset;
 };
 
 export const DEFAULT_SHELL: ShellState = {
@@ -52,6 +62,8 @@ export const DEFAULT_SHELL: ShellState = {
   offerDismissed: false,
   goals: [],
   linkedAccountIds: [],
+  devMode: false,
+  tablePreset: "core",
 };
 
 const WIDGET_IDS: WidgetId[] = ["money-tiles", "goals", "linked-balances"];
@@ -83,6 +95,7 @@ export function parseShell(raw: unknown): ShellState {
   const linkedAccountIds = Array.isArray(value.linkedAccountIds)
     ? value.linkedAccountIds.filter((id): id is string => typeof id === "string" && id.length > 0)
     : [];
+  const tablePreset: TablePreset = value.tablePreset === "dev" ? "dev" : "core";
   return normalize({
     version: 1,
     theme: "default",
@@ -91,6 +104,8 @@ export function parseShell(raw: unknown): ShellState {
     offerDismissed: value.offerDismissed === true,
     goals,
     linkedAccountIds,
+    devMode: value.devMode === true || tablePreset === "dev",
+    tablePreset,
   });
 }
 
@@ -109,7 +124,15 @@ export function normalize(state: ShellState): ShellState {
   if (!seen.has("money-tiles")) widgets.unshift({ id: "money-tiles" });
   if (state.enabled.goals && !seen.has("goals")) widgets.push({ id: "goals" });
   if (state.enabled.linkedBalances && !seen.has("linked-balances")) widgets.push({ id: "linked-balances" });
-  return { ...state, version: 1, theme: "default", widgets };
+  const tablePreset: TablePreset = state.tablePreset === "dev" ? "dev" : "core";
+  return {
+    ...state,
+    version: 1,
+    theme: "default",
+    widgets,
+    tablePreset,
+    devMode: state.devMode === true || tablePreset === "dev",
+  };
 }
 
 export function navLinks(state: ShellState): { label: string; href: string }[] {
@@ -201,6 +224,7 @@ export function persistable(state: ShellState): ShellState {
 /**
  * Spec 4: Core toggles are guest OR account. Paid/AI flags are never invented
  * from a guest blob — parseShell already drops unknown widgets.
+ * Dev-mode unlock/preset travel with the same layout blob.
  */
 export function mergeShells(guest: ShellState, account: ShellState, remapIds: Record<string, string> = {}): ShellState {
   const goalsById = new Map<string, Goal>();
@@ -220,5 +244,43 @@ export function mergeShells(guest: ShellState, account: ShellState, remapIds: Re
     offerDismissed: guest.offerDismissed || account.offerDismissed,
     goals: [...goalsById.values()],
     linkedAccountIds: [...linked],
+    devMode: guest.devMode || account.devMode,
+    tablePreset: account.tablePreset === "dev" || guest.tablePreset === "dev" ? "dev" : "core",
   });
+}
+
+export function setDevMode(state: ShellState, on: boolean): ShellState {
+  if (!on) return normalize({ ...state, devMode: false, tablePreset: "core" });
+  return normalize({ ...state, devMode: true, tablePreset: "dev" });
+}
+
+export function setTablePreset(state: ShellState, preset: TablePreset): ShellState {
+  if (preset === "dev") return normalize({ ...state, tablePreset: "dev", devMode: true });
+  return normalize({ ...state, tablePreset: "core" });
+}
+
+export function resolveDevQuery(raw: string | undefined): boolean | undefined {
+  if (raw === "1" || raw === "true") return true;
+  if (raw === "0" || raw === "false") return false;
+  return undefined;
+}
+
+export function resolveTablePreset(
+  state: Pick<ShellState, "devMode" | "tablePreset">,
+  raw?: string,
+): TablePreset {
+  const query = resolveDevQuery(raw);
+  if (query === false) return "core";
+  if (query === true) return "dev";
+  return state.devMode ? state.tablePreset : "core";
+}
+
+export function resolveDevUnlocked(
+  state: Pick<ShellState, "devMode" | "tablePreset">,
+  raw?: string,
+): boolean {
+  const query = resolveDevQuery(raw);
+  if (query === false) return false;
+  if (query === true) return true;
+  return state.devMode || state.tablePreset === "dev";
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TransactionTable } from "@/components/transaction-table";
 import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
@@ -10,7 +10,9 @@ import { ReviewQueue } from "@/components/review-queue";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { ScopeBar } from "@/components/scope-bar";
 import { SettledMoney, UnsettledMoney } from "@/components/unsettled-money";
+import { saveDevMode, saveTablePreset, useShell } from "@/components/shell-store";
 import { setScope, useScope } from "@/components/scope-store";
+import { resolveDevQuery, resolveDevUnlocked, resolveTablePreset } from "@/lib/shell/core-shell";
 import { formatAud } from "@/lib/format";
 import { accountsByInstitution } from "@/lib/money-flow/accounts";
 import { describeScope, filterByScope } from "@/lib/money-flow/scope";
@@ -18,7 +20,7 @@ import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import { allTags, tagsOf } from "@/lib/money-flow/tags";
 import type { ChartKind } from "@/lib/money-flow/tag-charts";
 
-export function TransactionsView() {
+export function TransactionsView({ devQuery }: { devQuery?: string }) {
   const {
     accountNames,
     allTransactions,
@@ -33,6 +35,15 @@ export function TransactionsView() {
   } = useMoneyFlow();
   const [chart, setChart] = useState<ChartKind>("bar");
   const [selectedTag, setSelectedTag] = useState("All");
+  const shell = useShell();
+  const tablePreset = resolveTablePreset(shell, devQuery);
+  const showDevToggle = resolveDevUnlocked(shell, devQuery);
+
+  useEffect(() => {
+    const query = resolveDevQuery(devQuery);
+    if (query === true && (!shell.devMode || shell.tablePreset !== "dev")) saveDevMode(true);
+    if (query === false && (shell.devMode || shell.tablePreset !== "core")) saveDevMode(false);
+  }, [devQuery, shell.devMode, shell.tablePreset]);
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
     [accountNames, institutionOverrides, payers, mergedInto],
@@ -105,12 +116,19 @@ export function TransactionsView() {
       <article className="mt-4 overflow-hidden rounded-2xl border border-line bg-white p-4">
         <h2 className="text-base font-bold">Transactions</h2>
         <p className="mt-0.5 text-xs text-muted">
-          Every movement in this period — one row each, so the same shop appears as many times as you
-          paid it. Show statement to put the bank&apos;s own cells beside BitbyBit&apos;s reading. The
-          bank&apos;s words are evidence, not the answer.
+          {tablePreset === "dev"
+            ? "Dev mode (raw ledger): working columns plus ledger identity, bank.*, source.*, Review Queue, and ids. Empty cells are —."
+            : "Every movement in this period — one row each, so the same shop appears as many times as you paid it. Show statement to put the bank's own cells beside BitbyBit's reading. The bank's words are evidence, not the answer."}
         </p>
         <div className="mt-3">
-          <TransactionTable transactions={scoped} tag={selectedTag} onTagChange={setSelectedTag} />
+          <TransactionTable
+            transactions={scoped}
+            tag={selectedTag}
+            onTagChange={setSelectedTag}
+            preset={tablePreset}
+            showDevToggle={showDevToggle}
+            onPresetChange={saveTablePreset}
+          />
         </div>
       </article>
       <div className="mt-4">

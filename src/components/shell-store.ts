@@ -7,13 +7,16 @@ import {
   parseShell,
   persistable,
   removeGoal,
+  setDevMode,
   setFeature,
   setLinkedAccounts,
+  setTablePreset,
   setTheme,
   upsertGoal,
   type FeatureId,
   type Goal,
   type ShellState,
+  type TablePreset,
   type ThemeId,
 } from "@/lib/shell/core-shell";
 
@@ -58,6 +61,14 @@ export function replaceShell(state: ShellState) {
 
 export function currentShell(): ShellState {
   return read();
+}
+
+export function saveDevMode(on: boolean) {
+  write(setDevMode(read(), on));
+}
+
+export function saveTablePreset(preset: TablePreset) {
+  write(setTablePreset(read(), preset));
 }
 
 function write(next: ShellState) {

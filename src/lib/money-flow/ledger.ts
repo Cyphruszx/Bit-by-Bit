@@ -692,6 +692,25 @@ export function ledgerTransactions(ledger: Ledger): InterpretedTransaction[] {
   return upgradeTransactions(ledger.entries);
 }
 
+export type LedgerRowMeta = {
+  fingerprint: string;
+  importIds: string[];
+  firstSeen: string;
+};
+
+/** Stored identity fields that live on the ledger row, not the working movement. */
+export function ledgerRowMeta(ledger: Ledger): Record<string, LedgerRowMeta> {
+  const held: Record<string, LedgerRowMeta> = {};
+  for (const entry of ledger.entries) {
+    held[entry.id] = {
+      fingerprint: entry.fingerprint,
+      importIds: [...entry.importIds],
+      firstSeen: entry.firstSeen,
+    };
+  }
+  return held;
+}
+
 /**
  * The movements to show, which is not always every movement held. A fingerprint is
  * decided once, at import, from what that statement said about itself; two downloads of
