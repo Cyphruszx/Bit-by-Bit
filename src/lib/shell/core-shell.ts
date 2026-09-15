@@ -8,8 +8,6 @@
  * This module does not migrate guest → account.
  */
 
-import { isCleared } from "@/lib/money-flow/tile";
-
 export const SPEC_11_LOCKED = false;
 
 export const CORE_NAV = [
@@ -126,7 +124,7 @@ export function navLabels(state: ShellState): string[] {
 }
 
 export function hasFirstCleared(transactions: { status?: string }[]): boolean {
-  return transactions.some(isCleared);
+  return transactions.some((txn) => (txn.status ?? "CLEARED") === "CLEARED");
 }
 
 export type OfferItem = { id: FeatureId; label: string };
@@ -171,17 +169,6 @@ export function visibleWidgets(state: ShellState): WidgetId[] {
       return true;
     })
     .map((entry) => entry.id);
-}
-
-export function moveWidget(state: ShellState, id: WidgetId, direction: -1 | 1): ShellState {
-  const widgets = state.widgets.map((entry) => ({ ...entry }));
-  const index = widgets.findIndex((entry) => entry.id === id);
-  const next = index + direction;
-  if (index < 0 || next < 0 || next >= widgets.length) return state;
-  const swap = widgets[index];
-  widgets[index] = widgets[next];
-  widgets[next] = swap;
-  return normalize({ ...state, widgets });
 }
 
 export function dismissOffer(state: ShellState): ShellState {
