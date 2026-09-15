@@ -153,10 +153,19 @@ export type AccountKind = "CHECKING" | "SAVINGS" | "CREDIT" | "LOAN" | "MORTGAGE
 export type AccountMeta = {
   currency?: string;
   kind?: AccountKind;
+  /**
+   * Spec 11 / Spec 9 SoT: accounts.`cleared_balance` (Spec 11 wording
+   * `current_cleared_balance`). Display reads this field. Missing means 0 + a
+   * soft hint — never invent Σ(CLEARED movements).
+   */
+  clearedBalance?: number;
 };
 
-const DEBT_KINDS = new Set<AccountKind>(["CREDIT", "LOAN", "MORTGAGE"]);
-const ASSET_KINDS = new Set<AccountKind>(["CHECKING", "SAVINGS"]);
+export const CASH_ACCOUNT_KINDS = new Set<AccountKind>(["CHECKING", "SAVINGS"]);
+export const DEBT_ACCOUNT_KINDS = new Set<AccountKind>(["CREDIT", "LOAN", "MORTGAGE"]);
+
+const DEBT_KINDS = DEBT_ACCOUNT_KINDS;
+const ASSET_KINDS = CASH_ACCOUNT_KINDS;
 
 /** Follow `merged_into` to the survivor. A cycle returns the id unchanged. */
 export function canonicalAccountId(id: string, mergedInto: Record<string, string> = {}): string {
@@ -201,6 +210,29 @@ export function inferAccountCurrency(id: string, meta: Record<string, AccountMet
 
 export function accountKindOf(id: string, meta: Record<string, AccountMeta> = {}): AccountKind {
   return meta[id]?.kind ?? inferAccountKind(id);
+}
+
+export function isCashAccountKind(kind: AccountKind): boolean {
+  return CASH_ACCOUNT_KINDS.has(kind);
+}
+
+export function isDebtAccountKind(kind: AccountKind): boolean {
+  return DEBT_ACCOUNT_KINDS.has(kind);
+}
+
+/**
+ * Live CLEARED balance stored on the account. Spec 11 Cash in pool and Spec 9
+ * Linked balances share this field. A missing value is 0, not a sum of rows.
+ */
+export function clearedBalanceOf(
+  id: string,
+  meta: Record<string, AccountMeta> = {},
+  mergedInto: Record<string, string> = {},
+): { amount: number; missing: boolean } {
+  const at = canonicalAccountId(id, mergedInto);
+  const stored = meta[at]?.clearedBalance ?? meta[id]?.clearedBalance;
+  if (typeof stored === "number" && Number.isFinite(stored)) return { amount: stored, missing: false };
+  return { amount: 0, missing: true };
 }
 
 /**

@@ -190,7 +190,12 @@ export function cloudLedgerStore(
 
 /** Whether there is anything worth backing up, so an empty browser does not make a row. */
 function holdsAnything(ledger: Ledger): boolean {
-  return ledger.entries.length > 0 || ledger.imports.length > 0;
+  return (
+    ledger.entries.length > 0 ||
+    ledger.imports.length > 0 ||
+    (ledger.accountPools?.length ?? 0) > 0 ||
+    (ledger.accountPoolMembers?.length ?? 0) > 0
+  );
 }
 
 /** Whether a merge actually moved anything, so an unchanged ledger is not sent back up. */
