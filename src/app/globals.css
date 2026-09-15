@@ -1,164 +1,131 @@
 @import "tailwindcss";
 
-/* ==========================================================================
-   Design tokens
-   --------------------------------------------------------------------------
-   Three layers: primitives -> semantic -> component.
-   Components should reference the semantic layer only (via Tailwind
-   utilities such as `text-muted` or `border-line`), never a raw hex.
+@custom-variant dark (&:where(.dark, .dark *));
 
-   Light is mockup 7b. Dark is mockup 8a. Both use the same sweep-and-grid
-   background, retinted for the theme.
+/* ==========================================================================
+   Design tokens — 7b light, 8a dark
+   Hex values live on the Tailwind theme tokens themselves. Pointing
+   @theme at another custom property can leave bg-primary / text-ink empty.
    ========================================================================== */
 
-/* --------------------------------------------------------------------------
-   Layer 1 - Primitives
-   -------------------------------------------------------------------------- */
-:root {
-  --ink-950: #101214;
-  --ink-800: #3d454c;
-  --ink-600: #5f6a72;
-  --ink-400: #aeb6bf;
-  --paper-0: #ffffff;
-  --paper-50: #fbfcfd;
-  --paper-100: #f5f6f8;
-  --paper-150: #eef0f3;
-  --paper-200: #e3e6ea;
-  --paper-300: #d5dcea;
-  --paper-400: #e2e8f3;
-  --paper-500: #eff3fa;
-
-  --blue-950: #123a8f;
-  --blue-900: #1d3569;
-  --blue-800: #2c4c93;
-  --blue-700: #1b4fd8;
-  --blue-500: #5a8bf0;
-  --blue-300: #9dbaf7;
-  --blue-200: #c9d8fb;
-  --blue-100: #eaf0fe;
-
-  --red-700: #9b3b32;
-  --red-800: #8a2b2b;
-  --red-50: #f8e8e6;
-  --amber-700: #8a5a1e;
-  --amber-200: #d8c3a8;
-  --amber-100: #fdf2e3;
-  --amber-50: #fdf6ec;
-  --clay-700: #5c5142;
-  --green-600: #257155;
-
-  --white: #ffffff;
-}
-
-.dark {
-  --ink-950: #e9edf3;
-  --ink-800: #c3cbd6;
-  --ink-600: #9aa4b2;
-  --ink-400: #6b7683;
-  --paper-0: #171b22;
-  --paper-50: #1b2029;
-  --paper-100: #0e1116;
-  --paper-150: #222733;
-  --paper-200: #262c36;
-  --paper-300: #080b11;
-  --paper-400: #0d1119;
-  --paper-500: #111621;
-
-  --blue-950: #24407f;
-  --blue-900: #1d3569;
-  --blue-800: #2c4c93;
-  --blue-700: #2f5bd0;
-  --blue-500: #6f9bff;
-  --blue-300: #8fb2ff;
-  --blue-200: #b9cdff;
-  --blue-100: #1b2a4d;
-
-  --red-50: #3a2220;
-  --amber-50: #2a2418;
-  --amber-100: #332b1c;
-  --amber-200: #6b5a3a;
-}
-
-/* --------------------------------------------------------------------------
-   Layer 2 - Semantic
-   -------------------------------------------------------------------------- */
 @theme static {
-  --color-canvas: var(--paper-400);
-  --color-surface: var(--paper-0);
-  --color-surface-subtle: var(--paper-100);
-  --color-surface-faint: var(--paper-50);
+  --color-canvas: #e2e8f3;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f5f6f8;
+  --color-surface-faint: #fbfcfd;
 
-  --color-ink: var(--ink-950);
-  --color-ink-soft: var(--ink-800);
-  --color-muted: var(--ink-600);
+  --color-ink: #101214;
+  --color-ink-soft: #3d454c;
+  --color-muted: #5f6a72;
 
-  --color-on-dark: var(--white);
-  --color-on-dark-muted: var(--ink-400);
+  --color-on-dark: #ffffff;
+  --color-on-dark-muted: #aeb6bf;
 
-  --color-line: var(--paper-200);
-  --color-line-dashed: var(--paper-150);
-  --color-axis: var(--paper-150);
+  --color-line: #e3e6ea;
+  --color-line-dashed: #eef0f3;
+  --color-axis: #eef0f3;
 
-  --color-primary: var(--blue-700);
-  --color-primary-strong: var(--blue-950);
-  --color-on-primary: var(--white);
-  --color-secondary: var(--blue-500);
-  --color-accent: var(--blue-700);
-  --color-on-accent: var(--white);
-  --color-accent-surface: var(--blue-100);
-  --color-accent-surface-subtle: var(--blue-100);
+  --color-primary: #1b4fd8;
+  --color-primary-strong: #123a8f;
+  --color-on-primary: #ffffff;
+  --color-secondary: #5a8bf0;
+  --color-accent: #1b4fd8;
+  --color-on-accent: #ffffff;
+  --color-accent-surface: #eaf0fe;
+  --color-accent-surface-subtle: #eaf0fe;
 
-  --color-positive: var(--blue-500);
-  --color-negative: var(--ink-950);
-  --color-negative-strong: var(--red-800);
-  --color-negative-surface: var(--red-50);
-  --color-attention: var(--amber-700);
-  --color-attention-ink: var(--clay-700);
-  --color-attention-line: var(--amber-200);
-  --color-attention-surface: var(--amber-50);
-  --color-attention-surface-strong: var(--amber-100);
+  --color-positive: #1b4fd8;
+  --color-negative: #101214;
+  --color-negative-strong: #8a2b2b;
+  --color-negative-surface: #f8e8e6;
+  --color-attention: #8a5a1e;
+  --color-attention-ink: #5c5142;
+  --color-attention-line: #d8c3a8;
+  --color-attention-surface: #fdf6ec;
+  --color-attention-surface-strong: #fdf2e3;
 
-  --color-chart-1: var(--blue-950);
-  --color-chart-2: var(--blue-700);
-  --color-chart-3: var(--blue-500);
-  --color-chart-4: var(--blue-300);
-  --color-chart-5: var(--blue-200);
-  --color-chart-6: var(--ink-400);
-  --color-chart-7: var(--blue-800);
-  --color-chart-8: var(--blue-900);
+  --color-chart-1: #123a8f;
+  --color-chart-2: #1b4fd8;
+  --color-chart-3: #5a8bf0;
+  --color-chart-4: #9dbaf7;
+  --color-chart-5: #c9d8fb;
+  --color-chart-6: #aeb6bf;
+  --color-chart-7: #2c4c93;
+  --color-chart-8: #1d3569;
 
-  --color-mark-1: var(--blue-700);
-  --color-mark-2: var(--blue-300);
-  --color-mark-3: var(--blue-500);
-  --color-mark-4: var(--blue-950);
+  --color-mark-1: #1b4fd8;
+  --color-mark-2: #9dbaf7;
+  --color-mark-3: #5a8bf0;
+  --color-mark-4: #123a8f;
 
   --shadow-card: 0 1px 2px rgba(18, 58, 143, 0.06), 0 14px 30px -16px rgba(18, 58, 143, 0.28);
 }
 
-.dark {
-  --color-on-dark: #e9edf3;
-  --color-on-dark-muted: #c3cbd6;
-  --color-positive: #6f9bff;
-  --color-negative: #e9edf3;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 34px -18px rgba(0, 0, 0, 0.85);
+@layer theme {
+  html.dark,
+  .dark {
+    --color-canvas: #0d1119;
+    --color-surface: #171b22;
+    --color-surface-subtle: #0e1116;
+    --color-surface-faint: #1b2029;
+
+    --color-ink: #e9edf3;
+    --color-ink-soft: #c3cbd6;
+    --color-muted: #9aa4b2;
+
+    --color-on-dark: #e9edf3;
+    --color-on-dark-muted: #c3cbd6;
+
+    --color-line: #262c36;
+    --color-line-dashed: #222733;
+    --color-axis: #222733;
+
+    --color-primary: #2f5bd0;
+    --color-primary-strong: #24407f;
+    --color-on-primary: #ffffff;
+    --color-secondary: #6f9bff;
+    --color-accent: #2f5bd0;
+    --color-on-accent: #ffffff;
+    --color-accent-surface: #1b2a4d;
+    --color-accent-surface-subtle: #1b2a4d;
+
+    --color-positive: #6f9bff;
+    --color-negative: #e9edf3;
+    --color-negative-strong: #8a2b2b;
+    --color-negative-surface: #3a2220;
+    --color-attention: #8a5a1e;
+    --color-attention-ink: #e9edf3;
+    --color-attention-line: #6b5a3a;
+    --color-attention-surface: #2a2418;
+    --color-attention-surface-strong: #332b1c;
+
+    --color-chart-1: #24407f;
+    --color-chart-2: #6f9bff;
+    --color-chart-3: #8fb2ff;
+    --color-chart-4: #b9cdff;
+    --color-chart-5: #dce6ff;
+    --color-chart-6: #6b7683;
+    --color-chart-7: #2c4c93;
+    --color-chart-8: #1d3569;
+
+    --color-mark-1: #6f9bff;
+    --color-mark-2: #b9cdff;
+    --color-mark-3: #8fb2ff;
+    --color-mark-4: #24407f;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 34px -18px rgba(0, 0, 0, 0.85);
+  }
 }
 
-/* --------------------------------------------------------------------------
-   Layer 3 - Component
-   -------------------------------------------------------------------------- */
 :root {
   --radius-card: 1rem;
   --radius-pill: 9999px;
   --radius-mark: 2px;
 
-  --card-bg: var(--color-surface);
-  --card-border: color-mix(in srgb, var(--blue-950) 10%, transparent);
-
-  --field-border: var(--color-line);
-  --field-border-empty: var(--color-line-dashed);
-
+  --card-bg: #ffffff;
+  --card-border: rgba(18, 58, 143, 0.1);
   --header-bg: rgba(255, 255, 255, 0.92);
-  --header-line: color-mix(in srgb, var(--blue-950) 10%, transparent);
+  --header-line: rgba(18, 58, 143, 0.1);
   --header-shadow: 0 10px 24px -20px rgba(18, 58, 143, 0.5);
   --period-bg: rgba(245, 246, 248, 0.72);
 
@@ -175,14 +142,16 @@
   --sweep-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -56px 80px -56px rgba(18, 58, 143, 0.4);
   --highlight-gradient: linear-gradient(160deg, #2c4c93, #1d3569);
 
-  --background: var(--color-canvas);
-  --foreground: var(--color-ink);
+  --background: #e2e8f3;
+  --foreground: #101214;
 }
 
+html.dark,
 .dark {
-  --card-border: color-mix(in srgb, #6f9bff 14%, transparent);
+  --card-bg: rgba(23, 27, 34, 0.92);
+  --card-border: rgba(111, 155, 255, 0.14);
   --header-bg: rgba(17, 22, 33, 0.88);
-  --header-line: color-mix(in srgb, #6f9bff 12%, transparent);
+  --header-line: rgba(111, 155, 255, 0.12);
   --header-shadow: 0 10px 24px -20px rgba(0, 0, 0, 0.9);
   --period-bg: rgba(14, 17, 22, 0.72);
 
@@ -199,11 +168,10 @@
     radial-gradient(120% 70% at 50% 0%, rgba(111, 155, 255, 0.1), transparent 45%),
     radial-gradient(130% 110% at 50% 118%, rgba(5, 8, 14, 0.75), transparent 62%);
   --sweep-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -60px 90px -60px rgba(0, 0, 0, 0.8);
-}
 
-/* ==========================================================================
-   Base
-   ========================================================================== */
+  --background: #0d1119;
+  --foreground: #e9edf3;
+}
 
 * {
   box-sizing: border-box;
@@ -228,10 +196,6 @@ button:hover,
 a:hover {
   opacity: 0.86;
 }
-
-/* ==========================================================================
-   7b / 8a sweep background and cards
-   ========================================================================== */
 
 .app-frame {
   position: relative;
@@ -298,12 +262,13 @@ a:hover {
 
 .card-highlight {
   background: var(--highlight-gradient);
-  border: 1px solid color-mix(in srgb, var(--blue-300) 35%, transparent);
+  border: 1px solid rgba(157, 186, 247, 0.35);
   border-radius: var(--radius-card);
-  color: var(--color-on-dark);
+  color: #ffffff;
   box-shadow: var(--shadow-card);
 }
 
+html.dark .card,
 .dark .card {
   background: rgba(23, 27, 34, 0.92);
 }
