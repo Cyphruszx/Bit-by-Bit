@@ -17,6 +17,32 @@ import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdic
 import { hasSource } from "@/lib/money-flow/source";
 import { persistUploadStatus } from "@/lib/money-flow/core-ingest";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
+import {
+  acceptEnableOffer,
+  archiveLayoutEntry,
+  dismissEnableOffer,
+  mergeFeatureToggles,
+  parseDashboardLayout,
+  parseFeatureOffer,
+  parseFeatureToggles,
+  restoreLayoutEntry,
+  setFeatureEnabled,
+  type DashboardLayout,
+  type EnableOfferKey,
+  type FeatureKey,
+  type FeatureOffer,
+  type FeatureToggles,
+} from "@/lib/money-flow/features";
+import {
+  applyMergedIntoToPoolMembers,
+  migrateGuestPools,
+  parsePoolBook,
+  poolBookOf,
+  type AccountPool,
+  type AccountPoolMember,
+  type PoolBook,
+  type PoolWriteResult,
+} from "@/lib/money-flow/pools";
 
 export const LEDGER_VERSION = 1;
 
@@ -96,6 +122,17 @@ export type Ledger = {
    * rebuilt from the current movements each read, so they are not stored here.
    */
   review?: ReviewItem[];
+  /**
+   * Spec 11 Soft pools / Pools. Named groups + undoable membership. Display
+   * only — pool writes never touch `mergedInto` or fingerprints.
+   */
+  accountPools?: AccountPool[];
+  accountPoolMembers?: AccountPoolMember[];
+  /** Spec 5 Core toggles. POOLS / GOALS / LINKED_BALANCES start off. */
+  featureToggles?: FeatureToggles;
+  featureOffer?: FeatureOffer;
+  /** Spec 5 layout archive. Toggle-off hides UI and parks the widget here. */
+  dashboardLayout?: DashboardLayout;
 };
 
 export type ImportReport = {
@@ -412,6 +449,8 @@ export function mergeAccounts(ledger: Ledger, sourceId: string, survivorId: stri
     ...duplicateHolds,
   ];
 
+  const remappedPools = applyMergedIntoToPoolMembers(poolBookOf(ledger.accountPools, ledger.accountPoolMembers), mergedInto);
+
   return {
     ok: true,
     ledger: {
@@ -420,6 +459,7 @@ export function mergeAccounts(ledger: Ledger, sourceId: string, survivorId: stri
       mergedInto,
       entries: sortEntries(collapsed),
       ...(review.length > 0 ? { review } : {}),
+      ...poolFields(remappedPools),
     },
   };
 }
@@ -606,6 +646,8 @@ export function mergeLedgers(mine: Ledger, theirs: Ledger): Ledger {
     ...mergedRules(mine.rules, theirs.rules),
     ...pickedTaxonomy(mine.taxonomy, theirs.taxonomy),
     ...pickedReview(mine.review, theirs.review),
+    ...pickedPools(mine, theirs, { ...theirs.mergedInto, ...mine.mergedInto }),
+    ...pickedFeatures(mine, theirs),
   };
 }
 
@@ -622,6 +664,76 @@ function pickedTaxonomy(mine: CategoryBook | undefined, theirs: CategoryBook | u
 function pickedReview(mine: ReviewItem[] | undefined, theirs: ReviewItem[] | undefined) {
   const held = mergedReview(mine, theirs);
   return held.length > 0 ? { review: held } : {};
+}
+
+function pickedPools(mine: Ledger, theirs: Ledger, mergedInto: Record<string, string>) {
+  const guest = poolBookOf(theirs.accountPools, theirs.accountPoolMembers);
+  const registered = poolBookOf(mine.accountPools, mine.accountPoolMembers);
+  if (guest.pools.length === 0 && guest.members.length === 0 && registered.pools.length === 0 && registered.members.length === 0) {
+    return {};
+  }
+  // Spec 4: copy/merge account_pools + account_pool_members and remap account_ids.
+  return poolFields(migrateGuestPools(guest, registered, {}, mergedInto));
+}
+
+function pickedFeatures(mine: Ledger, theirs: Ledger) {
+  const featureToggles = mergeFeatureToggles(mine.featureToggles, theirs.featureToggles);
+  const featureOffer = mine.featureOffer ?? theirs.featureOffer;
+  const dashboardLayout = mine.dashboardLayout ?? theirs.dashboardLayout;
+  return {
+    ...(featureToggles ? { featureToggles } : {}),
+    ...(featureOffer ? { featureOffer } : {}),
+    ...(dashboardLayout ? { dashboardLayout } : {}),
+  };
+}
+
+function poolFields(book: PoolBook) {
+  return {
+    ...(book.pools.length > 0 ? { accountPools: book.pools } : {}),
+    ...(book.members.length > 0 ? { accountPoolMembers: book.members } : {}),
+  };
+}
+
+export function recordPoolBook(ledger: Ledger, book: PoolBook): Ledger {
+  const next = { ...ledger };
+  delete next.accountPools;
+  delete next.accountPoolMembers;
+  return { ...next, ...poolFields(book) };
+}
+
+export function applyPoolWrite(
+  ledger: Ledger,
+  write: PoolWriteResult,
+): { ok: true; ledger: Ledger; softWarning?: string } | { ok: false; reason: string } {
+  if (!write.ok) return write;
+  return {
+    ok: true,
+    ledger: recordPoolBook(ledger, write.book),
+    ...(write.softWarning ? { softWarning: write.softWarning } : {}),
+  };
+}
+
+export function recordFeatureToggle(ledger: Ledger, key: FeatureKey, enabled: boolean, now = new Date().toISOString()): Ledger {
+  const featureToggles = setFeatureEnabled(ledger.featureToggles, key, enabled);
+  const dashboardLayout = enabled
+    ? restoreLayoutEntry(ledger.dashboardLayout, key)
+    : archiveLayoutEntry(ledger.dashboardLayout, key, now);
+  return {
+    ...ledger,
+    featureToggles,
+    ...(Object.keys(dashboardLayout).length > 0 || ledger.dashboardLayout ? { dashboardLayout } : {}),
+  };
+}
+
+export function recordEnableOfferAccept(ledger: Ledger, keys: readonly EnableOfferKey[], now = new Date().toISOString()): Ledger {
+  const accepted = acceptEnableOffer(ledger.featureToggles, keys, now);
+  let next: Ledger = { ...ledger, featureToggles: accepted.toggles, featureOffer: accepted.offer };
+  for (const key of keys) next = recordFeatureToggle(next, key, true, now);
+  return { ...next, featureOffer: accepted.offer };
+}
+
+export function recordEnableOfferDismiss(ledger: Ledger, now = new Date().toISOString()): Ledger {
+  return { ...ledger, featureOffer: dismissEnableOffer(ledger.featureOffer, now) };
 }
 
 /** Only carried when there is something to carry, so an empty ledger stays empty. */
@@ -768,6 +880,24 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(raw.rules && typeof raw.rules === "object" ? { rules: rulesOnly(raw.rules, extraKeys) } : {}),
     ...(taxonomy ? { taxonomy } : {}),
     ...(review.length > 0 ? { review } : {}),
+    ...parsedPools(raw),
+    ...parsedFeatures(raw),
+  };
+}
+
+function parsedPools(raw: Partial<Ledger>) {
+  const book = parsePoolBook(raw.accountPools, raw.accountPoolMembers);
+  return book ? poolFields(book) : {};
+}
+
+function parsedFeatures(raw: Partial<Ledger>) {
+  const featureToggles = parseFeatureToggles(raw.featureToggles);
+  const featureOffer = parseFeatureOffer(raw.featureOffer);
+  const dashboardLayout = parseDashboardLayout(raw.dashboardLayout);
+  return {
+    ...(featureToggles ? { featureToggles } : {}),
+    ...(featureOffer ? { featureOffer } : {}),
+    ...(dashboardLayout ? { dashboardLayout } : {}),
   };
 }
 
@@ -881,7 +1011,10 @@ function accountMetaOnly(raw: Record<string, unknown>): Record<string, AccountMe
     const next: AccountMeta = {};
     if (typeof stored.currency === "string" && stored.currency.trim()) next.currency = stored.currency.trim();
     if (typeof stored.kind === "string" && kinds.has(stored.kind)) next.kind = stored.kind as AccountMeta["kind"];
-    if (next.currency || next.kind) held[key] = next;
+    if (typeof stored.clearedBalance === "number" && Number.isFinite(stored.clearedBalance)) {
+      next.clearedBalance = stored.clearedBalance;
+    }
+    if (next.currency || next.kind || next.clearedBalance != null) held[key] = next;
   }
   return held;
 }

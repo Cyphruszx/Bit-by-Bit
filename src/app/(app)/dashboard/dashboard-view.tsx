@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { EmptyLedger } from "@/components/empty-ledger";
+import { FeatureEnableOffer, OptionalFeaturesPanel } from "@/components/feature-enable-offer";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { PoolsWidget } from "@/components/pools-widget";
 import { showEveryInstitution, toggleInstitution, useHiddenInstitutions } from "@/components/scope-store";
 import { SavingsPathChart } from "@/components/savings-charts";
 import { useSavingsPots } from "@/components/savings-store";
@@ -57,6 +59,8 @@ export function DashboardView() {
         counted once.
       </p>
 
+      <FeatureEnableOffer />
+
       <FlowCards flow={flow} hasUploads={hasUploads} />
 
       <IncomeBreakdown sources={sources} income={flow.income} />
@@ -107,6 +111,7 @@ export function DashboardView() {
           ))}
         </ul>
       </article>
+      <PoolsWidget />
       <section className="mt-8">
         <article className="rounded-2xl border border-line bg-white p-6">
           <div className="flex items-center justify-between">
@@ -164,6 +169,7 @@ export function DashboardView() {
           onChartChange={setChart}
         />
       </section>
+      <OptionalFeaturesPanel />
     </>
   );
 }
