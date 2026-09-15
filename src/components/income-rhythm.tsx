@@ -58,7 +58,7 @@ export function IncomeRhythm() {
 
 function RhythmCard({ rhythm }: { rhythm: Rhythm }) {
   return (
-    <article className="rounded-2xl border border-line bg-white p-6">
+    <article className="rounded-2xl border border-line bg-surface p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
           <h3 className="truncate text-base font-bold">{rhythm.label}</h3>

@@ -41,7 +41,7 @@ export function ReviewQueue() {
   if (items.length === 0) {
     if (openReviewCount !== 0) return null;
     return (
-      <article className="mt-4 rounded-2xl border border-line bg-white p-4">
+      <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="text-base font-bold">Everything is sorted</h2>
         <p className="mt-0.5 text-xs text-muted">The Review Queue is clear — nothing is OPEN.</p>
       </article>
@@ -51,7 +51,7 @@ export function ReviewQueue() {
   const shown = open ? items : items.slice(0, SHOWN);
 
   return (
-    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-bold">Review queue</h2>
@@ -122,7 +122,7 @@ function ReviewActions({
           onChange={(event) => {
             if (event.target.value !== UNCATEGORISED) onCategory(merchant, event.target.value);
           }}
-          className="rounded-full border border-line bg-white px-2.5 py-1 text-xs outline-none focus:border-primary"
+          className="rounded-full border border-line bg-surface px-2.5 py-1 text-xs outline-none focus:border-primary"
         >
           <option value={UNCATEGORISED}>Choose a category</option>
           {pickerGroups().map((held) => (

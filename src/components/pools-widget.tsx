@@ -81,7 +81,7 @@ export function PoolsWidget() {
   };
 
   return (
-    <article className="mt-8 rounded-2xl border border-line bg-white p-6">
+    <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">{POOLS_TITLE}</h2>
@@ -136,7 +136,7 @@ export function PoolsWidget() {
             value={draftName}
             onChange={(event) => setDraftName(event.target.value)}
             placeholder="Holiday, Bills, …"
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-sm"
+            className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm"
           />
         </label>
         <label className="flex min-w-40 flex-1 flex-col gap-1 text-sm">
@@ -145,7 +145,7 @@ export function PoolsWidget() {
             value={draftNotes}
             onChange={(event) => setDraftNotes(event.target.value)}
             placeholder="Optional"
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-sm"
+            className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm"
           />
         </label>
         <button type="submit" className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white">
@@ -197,7 +197,7 @@ function PoolCard({
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-sm"
+                className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm"
               />
               <button
                 type="button"
@@ -222,14 +222,14 @@ function PoolCard({
               setName(pool.name);
               setEditing(true);
             }}
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-sm font-semibold text-ink-soft"
+            className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft"
           >
             Rename
           </button>
           <button
             type="button"
             onClick={onArchive}
-            className="rounded-full border border-line bg-white px-3 py-1.5 text-sm font-semibold text-ink-soft"
+            className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft"
           >
             Archive
           </button>
@@ -286,7 +286,7 @@ function PoolCard({
             onChange={(event) => {
               if (event.target.value) onAdd(event.target.value);
             }}
-            className="w-full rounded-full border border-line bg-white px-3 py-1.5 text-sm"
+            className="w-full rounded-full border border-line bg-surface px-3 py-1.5 text-sm"
           >
             <option value="">An account…</option>
             {cashCandidates.length > 0 ? (

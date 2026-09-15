@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  daysLeftInMonth,
   describePeriod,
   filterByPeriod,
   formatMonthLabel,
   inPeriod,
+  isLastTwelveMonths,
+  lastTwelveMonths,
+  lastTwelveMonthsRange,
   monthBounds,
   monthsFromDates,
   parsePeriod,
+  previousPeriod,
   shiftMonth,
   summarizePeriod,
   type PeriodFilter,
@@ -81,5 +86,32 @@ describe("period filtering", () => {
       to: "2026-08-12",
     });
     assert.deepEqual(parsePeriod({ kind: "month", month: "08" }), { kind: "all" });
+  });
+
+  it("builds a last-twelve-months range from the end month", () => {
+    const range = lastTwelveMonthsRange("2026-09");
+    assert.deepEqual(lastTwelveMonths("2026-09")[0], "2025-10");
+    assert.deepEqual(range, { kind: "range", from: "2025-10-01", to: "2026-09-30" });
+    assert.equal(isLastTwelveMonths(range, "2026-09"), true);
+    assert.equal(describePeriod(range), "Last 12 months");
+  });
+
+  it("steps a period back by the same length", () => {
+    assert.deepEqual(previousPeriod({ kind: "month", month: "2026-09" }), { kind: "month", month: "2026-08" });
+    assert.deepEqual(previousPeriod({ kind: "range", from: "2026-09-01", to: "2026-09-30" }), {
+      kind: "month",
+      month: "2026-08",
+    });
+    assert.deepEqual(previousPeriod(lastTwelveMonthsRange("2026-09")), {
+      kind: "range",
+      from: "2024-10-01",
+      to: "2025-09-30",
+    });
+    assert.equal(previousPeriod({ kind: "all" }), null);
+  });
+
+  it("counts days left only inside the current month", () => {
+    assert.equal(daysLeftInMonth("2026-09", "2026-09-12"), 18);
+    assert.equal(daysLeftInMonth("2026-08", "2026-09-12"), null);
   });
 });

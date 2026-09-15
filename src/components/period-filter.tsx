@@ -4,6 +4,8 @@ import { useMemo, type ReactNode } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import {
   formatMonthLabel,
+  isLastTwelveMonths,
+  lastTwelveMonthsRange,
   monthBounds,
   monthsFromDates,
   shiftMonth,
@@ -21,65 +23,70 @@ export function PeriodFilterBar() {
   }, [allTransactions, period]);
   const selectedMonth = period.kind === "month" ? period.month : months[0] ?? currentMonth();
   const monthIndex = months.indexOf(selectedMonth);
-  const hasPrev = period.kind === "month" && monthIndex >= 0 && monthIndex < months.length - 1;
-  const hasNext = period.kind === "month" && monthIndex > 0;
+  const hasPrev = monthIndex >= 0 && monthIndex < months.length - 1;
+  const hasNext = monthIndex > 0;
+  const lastTwelve = lastTwelveMonthsRange(selectedMonth);
 
   return (
-    <div className="border-b border-line bg-canvas">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-6 py-3">
-        <p className="mr-1 text-xs font-bold uppercase tracking-[0.16em] text-muted">Period</p>
-        <PeriodChip active={period.kind === "all"} onClick={() => setPeriod({ kind: "all" })}>
-          All activity
-        </PeriodChip>
-        <div className="flex items-center gap-1">
-          <PeriodChip
-            active={false}
-            onClick={() => hasPrev && setPeriod({ kind: "month", month: months[monthIndex + 1] })}
-            disabled={!hasPrev}
-            ariaLabel="Previous month with activity"
-          >
-            ‹
-          </PeriodChip>
-          <label className="flex items-center gap-2 text-sm text-muted" htmlFor="period-month">
-            Month
-          </label>
-          <select
-            id="period-month"
-            value={period.kind === "month" ? period.month : ""}
-            onChange={(event) => {
-              if (event.target.value) setPeriod({ kind: "month", month: event.target.value });
-            }}
-            className={`rounded-full border px-3 py-1.5 text-sm font-semibold outline-none focus:border-primary ${
-              period.kind === "month"
-                ? "border-primary bg-primary text-white"
-                : "border-line bg-white text-ink-soft"
-            }`}
-          >
-            <option value="" disabled>
-              {months.length === 0 ? "No months yet" : "Choose month"}
-            </option>
-            {months.map((month) => (
-              <option key={month} value={month}>
-                {formatMonthLabel(month)}
-              </option>
-            ))}
-          </select>
-          <PeriodChip
-            active={false}
-            onClick={() => hasNext && setPeriod({ kind: "month", month: months[monthIndex - 1] })}
-            disabled={!hasNext}
-            ariaLabel="Next month with activity"
-          >
-            ›
-          </PeriodChip>
-        </div>
+    <div className="app-period">
+      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2 px-7 py-[11px]">
+        <p className="mr-1 text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted">Period</p>
         <PeriodChip
-          active={period.kind === "range"}
+          active={period.kind === "month"}
+          onClick={() => setPeriod({ kind: "month", month: selectedMonth })}
+        >
+          {formatMonthLabel(selectedMonth)}
+        </PeriodChip>
+        <PeriodChip
+          active={isLastTwelveMonths(period, selectedMonth)}
+          onClick={() => setPeriod(lastTwelve)}
+        >
+          Last 12 months
+        </PeriodChip>
+        <PeriodChip
+          active={period.kind === "range" && !isLastTwelveMonths(period, selectedMonth)}
           onClick={() => setPeriod(rangeFrom(period, selectedMonth))}
         >
           Custom dates
         </PeriodChip>
-        {period.kind === "range" ? (
+        <PeriodChip active={period.kind === "all"} onClick={() => setPeriod({ kind: "all" })}>
+          All activity
+        </PeriodChip>
+        {period.kind === "month" ? (
+          <div className="flex items-center gap-1">
+            <PeriodChip
+              active={false}
+              onClick={() => hasPrev && setPeriod({ kind: "month", month: months[monthIndex + 1] })}
+              disabled={!hasPrev}
+              ariaLabel="Previous month with activity"
+            >
+              ‹
+            </PeriodChip>
+            <select
+              id="period-month"
+              value={period.month}
+              onChange={(event) => {
+                if (event.target.value) setPeriod({ kind: "month", month: event.target.value });
+              }}
+              className="rounded-full border border-line bg-surface px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft outline-none focus:border-primary"
+            >
+              {months.map((month) => (
+                <option key={month} value={month}>
+                  {formatMonthLabel(month)}
+                </option>
+              ))}
+            </select>
+            <PeriodChip
+              active={false}
+              onClick={() => hasNext && setPeriod({ kind: "month", month: months[monthIndex - 1] })}
+              disabled={!hasNext}
+              ariaLabel="Next month with activity"
+            >
+              ›
+            </PeriodChip>
+          </div>
+        ) : null}
+        {period.kind === "range" && !isLastTwelveMonths(period, selectedMonth) ? (
           <div className="flex flex-wrap items-center gap-2">
             <DateField
               label="From"
@@ -118,8 +125,8 @@ function PeriodChip({
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-sm font-semibold disabled:opacity-35 ${
-        active ? "bg-primary text-white" : "border border-line bg-white text-ink-soft"
+      className={`rounded-full px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-35 ${
+        active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
       }`}
     >
       {children}
@@ -143,7 +150,7 @@ function DateField({
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-full border border-line bg-white px-3 py-1.5 text-sm font-semibold text-primary outline-none focus:border-primary"
+        className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-primary outline-none focus:border-primary"
       />
     </label>
   );

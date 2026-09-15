@@ -118,13 +118,13 @@ export function TransactionTable({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search merchants, categories, accounts, or statement cells"
-          className="w-full rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary sm:max-w-xs"
+          className="w-full rounded-full border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary sm:max-w-xs"
         />
         <select
           value={activeTag}
           onChange={(event) => selectTag(event.target.value)}
           aria-label="Filter by category or tag"
-          className="rounded-full border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
+          className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
         >
           {tagOptions.map((name) => (
             <option key={name} value={name}>
@@ -183,7 +183,7 @@ export function TransactionTable({
                 <HeaderCell last>Tag</HeaderCell>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-subtle bg-white">
+            <tbody className="divide-y divide-surface-subtle bg-surface">
               {visible.map((txn) => {
                 const book = resolvedBook();
                 const groupId = groupOf(txn.categoryKey);

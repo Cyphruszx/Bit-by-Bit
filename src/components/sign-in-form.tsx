@@ -21,7 +21,7 @@ export function SignInForm() {
 
   if (session) {
     return (
-      <div className="mt-8 rounded-2xl border border-line bg-white p-6">
+      <div className="mt-8 rounded-2xl border border-line bg-surface p-6">
         <p className="text-sm text-muted">
           Signed in as <span className="font-semibold">{session.email}</span>. Your ledger is backed
           up as you change it.
@@ -75,7 +75,7 @@ export function SignInForm() {
   const tooShort = making ? passwordError(password) : null;
 
   return (
-    <form onSubmit={submit} className="mt-8 rounded-2xl border border-line bg-white p-6">
+    <form onSubmit={submit} className="mt-8 rounded-2xl border border-line bg-surface p-6">
       <label className="block text-sm font-semibold" htmlFor="email">
         Email
       </label>

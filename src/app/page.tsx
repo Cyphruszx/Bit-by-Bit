@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { AppFrame } from "@/components/app-frame";
 import { BrandMark } from "@/components/brand-mark";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { siteDescription, siteName } from "@/lib/brand";
 
 const features = [
@@ -11,31 +13,32 @@ const features = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-canvas text-ink">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+    <AppFrame>
+      <nav className="mx-auto flex max-w-[1240px] items-center justify-between px-7 py-6">
         <BrandMark />
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Link href="/dashboard" className="text-sm font-semibold text-ink-soft">
             Dashboard
           </Link>
-          <Link href="/upload" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">
+          <Link href="/upload" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary">
             Upload a document
           </Link>
         </div>
       </nav>
-      <section className="mx-auto grid max-w-6xl gap-12 px-6 pb-20 pt-16 md:grid-cols-[1.1fr_.9fr] md:items-center md:pt-24">
+      <section className="mx-auto grid max-w-[1240px] gap-12 px-7 pb-20 pt-16 md:grid-cols-[1.1fr_.9fr] md:items-center md:pt-24">
         <div>
           <p className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-muted">Core feature</p>
           <h1 className="max-w-xl text-5xl font-bold tracking-tight md:text-6xl">Upload documents. See the money flow.</h1>
           <p className="mt-6 max-w-lg text-lg leading-8 text-muted">{siteDescription}</p>
           <Link
             href="/upload"
-            className="mt-9 inline-block rounded-full bg-accent px-6 py-3 font-bold text-primary"
+            className="mt-9 inline-block rounded-full bg-primary px-6 py-3 font-bold text-on-primary"
           >
             Interpret a statement
           </Link>
         </div>
-        <div className="rounded-3xl bg-primary p-7 text-white shadow-xl shadow-primary/15">
+        <div className="card-highlight p-7">
           <p className="text-sm text-on-dark-muted">What BitbyBit reads</p>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-on-dark-muted">
             <li>Bank CSV exports (5 per AU week)</li>
@@ -56,17 +59,17 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <section className="mx-auto grid max-w-6xl gap-4 px-6 pb-16 md:grid-cols-2 lg:grid-cols-4">
+      <section className="mx-auto grid max-w-[1240px] gap-4 px-7 pb-16 md:grid-cols-2 lg:grid-cols-4">
         {features.map(([title, description]) => (
-          <article key={title} className="rounded-2xl border border-line bg-white p-6">
+          <article key={title} className="card p-6">
             <h2 className="font-bold">{title}</h2>
             <p className="mt-2 leading-6 text-muted">{description}</p>
           </article>
         ))}
       </section>
-      <footer className="border-t border-line px-6 py-8 text-center text-sm text-muted">
+      <footer className="border-t border-line px-7 py-8 text-center text-sm text-muted">
         {siteName} · Statements stay in this browser. Sign in to keep a backup.
       </footer>
-    </main>
+    </AppFrame>
   );
 }
