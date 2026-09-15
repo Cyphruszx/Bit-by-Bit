@@ -1,6 +1,17 @@
+import { guestDeviceId, localQuotaStore, type QuotaStore } from "@/lib/money-flow/core-ingest";
 import { EMPTY_LEDGER, mergeLedgers, parseLedger, type Ledger } from "@/lib/money-flow/ledger";
 import { ledgerOwner, setLedgerOwner, type LedgerStore } from "@/lib/store/ledger-store";
 import { signedInUserId, supabaseRows, type CloudRows } from "@/lib/store/cloud-rows";
+import {
+  applyGuestMigration,
+  applyQuotaMigration,
+  copyGuestLedger,
+  inspectMigration,
+  type MigrationDecision,
+  type MigrationOffer,
+} from "@/lib/store/guest-migrate";
+import { requestMigrationChoice } from "@/lib/store/guest-migrate-offer";
+import { DEFAULT_SHELL, parseShell, persistable, type ShellState } from "@/lib/shell/core-shell";
 
 /**
  * A ledger kept in the browser and backed up to one person's account.
@@ -10,9 +21,9 @@ import { signedInUserId, supabaseRows, type CloudRows } from "@/lib/store/cloud-
  * catches up when it can, and a failure to reach it is never allowed to disturb what is on
  * screen — the same posture IndexedDB already takes when a browser refuses to write.
  *
- * Nothing is ever replaced. Both directions go through mergeLedgers, so signing in on a
- * device that already holds statements adds them rather than trading them for what the
- * account had, and two devices editing at once keep both answers.
+ * Guest → account is Spec 4: empty cloud copies the guest; both sides holding work wait
+ * for Merge / Keep account only / Replace with guest. Two devices that already belong to
+ * this person still go through mergeLedgers.
  *
  * The one thing never merged is somebody else's ledger. A store is made for a named person,
  * every call checks that person is still the one signed in, and the browser's copy carries a
@@ -36,6 +47,11 @@ export type CloudParts = {
   setOwner(userId: string | null): Promise<void>;
   /** How long a save waits before it is sent. Shortened in tests so they do not sit there. */
   settleMs?: number;
+  guestDeviceId?(): string;
+  readShell?(): ShellState;
+  writeShell?(state: ShellState): void;
+  quotaStore?(): QuotaStore;
+  chooseMigration?(offer: MigrationOffer): Promise<MigrationDecision>;
 };
 
 function liveParts(): CloudParts {
@@ -44,7 +60,39 @@ function liveParts(): CloudParts {
     signedInUserId,
     owner: ledgerOwner,
     setOwner: setLedgerOwner,
+    guestDeviceId: liveGuestDeviceId,
+    readShell: liveReadShell,
+    writeShell: liveWriteShell,
+    quotaStore: localQuotaStore,
+    chooseMigration: requestMigrationChoice,
   };
+}
+
+function liveGuestDeviceId(): string {
+  try {
+    return guestDeviceId();
+  } catch {
+    return "unknown-device";
+  }
+}
+
+function liveReadShell(): ShellState {
+  try {
+    const raw = localStorage.getItem("bitbybit.shell-v1");
+    if (!raw) return { ...DEFAULT_SHELL, widgets: [{ id: "money-tiles" }] };
+    return parseShell(JSON.parse(raw));
+  } catch {
+    return { ...DEFAULT_SHELL, widgets: [{ id: "money-tiles" }] };
+  }
+}
+
+function liveWriteShell(state: ShellState): void {
+  try {
+    localStorage.setItem("bitbybit.shell-v1", JSON.stringify(persistable(state)));
+    void import("@/components/shell-store").then((mod) => mod.replaceShell(state));
+  } catch {
+    // Same posture as every other write: a blocked store must not take the ledger down.
+  }
 }
 
 export function cloudLedgerStore(
@@ -77,12 +125,29 @@ export function cloudLedgerStore(
         // A first backup: this account has no row yet. Whatever is already in this browser
         // and belongs to us goes up now rather than waiting for the next edit.
         revision = 0;
-        if (holdsAnything(mine)) await push(mine);
+        if (holdsAnything(mine)) {
+          const copied = finishCopy(mine, parts, forUserId);
+          await push(copied);
+          await local.save(copied);
+          await claim();
+          return copied;
+        }
         await claim();
         return mine;
       }
 
       revision = there.revision;
+      const guestSession = owner === null && !inherited;
+      if (guestSession) {
+        const decided = await migrateGuest(mine, there.ledger, parts, forUserId);
+        if (!(await stillOurs())) return mine;
+        if (!decided) return there.ledger;
+        await local.save(decided);
+        await claim();
+        if (changed(there.ledger, decided) || changed(mine, decided)) await push(decided);
+        return decided;
+      }
+
       const merged = mergeLedgers(mine, there.ledger);
       // Someone else signed in while we were reading. Their store is already loading; ours
       // must not write over it, in the browser or in the cloud.
@@ -188,6 +253,49 @@ export function cloudLedgerStore(
   }
 }
 
+function finishCopy(guest: Ledger, parts: CloudParts, userId: string): Ledger {
+  const guestId = parts.guestDeviceId?.() ?? "unknown-device";
+  const shell = parts.readShell?.() ?? guest.shell ?? DEFAULT_SHELL;
+  const copied = copyGuestLedger(guest, guestId, shell);
+  parts.writeShell?.(copied.shell);
+  if (parts.quotaStore) applyQuotaMigration(parts.quotaStore(), guestId, userId);
+  return copied.ledger;
+}
+
+async function migrateGuest(
+  guest: Ledger,
+  account: Ledger,
+  parts: CloudParts,
+  userId: string,
+): Promise<Ledger | null> {
+  const guestId = parts.guestDeviceId?.() ?? "unknown-device";
+  const guestShell = parts.readShell?.() ?? guest.shell ?? DEFAULT_SHELL;
+  const accountShell = account.shell ?? DEFAULT_SHELL;
+  const offer = inspectMigration(guest, account, guestId, guestShell, accountShell);
+
+  if (offer.kind === "already-done" || offer.kind === "keep-account") {
+    const kept = applyGuestMigration(offer, { action: "keep-account" });
+    if (!kept.ok) return account;
+    parts.writeShell?.(kept.result.shell);
+    if (parts.quotaStore) applyQuotaMigration(parts.quotaStore(), guestId, userId);
+    return kept.result.ledger;
+  }
+
+  if (offer.kind === "copy-guest") {
+    return finishCopy(guest, parts, userId);
+  }
+
+  const choose = parts.chooseMigration;
+  if (!choose) return null;
+
+  const decision = await choose(offer);
+  const applied = applyGuestMigration(offer, decision);
+  if (!applied.ok) return null;
+  parts.writeShell?.(applied.result.shell);
+  if (parts.quotaStore) applyQuotaMigration(parts.quotaStore(), guestId, userId);
+  return applied.result.ledger;
+}
+
 /** Whether there is anything worth backing up, so an empty browser does not make a row. */
 function holdsAnything(ledger: Ledger): boolean {
   return ledger.entries.length > 0 || ledger.imports.length > 0;
@@ -201,6 +309,10 @@ function changed(before: Ledger, after: Ledger): boolean {
     JSON.stringify(before.institutions ?? {}) !== JSON.stringify(after.institutions ?? {}) ||
     JSON.stringify(before.accounts ?? {}) !== JSON.stringify(after.accounts ?? {}) ||
     JSON.stringify(before.verdicts ?? {}) !== JSON.stringify(after.verdicts ?? {}) ||
-    JSON.stringify(before.payers ?? {}) !== JSON.stringify(after.payers ?? {})
+    JSON.stringify(before.payers ?? {}) !== JSON.stringify(after.payers ?? {}) ||
+    JSON.stringify(before.rules ?? {}) !== JSON.stringify(after.rules ?? {}) ||
+    JSON.stringify(before.review ?? []) !== JSON.stringify(after.review ?? []) ||
+    JSON.stringify(before.migration ?? null) !== JSON.stringify(after.migration ?? null) ||
+    JSON.stringify(before.shell ?? null) !== JSON.stringify(after.shell ?? null)
   );
 }

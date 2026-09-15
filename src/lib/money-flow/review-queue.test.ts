@@ -235,4 +235,26 @@ describe("RESOLVE transfer writes ledger truth", () => {
     assert.equal(openReviewCount([item!]), 1);
     assert.equal(openReviewCount([resolveReviewItem(item!)]), 0);
   });
+
+  it("replays stored OPEN FINGERPRINT_CONFLICT and RULE_CONFLICT onto the queue", () => {
+    const stored = [
+      {
+        id: "FINGERPRINT_CONFLICT:abc",
+        reason: "FINGERPRINT_CONFLICT" as const,
+        state: "OPEN" as const,
+        movementIds: ["a"],
+        label: "Guest and account disagree",
+      },
+      {
+        id: "RULE_CONFLICT:cafe",
+        reason: "RULE_CONFLICT" as const,
+        state: "OPEN" as const,
+        movementIds: [],
+        label: "Guest and account learned different actions",
+      },
+    ];
+    const queue = buildReviewQueue([], { stored });
+    assert.ok(queue.some((item) => item.reason === "FINGERPRINT_CONFLICT" && item.state === "OPEN"));
+    assert.ok(queue.some((item) => item.reason === "RULE_CONFLICT" && item.state === "OPEN"));
+  });
 });

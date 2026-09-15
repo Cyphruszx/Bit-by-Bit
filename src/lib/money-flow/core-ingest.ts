@@ -26,6 +26,10 @@ export type QuotaUsage = {
   week: string;
   csv: number;
   ocrPages: number;
+  /** Spec 4: a guest quota that has already been migrated cannot charge again. */
+  sealed?: boolean;
+  migratedFromGuestId?: string;
+  migrationStatus?: "done";
 };
 
 export type QuotaActor = {
@@ -139,8 +143,23 @@ export function guestDeviceId(): string {
 export function peekQuota(store: QuotaStore, subject: string, at: Date = new Date()): QuotaUsage {
   const week = auWeekKey(at);
   const held = store.read(subject);
-  if (!held || held.week !== week) return emptyQuota(week);
+  if (!held) return emptyQuota(week);
+  if (held.week !== week) {
+    return {
+      ...emptyQuota(week),
+      ...quotaMigrationFields(held),
+    };
+  }
   return held;
+}
+
+/** Spec 4: carry seal / migrated-from across an AU week rollover. */
+function quotaMigrationFields(held: QuotaUsage): Partial<QuotaUsage> {
+  return {
+    ...(held.sealed ? { sealed: true } : {}),
+    ...(held.migratedFromGuestId ? { migratedFromGuestId: held.migratedFromGuestId } : {}),
+    ...(held.migrationStatus ? { migrationStatus: held.migrationStatus } : {}),
+  };
 }
 
 export function canChargeCsv(usage: QuotaUsage, slots = 1): boolean {
@@ -151,13 +170,42 @@ export function canChargeOcr(usage: QuotaUsage, pages: number): boolean {
   return usage.ocrPages + pages <= OCR_PAGE_WEEKLY_LIMIT;
 }
 
+/**
+ * Spec 4: user week becomes max(guest, user). Guest is sealed. Idempotent on
+ * the same guest_id.
+ */
+export function migrateQuotas(
+  store: QuotaStore,
+  guestId: string,
+  userId: string,
+  at: Date = new Date(),
+): QuotaUsage {
+  const guestSubject = quotaSubject({ deviceId: guestId });
+  const userSubject = quotaSubject({ userId });
+  const user = peekQuota(store, userSubject, at);
+  if (user.migrationStatus === "done" && user.migratedFromGuestId === guestId) return user;
+
+  const guest = peekQuota(store, guestSubject, at);
+  const week = auWeekKey(at);
+  const merged: QuotaUsage = {
+    week,
+    csv: Math.max(guest.csv, user.csv),
+    ocrPages: Math.max(guest.ocrPages, user.ocrPages),
+    migratedFromGuestId: guestId,
+    migrationStatus: "done",
+  };
+  store.write(userSubject, merged);
+  store.write(guestSubject, { ...guest, week: guest.week || week, sealed: true });
+  return merged;
+}
+
 export function tryChargeCsv(
   store: QuotaStore,
   subject: string,
   at: Date = new Date(),
 ): { ok: true; usage: QuotaUsage } | { ok: false; usage: QuotaUsage } {
   const current = peekQuota(store, subject, at);
-  if (!canChargeCsv(current)) return { ok: false, usage: current };
+  if (current.sealed || !canChargeCsv(current)) return { ok: false, usage: current };
   const usage = { ...current, csv: current.csv + 1 };
   store.write(subject, usage);
   return { ok: true, usage };
@@ -172,7 +220,7 @@ export function tryChargeOcr(
   const charged = Math.max(0, pages);
   const current = peekQuota(store, subject, at);
   if (charged === 0) return { ok: true, usage: current };
-  if (!canChargeOcr(current, charged)) return { ok: false, usage: current };
+  if (current.sealed || !canChargeOcr(current, charged)) return { ok: false, usage: current };
   const usage = { ...current, ocrPages: current.ocrPages + charged };
   store.write(subject, usage);
   return { ok: true, usage };

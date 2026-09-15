@@ -8,6 +8,7 @@ import {
   dismissOffer,
   enableOffer,
   hasFirstCleared,
+  mergeShells,
   navLabels,
   navLinks,
   offerLabels,
@@ -187,5 +188,27 @@ describe("Transactions table preset (Core vs Dev mode)", () => {
     assert.equal(off.devMode, false);
     assert.equal(off.tablePreset, "core");
     assert.equal(resolveTablePreset(off), "core");
+  });
+});
+
+describe("Spec 4 Core toggle OR", () => {
+  it("unions Goals and Linked balances and remaps linked ids", () => {
+    const guest = setFeature(
+      { ...DEFAULT_SHELL, linkedAccountIds: ["guest-acct"], widgets: [{ id: "money-tiles" }] },
+      "linked-balances",
+      true,
+    );
+    const account = setFeature(DEFAULT_SHELL, "goals", true);
+    const merged = mergeShells(guest, account, { "guest-acct": "acct-1" });
+    assert.equal(merged.enabled.goals, true);
+    assert.equal(merged.enabled.linkedBalances, true);
+    assert.deepEqual(merged.linkedAccountIds, ["acct-1"]);
+    assert.deepEqual(
+      merged.widgets.map((entry) => entry.id).sort(),
+      ["goals", "linked-balances", "money-tiles"],
+    );
+    const withDev = mergeShells(setDevMode(guest, true), account);
+    assert.equal(withDev.devMode, true);
+    assert.equal(withDev.tablePreset, "dev");
   });
 });

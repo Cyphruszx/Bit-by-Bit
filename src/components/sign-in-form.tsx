@@ -129,8 +129,9 @@ export function SignInForm() {
       </button>
 
       <p className="mt-4 text-xs text-muted">
-        Statements already in this browser are kept and added to the account, not replaced —
-        unless they belong to someone else who signed in here, which stay theirs.
+        An empty account copies what is already in this browser. If both have statements, you
+        choose Merge, keep the account only, or replace the account with this browser — that last
+        one is irreversible. Someone else&apos;s statements left on a shared machine stay theirs.
       </p>
     </form>
   );

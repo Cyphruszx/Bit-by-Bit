@@ -54,6 +54,15 @@ export function saveLinkedAccounts(ids: string[]) {
   write(setLinkedAccounts(read(), ids));
 }
 
+/** Spec 4 writes the migrated shell blob back so the chrome matches the ledger. */
+export function replaceShell(state: ShellState) {
+  write(state);
+}
+
+export function currentShell(): ShellState {
+  return read();
+}
+
 export function saveDevMode(on: boolean) {
   write(setDevMode(read(), on));
 }

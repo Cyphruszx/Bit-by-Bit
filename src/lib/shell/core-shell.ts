@@ -4,8 +4,8 @@
  * the first CLEARED row, then an enable offer. Cash Flow, Recurring, and
  * Budget (Spec 11 unlocked) stay out of nav and the offer.
  *
- * Layout JSON + theme persist here so Spec 4 can copy the blob later.
- * This module does not migrate guest → account.
+ * Layout JSON + theme persist here so Spec 4 can copy and OR-merge the blob.
+ * Sign-in choice and quota seal live in guest-migrate.
  */
 
 export const SPEC_11_LOCKED = false;
@@ -219,6 +219,34 @@ export function setLinkedAccounts(state: ShellState, linkedAccountIds: string[])
 
 export function persistable(state: ShellState): ShellState {
   return normalize(state);
+}
+
+/**
+ * Spec 4: Core toggles are guest OR account. Paid/AI flags are never invented
+ * from a guest blob — parseShell already drops unknown widgets.
+ * Dev-mode unlock/preset travel with the same layout blob.
+ */
+export function mergeShells(guest: ShellState, account: ShellState, remapIds: Record<string, string> = {}): ShellState {
+  const goalsById = new Map<string, Goal>();
+  for (const goal of guest.goals) goalsById.set(goal.id, goal);
+  for (const goal of account.goals) goalsById.set(goal.id, goal);
+  const linked = new Set<string>();
+  for (const id of guest.linkedAccountIds) linked.add(remapIds[id] ?? id);
+  for (const id of account.linkedAccountIds) linked.add(remapIds[id] ?? id);
+  return normalize({
+    version: 1,
+    theme: account.theme !== "default" ? account.theme : guest.theme,
+    widgets: [...account.widgets, ...guest.widgets],
+    enabled: {
+      goals: guest.enabled.goals || account.enabled.goals,
+      linkedBalances: guest.enabled.linkedBalances || account.enabled.linkedBalances,
+    },
+    offerDismissed: guest.offerDismissed || account.offerDismissed,
+    goals: [...goalsById.values()],
+    linkedAccountIds: [...linked],
+    devMode: guest.devMode || account.devMode,
+    tablePreset: account.tablePreset === "dev" || guest.tablePreset === "dev" ? "dev" : "core",
+  });
 }
 
 export function setDevMode(state: ShellState, on: boolean): ShellState {
