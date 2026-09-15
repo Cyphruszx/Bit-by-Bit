@@ -16,6 +16,7 @@ import { isCategoryKey, migrateStoredCategory } from "@/lib/money-flow/taxonomy"
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import { hasSource } from "@/lib/money-flow/source";
 import { persistUploadStatus } from "@/lib/money-flow/core-ingest";
+import { parseShell, type ShellState } from "@/lib/shell/core-shell";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const LEDGER_VERSION = 1;
@@ -96,6 +97,19 @@ export type Ledger = {
    * rebuilt from the current movements each read, so they are not stored here.
    */
   review?: ReviewItem[];
+  /**
+   * Spec 4: this account already took a named guest. Idempotent — the same
+   * guest_id does not migrate twice.
+   */
+  migration?: LedgerMigration;
+  /** Spec 4 / Spec 5: layout, theme, goals, linked balance views travel with the ledger. */
+  shell?: ShellState;
+};
+
+export type LedgerMigration = {
+  status: "done";
+  fromGuestId: string;
+  at: string;
 };
 
 export type ImportReport = {
@@ -606,6 +620,8 @@ export function mergeLedgers(mine: Ledger, theirs: Ledger): Ledger {
     ...mergedRules(mine.rules, theirs.rules),
     ...pickedTaxonomy(mine.taxonomy, theirs.taxonomy),
     ...pickedReview(mine.review, theirs.review),
+    ...(mine.migration ?? theirs.migration ? { migration: mine.migration ?? theirs.migration } : {}),
+    ...(mine.shell ?? theirs.shell ? { shell: mine.shell ?? theirs.shell } : {}),
   };
 }
 
@@ -768,7 +784,22 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(raw.rules && typeof raw.rules === "object" ? { rules: rulesOnly(raw.rules, extraKeys) } : {}),
     ...(taxonomy ? { taxonomy } : {}),
     ...(review.length > 0 ? { review } : {}),
+    ...parsedMigration(raw.migration),
+    ...parsedShell(raw.shell),
   };
+}
+
+function parsedMigration(value: unknown): { migration?: LedgerMigration } {
+  if (!value || typeof value !== "object") return {};
+  const held = value as Partial<LedgerMigration>;
+  if (held.status !== "done" || typeof held.fromGuestId !== "string" || !held.fromGuestId) return {};
+  if (typeof held.at !== "string" || !held.at) return {};
+  return { migration: { status: "done", fromGuestId: held.fromGuestId, at: held.at } };
+}
+
+function parsedShell(value: unknown): { shell?: ShellState } {
+  if (!value || typeof value !== "object") return {};
+  return { shell: parseShell(value) };
 }
 
 type Group = { label: string; file?: FileInterpretation; rows: InterpretedTransaction[] };
@@ -859,6 +890,9 @@ function rulesOnly(raw: Record<string, unknown>, extraKeys: string[] = []): Rule
       categoryKey,
       at: typeof stored.at === "string" ? stored.at : "",
       ...(typeof stored.from === "string" ? { from: stored.from } : {}),
+      ...(typeof stored.priority === "number" && Number.isFinite(stored.priority)
+        ? { priority: stored.priority }
+        : {}),
     };
   }
   return held;
@@ -881,7 +915,8 @@ function accountMetaOnly(raw: Record<string, unknown>): Record<string, AccountMe
     const next: AccountMeta = {};
     if (typeof stored.currency === "string" && stored.currency.trim()) next.currency = stored.currency.trim();
     if (typeof stored.kind === "string" && kinds.has(stored.kind)) next.kind = stored.kind as AccountMeta["kind"];
-    if (next.currency || next.kind) held[key] = next;
+    if (typeof stored.externalId === "string" && stored.externalId.trim()) next.externalId = stored.externalId.trim();
+    if (next.currency || next.kind || next.externalId) held[key] = next;
   }
   return held;
 }

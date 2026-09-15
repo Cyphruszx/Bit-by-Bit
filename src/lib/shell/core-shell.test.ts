@@ -8,6 +8,7 @@ import {
   dismissOffer,
   enableOffer,
   hasFirstCleared,
+  mergeShells,
   navLabels,
   navLinks,
   offerLabels,
@@ -140,5 +141,24 @@ describe("Spec 5 layout archive + restore + persist", () => {
     assert.equal(empty.enabled.goals, false);
     assert.deepEqual(visibleWidgets(empty), ["money-tiles"]);
     assert.equal(parseShell({ theme: "nocturne", enabled: { goals: true } }).theme, "default");
+  });
+});
+
+describe("Spec 4 Core toggle OR", () => {
+  it("unions Goals and Linked balances and remaps linked ids", () => {
+    const guest = setFeature(
+      { ...DEFAULT_SHELL, linkedAccountIds: ["guest-acct"], widgets: [{ id: "money-tiles" }] },
+      "linked-balances",
+      true,
+    );
+    const account = setFeature(DEFAULT_SHELL, "goals", true);
+    const merged = mergeShells(guest, account, { "guest-acct": "acct-1" });
+    assert.equal(merged.enabled.goals, true);
+    assert.equal(merged.enabled.linkedBalances, true);
+    assert.deepEqual(merged.linkedAccountIds, ["acct-1"]);
+    assert.deepEqual(
+      merged.widgets.map((entry) => entry.id).sort(),
+      ["goals", "linked-balances", "money-tiles"],
+    );
   });
 });

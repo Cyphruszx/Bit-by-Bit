@@ -1,5 +1,6 @@
 import { Geist } from "next/font/google";
 import type { Metadata } from "next";
+import { GuestMigrateDialog } from "@/components/guest-migrate-dialog";
 import { MoneyFlowProvider } from "@/components/money-flow-provider";
 import { siteDescription, siteName, siteTagline } from "@/lib/brand";
 import "./globals.css";
@@ -20,7 +21,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en-AU" className={geist.className}>
       <body>
-        <MoneyFlowProvider>{children}</MoneyFlowProvider>
+        <MoneyFlowProvider>
+          {children}
+          <GuestMigrateDialog />
+        </MoneyFlowProvider>
       </body>
     </html>
   );

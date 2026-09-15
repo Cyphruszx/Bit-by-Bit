@@ -30,6 +30,11 @@ export type LearnedRule = {
   from?: string;
   /** When they said so, so a later correction wins over an earlier one. */
   at: string;
+  /**
+   * Spec 4: same trigger, different action, higher priority wins.
+   * A tie (including both unset) opens RULE_CONFLICT.
+   */
+  priority?: number;
 };
 
 export type Rules = Record<string, LearnedRule>;

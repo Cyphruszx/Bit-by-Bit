@@ -10,6 +10,7 @@ import type { FileInterpretation, InterpretedTransaction } from "@/lib/money-flo
 import { cloudLedgerStore, type CloudParts } from "./cloud-ledger-store";
 import type { CloudRows } from "./cloud-rows";
 import type { LedgerStore } from "./ledger-store";
+import { REPLACE_CONFIRM_PHRASE, type MigrationDecision } from "./guest-migrate";
 
 const ME = "user-a";
 const SOMEBODY_ELSE = "user-b";
@@ -124,11 +125,16 @@ function cloud(seed: Record<string, { document: unknown; revision: number }> = {
 /** Who is signed in and who the browser's copy belongs to, both changeable mid-test. */
 const SETTLE_MS = 10;
 
-function browser(signedIn: string | null, ownedBy: string | null = null) {
+function browser(
+  signedIn: string | null,
+  ownedBy: string | null = null,
+  choose?: () => Promise<MigrationDecision> | MigrationDecision,
+) {
   const state = { signedIn, ownedBy };
   const parts = (rows: CloudRows): CloudParts => ({
     rows,
     settleMs: SETTLE_MS,
+    guestDeviceId: () => "dev-1",
     async signedInUserId() {
       return state.signedIn;
     },
@@ -138,6 +144,13 @@ function browser(signedIn: string | null, ownedBy: string | null = null) {
     async setOwner(userId) {
       state.ownedBy = userId;
     },
+    ...(choose
+      ? {
+          async chooseMigration() {
+            return choose();
+          },
+        }
+      : {}),
   });
   return { state, parts };
 }
@@ -157,7 +170,7 @@ describe("backing a ledger up to an account", () => {
     assert.deepEqual(merchants(sky.documentFor(ME) as Ledger), ["Cafe"]);
   });
 
-  it("adds the browser's statements to the account rather than trading them for it", async () => {
+  it("does not silently union guest and account when both have statements", async () => {
     const here = ledgerOf("june.csv", [txn("Cafe", -5)], "2026-06-02T00:00:00.000Z");
     const there = ledgerOf("may.csv", [txn("Chemist", -12)], "2026-05-02T00:00:00.000Z");
     const local = localStore(here);
@@ -166,17 +179,63 @@ describe("backing a ledger up to an account", () => {
 
     const loaded = await cloudLedgerStore(local.store, ME, parts(sky.rows)).load();
 
+    assert.deepEqual(merchants(loaded), ["Chemist"], "account stays until a choice is made");
+    assert.deepEqual(merchants(local.held), ["Cafe"], "guest is not overwritten");
+    assert.equal(sky.calls.update, 0);
+  });
+
+  it("Merge keeps both sides once the person chooses", async () => {
+    const here = ledgerOf("june.csv", [txn("Cafe", -5)], "2026-06-02T00:00:00.000Z");
+    const there = ledgerOf("may.csv", [txn("Chemist", -12)], "2026-05-02T00:00:00.000Z");
+    const local = localStore(here);
+    const sky = cloud({ [ME]: { document: there, revision: 4 } });
+    const { parts } = browser(ME, null, () => ({ action: "merge" }));
+
+    const loaded = await cloudLedgerStore(local.store, ME, parts(sky.rows)).load();
+
     assert.deepEqual(merchants(loaded), ["Cafe", "Chemist"], "both sides survive");
     assert.deepEqual(merchants(local.held), ["Cafe", "Chemist"], "and the browser now agrees");
     assert.deepEqual(merchants(sky.documentFor(ME) as Ledger), ["Cafe", "Chemist"]);
     assert.equal(sky.rowFor(ME)?.revision, 5, "written against the revision it was read at");
+    assert.equal((sky.documentFor(ME) as Ledger).migration?.fromGuestId, "dev-1");
+  });
+
+  it("Keep account only leaves guest statements out", async () => {
+    const here = ledgerOf("june.csv", [txn("Cafe", -5)], "2026-06-02T00:00:00.000Z");
+    const there = ledgerOf("may.csv", [txn("Chemist", -12)], "2026-05-02T00:00:00.000Z");
+    const local = localStore(here);
+    const sky = cloud({ [ME]: { document: there, revision: 4 } });
+    const { parts } = browser(ME, null, () => ({ action: "keep-account" }));
+
+    const loaded = await cloudLedgerStore(local.store, ME, parts(sky.rows)).load();
+
+    assert.deepEqual(merchants(loaded), ["Chemist"]);
+    assert.deepEqual(merchants(local.held), ["Chemist"]);
+    assert.equal((sky.documentFor(ME) as Ledger).migration?.fromGuestId, "dev-1");
+  });
+
+  it("Replace with guest wipes the account after the confirm phrase", async () => {
+    const here = ledgerOf("june.csv", [txn("Cafe", -5)], "2026-06-02T00:00:00.000Z");
+    const there = ledgerOf("may.csv", [txn("Chemist", -12)], "2026-05-02T00:00:00.000Z");
+    const local = localStore(here);
+    const sky = cloud({ [ME]: { document: there, revision: 4 } });
+    const { parts } = browser(ME, null, () => ({
+      action: "replace-guest",
+      confirm: REPLACE_CONFIRM_PHRASE,
+    }));
+
+    const loaded = await cloudLedgerStore(local.store, ME, parts(sky.rows)).load();
+
+    assert.deepEqual(merchants(loaded), ["Cafe"]);
+    assert.equal(merchants(loaded).includes("Chemist"), false);
+    assert.deepEqual(merchants(sky.documentFor(ME) as Ledger), ["Cafe"]);
   });
 
   it("leaves an unchanged ledger alone instead of writing it back", async () => {
     const same = ledgerOf("june.csv", [txn("Cafe", -5)], "2026-06-02T00:00:00.000Z");
     const local = localStore(same);
     const sky = cloud({ [ME]: { document: same, revision: 4 } });
-    const { parts } = browser(ME);
+    const { parts } = browser(ME, ME);
 
     await cloudLedgerStore(local.store, ME, parts(sky.rows)).load();
 
@@ -188,7 +247,7 @@ describe("backing a ledger up to an account", () => {
     const here = ledgerOf("june.csv", [txn("Cafe", -5)], "2026-06-02T00:00:00.000Z");
     const local = localStore(here);
     const sky = cloud({ [ME]: { document: here, revision: 2 } });
-    const { parts } = browser(ME);
+    const { parts } = browser(ME, ME);
 
     const store = cloudLedgerStore(local.store, ME, parts(sky.rows));
     await store.load(); // learns revision 2

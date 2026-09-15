@@ -153,6 +153,8 @@ export type AccountKind = "CHECKING" | "SAVINGS" | "CREDIT" | "LOAN" | "MORTGAGE
 export type AccountMeta = {
   currency?: string;
   kind?: AccountKind;
+  /** Bank/product id when one exists. Spec 4 matches guest → account on this first. */
+  externalId?: string;
 };
 
 const DEBT_KINDS = new Set<AccountKind>(["CREDIT", "LOAN", "MORTGAGE"]);
