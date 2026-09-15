@@ -103,12 +103,74 @@ export function filterByPeriod<T extends { dateIso: string }>(items: T[], filter
   return items.filter((item) => inPeriod(item.dateIso, filter));
 }
 
+export function lastTwelveMonths(endMonth: string): string[] {
+  return Array.from({ length: 12 }, (_, index) => shiftMonth(endMonth, index - 11));
+}
+
+export function lastTwelveMonthsRange(endMonth: string): Extract<PeriodFilter, { kind: "range" }> {
+  const months = lastTwelveMonths(endMonth);
+  const first = months[0] ?? endMonth;
+  return { kind: "range", from: monthBounds(first).from, to: monthBounds(endMonth).to };
+}
+
+export function isLastTwelveMonths(filter: PeriodFilter, endMonth: string): boolean {
+  if (filter.kind !== "range") return false;
+  const expected = lastTwelveMonthsRange(endMonth);
+  const from = filter.from <= filter.to ? filter.from : filter.to;
+  const to = filter.from <= filter.to ? filter.to : filter.from;
+  return from === expected.from && to === expected.to;
+}
+
+export function previousPeriod(filter: PeriodFilter): PeriodFilter | null {
+  if (filter.kind === "month") return { kind: "month", month: shiftMonth(filter.month, -1) };
+  if (filter.kind !== "range") return null;
+  const from = filter.from <= filter.to ? filter.from : filter.to;
+  const to = filter.from <= filter.to ? filter.to : filter.from;
+  const startMonth = monthKey(from);
+  const endMonth = monthKey(to);
+  if (from === monthBounds(startMonth).from && to === monthBounds(endMonth).to) {
+    if (startMonth === endMonth) return { kind: "month", month: shiftMonth(startMonth, -1) };
+    const months = monthDistance(startMonth, endMonth) + 1;
+    const prevEnd = shiftMonth(endMonth, -months);
+    const prevStart = shiftMonth(startMonth, -months);
+    return { kind: "range", from: monthBounds(prevStart).from, to: monthBounds(prevEnd).to };
+  }
+  const start = Date.parse(`${from}T00:00:00Z`);
+  const end = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
+  const length = end - start;
+  const prevTo = start - 86_400_000;
+  const prevFrom = prevTo - length;
+  return {
+    kind: "range",
+    from: new Date(prevFrom).toISOString().slice(0, 10),
+    to: new Date(prevTo).toISOString().slice(0, 10),
+  };
+}
+
+function monthDistance(first: string, last: string): number {
+  const [firstYear, firstMonth] = first.split("-").map(Number);
+  const [lastYear, lastMonth] = last.split("-").map(Number);
+  return lastYear * 12 + lastMonth - (firstYear * 12 + firstMonth);
+}
+
+export function daysLeftInMonth(month: string, todayIso: string): number | null {
+  const today = calendarDate(todayIso);
+  if (!CIVIL_DATE.test(today) || monthKey(today) !== month) return null;
+  const { to } = monthBounds(month);
+  const start = Date.parse(`${today}T00:00:00Z`);
+  const end = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+  return Math.max(0, Math.round((end - start) / 86_400_000));
+}
+
 export function describePeriod(filter: PeriodFilter, transactions: InterpretedTransaction[] = []): string {
   if (filter.kind === "month") return formatMonthLabel(filter.month);
   if (filter.kind === "range") {
     const from = filter.from <= filter.to ? filter.from : filter.to;
     const to = filter.from <= filter.to ? filter.to : filter.from;
     if (from === to) return formatDisplayDate(from);
+    if (isLastTwelveMonths(filter, monthKey(to))) return "Last 12 months";
     return `${formatDisplayDate(from)} – ${formatDisplayDate(to)}`;
   }
   if (transactions.length === 0) return "All activity";

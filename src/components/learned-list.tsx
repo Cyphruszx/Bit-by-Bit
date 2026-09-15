@@ -21,7 +21,7 @@ export function LearnedList() {
   if (learned.length === 0) return null;
 
   return (
-    <article className="mt-4 rounded-2xl border border-line bg-white p-4">
+    <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-bold">What BitbyBit has learned</h2>

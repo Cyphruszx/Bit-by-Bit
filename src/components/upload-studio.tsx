@@ -156,7 +156,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           interpret([...event.dataTransfer.files]);
         }}
         className={`rounded-3xl border-2 border-dashed p-8 text-center transition ${
-          dragging ? "border-primary bg-accent-surface" : "border-line bg-white"
+          dragging ? "border-primary bg-accent-surface" : "border-line bg-surface"
         }`}
       >
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Core feature</p>
@@ -232,7 +232,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               positive={flow.cashNet >= 0}
             />
           </section>
-          <article className="rounded-2xl border border-line bg-white p-6">
+          <article className="rounded-2xl border border-line bg-surface p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-bold">Interpreted money flow</h3>
               <button type="button" onClick={clearInterpretation} className="text-sm font-semibold text-ink-soft">
@@ -256,7 +256,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               ))}
             </div>
           </article>
-          <article className="rounded-2xl border border-line bg-white p-6">
+          <article className="rounded-2xl border border-line bg-surface p-6">
             <h3 className="text-lg font-bold">Statements you have added</h3>
             <p className="mt-1 text-sm text-muted">
               Every upload is kept, so you can build up months of activity. Uploading a statement twice adds nothing.
@@ -285,7 +285,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
               ))}
             </div>
           </article>
-          <article className="rounded-2xl border border-line bg-white p-6">
+          <article className="rounded-2xl border border-line bg-surface p-6">
             <h3 className="text-lg font-bold">Extracted activity</h3>
             <div className="mt-4 divide-y divide-surface-subtle">
               {transactions.length === 0 ? (
@@ -357,7 +357,7 @@ function ConfirmMapper({
   const ready = canConfirmDraft(draft);
   const multi = draft.sections.length > 1;
   return (
-    <section className="rounded-3xl border border-line bg-white p-6">
+    <section className="rounded-3xl border border-line bg-surface p-6">
       <h2 className="text-lg font-bold">Confirm & import</h2>
       <p className="mt-1 text-sm text-muted">
         {draft.channel === "csv"
@@ -463,7 +463,7 @@ function NameArrivedAccounts({
   if (pending.length === 0) return null;
 
   return (
-    <section className="rounded-3xl border border-line bg-white p-6">
+    <section className="rounded-3xl border border-line bg-surface p-6">
       <h2 className="text-lg font-bold">What should these accounts be called?</h2>
       <p className="mt-1 text-sm text-muted">
         Naming one now means the next statement from it lands in the same place, whichever

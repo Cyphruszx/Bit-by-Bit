@@ -1,145 +1,177 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ==========================================================================
-   Design tokens
-   --------------------------------------------------------------------------
-   Three layers: primitives -> semantic -> component.
-   Components should reference the semantic layer only (via Tailwind
-   utilities such as `text-muted` or `border-line`), never a raw hex.
+   Design tokens — 7b light, 8a dark
+   Hex values live on the Tailwind theme tokens themselves. Pointing
+   @theme at another custom property can leave bg-primary / text-ink empty.
    ========================================================================== */
 
-/* --------------------------------------------------------------------------
-   Layer 1 - Primitives
-   The raw palette. Nothing outside this file should use these directly;
-   they exist so the semantic layer has one place to change.
-   -------------------------------------------------------------------------- */
-:root {
-  /* Forest - the core green ramp, darkest to lightest */
-  --forest-950: #17211e;
-  --forest-900: #173b31;
-  --forest-700: #355a3f;
-  --forest-500: #5f6a66;
-  --forest-300: #b9cdc4;
-  --forest-250: #c3d2ca;
-  --forest-200: #c3cfc8;
-  --forest-150: #dce4df;
-  --forest-100: #edf0ee;
-  --forest-50: #f6f8f7;
-  --forest-25: #fafcf9;
-
-  /* Lime - the accent used on calls to action */
-  --lime-400: #d5f06c;
-  --lime-100: #edf4dc;
-  --lime-50: #f4f8ec;
-
-  /* Sage - the third brand green, on progress fills and the mark */
-  --sage-500: #73a883;
-
-  /* Status */
-  --green-600: #257155;
-  --red-700: #9b3b32;
-  --red-800: #8a2b2b;
-  --red-50: #f8e8e6;
-  --amber-700: #8a5a1e;
-  --amber-200: #d8c3a8;
-  --amber-100: #fdf2e3;
-  --amber-50: #fdf6ec;
-  --clay-700: #5c5142;
-
-  /* Categorical - charts only, chosen to stay distinct side by side */
-  --chart-slate: #5b8a9a;
-  --chart-sand: #c4a35a;
-  --chart-plum: #8b6b9b;
-
-  --white: #ffffff;
-}
-
-/* --------------------------------------------------------------------------
-   Layer 2 - Semantic
-   Purpose-named aliases. `static` makes Tailwind emit every one even
-   before a utility references it; --color-muted also generates the
-   matching text-muted / bg-muted / border-muted utilities.
-   -------------------------------------------------------------------------- */
 @theme static {
-  /* Surfaces */
-  --color-canvas: var(--forest-50);
-  --color-surface: var(--white);
-  --color-surface-subtle: var(--forest-100);
-  --color-surface-faint: var(--forest-25);
+  --color-canvas: #e2e8f3;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f5f6f8;
+  --color-surface-faint: #fbfcfd;
 
-  /* Text
-     Three steps, all AA at body size on every surface above.
-     --color-muted is #5f6a66, replacing four tones that had drifted apart:
-     #60716a, #52625c, #527166 and #77857f (the last failed AA at 3.62:1). */
-  --color-ink: var(--forest-950);
-  --color-ink-soft: var(--forest-700);
-  --color-muted: var(--forest-500);
+  --color-ink: #101214;
+  --color-ink-soft: #3d454c;
+  --color-muted: #5f6a72;
 
-  /* Text on dark surfaces */
-  --color-on-dark: var(--white);
-  --color-on-dark-muted: var(--forest-300);
+  --color-on-dark: #ffffff;
+  --color-on-dark-muted: #aeb6bf;
 
-  /* Lines */
-  --color-line: var(--forest-150);
-  --color-line-dashed: var(--forest-250);
-  --color-axis: var(--forest-200);
+  --color-line: #e3e6ea;
+  --color-line-dashed: #eef0f3;
+  --color-axis: #eef0f3;
 
-  /* Brand */
-  --color-primary: var(--forest-900);
-  --color-on-primary: var(--white);
-  --color-secondary: var(--sage-500);
-  --color-accent: var(--lime-400);
-  --color-on-accent: var(--forest-900);
-  --color-accent-surface: var(--lime-100);
-  --color-accent-surface-subtle: var(--lime-50);
+  --color-primary: #1b4fd8;
+  --color-primary-strong: #123a8f;
+  --color-on-primary: #ffffff;
+  --color-secondary: #5a8bf0;
+  --color-accent: #1b4fd8;
+  --color-on-accent: #ffffff;
+  --color-accent-surface: #eaf0fe;
+  --color-accent-surface-subtle: #eaf0fe;
 
-  /* Status - money moving the right way, the wrong way, or needing a look */
-  --color-positive: var(--green-600);
-  --color-negative: var(--red-700);
-  --color-negative-strong: var(--red-800);
-  --color-negative-surface: var(--red-50);
-  --color-attention: var(--amber-700);
-  --color-attention-ink: var(--clay-700);
-  --color-attention-line: var(--amber-200);
-  --color-attention-surface: var(--amber-50);
-  --color-attention-surface-strong: var(--amber-100);
+  --color-positive: #1b4fd8;
+  --color-negative: #101214;
+  --color-negative-strong: #8a2b2b;
+  --color-negative-surface: #f8e8e6;
+  --color-attention: #8a5a1e;
+  --color-attention-ink: #5c5142;
+  --color-attention-line: #d8c3a8;
+  --color-attention-surface: #fdf6ec;
+  --color-attention-surface-strong: #fdf2e3;
 
-  /* Categorical - keep this order; charts read it as a sequence */
-  --color-chart-1: var(--forest-900);
-  --color-chart-2: var(--sage-500);
-  --color-chart-3: var(--chart-slate);
-  --color-chart-4: var(--chart-sand);
-  --color-chart-5: var(--chart-plum);
-  --color-chart-6: var(--red-700);
-  --color-chart-7: var(--forest-700);
-  --color-chart-8: var(--green-600);
+  --color-chart-1: #123a8f;
+  --color-chart-2: #1b4fd8;
+  --color-chart-3: #5a8bf0;
+  --color-chart-4: #9dbaf7;
+  --color-chart-5: #c9d8fb;
+  --color-chart-6: #aeb6bf;
+  --color-chart-7: #2c4c93;
+  --color-chart-8: #1d3569;
+
+  --color-mark-1: #1b4fd8;
+  --color-mark-2: #9dbaf7;
+  --color-mark-3: #5a8bf0;
+  --color-mark-4: #123a8f;
+
+  --shadow-card: 0 1px 2px rgba(18, 58, 143, 0.06), 0 14px 30px -16px rgba(18, 58, 143, 0.28);
 }
 
-/* --------------------------------------------------------------------------
-   Layer 3 - Component
-   Recurring shapes the app already uses consistently. Radius is codified
-   because the existing usage is genuinely uniform: rounded-2xl on cards
-   (40 uses), rounded-full on pills and buttons (78 uses).
-   -------------------------------------------------------------------------- */
+@layer theme {
+  html.dark,
+  .dark {
+    --color-canvas: #0d1119;
+    --color-surface: #171b22;
+    --color-surface-subtle: #0e1116;
+    --color-surface-faint: #1b2029;
+
+    --color-ink: #e9edf3;
+    --color-ink-soft: #c3cbd6;
+    --color-muted: #9aa4b2;
+
+    --color-on-dark: #e9edf3;
+    --color-on-dark-muted: #c3cbd6;
+
+    --color-line: #262c36;
+    --color-line-dashed: #222733;
+    --color-axis: #222733;
+
+    --color-primary: #2f5bd0;
+    --color-primary-strong: #24407f;
+    --color-on-primary: #ffffff;
+    --color-secondary: #6f9bff;
+    --color-accent: #2f5bd0;
+    --color-on-accent: #ffffff;
+    --color-accent-surface: #1b2a4d;
+    --color-accent-surface-subtle: #1b2a4d;
+
+    --color-positive: #6f9bff;
+    --color-negative: #e9edf3;
+    --color-negative-strong: #8a2b2b;
+    --color-negative-surface: #3a2220;
+    --color-attention: #8a5a1e;
+    --color-attention-ink: #e9edf3;
+    --color-attention-line: #6b5a3a;
+    --color-attention-surface: #2a2418;
+    --color-attention-surface-strong: #332b1c;
+
+    --color-chart-1: #24407f;
+    --color-chart-2: #6f9bff;
+    --color-chart-3: #8fb2ff;
+    --color-chart-4: #b9cdff;
+    --color-chart-5: #dce6ff;
+    --color-chart-6: #6b7683;
+    --color-chart-7: #2c4c93;
+    --color-chart-8: #1d3569;
+
+    --color-mark-1: #6f9bff;
+    --color-mark-2: #b9cdff;
+    --color-mark-3: #8fb2ff;
+    --color-mark-4: #24407f;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 34px -18px rgba(0, 0, 0, 0.85);
+  }
+}
+
 :root {
   --radius-card: 1rem;
   --radius-pill: 9999px;
   --radius-mark: 2px;
 
-  --card-bg: var(--color-surface);
-  --card-border: var(--color-line);
+  --card-bg: #ffffff;
+  --card-border: rgba(18, 58, 143, 0.1);
+  --header-bg: rgba(255, 255, 255, 0.92);
+  --header-line: rgba(18, 58, 143, 0.1);
+  --header-shadow: 0 10px 24px -20px rgba(18, 58, 143, 0.5);
+  --period-bg: rgba(245, 246, 248, 0.72);
 
-  --field-border: var(--color-line);
-  --field-border-empty: var(--color-line-dashed);
+  --canvas-gradient: linear-gradient(170deg, #eff3fa 0%, #e2e8f3 60%, #d5dcea 100%);
+  --sweep-grid: rgba(27, 79, 216, 0.13);
+  --sweep-beam: linear-gradient(
+    105deg,
+    transparent 34%,
+    rgba(255, 255, 255, 0.9) 48%,
+    rgba(27, 79, 216, 0.16) 56%,
+    transparent 66%
+  );
+  --sweep-wash: radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.2), transparent 42%);
+  --sweep-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -56px 80px -56px rgba(18, 58, 143, 0.4);
+  --highlight-gradient: linear-gradient(160deg, #2c4c93, #1d3569);
 
-  /* Kept so `body` below and any existing reference keeps resolving */
-  --background: var(--color-canvas);
-  --foreground: var(--color-ink);
+  --background: #e2e8f3;
+  --foreground: #101214;
 }
 
-/* ==========================================================================
-   Base
-   ========================================================================== */
+html.dark,
+.dark {
+  --card-bg: rgba(23, 27, 34, 0.92);
+  --card-border: rgba(111, 155, 255, 0.14);
+  --header-bg: rgba(17, 22, 33, 0.88);
+  --header-line: rgba(111, 155, 255, 0.12);
+  --header-shadow: 0 10px 24px -20px rgba(0, 0, 0, 0.9);
+  --period-bg: rgba(14, 17, 22, 0.72);
+
+  --canvas-gradient: linear-gradient(170deg, #111621 0%, #0d1119 60%, #080b11 100%);
+  --sweep-grid: rgba(111, 155, 255, 0.13);
+  --sweep-beam: linear-gradient(
+    105deg,
+    transparent 34%,
+    rgba(111, 155, 255, 0.14) 48%,
+    rgba(27, 79, 216, 0.2) 56%,
+    transparent 66%
+  );
+  --sweep-wash:
+    radial-gradient(120% 70% at 50% 0%, rgba(111, 155, 255, 0.1), transparent 45%),
+    radial-gradient(130% 110% at 50% 118%, rgba(5, 8, 14, 0.75), transparent 62%);
+  --sweep-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -60px 90px -60px rgba(0, 0, 0, 0.8);
+
+  --background: #0d1119;
+  --foreground: #e9edf3;
+}
 
 * {
   box-sizing: border-box;
@@ -163,4 +195,95 @@ a {
 button:hover,
 a:hover {
   opacity: 0.86;
+}
+
+.app-frame {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  color: var(--color-ink);
+  background: var(--canvas-gradient);
+}
+
+.app-sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-sweep-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--sweep-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sweep-grid) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(130% 110% at 50% 40%, #000 35%, transparent 85%);
+  -webkit-mask-image: radial-gradient(130% 110% at 50% 40%, #000 35%, transparent 85%);
+}
+
+.app-sweep-beam {
+  position: absolute;
+  top: -40%;
+  left: 0;
+  width: 160%;
+  height: 180%;
+  background: var(--sweep-beam);
+  animation: om-sweep 11s ease-in-out infinite alternate;
+}
+
+.app-sweep-wash {
+  position: absolute;
+  inset: 0;
+  background: var(--sweep-wash);
+  box-shadow: var(--sweep-inset);
+}
+
+.app-header {
+  background: var(--header-bg);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--header-line);
+  box-shadow: var(--header-shadow);
+}
+
+.app-period {
+  background: var(--period-bg);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.card-highlight {
+  background: var(--highlight-gradient);
+  border: 1px solid rgba(157, 186, 247, 0.35);
+  border-radius: var(--radius-card);
+  color: #ffffff;
+  box-shadow: var(--shadow-card);
+}
+
+html.dark .card,
+.dark .card {
+  background: rgba(23, 27, 34, 0.92);
+}
+
+@keyframes om-sweep {
+  0% {
+    transform: translate3d(-28%, 0, 0);
+  }
+  100% {
+    transform: translate3d(28%, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sweep-beam {
+    animation: none;
+  }
 }

@@ -71,7 +71,7 @@ export function TagChartCard({
     : "rounded-full px-3 py-1.5 text-sm font-semibold";
 
   return (
-    <article className={`rounded-2xl border border-line bg-white ${compact ? "p-4" : "p-6"}`}>
+    <article className={`rounded-2xl border border-line bg-surface ${compact ? "p-4" : "p-6"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className={compact ? "text-base font-bold" : "text-lg font-bold"}>{title}</h2>
@@ -193,7 +193,7 @@ function TagToggle({
       aria-pressed={active}
       onClick={onClick}
       className={`rounded-full font-semibold ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
-        active ? "bg-primary text-white" : "border border-line bg-white text-ink-soft"
+        active ? "bg-primary text-white" : "border border-line bg-surface text-ink-soft"
       }`}
     >
       {children}

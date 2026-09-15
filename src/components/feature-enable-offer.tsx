@@ -50,7 +50,7 @@ export function FeatureEnableOffer() {
         <button
           type="button"
           onClick={dismissEnableOffer}
-          className="rounded-full border border-line bg-white px-4 py-1.5 text-sm font-semibold text-ink-soft"
+          className="rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-semibold text-ink-soft"
         >
           Not now
         </button>
@@ -65,7 +65,7 @@ export function OptionalFeaturesPanel() {
   if (!hasCleared) return null;
 
   return (
-    <details className="mt-8 rounded-2xl border border-line bg-white p-6">
+    <details className="mt-8 rounded-2xl border border-line bg-surface p-6">
       <summary className="cursor-pointer text-lg font-bold">Optional features</summary>
       <p className="mt-2 text-sm text-muted">
         Goals, Linked balances, and Pools stay off until you enable them. Turning one off hides it
@@ -81,7 +81,7 @@ export function OptionalFeaturesPanel() {
                 type="button"
                 onClick={() => setFeatureOn(key, !on)}
                 className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
-                  on ? "border border-line bg-white text-ink-soft" : "bg-primary text-white"
+                  on ? "border border-line bg-surface text-ink-soft" : "bg-primary text-white"
                 }`}
               >
                 {on ? "Turn off" : "Enable"}
