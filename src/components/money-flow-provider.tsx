@@ -21,6 +21,10 @@ import {
   recordTaxonomy,
   replaceTransactions,
   visibleTransactions,
+  applyPoolWrite,
+  recordEnableOfferAccept,
+  recordEnableOfferDismiss,
+  recordFeatureToggle,
   type HeldStatement,
   type ImportReport,
   type Ledger,
@@ -55,6 +59,18 @@ import { classify } from "@/lib/money-flow/classify";
 import { whatWasLearned, type LearnedThing } from "@/lib/money-flow/rules";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 import { resolveLedgerStore, type LedgerStore } from "@/lib/store/ledger-store";
+import type { AccountMeta } from "@/lib/money-flow/account-identity";
+import { isFeatureEnabled, type EnableOfferKey, type FeatureKey, type FeatureOffer, type FeatureToggles } from "@/lib/money-flow/features";
+import {
+  addPoolMember as addMemberToBook,
+  archivePool as archivePoolInBook,
+  createPool as createPoolInBook,
+  poolBookOf,
+  removePoolMember as removeMemberFromBook,
+  renamePool as renamePoolInBook,
+  type AccountPool,
+  type AccountPoolMember,
+} from "@/lib/money-flow/pools";
 
 const PERIOD_KEY = "bitbybit.period-v1";
 
@@ -137,6 +153,24 @@ type MoneyFlowState = {
   categoryBook: CategoryBook;
   /** Records an edit, or null to restore the usual fourteen. */
   setCategoryBook: (book: CategoryBook | null) => void;
+  /** Spec 6 currency/kind/cleared_balance. */
+  accountMeta: Record<string, AccountMeta>;
+  /** Spec 11 Pools. */
+  accountPools: AccountPool[];
+  accountPoolMembers: AccountPoolMember[];
+  createPool: (input: { userId: string; name: string; notes?: string; colour?: string }) =>
+    | { ok: true; softWarning?: string }
+    | { ok: false; reason: string };
+  renamePool: (poolId: string, name: string) => { ok: true } | { ok: false; reason: string };
+  archivePool: (poolId: string) => { ok: true } | { ok: false; reason: string };
+  addPoolMember: (poolId: string, accountId: string) => { ok: true } | { ok: false; reason: string };
+  removePoolMember: (poolId: string, accountId: string) => { ok: true } | { ok: false; reason: string };
+  featureToggles: FeatureToggles;
+  featureOffer: FeatureOffer | undefined;
+  featureOn: (key: FeatureKey) => boolean;
+  setFeatureOn: (key: FeatureKey, enabled: boolean) => void;
+  acceptEnableOffer: (keys: readonly EnableOfferKey[]) => void;
+  dismissEnableOffer: () => void;
 };
 
 const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
@@ -218,6 +252,20 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       removeTagEverywhere,
       categoryBook,
       setCategoryBook,
+      accountMeta: held.ledger.accountMeta ?? {},
+      accountPools: held.ledger.accountPools ?? [],
+      accountPoolMembers: held.ledger.accountPoolMembers ?? [],
+      createPool,
+      renamePool,
+      archivePool,
+      addPoolMember,
+      removePoolMember,
+      featureToggles: held.ledger.featureToggles ?? {},
+      featureOffer: held.ledger.featureOffer,
+      featureOn: (key: FeatureKey) => isFeatureEnabled(held.ledger.featureToggles, key),
+      setFeatureOn,
+      acceptEnableOffer,
+      dismissEnableOffer,
     };
   }, [held, period]);
 
@@ -340,6 +388,58 @@ function mergeAccount(sourceId: string, survivorId: string): MergeAccountsResult
 function setCategoryBook(book: CategoryBook | null) {
   applyBook(book ? resolveBook(book) : null);
   commit(recordTaxonomy(snapshot.ledger, book));
+}
+
+function poolBook() {
+  return poolBookOf(snapshot.ledger.accountPools, snapshot.ledger.accountPoolMembers);
+}
+
+function createPool(input: { userId: string; name: string; notes?: string; colour?: string }) {
+  const result = applyPoolWrite(snapshot.ledger, createPoolInBook(poolBook(), input));
+  if (result.ok) commit(result.ledger);
+  return result.ok ? { ok: true as const, ...(result.softWarning ? { softWarning: result.softWarning } : {}) } : result;
+}
+
+function renamePool(poolId: string, name: string) {
+  const result = applyPoolWrite(snapshot.ledger, renamePoolInBook(poolBook(), poolId, name));
+  if (result.ok) commit(result.ledger);
+  return result.ok ? { ok: true as const } : result;
+}
+
+function archivePool(poolId: string) {
+  const result = applyPoolWrite(snapshot.ledger, archivePoolInBook(poolBook(), poolId));
+  if (result.ok) commit(result.ledger);
+  return result.ok ? { ok: true as const } : result;
+}
+
+function addPoolMember(poolId: string, accountId: string) {
+  const result = applyPoolWrite(
+    snapshot.ledger,
+    addMemberToBook(poolBook(), poolId, accountId, {
+      meta: snapshot.ledger.accountMeta,
+      mergedInto: snapshot.ledger.mergedInto,
+    }),
+  );
+  if (result.ok) commit(result.ledger);
+  return result.ok ? { ok: true as const } : result;
+}
+
+function removePoolMember(poolId: string, accountId: string) {
+  const result = applyPoolWrite(snapshot.ledger, removeMemberFromBook(poolBook(), poolId, accountId));
+  if (result.ok) commit(result.ledger);
+  return result.ok ? { ok: true as const } : result;
+}
+
+function setFeatureOn(key: FeatureKey, enabled: boolean) {
+  commit(recordFeatureToggle(snapshot.ledger, key, enabled));
+}
+
+function acceptEnableOffer(keys: readonly EnableOfferKey[]) {
+  commit(recordEnableOfferAccept(snapshot.ledger, keys));
+}
+
+function dismissEnableOffer() {
+  commit(recordEnableOfferDismiss(snapshot.ledger));
 }
 
 function clearLedger() {

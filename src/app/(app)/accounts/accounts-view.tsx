@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { IncomeRhythm } from "@/components/income-rhythm";
 import { PayerSuggestions } from "@/components/payer-suggestions";
 import { EmptyLedger } from "@/components/empty-ledger";
+import { FeatureEnableOffer } from "@/components/feature-enable-offer";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { PoolsWidget } from "@/components/pools-widget";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
 import { mergeSuggestions } from "@/lib/money-flow/account-identity";
@@ -15,6 +17,7 @@ import {
   knownInstitutions,
   UNKNOWN_INSTITUTION,
 } from "@/lib/money-flow/institution";
+import { livePools, poolBookOf, poolsForAccount, type PoolBook } from "@/lib/money-flow/pools";
 
 export function AccountsView() {
   const {
@@ -29,12 +32,22 @@ export function AccountsView() {
     setAccountName,
     mergeAccount,
     mergedInto,
+    accountPools,
+    accountPoolMembers,
+    featureOn,
   } = useMoneyFlow();
 
   const registry = { names: accountNames, institutions: institutionOverrides, payers, mergedInto };
   const groups = accountsByInstitution(allTransactions, registry);
   const accounts = groups.flatMap((group) => group.accounts);
   const suggestions = mergeSuggestions(accounts.flatMap((account) => account.keys));
+  const poolBook = useMemo(
+    () => poolBookOf(accountPools, accountPoolMembers),
+    [accountPoolMembers, accountPools],
+  );
+  const poolsOn = featureOn("POOLS");
+  const pools = poolsOn ? livePools(poolBook) : [];
+  const [poolFilter, setPoolFilter] = useState<string>("all");
 
   const [mergeError, setMergeError] = useState<string | null>(null);
 
@@ -74,9 +87,12 @@ export function AccountsView() {
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Accounts and sources</h1>
       <p className="mt-2 text-muted">
         Every account BitbyBit has read, under the bank it belongs to. Name one to recognise it next
-        time, or merge two that turned out to be the same account. Merging cannot be undone.
+        time, or merge two that turned out to be the same account. Merging is permanent, for
+        duplicate products only. To group accounts without merging, use Pools.
       </p>
       {mergeError ? <p className="mt-3 text-sm text-negative">{mergeError}</p> : null}
+
+      <FeatureEnableOffer />
 
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <SummaryCard
@@ -101,6 +117,8 @@ export function AccountsView() {
 
       <IncomeRhythm />
 
+      {poolsOn ? <PoolsWidget /> : null}
+
       {suggestions.length > 0 ? (
         <section className="mt-8 rounded-2xl border border-attention-line bg-attention-surface p-6">
           <h2 className="text-lg font-bold">These might be the same account</h2>
@@ -123,11 +141,46 @@ export function AccountsView() {
               );
             })}
           </div>
+          <p className="mt-3 text-xs text-muted">
+            Merging is permanent, for duplicate products only. To group without merging, use Pools.
+          </p>
         </section>
       ) : null}
 
       <section className="mt-8 space-y-8">
-        {groups.map((group) => (
+        {poolsOn ? (
+          <PoolFilter
+            pools={pools}
+            value={poolFilter}
+            onChange={setPoolFilter}
+            unpooledCount={accounts.filter((account) => poolsForAccount(poolBook, account.id).length === 0).length}
+          />
+        ) : null}
+        {poolsOn && poolFilter !== "all"
+          ? poolSections(accounts, poolBook, pools, poolFilter).map((section) => (
+              <div key={section.title}>
+                <div className="flex items-baseline justify-between border-b border-line pb-2">
+                  <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{section.title}</h2>
+                  <p className="text-sm text-muted">
+                    {section.accounts.length} account{section.accounts.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  {section.accounts.map((account) => (
+                    <AccountCard
+                      key={account.id}
+                      account={account}
+                      name={nameOf(account)}
+                      siblings={accounts.filter((other) => other.id !== account.id)}
+                      poolNames={poolsForAccount(poolBook, account.id).map((pool) => pool.name)}
+                      onRename={(name) => rename(account, name)}
+                      onMerge={(into) => merge(account, into)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))
+          : groups.map((group) => (
           <div key={group.institution}>
             <div className="flex items-baseline justify-between border-b border-line pb-2">
               <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{group.institution}</h2>
@@ -142,6 +195,7 @@ export function AccountsView() {
                   account={account}
                   name={nameOf(account)}
                   siblings={group.accounts.filter((other) => other.id !== account.id)}
+                  poolNames={poolsOn ? poolsForAccount(poolBook, account.id).map((pool) => pool.name) : []}
                   onRename={(name) => rename(account, name)}
                   onMerge={(into) => merge(account, into)}
                 />
@@ -188,16 +242,78 @@ export function AccountsView() {
   );
 }
 
+function PoolFilter({
+  pools,
+  value,
+  onChange,
+  unpooledCount,
+}: {
+  pools: { id: string; name: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  unpooledCount: number;
+}) {
+  const chips = [
+    { id: "all", label: "All" },
+    ...pools.map((pool) => ({ id: pool.id, label: pool.name })),
+    { id: "unpooled", label: "Not in a pool" },
+  ];
+  return (
+    <div>
+      <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Filter by pool</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {chips.map((chip) => (
+          <button
+            key={chip.id}
+            type="button"
+            onClick={() => onChange(chip.id)}
+            className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
+              value === chip.id ? "bg-primary text-white" : "border border-line bg-white text-ink-soft"
+            }`}
+          >
+            {chip.label}
+            {chip.id === "unpooled" ? ` (${unpooledCount})` : ""}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function poolSections(
+  accounts: AccountTotals[],
+  book: PoolBook,
+  pools: { id: string; name: string }[],
+  filter: string,
+): { title: string; accounts: AccountTotals[] }[] {
+  if (filter === "unpooled") {
+    return [
+      {
+        title: "Not in a pool",
+        accounts: accounts.filter((account) => poolsForAccount(book, account.id).length === 0),
+      },
+    ];
+  }
+  const pool = pools.find((item) => item.id === filter);
+  if (!pool) return [];
+  const ids = new Set(
+    book.members.filter((member) => member.poolId === pool.id).map((member) => member.accountId),
+  );
+  return [{ title: pool.name, accounts: accounts.filter((account) => ids.has(account.id)) }];
+}
+
 function AccountCard({
   account,
   name,
   siblings,
+  poolNames,
   onRename,
   onMerge,
 }: {
   account: AccountTotals;
   name: string;
   siblings: AccountTotals[];
+  poolNames: string[];
   onRename: (name: string) => void;
   onMerge: (into: AccountTotals) => void;
 }) {
@@ -234,6 +350,11 @@ function AccountCard({
             {key}
           </span>
         ))}
+        {poolNames.map((pool) => (
+          <span key={pool} className="rounded-full bg-accent-surface px-3 py-1 text-xs font-semibold text-ink-soft">
+            {pool}
+          </span>
+        ))}
       </div>
 
       {siblings.length > 0 ? (
@@ -257,7 +378,9 @@ function AccountCard({
         </label>
       ) : null}
       {siblings.length > 0 ? (
-        <p className="mt-2 text-xs text-muted">Merging cannot be undone.</p>
+        <p className="mt-2 text-xs text-muted">
+          Merging is permanent, for duplicate products only. To group without merging, use Pools.
+        </p>
       ) : null}
     </article>
   );
