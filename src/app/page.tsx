@@ -3,7 +3,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { siteDescription, siteName } from "@/lib/brand";
 
 const features = [
-  ["Almost any document", "CSV, Excel, PDF, OFX, QIF, Word, HTML, JSON, photos of receipts, and plain text."],
+  ["CSV and photos", "Core ingest is bank CSV plus OCR photos. Excel, OFX, and QIF stay unavailable."],
   ["AI reads photos", "Vision extracts totals from receipts and statement photos, then suggests tags when the merchant is unclear."],
   ["Interpreted money flow", "See money in, money out, and a category on each movement, with optional tags."],
   ["Made for Australia", "Dates, dollars, and merchants parsed with local statements in mind."],
@@ -38,10 +38,10 @@ export default function Home() {
         <div className="rounded-3xl bg-primary p-7 text-white shadow-xl shadow-primary/15">
           <p className="text-sm text-on-dark-muted">What BitbyBit reads</p>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-on-dark-muted">
-            <li>Bank CSV and Excel exports</li>
-            <li>OFX, QFX, and QIF downloads</li>
-            <li>PDF statements and Word docs</li>
-            <li>Photos of receipts and printed pages, read with AI when configured</li>
+            <li>Bank CSV exports (5 per AU week)</li>
+            <li>Photos of receipts and printed pages (20 OCR pages per AU week)</li>
+            <li>Launch presets: NAB, CBA, ANZ, Westpac, Up, Bendigo, ING, Macquarie</li>
+            <li>Excel, OFX, and QIF unavailable in Core</li>
           </ul>
           <p className="mt-8 text-sm text-on-dark-muted">Then it shows</p>
           <div className="mt-3 grid grid-cols-2 gap-3">

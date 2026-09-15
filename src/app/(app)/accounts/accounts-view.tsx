@@ -93,7 +93,7 @@ export function AccountsView() {
         <SummaryCard
           label="Documents interpreted"
           value={String(files.filter((file) => file.processingStatus === "completed").length)}
-          detail="CSV, Excel, PDF, OFX, images, and more"
+          detail="CSV and OCR photos"
         />
       </section>
 

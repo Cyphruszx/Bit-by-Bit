@@ -90,7 +90,7 @@ export type InterpretedTransaction = {
    * counting. HOLD is a CLEARED-only stub. Spec 7 OPEN exclusion uses the
    * Review Queue hold set, not a persisted HOLD status.
    */
-  status?: "CLEARED" | "HOLD";
+  status?: "CLEARED" | "HOLD" | "DUPLICATE_HOLD";
   /**
    * Spec 10 Actual Savings: a person marked this inflow as savings. Used when
    * the destination account is not recognisable as savings from its name.
@@ -155,6 +155,8 @@ export type FileInterpretation = {
   processingError?: string;
   transactionCount: number;
   notes: string[];
+  /** Spec 2: OCR page count charged at intake. Absent on CSV. */
+  ocrPages?: number;
 };
 
 export type CategorySpend = {

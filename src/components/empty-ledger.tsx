@@ -10,7 +10,7 @@ export function EmptyLedger({ children }: { children?: React.ReactNode }) {
       <h2 className="text-lg font-bold">No statements yet</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-muted">
         {children ??
-          "Upload a bank statement, spreadsheet, PDF or photo and BitbyBit will read it into money in, money out and what that leaves."}
+          "Upload a bank CSV or a photo of a page and BitbyBit will read it into money in, money out and what that leaves."}
       </p>
       <Link
         href="/upload"

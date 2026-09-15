@@ -1,13 +1,29 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { interpretUploadedDocuments } from "@/app/actions/interpret-documents";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { useSession } from "@/components/session-store";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { acceptedDropTypes } from "@/lib/money-flow/accept";
 import { accountsFrom, suggestNameForKey, type AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
+import {
+  applyDraft,
+  canConfirmDraft,
+  createDraft,
+  CSV_WEEKLY_LIMIT,
+  guestDeviceId,
+  LAUNCH_BANK_PRESETS,
+  localQuotaStore,
+  OCR_PAGE_WEEKLY_LIMIT,
+  peekQuota,
+  quotaSubject,
+  tryChargeCsv,
+  tryChargeOcr,
+  type IngestDraft,
+} from "@/lib/money-flow/core-ingest";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
@@ -15,15 +31,15 @@ import { taxonomyPath } from "@/lib/money-flow/category-book";
 import { tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
-const SAMPLES: Array<{ paths: string[]; label: string }> = [
-  { paths: ["/samples/nab-medicare.csv", "/samples/nab-rent.csv"], label: "NAB both accounts" },
-  { paths: ["/samples/nab-medicare.csv"], label: "NAB everyday account" },
-  { paths: ["/samples/nab-rent.csv"], label: "NAB rent and offset account" },
-  { paths: ["/samples/up-2025-07-to-2026-06.txt"], label: "Up financial year" },
+const SAMPLES: Array<{ path: string; label: string }> = [
+  { path: "/samples/nab-medicare.csv", label: "NAB everyday account" },
+  { path: "/samples/nab-rent.csv", label: "NAB rent and offset account" },
+  { path: "/samples/up-2025-07-to-2026-06.txt", label: "Up financial year" },
 ];
 
 export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const session = useSession();
   const {
     accountNames,
     allTransactions,
@@ -40,34 +56,89 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
+  const [draft, setDraft] = useState<IngestDraft | null>(null);
+  const [quotaLabel, setQuotaLabel] = useState<string>("");
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    refreshQuota();
+    // First paint has no device id until this client effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.userId]);
+
+  function actor() {
+    return { userId: session?.userId, deviceId: guestDeviceId() };
+  }
+
+  function refreshQuota() {
+    const usage = peekQuota(localQuotaStore(), quotaSubject(actor()));
+    setQuotaLabel(
+      `${CSV_WEEKLY_LIMIT - usage.csv} CSV and ${OCR_PAGE_WEEKLY_LIMIT - usage.ocrPages} OCR pages left this AU week`,
+    );
+  }
 
   function interpret(list: File[]) {
     if (list.length === 0) return;
+    if (list.length > 1) {
+      setError("Upload one file at a time.");
+      return;
+    }
     const formData = new FormData();
-    for (const file of list) formData.append("files", file);
+    formData.append("files", list[0]);
     setError(null);
     startTransition(async () => {
+      const store = localQuotaStore();
+      const subject = quotaSubject(actor());
+      const ocrGuess = /\.(png|jpe?g|webp|gif|heic)$/i.test(list[0].name) || list[0].type.startsWith("image/");
+      if (ocrGuess) {
+        const charged = tryChargeOcr(store, subject, 1);
+        if (!charged.ok) {
+          setError("This week's 20 OCR pages are used.");
+          refreshQuota();
+          return;
+        }
+      }
       const hashes = await hashFiles(list);
       const result = await interpretUploadedDocuments(formData);
       if (!result.ok) {
         setError(result.error);
+        refreshQuota();
         return;
       }
-      setReport(importDocuments(result, hashes));
+      setDraft(createDraft(result, hashes));
+      refreshQuota();
     });
   }
 
-  async function loadSample(paths: string[]) {
-    const files = await Promise.all(
-      paths.map(async (path) => {
-        const response = await fetch(path);
-        const blob = await response.blob();
-        const name = path.split("/").pop() ?? "sample";
-        return new File([blob], name, { type: blob.type });
-      }),
-    );
-    interpret(files);
+  function confirmDraft() {
+    if (!draft || !canConfirmDraft(draft)) return;
+    setError(null);
+    const store = localQuotaStore();
+    const subject = quotaSubject(actor());
+    if (draft.channel === "csv") {
+      const charged = tryChargeCsv(store, subject);
+      if (!charged.ok) {
+        setError("This week's 5 CSV imports are used.");
+        refreshQuota();
+        return;
+      }
+    }
+    setReport(importDocuments(applyDraft(draft), draft.hashes));
+    setDraft(null);
+    refreshQuota();
+  }
+
+  function abandonDraft() {
+    setDraft(null);
+    setError(null);
+    refreshQuota();
+  }
+
+  async function loadSample(path: string) {
+    const response = await fetch(path);
+    const blob = await response.blob();
+    const name = path.split("/").pop() ?? "sample";
+    interpret([new File([blob], name, { type: blob.type })]);
   }
 
   return (
@@ -89,18 +160,17 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
         }`}
       >
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Core feature</p>
-        <h2 className="mt-2 text-2xl font-bold">Drop almost any money document</h2>
+        <h2 className="mt-2 text-2xl font-bold">Drop a CSV or a photo</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted">
-          Bank CSV and Excel exports, OFX/QIF, PDFs, Word docs, HTML statements, JSON, photos of receipts, and plain
-          text. BitbyBit reads the file and interprets money in versus money out
+          Core ingest is CSV and OCR only — one file at a time. Excel, OFX, and QIF are unavailable. Photograph a
+          statement page for OCR; digital PDF is not a Core path
           {aiReady
-            ? ", using AI vision on photos and suggesting tags when a merchant is still unlabelled."
-            : ". Add OPENAI_API_KEY to .env.local to let AI read receipt photos and suggest tags; until then, photos use on-device OCR and merchant rules."}
+            ? ". AI vision can read photos and suggest tags when a merchant is still unlabelled."
+            : ". Add OPENAI_API_KEY to .env.local to let AI read receipt photos; until then, photos use on-device OCR."}
         </p>
         <input
           ref={inputRef}
           type="file"
-          multiple
           accept={acceptedDropTypes()}
           className="hidden"
           onChange={(event) => interpret([...(event.target.files ?? [])])}
@@ -108,27 +178,37 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          disabled={pending}
+          disabled={pending || Boolean(draft)}
           className="mt-6 rounded-full bg-accent px-6 py-3 font-bold text-primary disabled:opacity-60"
         >
-          {pending ? (aiReady ? "Reading with AI…" : "Reading documents…") : "Choose documents"}
+          {pending ? (aiReady ? "Reading with AI…" : "Reading documents…") : "Choose a file"}
         </button>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           {SAMPLES.map((sample) => (
             <button
               key={sample.label}
               type="button"
-              onClick={() => loadSample(sample.paths)}
-              disabled={pending}
+              onClick={() => loadSample(sample.path)}
+              disabled={pending || Boolean(draft)}
               className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft"
             >
               Try {sample.label}
             </button>
           ))}
         </div>
+        {quotaLabel ? <p className="mt-4 text-sm text-muted">{quotaLabel}</p> : null}
         {error ? <p className="mt-4 text-sm text-negative">{error}</p> : null}
         {report ? <p className="mt-4 text-sm text-ink-soft">{describeImport(report)}</p> : null}
       </section>
+
+      {draft ? (
+        <ConfirmMapper
+          draft={draft}
+          onChange={setDraft}
+          onConfirm={confirmDraft}
+          onAbandon={abandonDraft}
+        />
+      ) : null}
 
       {report ? (
         <NameArrivedAccounts
@@ -261,6 +341,98 @@ async function hashFiles(list: File[]): Promise<Record<string, string>> {
     }),
   );
   return Object.fromEntries(entries);
+}
+
+function ConfirmMapper({
+  draft,
+  onChange,
+  onConfirm,
+  onAbandon,
+}: {
+  draft: IngestDraft;
+  onChange: (draft: IngestDraft) => void;
+  onConfirm: () => void;
+  onAbandon: () => void;
+}) {
+  const ready = canConfirmDraft(draft);
+  const multi = draft.sections.length > 1;
+  return (
+    <section className="rounded-3xl border border-line bg-white p-6">
+      <h2 className="text-lg font-bold">Confirm & import</h2>
+      <p className="mt-1 text-sm text-muted">
+        {draft.channel === "csv"
+          ? "A CSV slot is used only when you confirm. Leave now and nothing is charged."
+          : "OCR pages were charged when this photo was read. Confirm writes the rows."}
+      </p>
+      <label className="mt-4 block text-sm font-semibold">
+        Bank
+        <select
+          className="mt-1 w-full rounded-full border border-line px-3 py-2 text-sm font-normal"
+          value={LAUNCH_BANK_PRESETS.includes(draft.institution) ? draft.institution : ""}
+          onChange={(event) => onChange({ ...draft, institution: event.target.value })}
+        >
+          <option value="">{draft.detectedInstitution ? "Unknown — map it" : "Choose a launch preset"}</option>
+          {LAUNCH_BANK_PRESETS.map((bank) => (
+            <option key={bank} value={bank}>
+              {bank}
+            </option>
+          ))}
+        </select>
+      </label>
+      {!LAUNCH_BANK_PRESETS.includes(draft.institution) ? (
+        <label className="mt-3 block text-sm font-semibold">
+          Manual map
+          <input
+            className="mt-1 w-full rounded-full border border-line px-3 py-2 text-sm font-normal"
+            placeholder="Type the bank if it is not in the list"
+            value={draft.institution}
+            onChange={(event) => onChange({ ...draft, institution: event.target.value })}
+          />
+        </label>
+      ) : null}
+      {multi ? (
+        <div className="mt-4 space-y-2">
+          <p className="text-sm font-semibold">Assign every account before import</p>
+          {draft.sections.map((section, index) => (
+            <label key={section.accountId} className="block text-sm">
+              {section.accountId}
+              <input
+                className="mt-1 w-full rounded-full border border-line px-3 py-2"
+                value={section.assignedTo}
+                placeholder="Assign this section"
+                onChange={(event) => {
+                  const sections = draft.sections.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, assignedTo: event.target.value } : item,
+                  );
+                  onChange({ ...draft, sections });
+                }}
+              />
+            </label>
+          ))}
+        </div>
+      ) : null}
+      {draft.result.files[0]?.processingError ? (
+        <p className="mt-3 text-sm text-negative">{draft.result.files[0].processingError}</p>
+      ) : (
+        <p className="mt-3 text-sm text-muted">
+          {draft.result.transactions.length} movement{draft.result.transactions.length === 1 ? "" : "s"} ready.
+        </p>
+      )}
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={onConfirm}
+          className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          Confirm & import
+        </button>
+        <button type="button" onClick={onAbandon} className="rounded-full border border-line px-5 py-2 text-sm font-semibold">
+          Discard
+        </button>
+      </div>
+    </section>
+  );
 }
 
 /**
