@@ -33,7 +33,7 @@ export { FIRST_SYNC_DAYS, POLL_INTERVAL_MS };
 
 export type SyncReason = "first_connect" | "webhook" | "poll";
 
-export type SyncDeps = BankingFetchDeps & {
+export type SyncDeps = Omit<BankingFetchDeps, "credentials"> & {
   env?: FiskilEnv;
   credentials?: FiskilCredentials | null;
   connections: ConnectionStore;

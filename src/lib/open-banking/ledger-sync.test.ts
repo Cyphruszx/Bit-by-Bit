@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { forgetAutoPairs } from "@/lib/money-flow/auto-pairs";
-import { EMPTY_LEDGER, fingerprintOf, type Ledger, type LedgerEntry } from "@/lib/money-flow/ledger";
+import { EMPTY_LEDGER, fingerprintOf, ledgerTransactions, type Ledger, type LedgerEntry } from "@/lib/money-flow/ledger";
 import { institutionOf, UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import { isCleared } from "@/lib/money-flow/tile";
@@ -68,7 +68,7 @@ describe("Open Banking ledger upsert", () => {
     ]);
     assert.equal(pending.ledger.entries.length, 1);
     assert.equal(pending.ledger.entries[0]?.status, "PENDING");
-    assert.equal(isCleared(pending.ledger.entries[0]!), false);
+    assert.equal(isCleared(ledgerTransactions(pending.ledger)[0]!), false);
 
     const settled = upsert(pending.ledger, [account({ id: "acc_1" })], [
       txn({ id: "tx_1", accountId: "acc_1", amount: -20, dateIso: "2026-09-02", status: "POSTED", description: "Hold" }),
@@ -84,7 +84,7 @@ describe("Open Banking ledger upsert", () => {
       txn({ id: "pending", accountId: "acc_1", amount: -40, dateIso: "2026-09-03", status: "PENDING" }),
       txn({ id: "posted", accountId: "acc_1", amount: -10, dateIso: "2026-09-03", status: "POSTED", description: "Cafe" }),
     ]);
-    const flow = summarizeMoneyFlow(ledger.entries);
+    const flow = summarizeMoneyFlow(ledgerTransactions(ledger));
     assert.equal(flow.spending, 10);
     assert.equal(ledger.entries.filter((row) => row.status === "PENDING").length, 1);
   });
@@ -110,7 +110,14 @@ describe("Open Banking ledger upsert", () => {
       importIds: ["csv-import"],
       firstSeen: "2026-09-01T00:00:00.000Z",
     };
-    csv.fingerprint = fingerprintOf(csv);
+    csv.fingerprint = fingerprintOf({
+      accountId: csv.accountId,
+      sourceFile: csv.sourceFile,
+      dateIso: csv.dateIso,
+      amount: csv.amount,
+      description: csv.description,
+      merchant: csv.merchant,
+    });
     const held: Ledger = { ...EMPTY_LEDGER, entries: [csv] };
 
     const { ledger, report } = upsert(held, [account({ id: "acc_1" })], [
@@ -169,7 +176,7 @@ describe("Spec 12.5 silent pairing", () => {
     assert.equal(ledger.entries.length, 2);
     assert.ok(ledger.entries.every((row) => row.transferPair));
     assert.ok(ledger.entries.every((row) => row.type === "TRANSFER"));
-    const kept = forgetAutoPairs(ledger.entries);
+    const kept = forgetAutoPairs(ledgerTransactions(ledger));
     assert.ok(kept.every((row) => row.transferPair), "silent OB pairs survive forgetAutoPairs");
     assert.equal(summarizeMoneyFlow(kept).transfers, 400);
   });
@@ -181,7 +188,7 @@ describe("Spec 12.5 silent pairing", () => {
       txn({ id: "out", accountId: "acc_a", amount: -50, dateIso: "2026-09-06", description: "Transfer" }),
       txn({ id: "in", accountId: "acc_b", amount: 50, dateIso: "2026-09-06", description: "Transfer" }),
     ]);
-    assert.ok(ledger.entries.every((row) => institutionOf(row) === UNKNOWN_INSTITUTION));
+    assert.ok(ledgerTransactions(ledger).every((row) => institutionOf(row) === UNKNOWN_INSTITUTION));
     assert.ok(ledger.entries.every((row) => !row.transferPair));
   });
 

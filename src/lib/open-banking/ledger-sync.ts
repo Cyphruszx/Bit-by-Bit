@@ -13,6 +13,7 @@ import { interpretMovement } from "@/lib/money-flow/interpret-row";
 import { detectInstitution, institutionOf, UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
 import {
   fingerprintOf,
+  ledgerTransactions,
   legacyFingerprintOf,
   type Ledger,
   type LedgerEntry,
@@ -237,7 +238,7 @@ export function upsertOpenBankingLedger(
 
 export function applySilentSameInstitutionPairs(ledger: Ledger): Ledger {
   const overrides = ledger.institutions ?? {};
-  const match = matchTransfers(ledger.entries, {
+  const match = matchTransfers(ledgerTransactions(ledger), {
     institutions: overrides,
     accounts: ledger.accounts,
     mergedInto: ledger.mergedInto,
@@ -266,7 +267,7 @@ export function applySilentSameInstitutionPairs(ledger: Ledger): Ledger {
 }
 
 function persistReviewQueue(ledger: Ledger): Ledger {
-  const review = buildReviewQueue(ledger.entries, {
+  const review = buildReviewQueue(ledgerTransactions(ledger), {
     institutions: ledger.institutions,
     accounts: ledger.accounts,
     mergedInto: ledger.mergedInto,
