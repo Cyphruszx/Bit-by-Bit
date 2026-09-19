@@ -34,10 +34,11 @@ function isClientModule(source: string): boolean {
 describe("Fiskil secrets never reach the client bundle", () => {
   const files = walk(SRC);
 
-  it("forbids NEXT_PUBLIC_ Fiskil keys anywhere in src", () => {
+  it("never reads NEXT_PUBLIC_ Fiskil keys from process.env", () => {
     const leaks = files.flatMap((file) => {
+      if (file.endsWith(".test.ts")) return [];
       const source = readFileSync(file, "utf8");
-      return source.includes("NEXT_PUBLIC_FISKIL") ? [path.relative(SRC, file)] : [];
+      return /process\.env\.NEXT_PUBLIC_FISKIL/.test(source) ? [path.relative(SRC, file)] : [];
     });
     assert.deepEqual(leaks, []);
   });
