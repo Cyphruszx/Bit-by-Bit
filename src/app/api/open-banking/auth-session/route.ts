@@ -7,13 +7,11 @@
 
 import {
   parseStartSessionBody,
-  processAuthSessionStore,
-  processConnectionStore,
   publicConnectFailure,
   publicStartSession,
   startOpenBankingLinkSession,
 } from "@/lib/fiskil/connections";
-import { processEndUserLinkStore } from "@/lib/fiskil/end-users";
+import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
 import { processTokenCache } from "@/lib/fiskil/token";
 
 export const runtime = "nodejs";
@@ -27,10 +25,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Expected JSON." }, { status: 400 });
   }
 
+  const stores = openBankingRuntimeStores();
   const result = await startOpenBankingLinkSession(withDefaultUris(parseStartSessionBody(raw), request), {
-    endUsers: processEndUserLinkStore(),
-    connections: processConnectionStore(),
-    sessions: processAuthSessionStore(),
+    endUsers: stores.endUsers,
+    connections: stores.connections,
+    sessions: stores.sessions,
     cache: processTokenCache(),
   });
 

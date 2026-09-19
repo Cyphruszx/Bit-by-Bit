@@ -351,6 +351,18 @@ export function rehydrateLedger(): Promise<void> {
   return hydrate();
 }
 
+/**
+ * Merges a remote ledger (Open Banking complete/sync) into what is on screen
+ * and saves it through the same store the UI already reads. Prefer this after
+ * Connect so Accounts/Transactions update without emptying the page first.
+ */
+export function applyRemoteLedger(remote: Ledger): void {
+  const before = snapshot.ledger.entries.length;
+  const merged = persistTaxonomy(mergeLedgers(snapshot.ledger, remote));
+  commit(merged);
+  if (merged.entries.length > before) writePeriod(ALL_PERIOD);
+}
+
 function commit(next: Ledger) {
   update({ ledger: next });
   // Saved through whichever store hydrate settled on. Before that resolves there is

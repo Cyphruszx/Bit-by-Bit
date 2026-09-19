@@ -25,6 +25,8 @@ export class FiskilAuthError extends Error {
 
 export type FiskilBankingAccount = {
   id: string;
+  /** Alternate Fiskil ids so transactions can match `account_id` or `fiskil_id`. */
+  aliases?: string[];
   accountNumber?: string;
   bsb?: string;
   name?: string;
@@ -123,21 +125,27 @@ export async function listFiskilBalances(
 
 export function parseAccount(raw: unknown): FiskilBankingAccount | undefined {
   const row = asRecord(raw);
-  const id = asId(row.id) ?? asId(row.account_id);
+  const accountId = asId(row.account_id);
+  const fiskilId = asId(row.fiskil_id);
+  const bareId = asId(row.id);
+  const id = accountId ?? bareId ?? fiskilId;
   if (!id) return undefined;
+  const aliases = uniqueIds([accountId, bareId, fiskilId]).filter((value) => value !== id);
   const institution = nested(row.institution);
+  const name = asId(row.name) ?? asId(row.display_name) ?? asId(row.nickname);
   return {
     id,
+    ...(aliases.length > 0 ? { aliases } : {}),
     ...(asId(row.account_number) ? { accountNumber: asId(row.account_number) } : {}),
     ...(asId(row.bsb) ? { bsb: asId(row.bsb) } : {}),
-    ...(asId(row.name) ? { name: asId(row.name) } : {}),
+    ...(name ? { name } : {}),
     ...(asId(row.product_name) ? { productName: asId(row.product_name) } : {}),
     ...(asId(row.product_category) ? { productCategory: asId(row.product_category) } : {}),
     ...(asId(row.institution_id) ?? asId(institution.id)
       ? { institutionId: asId(row.institution_id) ?? asId(institution.id) }
       : {}),
-    ...(asId(row.institution_name) ?? asId(institution.name)
-      ? { institutionName: asId(row.institution_name) ?? asId(institution.name) }
+    ...(asId(row.institution_name) ?? asId(institution.name) ?? asId(institution.display_name)
+      ? { institutionName: asId(row.institution_name) ?? asId(institution.name) ?? asId(institution.display_name) }
       : {}),
     ...(asId(row.consent_id) ? { consentId: asId(row.consent_id) } : {}),
     ...(asId(row.currency) ? { currency: asId(row.currency) } : {}),
@@ -146,8 +154,8 @@ export function parseAccount(raw: unknown): FiskilBankingAccount | undefined {
 
 export function parseTransaction(raw: unknown): FiskilBankingTransaction | undefined {
   const row = asRecord(raw);
-  const id = asId(row.id) ?? asId(row.transaction_id);
-  const accountId = asId(row.account_id);
+  const id = asId(row.id) ?? asId(row.transaction_id) ?? asId(row.fiskil_id);
+  const accountId = asId(row.account_id) ?? asId(row.fiskil_account_id);
   if (!id || !accountId) return undefined;
   const amount = signedAmount(row);
   if (amount === undefined) return undefined;
@@ -301,6 +309,10 @@ function asRecord(raw: unknown): Record<string, unknown> {
 
 function asId(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function uniqueIds(values: Array<string | undefined>): string[] {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
 async function readJson(response: Response): Promise<unknown> {

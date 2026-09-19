@@ -1,9 +1,11 @@
 /**
  * Spec 12 Slice 2: list / complete / revoke / reconnect bank links.
  *
- * Complete records a consent after Link. Revoke and reconnect are stubs —
- * they update our store and can mint a new session, without calling Fiskil
- * revoke. Responses never include the app token or client secret.
+ * Complete records a consent after Link, then awaits first sync so the
+ * durable ledger (public.ledgers) and the response carry Open Banking rows
+ * the signed-in UI can merge. Revoke and reconnect are stubs — they update
+ * our store and can mint a new session, without calling Fiskil revoke.
+ * Responses never include the app token or client secret.
  */
 
 import {
@@ -13,25 +15,24 @@ import {
   parseListQuery,
   parseReconnectBody,
   parseRevokeBody,
-  processAuthSessionStore,
-  processConnectionStore,
   publicConnectFailure,
   publicStartSession,
   reconnectOpenBankingConnection,
   revokeOpenBankingConnection,
 } from "@/lib/fiskil/connections";
-import { processEndUserLinkStore } from "@/lib/fiskil/end-users";
-import { scheduleFirstOpenBankingSync } from "@/lib/fiskil/sync";
+import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
+import { ledgerFromSync, publicSyncResult, scheduleFirstOpenBankingSync } from "@/lib/fiskil/sync";
 import { processTokenCache } from "@/lib/fiskil/token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function deps() {
+  const stores = openBankingRuntimeStores();
   return {
-    endUsers: processEndUserLinkStore(),
-    connections: processConnectionStore(),
-    sessions: processAuthSessionStore(),
+    endUsers: stores.endUsers,
+    connections: stores.connections,
+    sessions: stores.sessions,
     cache: processTokenCache(),
   };
 }
@@ -72,12 +73,14 @@ export async function POST(request: Request) {
 
   const result = await completeOpenBankingConnection(parseCompleteBody(raw), deps());
   if (!result.ok) return Response.json(publicConnectFailure(result), { status: result.status });
-  void scheduleFirstOpenBankingSync(result.connection.id).catch(() => undefined);
+  const sync = await scheduleFirstOpenBankingSync(result.connection.id);
+  const ledger = ledgerFromSync(sync);
   return Response.json({
     connection: result.connection,
     connectionCount: result.connectionCount,
     remaining: result.remaining,
-    sync: { started: true },
+    sync: sync ? { started: true, ...publicSyncResult(sync) } : { started: true },
+    ...(ledger ? { ledger } : {}),
   });
 }
 

@@ -18,16 +18,13 @@ import {
   type BankingFetchDeps,
 } from "./banking";
 import { fiskilCredentials, type FiskilCredentials, type FiskilEnv } from "./config";
-import {
-  type BankConnection,
-  type ConnectionStore,
-  processConnectionStore,
-} from "./connections";
-import { type EndUserLinkStore, processEndUserLinkStore } from "./end-users";
-import { processLedgerDocumentStore, type LedgerDocumentStore } from "./ledger-store";
+import { type BankConnection, type ConnectionStore } from "./connections";
+import { type EndUserLinkStore } from "./end-users";
+import { type LedgerDocumentStore } from "./ledger-store";
+import { openBankingRuntimeStores } from "./runtime-stores";
 import { upsertOpenBankingLedger, type OpenBankingSyncReport } from "@/lib/open-banking/ledger-sync";
-import type { TokenCache } from "./token";
-import { processWebhookReceiptStore, type FiskilWebhookEvent, type WebhookReceiptStore } from "./webhooks";
+import { processTokenCache } from "./token";
+import { type FiskilWebhookEvent, type WebhookReceiptStore } from "./webhooks";
 
 export { FIRST_SYNC_DAYS, POLL_INTERVAL_MS };
 
@@ -52,6 +49,8 @@ export type SyncSuccess = {
   to?: string;
   report?: OpenBankingSyncReport;
   reconnect?: boolean;
+  /** The durable ledger after upsert — the same document the signed-in UI reads. */
+  ledger?: Ledger;
 };
 
 export type SyncFailure = {
@@ -63,12 +62,14 @@ export type SyncFailure = {
 
 export function processSyncDeps(): SyncDeps {
   const credentials = fiskilCredentials();
+  const stores = openBankingRuntimeStores();
   return {
     ...(credentials ? { credentials } : {}),
-    connections: processConnectionStore(),
-    endUsers: processEndUserLinkStore(),
-    ledgers: processLedgerDocumentStore(),
-    receipts: processWebhookReceiptStore(),
+    connections: stores.connections,
+    endUsers: stores.endUsers,
+    ledgers: stores.ledgers,
+    receipts: stores.receipts,
+    cache: processTokenCache(),
   };
 }
 
@@ -164,6 +165,7 @@ export async function syncOpenBankingConnection(
       from,
       to,
       report,
+      ledger: next,
     };
   } catch (err) {
     if (err instanceof FiskilAuthError) {
@@ -255,6 +257,30 @@ export async function runOpenBankingSyncRequest(
 
 export function emptyUserLedger(): Ledger {
   return EMPTY_LEDGER;
+}
+
+export function publicSyncResult(
+  result: SyncSuccess | SyncFailure,
+): Record<string, unknown> {
+  if (!result.ok) {
+    return {
+      ok: false,
+      ...(result.reconnect ? { reconnect: true } : {}),
+      error: result.error,
+    };
+  }
+  return {
+    ok: true,
+    connectionId: result.connectionId,
+    firstSync: result.firstSync === true,
+    ...(result.skipped ? { skipped: true } : {}),
+    ...(result.reconnect ? { reconnect: true } : {}),
+    ...(result.report ? { report: result.report } : {}),
+  };
+}
+
+export function ledgerFromSync(result: SyncSuccess | SyncFailure | undefined): Ledger | undefined {
+  return result?.ok ? result.ledger : undefined;
 }
 
 async function findConnection(event: FiskilWebhookEvent, deps: SyncDeps): Promise<BankConnection | undefined> {

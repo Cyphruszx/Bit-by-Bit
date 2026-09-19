@@ -131,7 +131,7 @@ export function upsertOpenBankingLedger(
 ): { ledger: Ledger; report: OpenBankingSyncReport } {
   const importedAt = input.importedAt ?? new Date().toISOString();
   const mappedAccounts = input.accounts.map((account) => mapFiskilAccount(account, input.consentId, ledger));
-  const byFiskilAccount = new Map(mappedAccounts.map((account) => [account.externalId, account]));
+  const byFiskilAccount = indexAccountsByAlias(input.accounts, mappedAccounts);
   const balances = new Map((input.balances ?? []).map((row) => [row.accountId, row]));
 
   let next: Ledger = refreshKnownInstitutions(
@@ -307,6 +307,22 @@ function applyAccountUpserts(
     accountMeta: meta,
     ...(Object.keys(institutions).length > 0 ? { institutions } : {}),
   };
+}
+
+function indexAccountsByAlias(
+  rawAccounts: FiskilBankingAccount[],
+  mappedAccounts: OpenBankingAccountUpsert[],
+): Map<string, OpenBankingAccountUpsert> {
+  const byFiskilAccount = new Map<string, OpenBankingAccountUpsert>();
+  for (const [index, mapped] of mappedAccounts.entries()) {
+    byFiskilAccount.set(mapped.externalId, mapped);
+    const raw = rawAccounts[index];
+    if (!raw) continue;
+    for (const alias of [raw.id, ...(raw.aliases ?? [])]) {
+      if (alias) byFiskilAccount.set(alias, mapped);
+    }
+  }
+  return byFiskilAccount;
 }
 
 function accountIdForExternal(ledger: Ledger, fiskilAccountId: string): string | undefined {

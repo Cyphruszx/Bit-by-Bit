@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { EMPTY_LEDGER } from "@/lib/money-flow/ledger";
+import { EMPTY_LEDGER, fingerprintOf, type Ledger, type LedgerEntry } from "@/lib/money-flow/ledger";
 import { FISKIL_TOKEN_URL, type FiskilCredentials } from "./config";
 import { FIRST_SYNC_DAYS, firstSyncFrom } from "./banking";
 import { memoryConnectionStore, type BankConnection } from "./connections";
 import { memoryEndUserLinkStore } from "./end-users";
-import { memoryLedgerDocumentStore } from "./ledger-store";
+import { durableLedgerDocumentStore, memoryLedgerDocumentRows, memoryLedgerDocumentStore } from "./ledger-store";
+import { SANDBOX_ACCOUNT, SANDBOX_TRANSACTION } from "./sandbox-shapes";
 import {
   handleOpenBankingWebhookEvent,
   isDueForPoll,
@@ -261,5 +262,68 @@ describe("consent and token failure", () => {
     const after = await good.deps.ledgers.get("user-1");
     assert.equal(after.entries[0]?.externalId, before.entries[0]?.externalId);
     assert.equal(after.entries[0]?.status, "CLEARED");
+  });
+});
+
+describe("durable ledger path the UI would see", () => {
+  it("upserts Open Banking into public.ledgers-shaped rows and keeps CSV", async () => {
+    const csv: LedgerEntry = {
+      id: "csv-1",
+      merchant: "Existing Cafe",
+      categoryKey: "eating_out",
+      date: "1 Sep 2026",
+      dateIso: "2026-09-01",
+      amount: -6,
+      baseAmount: -6,
+      status: "CLEARED",
+      type: "SPENDING",
+      sourceFile: "nab.csv",
+      confidence: 1,
+      accountId: "NAB · 100200300",
+      institution: "NAB",
+      description: "Existing Cafe",
+      fingerprint: "",
+      importIds: ["csv-import"],
+      firstSeen: "2026-09-01T00:00:00.000Z",
+    };
+    csv.fingerprint = fingerprintOf({
+      accountId: csv.accountId,
+      sourceFile: csv.sourceFile,
+      dateIso: csv.dateIso,
+      amount: csv.amount,
+      description: csv.description,
+      merchant: csv.merchant,
+    });
+    const csvLedger: Ledger = { ...EMPTY_LEDGER, entries: [csv] };
+    const rows = memoryLedgerDocumentRows({ "user-1": { document: csvLedger, revision: 2 } });
+    const mocked = mockBanking({
+      accounts: [SANDBOX_ACCOUNT],
+      transactions: [SANDBOX_TRANSACTION],
+    });
+    const connections = memoryConnectionStore();
+    await connections.put(connection());
+    const endUsers = memoryEndUserLinkStore();
+    await endUsers.put({ userId: "user-1", endUserId: "eu_1", email: "sam@example.com" });
+    const result = await syncOpenBankingConnection(
+      { connection: connection(), reason: "first_connect" },
+      {
+        credentials: CREDENTIALS,
+        connections,
+        endUsers,
+        ledgers: durableLedgerDocumentStore(rows),
+        cache: memoryTokenCache(),
+        fetchImpl: mocked.fetchImpl,
+        now: () => Date.parse("2026-09-19T12:00:00.000Z"),
+      },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.ledger?.entries.some((row) => row.id === "csv-1"), true);
+    assert.equal(result.ledger?.entries.some((row) => row.externalId === "txn_sandbox_coffee"), true);
+    const stored = rows.documentFor("user-1");
+    assert.ok(stored);
+    assert.equal(stored.entries.some((row) => row.id === "csv-1"), true);
+    assert.equal(stored.entries.some((row) => row.externalId === "txn_sandbox_coffee"), true);
+    assert.equal(stored.accounts?.["Banking Sandbox Data Holder · 12345678"] ?? stored.accounts?.[Object.keys(stored.accounts ?? {})[0] ?? ""], "Transaction Account");
   });
 });

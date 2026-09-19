@@ -8,7 +8,8 @@ has, with no sign-in and no network.
 ## Setting it up
 
 1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard).
-2. In its SQL Editor, run `migrations/202609040001_ledger_document.sql`.
+2. In its SQL Editor, run `migrations/202609040001_ledger_document.sql`, then
+   `migrations/202609190001_open_banking_durable.sql` if you use Open Banking.
 3. Copy the project URL and publishable key into a local `.env.local`, based on
    `../.env.example`. Never commit that file.
 4. In Authentication → Providers, enable Email. Turn off email confirmation only if you are
@@ -28,6 +29,12 @@ fingerprint, breaking repeat imports and leaving a backup that restores a degrad
 What protects it is row-level security: every policy on the table is `auth.uid() = user_id`,
 so a row is reachable only by the person it belongs to. The service-role key bypasses
 row-level security entirely and must never appear in the browser or in this repository.
+
+Open Banking first-connect, webhooks, and the daily poll have no user JWT, so they use
+`SUPABASE_SERVICE_ROLE_KEY` on the server to merge into this same `public.ledgers` row
+and to persist bank connections / end-user links / auth sessions / webhook receipts.
+Those extra tables have RLS enabled and no client policies. Set the service-role key
+as a sensitive Vercel env (never `NEXT_PUBLIC_`).
 
 If you would rather the server never held readable statements at all, the `document` column
 holds `{ cipher, iv }` as happily as it holds the ledger, so client-side encryption can be

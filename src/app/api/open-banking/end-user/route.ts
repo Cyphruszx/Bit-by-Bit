@@ -5,7 +5,8 @@
  * Slice 2 starts Link from POST /api/open-banking/auth-session after this mapping exists.
  */
 
-import { parseProvisionBody, processEndUserLinkStore, provisionOpenBankingEndUser } from "@/lib/fiskil/end-users";
+import { parseProvisionBody, provisionOpenBankingEndUser } from "@/lib/fiskil/end-users";
+import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
 import { processTokenCache } from "@/lib/fiskil/token";
 
 export const runtime = "nodejs";
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
   }
 
   const result = await provisionOpenBankingEndUser(parseProvisionBody(raw), {
-    store: processEndUserLinkStore(),
+    store: openBankingRuntimeStores().endUsers,
     cache: processTokenCache(),
   });
 
