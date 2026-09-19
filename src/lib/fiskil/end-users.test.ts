@@ -4,7 +4,10 @@ import { FISKIL_API_BASE, FISKIL_TOKEN_URL, type FiskilCredentials } from "./con
 import {
   ensureFiskilEndUser,
   endUserIdFromCreate,
+  endUserIdFromCreateError,
   endUserIdFromList,
+  isFiskilEndUserAlreadyExists,
+  isFiskilEndUserNotFound,
   memoryEndUserLinkStore,
   parseProvisionBody,
   provisionOpenBankingEndUser,
@@ -128,21 +131,99 @@ describe("Fiskil end-user create/link 1:1 with user_id", () => {
     assert.equal(calls.length, before);
   });
 
-  it("treats create-already-exists as a link", async () => {
-    const { ensure } = deps({
-      list: (() => {
-        let asks = 0;
-        return () => {
-          asks += 1;
-          return asks === 1 ? jsonResponse([]) : jsonResponse([{ id: "eu_race", email: "sam@example.com" }]);
-        };
-      })(),
-      create: () => jsonResponse({ name: "end_user_already_exists" }, 400),
+  it("creates after GET list returns 400 end_user_not_found", async () => {
+    const { ensure, calls } = deps({
+      list: () =>
+        jsonResponse(
+          {
+            name: "end_user_not_found",
+            message: "end user for clientID : client-id not found",
+          },
+          400,
+        ),
+      create: (body) => {
+        assert.equal(body.email, "sam@example.com");
+        return jsonResponse({ end_user_id: "eu_created" });
+      },
+    });
+
+    const link = await ensureFiskilEndUser({ userId: "user-1", email: "sam@example.com" }, ensure);
+    assert.deepEqual(link, {
+      userId: "user-1",
+      endUserId: "eu_created",
+      email: "sam@example.com",
+      created: true,
+    });
+    assert.equal(
+      calls.some((call) => call.method === "POST" && call.url === `${FISKIL_API_BASE}/end-users`),
+      true,
+    );
+  });
+
+  it("treats create-already-exists as a link when email lookup stays not-found", async () => {
+    const { ensure, calls } = deps({
+      list: (email) => {
+        if (email) {
+          return jsonResponse(
+            {
+              name: "end_user_not_found",
+              message: "end user for clientID : client-id not found",
+            },
+            400,
+          );
+        }
+        return jsonResponse({ end_users: [{ id: "eu_race", email: "sam@example.com" }] });
+      },
+      create: () =>
+        jsonResponse(
+          { name: "end_user_already_exists", message: "user with that email already exists" },
+          400,
+        ),
     });
 
     const link = await ensureFiskilEndUser({ userId: "user-1", email: "sam@example.com" }, ensure);
     assert.equal(link.endUserId, "eu_race");
     assert.equal(link.created, false);
+    assert.equal(
+      calls.some((call) => call.method === "GET" && call.url === `${FISKIL_API_BASE}/end-users`),
+      true,
+    );
+  });
+
+  it("links from create-already-exists when the 400 body includes end_user_id", async () => {
+    const { ensure } = deps({
+      list: () =>
+        jsonResponse(
+          { name: "end_user_not_found", message: "end user for clientID : client-id not found" },
+          400,
+        ),
+      create: () =>
+        jsonResponse({ name: "end_user_already_exists", end_user_id: "eu_from_body" }, 400),
+    });
+
+    const link = await ensureFiskilEndUser({ userId: "user-1", email: "sam@example.com" }, ensure);
+    assert.equal(link.endUserId, "eu_from_body");
+    assert.equal(link.created, false);
+  });
+
+  it("still fails lookup on auth, server, and other 400 errors", async () => {
+    for (const [status, body] of [
+      [401, { name: "unauthorized" }],
+      [403, { name: "insufficient_scopes" }],
+      [500, { name: "internal_error" }],
+      [400, { name: "invalid_request" }],
+    ] as const) {
+      const { ensure } = deps({
+        list: () => jsonResponse(body, status),
+        create: () => {
+          throw new Error("must not create");
+        },
+      });
+      await assert.rejects(
+        () => ensureFiskilEndUser({ userId: "user-1", email: "sam@example.com" }, ensure),
+        /Fiskil end-user lookup failed/,
+      );
+    }
   });
 
   it("reads both list envelope shapes", () => {
@@ -152,6 +233,12 @@ describe("Fiskil end-user create/link 1:1 with user_id", () => {
       "eu_b",
     );
     assert.equal(endUserIdFromCreate({ end_user_id: "eu_c" }), "eu_c");
+    assert.equal(endUserIdFromCreateError({ name: "end_user_already_exists", id: "err_1" }), undefined);
+    assert.equal(endUserIdFromCreateError({ end_user_id: "eu_d" }), "eu_d");
+    assert.equal(isFiskilEndUserNotFound(400, { name: "end_user_not_found" }), true);
+    assert.equal(isFiskilEndUserNotFound(404, { name: "end_user_not_found" }), true);
+    assert.equal(isFiskilEndUserNotFound(401, { name: "unauthorized" }), false);
+    assert.equal(isFiskilEndUserAlreadyExists({ name: "end_user_already_exists" }), true);
   });
 });
 
@@ -179,7 +266,11 @@ describe("Open Banking provision gate", () => {
 
   it("creates when the bundle toggle is on and credentials are present", async () => {
     const { ensure } = deps({
-      list: () => jsonResponse([]),
+      list: () =>
+        jsonResponse(
+          { name: "end_user_not_found", message: "end user for clientID : client-id not found" },
+          400,
+        ),
       create: () => jsonResponse({ end_user_id: "eu_gated" }),
     });
     const result = await provisionOpenBankingEndUser(
