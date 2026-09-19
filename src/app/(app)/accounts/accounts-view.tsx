@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { IncomeRhythm } from "@/components/income-rhythm";
 import { PayerSuggestions } from "@/components/payer-suggestions";
-import { ConnectBank } from "@/components/connect-bank";
 import { EmptyLedger } from "@/components/empty-ledger";
-import { FeatureEnableOffer } from "@/components/feature-enable-offer";
+import { FeatureEnableOffer, OpenBankingAccountsControl } from "@/components/feature-enable-offer";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { PoolsWidget } from "@/components/pools-widget";
 import { SummaryCard } from "@/components/summary-card";
@@ -74,7 +73,7 @@ export function AccountsView() {
     return (
       <>
         <h1 className="text-3xl font-bold tracking-tight">Accounts and sources</h1>
-        <ConnectBank />
+        <OpenBankingAccountsControl />
         <EmptyLedger>
           Every account BitbyBit reads will appear here under the bank it belongs to, ready to be
           named or merged when one account arrives written two different ways.
@@ -94,7 +93,7 @@ export function AccountsView() {
       </p>
       {mergeError ? <p className="mt-3 text-sm text-negative">{mergeError}</p> : null}
 
-      <ConnectBank />
+      <OpenBankingAccountsControl />
 
       <FeatureEnableOffer />
 

@@ -50,6 +50,20 @@ export const ENABLE_OFFER_LABELS: Record<EnableOfferKey, string> = {
   POOLS: "Pools",
 };
 
+/** Spec 12 paid-bundle stub. Not an ENABLE_OFFER_KEYS item. */
+export const OPEN_BANKING_LABEL = "Open Banking";
+export const OPEN_BANKING_STUB_NOTE = "Paid-bundle stub — billing is not wired yet.";
+
+export type OpenBankingControlMode = "full" | "compact";
+
+/**
+ * Accounts/Connect: when the gate is off, show the full enable control.
+ * When on, Connect bank already titles the section — a compact Turn off is enough.
+ */
+export function openBankingControlMode(enabled: boolean): OpenBankingControlMode {
+  return enabled ? "compact" : "full";
+}
+
 export type FeatureToggles = Partial<Record<FeatureKey, boolean>>;
 
 export type FeatureOffer = {

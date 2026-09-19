@@ -94,6 +94,7 @@ export function DashboardView() {
           Once a statement is read, this page shows what actually came in and went out across every
           account, with money you moved between your own accounts counted once.
         </EmptyLedger>
+        <OptionalFeaturesPanel />
       </>
     );
   }
