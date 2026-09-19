@@ -1,8 +1,10 @@
 /**
- * Spec 12 Slice 3: first-connect / poll fallback (≤4h).
+ * Spec 12 Slice 3: first-connect / poll fallback.
  *
- * GET is the Vercel cron entry. POST with a connection id runs the same upsert
- * keys as the webhook path. Responses never include Fiskil secrets.
+ * GET is the Vercel cron entry. Hobby allows one cron per day — this deploy
+ * uses `0 14 * * *` (14:00 UTC). Spec still allows ≤4h polling on Pro.
+ * Webhooks remain the primary sync path. POST with a connection id runs the
+ * same upsert keys as the webhook path. Responses never include Fiskil secrets.
  */
 
 import { processConnectionStore } from "@/lib/fiskil/connections";
