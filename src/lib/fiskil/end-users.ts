@@ -19,18 +19,26 @@ export type FiskilEndUserLink = {
 
 export type EndUserLinkStore = {
   getByUserId(userId: string): Promise<Omit<FiskilEndUserLink, "created"> | undefined>;
+  getByEndUserId(endUserId: string): Promise<Omit<FiskilEndUserLink, "created"> | undefined>;
   put(link: Omit<FiskilEndUserLink, "created">): Promise<void>;
 };
 
 export function memoryEndUserLinkStore(): EndUserLinkStore {
   const byUser = new Map<string, Omit<FiskilEndUserLink, "created">>();
+  const byEndUser = new Map<string, Omit<FiskilEndUserLink, "created">>();
   return {
     async getByUserId(userId) {
       const held = byUser.get(userId);
       return held ? { ...held } : undefined;
     },
+    async getByEndUserId(endUserId) {
+      const held = byEndUser.get(endUserId);
+      return held ? { ...held } : undefined;
+    },
     async put(link) {
-      byUser.set(link.userId, { userId: link.userId, endUserId: link.endUserId, email: link.email });
+      const stored = { userId: link.userId, endUserId: link.endUserId, email: link.email };
+      byUser.set(link.userId, stored);
+      byEndUser.set(link.endUserId, stored);
     },
   };
 }

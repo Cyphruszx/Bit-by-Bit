@@ -383,3 +383,25 @@ describe("Spec 10 Actual Savings", () => {
     assert.equal(flow.transfers, 90);
   });
 });
+
+describe("Spec 12 PENDING never inflates Spec 10 tiles", () => {
+  it("counts CLEARED spending only", () => {
+    const pending = txn({
+      id: "pending",
+      amount: -80,
+      dateIso: "2026-09-19",
+      type: "spent",
+      status: "PENDING",
+    });
+    const cleared = txn({
+      id: "cleared",
+      amount: -20,
+      dateIso: "2026-09-19",
+      type: "spent",
+      status: "CLEARED",
+    });
+    const flow = summarizeMoneyFlow([pending, cleared]);
+    assert.equal(flow.spending, 20);
+    assert.equal(flow.income, 0);
+  });
+});

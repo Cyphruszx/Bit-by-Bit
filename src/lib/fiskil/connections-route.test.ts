@@ -5,12 +5,14 @@ import { processAuthSessionStore, processConnectionStore } from "./connections";
 
 const previousId = process.env.FISKIL_CLIENT_ID;
 const previousSecret = process.env.FISKIL_CLIENT_SECRET;
+const previousFetch = globalThis.fetch;
 
 afterEach(() => {
   if (previousId === undefined) delete process.env.FISKIL_CLIENT_ID;
   else process.env.FISKIL_CLIENT_ID = previousId;
   if (previousSecret === undefined) delete process.env.FISKIL_CLIENT_SECRET;
   else process.env.FISKIL_CLIENT_SECRET = previousSecret;
+  globalThis.fetch = previousFetch;
 });
 
 describe("Open Banking connections route", () => {
@@ -37,6 +39,9 @@ describe("Open Banking connections route", () => {
   it("completes a stored session without echoing secrets", async () => {
     process.env.FISKIL_CLIENT_ID = "client-id";
     process.env.FISKIL_CLIENT_SECRET = "super-secret-value";
+    globalThis.fetch = (async () => {
+      throw new Error("first-sync fetch is mocked in this route test");
+    }) as typeof fetch;
     await processAuthSessionStore().put({
       sessionId: "sess_complete",
       userId: "user-complete",

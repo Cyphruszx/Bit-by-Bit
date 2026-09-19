@@ -89,8 +89,20 @@ export type InterpretedTransaction = {
    * Spec 10 tile status. Missing means CLEARED, so existing ledgers keep
    * counting. HOLD is a CLEARED-only stub. Spec 7 OPEN exclusion uses the
    * Review Queue hold set, not a persisted HOLD status.
+   * Spec 12: live Open Banking may write PENDING, then CLEARED in place.
    */
-  status?: "CLEARED" | "HOLD" | "DUPLICATE_HOLD";
+  status?: "CLEARED" | "HOLD" | "DUPLICATE_HOLD" | "PENDING";
+  /**
+   * Stable aggregator id (Fiskil transaction id). Spec 12 upserts on this
+   * before falling back to fingerprint.
+   */
+  externalId?: string;
+  /**
+   * How the row arrived. Core CSV/OCR stay unnamed on older rows. Open
+   * Banking writes OPEN_BANKING so dual-ingest and silent pairing can tell
+   * a live feed from a file.
+   */
+  ingestSource?: "CSV" | "OCR" | "OPEN_BANKING";
   /**
    * Spec 10 Actual Savings: a person marked this inflow as savings. Used when
    * the destination account is not recognisable as savings from its name.

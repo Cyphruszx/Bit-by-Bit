@@ -21,6 +21,7 @@ import {
   revokeOpenBankingConnection,
 } from "@/lib/fiskil/connections";
 import { processEndUserLinkStore } from "@/lib/fiskil/end-users";
+import { scheduleFirstOpenBankingSync } from "@/lib/fiskil/sync";
 import { processTokenCache } from "@/lib/fiskil/token";
 
 export const runtime = "nodejs";
@@ -71,10 +72,12 @@ export async function POST(request: Request) {
 
   const result = await completeOpenBankingConnection(parseCompleteBody(raw), deps());
   if (!result.ok) return Response.json(publicConnectFailure(result), { status: result.status });
+  void scheduleFirstOpenBankingSync(result.connection.id).catch(() => undefined);
   return Response.json({
     connection: result.connection,
     connectionCount: result.connectionCount,
     remaining: result.remaining,
+    sync: { started: true },
   });
 }
 

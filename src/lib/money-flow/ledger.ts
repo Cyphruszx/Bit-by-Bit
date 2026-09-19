@@ -1014,7 +1014,10 @@ function accountMetaOnly(raw: Record<string, unknown>): Record<string, AccountMe
     if (typeof stored.clearedBalance === "number" && Number.isFinite(stored.clearedBalance)) {
       next.clearedBalance = stored.clearedBalance;
     }
-    if (next.currency || next.kind || next.clearedBalance != null) held[key] = next;
+    if (typeof stored.externalId === "string" && stored.externalId.trim()) {
+      next.externalId = stored.externalId.trim();
+    }
+    if (next.currency || next.kind || next.clearedBalance != null || next.externalId) held[key] = next;
   }
   return held;
 }
