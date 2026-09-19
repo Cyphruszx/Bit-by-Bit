@@ -5,14 +5,11 @@
  * same sync upsert as first-connect / poll. Secrets stay on the server.
  */
 
-import { processConnectionStore } from "@/lib/fiskil/connections";
-import { processEndUserLinkStore } from "@/lib/fiskil/end-users";
-import { processLedgerDocumentStore } from "@/lib/fiskil/ledger-store";
-import { handleOpenBankingWebhookEvent } from "@/lib/fiskil/sync";
+import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
+import { handleOpenBankingWebhookEvent, processSyncDeps } from "@/lib/fiskil/sync";
 import { processTokenCache } from "@/lib/fiskil/token";
 import {
   FISKIL_SIGNATURE_HEADER,
-  processWebhookReceiptStore,
   receiveFiskilWebhook,
   webhookStopsSync,
   webhookTriggersSync,
@@ -22,20 +19,23 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function syncDeps() {
+  const stores = openBankingRuntimeStores();
   return {
-    connections: processConnectionStore(),
-    endUsers: processEndUserLinkStore(),
-    ledgers: processLedgerDocumentStore(),
-    receipts: processWebhookReceiptStore(),
+    ...processSyncDeps(),
+    connections: stores.connections,
+    endUsers: stores.endUsers,
+    ledgers: stores.ledgers,
+    receipts: stores.receipts,
     cache: processTokenCache(),
   };
 }
 
 export async function POST(request: Request) {
+  const stores = openBankingRuntimeStores();
   const rawBody = await request.text();
   const signature = request.headers.get(FISKIL_SIGNATURE_HEADER);
   const received = await receiveFiskilWebhook(rawBody, signature, {
-    receipts: processWebhookReceiptStore(),
+    receipts: stores.receipts,
   });
   if (!received.ok) {
     return Response.json({ error: received.error }, { status: received.status });

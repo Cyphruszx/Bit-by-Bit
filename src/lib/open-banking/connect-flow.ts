@@ -25,7 +25,14 @@ export type StartSessionResult =
   | { ok: false; error: string; code?: string; status?: number; connectionCount?: number };
 
 export type CompleteResult =
-  | { ok: true; id: string; connectionCount: number; remaining: number }
+  | {
+      ok: true;
+      id: string;
+      connectionCount: number;
+      remaining: number;
+      ledger?: unknown;
+      sync?: { started: boolean; ok?: boolean; error?: string };
+    }
   | { ok: false; error: string; code?: string; status?: number; connectionCount?: number };
 
 export type LinkLaunchResult = { consentId?: string };
@@ -70,7 +77,14 @@ export function failedLinkMessage(err: unknown): string {
 }
 
 export type ConnectFlowResult =
-  | { ok: true; id: string; connectionCount: number; remaining: number }
+  | {
+      ok: true;
+      id: string;
+      connectionCount: number;
+      remaining: number;
+      ledger?: unknown;
+      sync?: { started: boolean; ok?: boolean; error?: string };
+    }
   | { ok: false; error: string; code?: string; status?: number; connectionCount?: number; cancelled?: boolean };
 
 export async function runConnectBankFlow(
@@ -211,6 +225,18 @@ export async function revokeOpenBankingConnection(input: {
   });
 }
 
+export async function requestOpenBankingSync(input: {
+  userId: string;
+  connectionId: string;
+  featureToggles: OpenBankingToggles;
+}): Promise<CompleteResult> {
+  return postJson("/api/open-banking/sync", {
+    userId: input.userId,
+    connectionId: input.connectionId,
+    featureToggles: input.featureToggles,
+  });
+}
+
 export async function reconnectOpenBankingSession(input: ConnectIdentity &
   ConnectUris & { featureToggles: OpenBankingToggles; connectionId: string }): Promise<StartSessionResult> {
   return postJson("/api/open-banking/connections", {
@@ -229,7 +255,15 @@ async function postJson(
   url: string,
   payload: Record<string, unknown>,
 ): Promise<
-  | { ok: true; sessionId: string; id: string; connectionCount: number; remaining: number }
+  | {
+      ok: true;
+      sessionId: string;
+      id: string;
+      connectionCount: number;
+      remaining: number;
+      ledger?: unknown;
+      sync?: { started: boolean; ok?: boolean; error?: string };
+    }
   | { ok: false; error: string; code?: string; status?: number; connectionCount?: number }
 > {
   const response = await fetch(url, {
@@ -254,12 +288,26 @@ async function postJson(
       : body.connection && typeof body.connection === "object" && typeof (body.connection as { id?: unknown }).id === "string"
         ? (body.connection as { id: string }).id
         : sessionId;
+  const sync =
+    body.sync && typeof body.sync === "object"
+      ? (body.sync as { started?: unknown; ok?: unknown; error?: unknown })
+      : undefined;
   return {
     ok: true,
     sessionId,
     id,
     connectionCount: typeof body.connectionCount === "number" ? body.connectionCount : 0,
     remaining: typeof body.remaining === "number" ? body.remaining : 0,
+    ...(body.ledger !== undefined ? { ledger: body.ledger } : {}),
+    ...(sync
+      ? {
+          sync: {
+            started: sync.started === true,
+            ...(typeof sync.ok === "boolean" ? { ok: sync.ok } : {}),
+            ...(typeof sync.error === "string" ? { error: sync.error } : {}),
+          },
+        }
+      : {}),
   };
 }
 

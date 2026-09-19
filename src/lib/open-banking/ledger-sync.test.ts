@@ -5,7 +5,8 @@ import { EMPTY_LEDGER, fingerprintOf, ledgerTransactions, type Ledger, type Ledg
 import { institutionOf, UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import { isCleared } from "@/lib/money-flow/tile";
-import type { FiskilBankingAccount, FiskilBankingTransaction } from "@/lib/fiskil/banking";
+import { parseAccount, parseTransaction, type FiskilBankingAccount, type FiskilBankingTransaction } from "@/lib/fiskil/banking";
+import { SANDBOX_ACCOUNT, SANDBOX_TRANSACTION } from "@/lib/fiskil/sandbox-shapes";
 import {
   applySilentSameInstitutionPairs,
   mapFiskilTransaction,
@@ -242,6 +243,18 @@ describe("Spec 12.5 silent pairing", () => {
 });
 
 describe("Open Banking mapping", () => {
+  it("upserts live sandbox shapes that lack bare id/name", () => {
+    const account = parseAccount(SANDBOX_ACCOUNT);
+    const txn = parseTransaction(SANDBOX_TRANSACTION);
+    assert.ok(account);
+    assert.ok(txn);
+    const { ledger, report } = upsert(EMPTY_LEDGER, [account], [txn]);
+    assert.equal(report.added, 1);
+    assert.equal(ledger.entries[0]?.externalId, "txn_sandbox_coffee");
+    assert.equal(ledger.entries[0]?.ingestSource, "OPEN_BANKING");
+    assert.equal(Object.values(ledger.accounts ?? {}).includes("Transaction Account"), true);
+  });
+
   it("uses the consent-scoped source file", () => {
     const mapped = mapFiskilTransaction(
       txn({ id: "tx", accountId: "acc_1", amount: -1, dateIso: "2026-09-01" }),

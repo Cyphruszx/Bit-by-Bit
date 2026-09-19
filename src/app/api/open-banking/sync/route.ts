@@ -4,30 +4,18 @@
  * GET is the Vercel cron entry. Hobby allows one cron per day — this deploy
  * uses `0 14 * * *` (14:00 UTC). Spec still allows ≤4h polling on Pro.
  * Webhooks remain the primary sync path. POST with a connection id runs the
- * same upsert keys as the webhook path. Responses never include Fiskil secrets.
+ * same upsert keys as the webhook path and returns the durable ledger the
+ * signed-in UI can merge. Responses never include Fiskil secrets.
  */
 
-import { processConnectionStore } from "@/lib/fiskil/connections";
-import { processEndUserLinkStore } from "@/lib/fiskil/end-users";
-import { processLedgerDocumentStore } from "@/lib/fiskil/ledger-store";
-import { runOpenBankingSyncRequest } from "@/lib/fiskil/sync";
-import { processTokenCache } from "@/lib/fiskil/token";
+import { processSyncDeps, publicSyncResult, runOpenBankingSyncRequest } from "@/lib/fiskil/sync";
 import { parseFeatureToggles } from "@/lib/money-flow/features";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function deps() {
-  return {
-    connections: processConnectionStore(),
-    endUsers: processEndUserLinkStore(),
-    ledgers: processLedgerDocumentStore(),
-    cache: processTokenCache(),
-  };
-}
-
 export async function GET() {
-  const result = await runOpenBankingSyncRequest({ poll: true }, deps());
+  const result = await runOpenBankingSyncRequest({ poll: true }, processSyncDeps());
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
   return Response.json({
     polled: result.results.length,
@@ -50,26 +38,12 @@ export async function POST(request: Request) {
       featureToggles: parseFeatureToggles(body.featureToggles),
       poll: body.poll === true,
     },
-    deps(),
+    processSyncDeps(),
   );
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
-  return Response.json({ results: result.results.map(publicSyncResult) });
-}
-
-function publicSyncResult(result: { ok: boolean; connectionId?: string; firstSync?: boolean; skipped?: boolean; reconnect?: boolean; error?: string }) {
-  if (!result.ok) {
-    return {
-      ok: false,
-      ...(result.connectionId ? { connectionId: result.connectionId } : {}),
-      ...(result.reconnect ? { reconnect: true } : {}),
-      error: result.error,
-    };
-  }
-  return {
-    ok: true,
-    connectionId: result.connectionId,
-    firstSync: result.firstSync === true,
-    ...(result.skipped ? { skipped: true } : {}),
-    ...(result.reconnect ? { reconnect: true } : {}),
-  };
+  const ledger = result.results.find((row) => row.ok && row.ledger)?.ledger;
+  return Response.json({
+    results: result.results.map(publicSyncResult),
+    ...(ledger ? { ledger } : {}),
+  });
 }

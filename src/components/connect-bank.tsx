@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useSession } from "@/components/session-store";
-import { useMoneyFlow } from "@/components/money-flow-provider";
+import { applyRemoteLedger, rehydrateLedger, useMoneyFlow } from "@/components/money-flow-provider";
 import {
   browserConnectDeps,
   canShowConnectBank,
@@ -11,10 +11,12 @@ import {
   connectCapCopy,
   fetchOpenBankingConnections,
   reconnectOpenBankingSession,
+  requestOpenBankingSync,
   revokeOpenBankingConnection,
   runConnectBankFlow,
   runReconnectBankFlow,
 } from "@/lib/open-banking/connect-flow";
+import { parseLedger } from "@/lib/money-flow/ledger";
 import { MAX_BANK_CONNECTIONS } from "@/lib/open-banking/limits";
 import { launchFiskilLink } from "@/lib/open-banking/link-sdk";
 
@@ -101,7 +103,12 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
         }
         return;
       }
-      setMessage("Bank connected. First 90 days of transactions are syncing.");
+      await applySyncedLedger(result.ledger);
+      setMessage(
+        result.sync?.ok === false
+          ? result.sync.error ?? "Bank connected, but the first sync did not finish. Use Sync now."
+          : "Bank connected. First 90 days of transactions are on Accounts and Transactions.",
+      );
       await loadConnections(session.userId);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not start the bank connection.");
@@ -133,10 +140,35 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
         setMessage(result.error);
         return;
       }
+      await applySyncedLedger(result.ledger);
       setMessage("Bank reconnected.");
       await loadConnections(session.userId);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not reconnect the bank.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const syncNow = async (connectionId: string) => {
+    if (!session?.userId) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await requestOpenBankingSync({
+        userId: session.userId,
+        connectionId,
+        featureToggles: toggles,
+      });
+      if (!result.ok) {
+        setMessage(result.error);
+        return;
+      }
+      await applySyncedLedger(result.ledger);
+      setMessage("Bank synced. Accounts and Transactions are up to date.");
+      await loadConnections(session.userId);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Could not sync the bank.");
     } finally {
       setBusy(false);
     }
@@ -244,6 +276,14 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
+                  onClick={() => void syncNow(connection.id)}
+                  disabled={busy || connection.status === "revoked"}
+                  className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft disabled:opacity-50"
+                >
+                  Sync now
+                </button>
+                <button
+                  type="button"
                   onClick={() => void reconnect(connection.id)}
                   disabled={busy || connection.status === "revoked"}
                   className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft disabled:opacity-50"
@@ -277,6 +317,15 @@ function TurnOffButton({ onClick }: { onClick: () => void }) {
       Turn off
     </button>
   );
+}
+
+async function applySyncedLedger(raw: unknown): Promise<void> {
+  const parsed = parseLedger(raw);
+  if (parsed) {
+    applyRemoteLedger(parsed);
+    return;
+  }
+  await rehydrateLedger();
 }
 
 function statusLabel(status: string): string {

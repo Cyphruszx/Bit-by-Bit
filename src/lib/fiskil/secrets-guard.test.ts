@@ -21,6 +21,7 @@ const SECRET_SHAPED = [
   /webhookSecret/,
   /getFiskilAppToken/,
   /FiskilAppToken/,
+  /SUPABASE_SERVICE_ROLE_KEY/,
 ];
 
 function walk(dir: string): string[] {
@@ -76,5 +77,7 @@ describe("Fiskil secrets never reach the client bundle", () => {
     assert.match(example, /FISKIL_WEBHOOK_SECRET=/);
     assert.doesNotMatch(example, /NEXT_PUBLIC_FISKIL/);
     assert.match(example, /Never prefix this with NEXT_PUBLIC_/);
+    assert.match(example, /SUPABASE_SERVICE_ROLE_KEY=/);
+    assert.doesNotMatch(example, /NEXT_PUBLIC_SUPABASE_SERVICE_ROLE/);
   });
 });
