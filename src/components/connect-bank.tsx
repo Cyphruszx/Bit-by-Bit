@@ -30,7 +30,7 @@ type ListedSnapshot = {
  * Spec 12 Slice 2: Connect bank behind the OPEN_BANKING gate.
  * End-user → auth session → Fiskil Link. Secrets stay on the server.
  */
-export function ConnectBank() {
+export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
   const { featureOn } = useMoneyFlow();
   const session = useSession();
   const openBanking = canShowConnectBank(featureOn("OPEN_BANKING"));
@@ -177,6 +177,7 @@ export function ConnectBank() {
         </div>
         {signedIn ? (
           <div className="flex flex-wrap gap-2">
+            {onTurnOff ? <TurnOffButton onClick={onTurnOff} /> : null}
             <button
               type="button"
               onClick={() => {
@@ -204,12 +205,15 @@ export function ConnectBank() {
             </button>
           </div>
         ) : (
-          <Link
-            href="/sign-in"
-            className="rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-semibold text-ink-soft"
-          >
-            Sign in to connect
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {onTurnOff ? <TurnOffButton onClick={onTurnOff} /> : null}
+            <Link
+              href="/sign-in"
+              className="rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-semibold text-ink-soft"
+            >
+              Sign in to connect
+            </Link>
+          </div>
         )}
       </div>
 
@@ -260,6 +264,18 @@ export function ConnectBank() {
         </ul>
       ) : null}
     </section>
+  );
+}
+
+function TurnOffButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-semibold text-ink-soft"
+    >
+      Turn off
+    </button>
   );
 }
 

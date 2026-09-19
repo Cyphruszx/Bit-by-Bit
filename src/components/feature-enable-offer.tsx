@@ -1,8 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { ConnectBank } from "@/components/connect-bank";
 import { useMoneyFlow } from "@/components/money-flow-provider";
-import { ENABLE_OFFER_KEYS, ENABLE_OFFER_LABELS, hasClearedMovement, shouldShowEnableOffer, type EnableOfferKey } from "@/lib/money-flow/features";
+import {
+  ENABLE_OFFER_KEYS,
+  ENABLE_OFFER_LABELS,
+  hasClearedMovement,
+  OPEN_BANKING_LABEL,
+  OPEN_BANKING_STUB_NOTE,
+  openBankingControlMode,
+  shouldShowEnableOffer,
+  type EnableOfferKey,
+} from "@/lib/money-flow/features";
 
 /**
  * Spec 5: after the first CLEARED row, offer Goals, Linked balances, and Pools.
@@ -62,34 +72,100 @@ export function FeatureEnableOffer() {
 export function OptionalFeaturesPanel() {
   const { allTransactions, featureOn, setFeatureOn } = useMoneyFlow();
   const hasCleared = hasClearedMovement(allTransactions);
-  if (!hasCleared) return null;
 
   return (
     <details className="mt-8 rounded-2xl border border-line bg-surface p-6">
       <summary className="cursor-pointer text-lg font-bold">Optional features</summary>
       <p className="mt-2 text-sm text-muted">
-        Goals, Linked balances, and Pools stay off until you enable them. Turning one off hides it
-        without deleting what you already set up.
+        {hasCleared
+          ? "Goals, Linked balances, and Pools stay off until you enable them. Turning one off hides it without deleting what you already set up."
+          : "Enable Open Banking to show Connect bank on Accounts. Goals, Linked balances, and Pools appear here after the first cleared movement."}
       </p>
       <ul className="mt-4 space-y-3">
-        {ENABLE_OFFER_KEYS.map((key) => {
-          const on = featureOn(key);
-          return (
-            <li key={key} className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-semibold">{ENABLE_OFFER_LABELS[key]}</p>
-              <button
-                type="button"
-                onClick={() => setFeatureOn(key, !on)}
-                className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
-                  on ? "border border-line bg-surface text-ink-soft" : "bg-primary text-white"
-                }`}
-              >
-                {on ? "Turn off" : "Enable"}
-              </button>
-            </li>
-          );
-        })}
+        {hasCleared
+          ? ENABLE_OFFER_KEYS.map((key) => {
+              const on = featureOn(key);
+              return (
+                <li key={key} className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">{ENABLE_OFFER_LABELS[key]}</p>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureOn(key, !on)}
+                    className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
+                      on ? "border border-line bg-surface text-ink-soft" : "bg-primary text-white"
+                    }`}
+                  >
+                    {on ? "Turn off" : "Enable"}
+                  </button>
+                </li>
+              );
+            })
+          : null}
+        <OpenBankingPanelRow
+          on={featureOn("OPEN_BANKING")}
+          onToggle={setFeatureOn}
+          separated={hasCleared}
+        />
       </ul>
     </details>
+  );
+}
+
+function OpenBankingPanelRow({
+  on,
+  onToggle,
+  separated,
+}: {
+  on: boolean;
+  onToggle: (key: "OPEN_BANKING", enabled: boolean) => void;
+  separated: boolean;
+}) {
+  return (
+    <li
+      className={`flex flex-wrap items-center justify-between gap-3 ${
+        separated ? "border-t border-line pt-3" : ""
+      }`}
+    >
+      <div>
+        <p className="text-sm font-semibold">{OPEN_BANKING_LABEL}</p>
+        <p className="mt-1 text-xs text-muted">{OPEN_BANKING_STUB_NOTE}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onToggle("OPEN_BANKING", !on)}
+        className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
+          on ? "border border-line bg-surface text-ink-soft" : "bg-primary text-white"
+        }`}
+      >
+        {on ? "Turn off" : "Enable"}
+      </button>
+    </li>
+  );
+}
+
+/**
+ * Accounts: full enable control while the gate is off; Connect bank plus a compact
+ * Turn off once it is on, so the Open Banking heading is not repeated.
+ */
+export function OpenBankingAccountsControl() {
+  const { featureOn, setFeatureOn } = useMoneyFlow();
+  const on = featureOn("OPEN_BANKING");
+
+  if (openBankingControlMode(on) === "compact") {
+    return <ConnectBank onTurnOff={() => setFeatureOn("OPEN_BANKING", false)} />;
+  }
+
+  return (
+    <section className="mt-8 rounded-2xl border border-line bg-surface p-6">
+      <h2 className="text-lg font-bold">{OPEN_BANKING_LABEL}</h2>
+      <p className="mt-2 text-sm text-muted">{OPEN_BANKING_STUB_NOTE}</p>
+      <button
+        type="button"
+        onClick={() => setFeatureOn("OPEN_BANKING", true)}
+        className="mt-4 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
+      >
+        Enable
+      </button>
+    </section>
   );
 }
