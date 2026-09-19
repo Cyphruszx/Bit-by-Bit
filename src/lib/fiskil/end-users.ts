@@ -4,6 +4,10 @@
  * Look up the stored mapping first. If this person is new to us, ask Fiskil
  * by email and create only when nobody is there. The durable unique on
  * Fiskil's side is email; the durable unique on ours is user_id.
+ *
+ * Live GET /end-users?email= returns 400 { name: "end_user_not_found" } when
+ * nobody is there — that is "no match", not a hard failure. Auth and 5xx
+ * still fail the lookup.
  */
 
 import { hasOpenBankingBundle, parseFeatureToggles, type FeatureToggles } from "@/lib/money-flow/features";
@@ -158,17 +162,28 @@ async function findEndUserIdByEmail(
   token: { accessToken: string; tokenType: string },
   deps: EnsureFiskilEndUserDeps,
 ): Promise<string | undefined> {
+  return listEndUsersForEmail(email, token, deps, { filterByEmail: true });
+}
+
+async function listEndUsersForEmail(
+  email: string,
+  token: { accessToken: string; tokenType: string },
+  deps: EnsureFiskilEndUserDeps,
+  options: { filterByEmail: boolean },
+): Promise<string | undefined> {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const url = new URL(`${deps.apiBase ?? FISKIL_API_BASE}/end-users`);
-  url.searchParams.set("email", email);
+  if (options.filterByEmail) url.searchParams.set("email", email);
   const response = await fetchImpl(url.toString(), {
     method: "GET",
     headers: fiskilHeaders(token),
   });
-  if (!response.ok) {
-    throw new Error(`Fiskil end-user lookup failed (${response.status}).`);
+  if (response.ok) {
+    return endUserIdFromList(await readJson(response), email);
   }
-  return endUserIdFromList(await readJson(response), email);
+  const raw = await peekJson(response);
+  if (isFiskilEndUserNotFound(response.status, raw)) return undefined;
+  throw new Error(`Fiskil end-user lookup failed (${response.status}).`);
 }
 
 async function createEndUser(
@@ -192,9 +207,18 @@ async function createEndUser(
     return { endUserId, created: true };
   }
 
+  const raw = await peekJson(response);
+  const fromBody = endUserIdFromCreateError(raw);
+  if (fromBody) return { endUserId: fromBody, created: false };
+
   if (response.status === 400) {
     const existing = await findEndUserIdByEmail(body.email, token, deps);
     if (existing) return { endUserId: existing, created: false };
+
+    if (isFiskilEndUserAlreadyExists(raw)) {
+      const listed = await listEndUsersForEmail(body.email, token, deps, { filterByEmail: false });
+      if (listed) return { endUserId: listed, created: false };
+    }
   }
 
   throw new Error(`Fiskil create end-user failed (${response.status}).`);
@@ -204,6 +228,24 @@ export function endUserIdFromCreate(raw: unknown): string | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const body = raw as Record<string, unknown>;
   return asId(body.end_user_id) ?? asId(body.id);
+}
+
+/** Error bodies use `id` for the occurrence, not the end user. */
+export function endUserIdFromCreateError(raw: unknown): string | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  return asId((raw as Record<string, unknown>).end_user_id);
+}
+
+export function isFiskilEndUserNotFound(status: number, raw: unknown): boolean {
+  if (status === 404) return true;
+  if (status !== 400) return false;
+  const name = fiskilErrorName(raw);
+  if (name.includes("not_found")) return true;
+  return /end user.*not found/i.test(fiskilErrorMessage(raw));
+}
+
+export function isFiskilEndUserAlreadyExists(raw: unknown): boolean {
+  return fiskilErrorName(raw).includes("already_exists");
 }
 
 export function endUserIdFromList(raw: unknown, email: string): string | undefined {
@@ -237,6 +279,26 @@ async function readJson(response: Response): Promise<unknown> {
   } catch {
     throw new Error("Fiskil end-user response was not JSON.");
   }
+}
+
+async function peekJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return undefined;
+  }
+}
+
+function fiskilErrorName(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "";
+  const name = (raw as Record<string, unknown>).name;
+  return typeof name === "string" ? name.trim().toLowerCase() : "";
+}
+
+function fiskilErrorMessage(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "";
+  const message = (raw as Record<string, unknown>).message;
+  return typeof message === "string" ? message : "";
 }
 
 function asId(value: unknown): string | undefined {
