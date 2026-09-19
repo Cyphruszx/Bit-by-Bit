@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { emailError, passwordError, signInMessage } from "@/lib/auth/credentials";
 import { canSignIn, supabaseConfig } from "./config";
@@ -31,6 +32,35 @@ describe("whether this copy has anywhere to sign in to", () => {
 
   it("allows a local project over plain http, and nothing else", () => {
     assert.equal(canSignIn({ ...good, NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321" }), true);
+  });
+
+  it("reads the public keys from process.env when nobody passes an override", () => {
+    const previousUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const previousKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = good.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = good.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    try {
+      assert.deepEqual(supabaseConfig(), {
+        url: good.NEXT_PUBLIC_SUPABASE_URL,
+        publishableKey: good.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      });
+      assert.equal(canSignIn(), true);
+    } finally {
+      if (previousUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = previousUrl;
+      if (previousKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = previousKey;
+    }
+  });
+
+  it("names those keys as static process.env members, which is what Next inlines", () => {
+    // `const env = process.env; env.NEXT_PUBLIC_*` is a real object in Node tests and on
+    // the server, but Next does not replace it in the browser bundle. The default path
+    // has to mention the keys themselves.
+    const source = readFileSync(new URL("./config.ts", import.meta.url), "utf8");
+    assert.match(source, /process\.env\.NEXT_PUBLIC_SUPABASE_URL/);
+    assert.match(source, /process\.env\.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+    assert.doesNotMatch(source, /=\s*process\.env\s*[,)]/);
   });
 });
 
