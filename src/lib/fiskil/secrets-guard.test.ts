@@ -16,6 +16,9 @@ const SECRET_SHAPED = [
   /FISKIL_CLIENT_ID/,
   /NEXT_PUBLIC_FISKIL/,
   /client_secret/,
+  /clientSecret/,
+  /getFiskilAppToken/,
+  /FiskilAppToken/,
 ];
 
 function walk(dir: string): string[] {
