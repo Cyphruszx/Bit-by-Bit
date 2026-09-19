@@ -101,7 +101,7 @@ export function ConnectBank() {
         }
         return;
       }
-      setMessage("Bank connected. Sync of accounts and transactions comes in a later slice.");
+      setMessage("Bank connected. First 90 days of transactions are syncing.");
       await loadConnections(session.userId);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not start the bank connection.");

@@ -29,6 +29,12 @@ export function fiskilCredentials(env: FiskilEnv = process.env): FiskilCredentia
   return { clientId, clientSecret };
 }
 
+/** Fiskil webhook HMAC secret (base64). Server-only — never NEXT_PUBLIC_. */
+export function fiskilWebhookSecret(env: FiskilEnv = process.env): string | null {
+  const secret = env.FISKIL_WEBHOOK_SECRET?.trim();
+  return secret || null;
+}
+
 export function isFiskilConfigured(env: FiskilEnv = process.env): boolean {
   return fiskilCredentials(env) !== null;
 }

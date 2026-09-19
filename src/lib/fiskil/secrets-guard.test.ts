@@ -14,9 +14,11 @@ const SRC = path.resolve(process.cwd(), "src");
 const SECRET_SHAPED = [
   /FISKIL_CLIENT_SECRET/,
   /FISKIL_CLIENT_ID/,
+  /FISKIL_WEBHOOK_SECRET/,
   /NEXT_PUBLIC_FISKIL/,
   /client_secret/,
   /clientSecret/,
+  /webhookSecret/,
   /getFiskilAppToken/,
   /FiskilAppToken/,
 ];
@@ -71,6 +73,7 @@ describe("Fiskil secrets never reach the client bundle", () => {
     const example = readFileSync(path.resolve(process.cwd(), ".env.example"), "utf8");
     assert.match(example, /FISKIL_CLIENT_ID=/);
     assert.match(example, /FISKIL_CLIENT_SECRET=/);
+    assert.match(example, /FISKIL_WEBHOOK_SECRET=/);
     assert.doesNotMatch(example, /NEXT_PUBLIC_FISKIL/);
     assert.match(example, /Never prefix this with NEXT_PUBLIC_/);
   });

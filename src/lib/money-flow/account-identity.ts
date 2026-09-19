@@ -159,6 +159,8 @@ export type AccountMeta = {
    * soft hint — never invent Σ(CLEARED movements).
    */
   clearedBalance?: number;
+  /** Fiskil account id. Spec 12 upserts the same BitbyBit account on this. */
+  externalId?: string;
 };
 
 export const CASH_ACCOUNT_KINDS = new Set<AccountKind>(["CHECKING", "SAVINGS"]);

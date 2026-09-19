@@ -30,6 +30,13 @@ export type BankConnection = {
   status: BankConnectionStatus;
   createdAt: string;
   revokedAt?: string;
+  /** RFC3339 of the last successful accounts/transactions upsert. */
+  lastSyncedAt?: string;
+  /** Incremental `from` watermark. First connect uses 90 days instead. */
+  lastCursor?: string;
+  firstSyncCompletedAt?: string;
+  /** Set when consent/token fail stops sync. Existing CLEARED rows stay. */
+  syncStoppedReason?: "consent" | "token";
 };
 
 export type StoredAuthSession = {
@@ -47,7 +54,10 @@ export type StoredAuthSession = {
 
 export type ConnectionStore = {
   listByUserId(userId: string): Promise<BankConnection[]>;
+  listActive(): Promise<BankConnection[]>;
   getById(id: string): Promise<BankConnection | undefined>;
+  getByConsentId(consentId: string): Promise<BankConnection | undefined>;
+  listByEndUserId(endUserId: string): Promise<BankConnection[]>;
   put(connection: BankConnection): Promise<void>;
 };
 
@@ -62,9 +72,20 @@ export function memoryConnectionStore(): ConnectionStore {
     async listByUserId(userId) {
       return [...byId.values()].filter((row) => row.userId === userId).map((row) => ({ ...row }));
     },
+    async listActive() {
+      return [...byId.values()].filter((row) => row.status === "active").map((row) => ({ ...row }));
+    },
     async getById(id) {
       const held = byId.get(id);
       return held ? { ...held } : undefined;
+    },
+    async getByConsentId(consentId) {
+      const needle = consentId.trim();
+      const held = [...byId.values()].find((row) => row.consentId === needle || row.id === needle);
+      return held ? { ...held } : undefined;
+    },
+    async listByEndUserId(endUserId) {
+      return [...byId.values()].filter((row) => row.endUserId === endUserId).map((row) => ({ ...row }));
     },
     async put(connection) {
       byId.set(connection.id, { ...connection });

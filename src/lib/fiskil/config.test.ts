@@ -4,6 +4,7 @@ import {
   FISKIL_SCOPES,
   FISKIL_TOKEN_TTL_SECONDS,
   fiskilCredentials,
+  fiskilWebhookSecret,
   isFiskilConfigured,
   publicFiskilEnvNames,
 } from "./config";
@@ -46,5 +47,10 @@ describe("Fiskil server credentials (Spec 12.2)", () => {
   it("asks for the scopes Spec 12 locked", () => {
     assert.deepEqual([...FISKIL_SCOPES], ["api:user.read", "api:user.write", "api:banking"]);
     assert.equal(FISKIL_TOKEN_TTL_SECONDS, 900);
+  });
+
+  it("reads the webhook secret from server env only", () => {
+    assert.equal(fiskilWebhookSecret({ FISKIL_WEBHOOK_SECRET: "whsec" }), "whsec");
+    assert.equal(fiskilWebhookSecret({ NEXT_PUBLIC_FISKIL_WEBHOOK_SECRET: "leaked" }), null);
   });
 });
