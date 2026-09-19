@@ -1,0 +1,67 @@
+import assert from "node:assert/strict";
+import { afterEach, describe, it } from "node:test";
+import { GET, POST } from "@/app/api/open-banking/connections/route";
+import { processAuthSessionStore, processConnectionStore } from "./connections";
+
+const previousId = process.env.FISKIL_CLIENT_ID;
+const previousSecret = process.env.FISKIL_CLIENT_SECRET;
+
+afterEach(() => {
+  if (previousId === undefined) delete process.env.FISKIL_CLIENT_ID;
+  else process.env.FISKIL_CLIENT_ID = previousId;
+  if (previousSecret === undefined) delete process.env.FISKIL_CLIENT_SECRET;
+  else process.env.FISKIL_CLIENT_SECRET = previousSecret;
+});
+
+describe("Open Banking connections route", () => {
+  it("lists public connection fields only", async () => {
+    await processConnectionStore().put({
+      id: "consent_list",
+      userId: "user-list",
+      endUserId: "eu_hidden",
+      sessionId: "sess_hidden",
+      consentId: "consent_list",
+      status: "active",
+      createdAt: "2026-09-19T00:00:00.000Z",
+    });
+    const response = await GET(new Request("http://localhost/api/open-banking/connections?userId=user-list"));
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as { connections: Record<string, unknown>[] };
+    assert.deepEqual(Object.keys(body.connections[0]!).sort(), ["createdAt", "id", "status"]);
+    const serialized = JSON.stringify(body);
+    assert.doesNotMatch(serialized, /eu_hidden/);
+    assert.doesNotMatch(serialized, /sess_hidden/);
+    assert.doesNotMatch(serialized, /FISKIL_CLIENT_SECRET/);
+  });
+
+  it("completes a stored session without echoing secrets", async () => {
+    process.env.FISKIL_CLIENT_ID = "client-id";
+    process.env.FISKIL_CLIENT_SECRET = "super-secret-value";
+    await processAuthSessionStore().put({
+      sessionId: "sess_complete",
+      userId: "user-complete",
+      endUserId: "eu_complete",
+      redirectUri: "https://app.example/accounts?open-banking=linked",
+      cancelUri: "https://app.example/accounts?open-banking=cancelled",
+      createdAt: "2026-09-19T00:00:00.000Z",
+    });
+    const response = await POST(
+      new Request("http://localhost/api/open-banking/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete",
+          userId: "user-complete",
+          sessionId: "sess_complete",
+          consentId: "consent_complete",
+          featureToggles: { OPEN_BANKING: true },
+        }),
+      }),
+    );
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as Record<string, unknown>;
+    assert.equal((body.connection as { id: string }).id, "consent_complete");
+    assert.doesNotMatch(JSON.stringify(body), /super-secret-value/);
+    assert.doesNotMatch(JSON.stringify(body), /eu_complete/);
+  });
+});

@@ -2,7 +2,7 @@
  * Spec 12 Slice 1: create or link a Fiskil end user for a BitbyBit user_id.
  *
  * Server-only. The response is the mapping — never the Fiskil secret or app token.
- * Connect / Link SDK / webhooks are later slices.
+ * Slice 2 starts Link from POST /api/open-banking/auth-session after this mapping exists.
  */
 
 import { parseProvisionBody, processEndUserLinkStore, provisionOpenBankingEndUser } from "@/lib/fiskil/end-users";

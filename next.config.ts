@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "16mb",
     },
   },
+  transpilePackages: ["@fiskil/link"],
   serverExternalPackages: ["tesseract.js", "unpdf", "xlsx", "mammoth"],
 };
 
