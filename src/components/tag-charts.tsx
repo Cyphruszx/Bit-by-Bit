@@ -98,7 +98,7 @@ export function TagChartCard({
               aria-pressed={chart === value}
               onClick={() => onChartChange(value)}
               className={`${toggleClass} ${
-                chart === value ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
+                chart === value ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
               }`}
             >
               {compact ? short : long}
@@ -193,7 +193,7 @@ function TagToggle({
       aria-pressed={active}
       onClick={onClick}
       className={`rounded-full font-semibold ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
-        active ? "bg-primary text-white" : "border border-line bg-surface text-ink-soft"
+        active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
       }`}
     >
       {children}

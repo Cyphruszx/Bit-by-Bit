@@ -148,7 +148,7 @@ export function PoolsWidget() {
             className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm"
           />
         </label>
-        <button type="submit" className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white">
+        <button type="submit" className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary">
           Add pool
         </button>
       </form>
@@ -205,7 +205,7 @@ function PoolCard({
                   onRename(name);
                   setEditing(false);
                 }}
-                className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-white"
+                className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary"
               >
                 Save
               </button>
