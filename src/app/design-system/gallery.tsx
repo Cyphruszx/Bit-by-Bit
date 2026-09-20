@@ -80,36 +80,45 @@ export function DesignSystemGallery() {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
         <Section index="02" eyebrow="Typography" title="Public Sans, four weights">
-          <TypeRow spec="38 / 700 / −.03em" sampleClass="text-[38px] font-bold leading-none tracking-tight">
-            Page title
-          </TypeRow>
-          <TypeRow spec="27 / 700 / tabular" sampleClass="text-[27px] font-bold tracking-tight tabular-nums">
-            {formatAud(18420.65)}
-          </TypeRow>
-          <TypeRow spec="19 / 700" sampleClass="text-[19px] font-bold tracking-tight">
-            Product wordmark
-          </TypeRow>
-          <TypeRow spec="15.5 / 700" sampleClass="text-[15.5px] font-bold">
-            Card heading
-          </TypeRow>
-          <TypeRow spec="14 / 600" sampleClass="text-sm font-semibold">
-            Row title — Coles Brunswick
-          </TypeRow>
-          <TypeRow spec="13.5 / 600" sampleClass="text-[13.5px] font-semibold">
-            Nav item
-          </TypeRow>
-          <TypeRow spec="13 / 400 muted" sampleClass="text-sm text-muted">
-            Card label — Safe to spend
-          </TypeRow>
-          <TypeRow spec="12.5 / 400 muted" sampleClass="text-[12.5px] text-muted">
-            Supporting line — Recurring bills
-          </TypeRow>
-          <TypeRow spec="10.5 / 700 / .16em" sampleClass="text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted">
-            Section eyebrow
-          </TypeRow>
+          <div>
+            <TypeRow spec="38 / 700 / −.03em" sampleClass="text-[38px] font-bold leading-none tracking-tight">
+              Page title
+            </TypeRow>
+            <TypeRow spec="27 / 700 / tabular" sampleClass="text-[27px] font-bold tracking-tight tabular-nums">
+              {formatAud(18420.65)}
+            </TypeRow>
+            <TypeRow spec="19 / 700" sampleClass="text-[19px] font-bold tracking-tight">
+              Product wordmark
+            </TypeRow>
+            <TypeRow spec="15.5 / 700" sampleClass="text-[15.5px] font-bold">
+              Card heading
+            </TypeRow>
+            <TypeRow spec="14 / 600" sampleClass="text-sm font-semibold">
+              Row title — Coles Brunswick
+            </TypeRow>
+            <TypeRow spec="13.5 / 600" sampleClass="text-[13.5px] font-semibold">
+              Nav item
+            </TypeRow>
+            <TypeRow spec="13 / 400" sampleClass="text-[13px]">
+              Card label — Total balance
+            </TypeRow>
+            <TypeRow spec="12.5 / 400 muted" sampleClass="text-[12.5px] text-muted">
+              Supporting line — across 3 accounts
+            </TypeRow>
+            <TypeRow spec="11.5 / 600" sampleClass="text-[11.5px] font-semibold">
+              Pill label
+            </TypeRow>
+            <TypeRow spec="10.5 / 700 / .16em" sampleClass="text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted">
+              Section eyebrow
+            </TypeRow>
+          </div>
           <p className="text-[12.5px] leading-6 text-muted">
-            Every amount gets <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">tabular-nums</code>.
-            Negative amounts use the true minus (−), not a hyphen. Body copy stays at 12.5px or above.
+            Every amount gets{" "}
+            <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">
+              font-variant-numeric: tabular-nums
+            </code>{" "}
+            so columns align. Negative amounts use the true minus sign (−), not a hyphen. Body copy never drops below
+            12.5px.
           </p>
         </Section>
 
@@ -314,8 +323,8 @@ function TypeRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline gap-4 border-b border-line-dashed py-3 last:border-b-0">
-      <span className="w-28 shrink-0 font-mono text-[11px] text-muted">{spec}</span>
+    <div className="flex items-baseline gap-[18px] border-b border-line-dashed py-3 last:border-b-0">
+      <span className="w-[112px] shrink-0 font-mono text-[11px] text-muted">{spec}</span>
       <span className={sampleClass}>{children}</span>
     </div>
   );
