@@ -123,7 +123,7 @@ export function DesignSystemGallery() {
         </Section>
 
         <div className="grid gap-5">
-          <Section index="03" eyebrow="Spacing & radius" title="4px base, generous cards">
+          <Section index="03" eyebrow="Spacing & radius" title="4px base, four corner roles">
             <div className="grid gap-2">
               {spaceSamples.map((sample) => (
                 <div key={sample.px} className="flex items-center gap-3">
@@ -145,8 +145,8 @@ export function DesignSystemGallery() {
               ))}
             </div>
             <p className="text-[12.5px] leading-6 text-muted">
-              16 for cards, 999 for controls and tags, 2 for the logo mark squares. Don’t invent extra corner radii — if
-              it isn’t mark, card, or pill, use one of those.
+              16 for cards, 10 for nested non-control blocks inside a card, 999 for controls and tags, 2 for logo mark
+              squares. Don’t invent a fifth radius — if it isn’t mark, inner, card, or pill, reuse one of those.
             </p>
           </Section>
         </div>

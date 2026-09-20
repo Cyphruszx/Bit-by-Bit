@@ -54,6 +54,7 @@ export const darkColourTokens: ColorToken[] = [
 
 export const radiusSamples = [
   { name: "Mark", value: "2", className: "rounded-[var(--radius-mark)]", cssVar: "--radius-mark" },
+  { name: "Inner", value: "10", className: "rounded-[var(--radius-inner)]", cssVar: "--radius-inner" },
   { name: "Card", value: "16", className: "rounded-[var(--radius-card)]", cssVar: "--radius-card" },
   { name: "Pill", value: "999", className: "rounded-[var(--radius-pill)]", cssVar: "--radius-pill" },
 ] as const;

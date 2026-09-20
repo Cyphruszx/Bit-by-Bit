@@ -121,6 +121,7 @@
   --radius-card: 1rem;
   --radius-pill: 9999px;
   --radius-mark: 2px;
+  --radius-inner: 10px;
 
   --card-bg: #ffffff;
   --card-border: rgba(18, 58, 143, 0.1);

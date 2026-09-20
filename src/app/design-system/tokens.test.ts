@@ -71,11 +71,12 @@ describe("design system tokens", () => {
     }
   });
 
-  it("shows only the three product radius tokens", () => {
+  it("shows the four product radius tokens including Inner", () => {
     assert.deepEqual(
       radiusSamples.map((sample) => [sample.name, sample.value, sample.cssVar]),
       [
         ["Mark", "2", "--radius-mark"],
+        ["Inner", "10", "--radius-inner"],
         ["Card", "16", "--radius-card"],
         ["Pill", "999", "--radius-pill"],
       ],
@@ -83,7 +84,7 @@ describe("design system tokens", () => {
     for (const sample of radiusSamples) {
       assert.match(css, new RegExp(`${escapeRegExp(sample.cssVar)}\\s*:`), sample.cssVar);
     }
-    assert.match(css, /--radius-mark:\s*2px/);
+    assert.match(css, /--radius-inner:\s*10px/);
   });
 });
 
