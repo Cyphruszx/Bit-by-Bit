@@ -85,10 +85,10 @@ async function seedConnections(store: ReturnType<typeof memoryConnectionStore>, 
 }
 
 describe("Open Banking link session start", () => {
-  it("refuses without the OPEN_BANKING bundle toggle", async () => {
+  it("refuses when the OPEN_BANKING bundle toggle is off", async () => {
     const { deps } = connectDeps();
     const refused = await startOpenBankingLinkSession(
-      { userId: "user-1", email: "sam@example.com", ...URIS },
+      { userId: "user-1", email: "sam@example.com", featureToggles: { OPEN_BANKING: false }, ...URIS },
       deps,
     );
     assert.equal(refused.ok, false);

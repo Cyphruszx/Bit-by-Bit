@@ -36,10 +36,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             )}
             <ThemeToggle />
-            <AccountLink />
-            <Link href="/upload" className="rounded-full bg-primary-strong px-4 py-2 text-[13px] font-bold text-on-primary">
-              Add
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <AccountLink />
+              <Link
+                href="/upload"
+                className="rounded-full bg-primary-strong px-4 py-2 text-[13px] font-bold text-on-primary"
+              >
+                Add
+              </Link>
+            </div>
           </div>
         </div>
       </header>
