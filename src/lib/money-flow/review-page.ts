@@ -7,13 +7,17 @@ import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/account-iden
 import { calendarDate } from "@/lib/money-flow/period";
 import {
   openReviewCount,
+  transferPartnersFor,
   type ReviewItem,
   type ReviewReason,
 } from "@/lib/money-flow/review-queue";
+import type { MatchOptions } from "@/lib/money-flow/transfers";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
+import { wordsOf, type VerdictReason } from "@/lib/money-flow/verdicts";
 
 export type ReviewOpenActionId =
   | "confirm"
+  | "confirm-as-transfer"
   | "confirm-refund"
   | "mark-income"
   | "keep-as-money"
@@ -56,10 +60,11 @@ export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext
         ];
       }
       return [
+        { id: "confirm-as-transfer", label: "Confirm as transfer", role: "primary", enabled: true },
         {
           id: "keep-as-money",
           label: ctx.keepAsLabel ?? "Keep as spending",
-          role: "primary",
+          role: "secondary",
           enabled: true,
         },
         { id: "skip", label: "Skip for now", role: "secondary", enabled: true },
@@ -113,6 +118,69 @@ export function openActionsAreUseful(actions: ReviewOpenAction[]): boolean {
   if (enabled.length === 0) return false;
   if (enabled.every((action) => action.id === "not-that")) return false;
   return enabled.some((action) => action.role === "primary") || enabled.some((action) => action.id !== "not-that");
+}
+
+export function reviewMovementOf(
+  item: ReviewItem,
+  byId: Map<string, InterpretedTransaction>,
+): InterpretedTransaction | undefined {
+  const id = item.debitId ?? item.creditId ?? item.movementIds[0];
+  return id ? byId.get(id) : undefined;
+}
+
+/**
+ * Counterparty key for no-partner unpaired cards: `wordsOf` from verdicts (the
+ * same letter-only, length≥3 wording likeKey/oneKey already use) plus in/out.
+ * That joins "JORDAN LEE S554…" and "JORDAN LEE HO019…" as `out|jordan lee`
+ * without inventing a second payee key. merchantKey keeps a leftover "ho".
+ */
+export function unpairedSimilarityKey(
+  item: ReviewItem,
+  byId: Map<string, InterpretedTransaction>,
+): string {
+  const txn = reviewMovementOf(item, byId);
+  if (!txn) return "";
+  const payee = wordsOf(txn).join(" ");
+  if (!payee) return "";
+  return `${txn.amount > 0 ? "in" : "out"}|${payee}`;
+}
+
+export function unpairedAsTransferReason(amount: number): VerdictReason {
+  return amount < 0 ? "not-mine" : "own-account";
+}
+
+export function unpairedKeepReason(amount: number): VerdictReason {
+  return amount < 0 ? "spent" : "earned";
+}
+
+/** OPEN no-partner UNPAIRED_TRANSFER items that share the current card's payee key. */
+export function similarOpenUnpaired(
+  item: ReviewItem,
+  items: ReviewItem[],
+  transactions: InterpretedTransaction[],
+  options?: MatchOptions,
+): ReviewItem[] {
+  if (item.reason !== "UNPAIRED_TRANSFER") return [item];
+  const byId = new Map(transactions.map((txn) => [txn.id, txn]));
+  const key = unpairedSimilarityKey(item, byId);
+  if (!key) return [item];
+  return items.filter((row) => {
+    if (row.state !== "OPEN" || row.reason !== "UNPAIRED_TRANSFER") return false;
+    if (unpairedSimilarityKey(row, byId) !== key) return false;
+    return transferPartnersFor(row, transactions, options).length === 0;
+  });
+}
+
+export function unpairedSettleTargets(
+  item: ReviewItem,
+  items: ReviewItem[],
+  transactions: InterpretedTransaction[],
+  applySimilar: boolean,
+  options?: MatchOptions,
+): ReviewItem[] {
+  if (!applySimilar) return [item];
+  const similar = similarOpenUnpaired(item, items, transactions, options);
+  return similar.length > 0 ? similar : [item];
 }
 
 export type ReviewSurface = "open" | "history";

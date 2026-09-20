@@ -17,6 +17,7 @@ import {
   REVIEW_REASON_LABEL,
   reviewOpenedOn,
   reviewOpenActions,
+  similarOpenUnpaired,
   type ReviewOpenActionId,
   type ReviewReasonFilter,
   type ReviewSurface,
@@ -42,6 +43,7 @@ export function ReviewView() {
     accountNames,
     allTransactions,
     assignReviewCategory,
+    confirmReviewAsTransfer,
     confirmReviewRefund,
     confirmReviewTransfer,
     declineReviewItem,
@@ -196,11 +198,13 @@ export function ReviewView() {
             partners={transferPartnersFor(item, allTransactions, matching)}
             payments={refundPaymentsFor(item, allTransactions)}
             onAssignCategory={(merchant, categoryKey) => assignReviewCategory(item, merchant, categoryKey)}
+            similar={similarOpenUnpaired(item, review, allTransactions, matching)}
+            onConfirmAsTransfer={(similar) => confirmReviewAsTransfer(item, similar)}
             onConfirmRefund={(debitId) => confirmReviewRefund(item, debitId)}
             onConfirmTransfer={(creditId) => confirmReviewTransfer(item, creditId)}
             onDecline={(partnerId) => declineReviewItem(item, partnerId)}
             onDismiss={() => dismissReviewItem(item)}
-            onKeepAsMoney={() => keepReviewAsMoney(item)}
+            onKeepAsMoney={(similar) => keepReviewAsMoney(item, similar)}
             onKeepFiling={() => keepReviewFiling(item)}
             onMarkIncome={() => markReviewIncome(item)}
             onSkip={() => setSkipped((held) => (held.includes(item.id) ? held : [...held, item.id]))}
@@ -222,7 +226,9 @@ function ReviewCard({
   openedOn,
   partners,
   payments,
+  similar,
   onAssignCategory,
+  onConfirmAsTransfer,
   onConfirmRefund,
   onConfirmTransfer,
   onDecline,
@@ -239,12 +245,14 @@ function ReviewCard({
   openedOn?: string;
   partners: TransferPartner[];
   payments: RefundPayment[];
+  similar: ReviewItem[];
   onAssignCategory: (merchant: string, categoryKey: string) => void;
+  onConfirmAsTransfer: (similar?: ReviewItem[]) => void;
   onConfirmRefund: (debitId?: string) => void;
   onConfirmTransfer: (creditId: string) => void;
   onDecline: (partnerId?: string) => void;
   onDismiss: () => void;
-  onKeepAsMoney: () => void;
+  onKeepAsMoney: (similar?: ReviewItem[]) => void;
   onKeepFiling: () => void;
   onMarkIncome: () => void;
   onSkip: () => void;
@@ -260,6 +268,7 @@ function ReviewCard({
     item.debitId ?? (payments.length === 1 ? payments[0]?.id : undefined),
   );
   const [pickedCategory, setPickedCategory] = useState<string | undefined>(suggestions[0]?.key);
+  const [applySimilar, setApplySimilar] = useState(similar.length > 1);
   const selectedPartner = partners.some((partner) => partner.id === pickedPartner)
     ? pickedPartner
     : partners[0]?.id;
@@ -459,11 +468,16 @@ function ReviewCard({
           selectedPaymentId={selectedPayment}
           selectedCategoryKey={pickedCategory}
           keepAsLabel={keepAsMoneyLabel(item, byId)}
+          similarCount={partners.length === 0 ? similar.length : 0}
+          applySimilar={applySimilar}
+          onApplySimilar={setApplySimilar}
           onAction={(action) => {
+            const batch = applySimilar && similar.length > 1 ? similar : undefined;
             if (action === "confirm" && selectedPartner) onConfirmTransfer(selectedPartner);
+            if (action === "confirm-as-transfer") onConfirmAsTransfer(batch);
             if (action === "confirm-refund") onConfirmRefund(selectedPayment);
             if (action === "mark-income") onMarkIncome();
-            if (action === "keep-as-money") onKeepAsMoney();
+            if (action === "keep-as-money") onKeepAsMoney(batch);
             if (action === "assign-category" && pickedCategory) onAssignCategory(merchant, pickedCategory);
             if (action === "skip") onSkip();
             if (action === "dismiss") onDismiss();
@@ -484,6 +498,9 @@ function ReviewActions({
   selectedPaymentId,
   selectedCategoryKey,
   keepAsLabel,
+  similarCount,
+  applySimilar,
+  onApplySimilar,
   onAction,
 }: {
   item: ReviewItem;
@@ -493,6 +510,9 @@ function ReviewActions({
   selectedPaymentId?: string;
   selectedCategoryKey?: string;
   keepAsLabel: string;
+  similarCount: number;
+  applySimilar: boolean;
+  onApplySimilar: (value: boolean) => void;
   onAction: (action: ReviewOpenActionId) => void;
 }) {
   const actions = reviewOpenActions(item, {
@@ -505,7 +525,7 @@ function ReviewActions({
   });
 
   return (
-    <div className="mt-4 flex flex-wrap gap-2">
+    <div className="mt-4 flex flex-wrap items-center gap-2">
       {actions.map((action) => (
         <button
           key={action.id}
@@ -521,6 +541,17 @@ function ReviewActions({
           {action.label}
         </button>
       ))}
+      {similarCount > 1 ? (
+        <label className="flex items-center gap-2 text-xs font-semibold text-ink-soft">
+          <input
+            type="checkbox"
+            checked={applySimilar}
+            onChange={(event) => onApplySimilar(event.target.checked)}
+            className="size-3.5 accent-[var(--color-primary)]"
+          />
+          Apply to {similarCount} similar
+        </label>
+      ) : null}
     </div>
   );
 }

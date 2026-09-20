@@ -9,6 +9,10 @@ import {
   reviewNavBadgeCount,
   reviewOpenedOn,
   reviewOpenActions,
+  similarOpenUnpaired,
+  unpairedAsTransferReason,
+  unpairedSettleTargets,
+  unpairedSimilarityKey,
 } from "./review-page";
 import { dismissReviewItem, resolveReviewItem, REVIEW_REASONS, type ReviewItem } from "./review-queue";
 import type { InterpretedTransaction } from "./types";
@@ -176,9 +180,12 @@ describe("OPEN action matrix", () => {
       ],
     );
     const orphan = reviewOpenActions(openTransfer, { partnerCount: 0, keepAsLabel: keepAsMoneyLabel(openTransfer, byId) });
-    assert.equal(orphan[0]?.id, "keep-as-money");
-    assert.equal(orphan[0]?.label, "Keep as spending");
-    assert.equal(orphan[1]?.id, "skip");
+    assert.deepEqual(
+      orphan.map((action) => action.id),
+      ["confirm-as-transfer", "keep-as-money", "skip"],
+    );
+    assert.equal(orphan[0]?.label, "Confirm as transfer");
+    assert.equal(orphan[1]?.label, "Keep as spending");
   });
 
   it("always offers Confirm refund and Mark as income, even without debitId", () => {
@@ -197,6 +204,71 @@ describe("OPEN action matrix", () => {
     assert.equal(ambiguous.find((action) => action.id === "confirm-refund")?.enabled, false);
     assert.equal(ambiguous.find((action) => action.id === "mark-income")?.enabled, true);
     assert.ok(!ambiguous.some((action) => action.id === "not-that"));
+  });
+
+  it("groups no-partner unpaired cards by wordsOf payee plus direction", () => {
+    const first = txn({
+      id: "jl-1",
+      amount: -600,
+      dateIso: "2026-05-14",
+      merchant: "JORDAN LEE S55497275522",
+      accountId: "NAB · NAB--3000",
+      type: "TRANSFER",
+      bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
+    });
+    const second = txn({
+      id: "jl-2",
+      amount: -600,
+      dateIso: "2026-05-11",
+      merchant: "JORDAN LEE HO0191683078",
+      accountId: "NAB · NAB--3000",
+      type: "TRANSFER",
+      bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
+    });
+    const other = txn({
+      id: "other",
+      amount: -600,
+      dateIso: "2026-05-10",
+      merchant: "Transfer To Save!!",
+      accountId: "NAB · NAB--3000",
+      type: "TRANSFER",
+      bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
+    });
+    const inbound = txn({
+      id: "jl-in",
+      amount: 600,
+      dateIso: "2026-05-12",
+      merchant: "JORDAN LEE INBOUND",
+      accountId: "NAB · NAB--3000",
+      type: "TRANSFER",
+      bank: { category: "Internal transfers", type: "TRANSFER CREDIT" },
+    });
+    const rows = [first, second, other, inbound];
+    const queue = [
+      item({ id: "UNPAIRED_TRANSFER:jl-1", reason: "UNPAIRED_TRANSFER", debitId: "jl-1", movementIds: ["jl-1"] }),
+      item({ id: "UNPAIRED_TRANSFER:jl-2", reason: "UNPAIRED_TRANSFER", debitId: "jl-2", movementIds: ["jl-2"] }),
+      item({ id: "UNPAIRED_TRANSFER:other", reason: "UNPAIRED_TRANSFER", debitId: "other", movementIds: ["other"] }),
+      item({ id: "UNPAIRED_TRANSFER:jl-in", reason: "UNPAIRED_TRANSFER", creditId: "jl-in", movementIds: ["jl-in"] }),
+    ];
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    assert.equal(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[1]!, byId));
+    assert.equal(unpairedSimilarityKey(queue[0]!, byId), "out|jordan lee");
+    assert.notEqual(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[3]!, byId));
+    const similar = similarOpenUnpaired(queue[0]!, queue, rows);
+    assert.deepEqual(
+      similar.map((row) => row.id).sort(),
+      ["UNPAIRED_TRANSFER:jl-1", "UNPAIRED_TRANSFER:jl-2"],
+    );
+    assert.deepEqual(
+      unpairedSettleTargets(queue[0]!, queue, rows, true).map((row) => row.id).sort(),
+      similar.map((row) => row.id).sort(),
+    );
+    assert.deepEqual(
+      unpairedSettleTargets(queue[0]!, queue, rows, false).map((row) => row.id),
+      ["UNPAIRED_TRANSFER:jl-1"],
+    );
+    assert.equal(unpairedAsTransferReason(-600), "not-mine");
+    assert.equal(unpairedAsTransferReason(600), "own-account");
   });
 
   it("gives UNREVIEWED_KIND Assign category and Skip for now", () => {

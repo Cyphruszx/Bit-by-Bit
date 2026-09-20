@@ -46,6 +46,11 @@ import {
   type ReviewItem,
 } from "@/lib/money-flow/review-queue";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
+import {
+  reviewMovementOf,
+  unpairedAsTransferReason,
+  unpairedKeepReason,
+} from "@/lib/money-flow/review-page";
 import { categorizeMerchant, removeTag, renameTag, sameMerchant, tagMerchant, withCategory, withTags } from "@/lib/money-flow/tags";
 import {
   applyVerdicts,
@@ -137,9 +142,10 @@ type MoneyFlowState = {
   review: ReviewItem[];
   openReviewCount: number;
   confirmReviewTransfer: (item: ReviewItem, creditId?: string) => void;
+  confirmReviewAsTransfer: (item: ReviewItem, similar?: ReviewItem[]) => void;
   confirmReviewRefund: (item: ReviewItem, debitId?: string) => void;
   markReviewIncome: (item: ReviewItem) => void;
-  keepReviewAsMoney: (item: ReviewItem) => void;
+  keepReviewAsMoney: (item: ReviewItem, similar?: ReviewItem[]) => void;
   assignReviewCategory: (item: ReviewItem, merchant: string, categoryKey: string) => void;
   keepReviewFiling: (item: ReviewItem) => void;
   declineReviewItem: (item: ReviewItem, partnerId?: string) => void;
@@ -244,6 +250,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       review,
       openReviewCount: openReviewCount(review),
       confirmReviewTransfer,
+      confirmReviewAsTransfer,
       confirmReviewRefund,
       markReviewIncome,
       keepReviewAsMoney,
@@ -589,11 +596,14 @@ function markReviewIncome(item: ReviewItem) {
   settleReviewWithVerdict(item, credit, "earned");
 }
 
-function keepReviewAsMoney(item: ReviewItem) {
+function confirmReviewAsTransfer(item: ReviewItem, similar?: ReviewItem[]) {
   if (item.reason !== "UNPAIRED_TRANSFER") return;
-  const txn = reviewMovement(item.debitId ?? item.creditId ?? item.movementIds[0]);
-  if (!txn) return;
-  settleReviewWithVerdict(item, txn, txn.amount < 0 ? "spent" : "earned");
+  settleUnpairedBatch(item, similar, "transfer");
+}
+
+function keepReviewAsMoney(item: ReviewItem, similar?: ReviewItem[]) {
+  if (item.reason !== "UNPAIRED_TRANSFER") return;
+  settleUnpairedBatch(item, similar, "money");
 }
 
 function assignReviewCategory(item: ReviewItem, merchant: string, categoryKey: string) {
@@ -629,15 +639,44 @@ function reviewMovement(id: string | undefined) {
 }
 
 function settleReviewWithVerdict(item: ReviewItem, txn: InterpretedTransaction, reason: VerdictReason) {
-  const settings = {
+  settleItemsWithVerdicts([{ item, txn, reason }]);
+}
+
+function settleUnpairedBatch(item: ReviewItem, similar: ReviewItem[] | undefined, kind: "transfer" | "money") {
+  const seed = reviewMovement(item.debitId ?? item.creditId ?? item.movementIds[0]);
+  if (!seed) return;
+  const seedReason = kind === "transfer" ? unpairedAsTransferReason(seed.amount) : unpairedKeepReason(seed.amount);
+  const stored = ledgerTransactions(snapshot.ledger);
+  const byId = new Map(stored.map((txn) => [txn.id, txn]));
+  const targets = similar && similar.length > 0 ? similar : [item];
+  const planned = targets.flatMap((target) => {
+    const txn = reviewMovementOf(target, byId);
+    if (!txn) return [];
+    const reason = kind === "transfer" ? unpairedAsTransferReason(txn.amount) : seedReason;
+    return [{ item: target, txn, reason }];
+  });
+  if (planned.length === 0) return;
+  settleItemsWithVerdicts(planned);
+}
+
+function settleItemsWithVerdicts(planned: { item: ReviewItem; txn: InterpretedTransaction; reason: VerdictReason }[]) {
+  const settings = reviewRegistry();
+  const at = new Date().toISOString();
+  let ledger = snapshot.ledger;
+  for (const row of planned) {
+    ledger = recordVerdict(ledger, oneKey(row.txn, settings), verdictFor(row.reason, at));
+    ledger = recordReview(ledger, resolveReviewItem(row.item));
+  }
+  commit(ledger);
+}
+
+function reviewRegistry() {
+  return {
     institutions: snapshot.ledger.institutions ?? {},
     names: snapshot.ledger.accounts ?? {},
     payers: snapshot.ledger.payers ?? {},
     mergedInto: snapshot.ledger.mergedInto,
   };
-  const held = { ...(snapshot.ledger.verdicts ?? {}) };
-  held[oneKey(txn, settings)] = verdictFor(reason, new Date().toISOString());
-  commit(recordReview({ ...snapshot.ledger, verdicts: held }, resolveReviewItem(item)));
 }
 
 function dismissReviewItem(item: ReviewItem) {

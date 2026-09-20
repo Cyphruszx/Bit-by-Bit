@@ -405,6 +405,62 @@ describe("OPEN settle paths", () => {
     assert.equal(summarizeMoneyFlow(judged).refunds, 0);
   });
 
+  it("Confirm as transfer marks an orphan TRANSFER without inventing a pair", () => {
+    const item = buildReviewQueue([out]).find((row) => row.reason === "UNPAIRED_TRANSFER");
+    assert.ok(item);
+    const judged = applyVerdicts([out], { [oneKey(out)]: verdictFor("not-mine", "2026-09-20T00:00:00Z") });
+    assert.equal(judged[0]?.type, "TRANSFER");
+    assert.equal(judged[0]?.transferPair, undefined);
+    assert.equal(judged[0]?.decidedBy, "user_overridden");
+    const closed = resolveReviewItem(item!);
+    assert.equal(openReviewCount(buildReviewQueue(judged, { stored: [closed] })), 0);
+    const flow = summarizeMoneyFlow(judged);
+    assert.equal(flow.income, 0);
+    assert.equal(flow.spending, 0);
+    assert.equal(flow.net, 0);
+    assert.equal(flow.transfers, 0);
+  });
+
+  it("Apply to similar resolves each matching OPEN orphan and records History", () => {
+    const first = txn({
+      id: "jl-1",
+      amount: -600,
+      dateIso: "2026-05-14",
+      merchant: "JORDAN LEE S55497275522",
+      type: "TRANSFER",
+      accountId: "NAB · NAB--3000",
+      bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
+      categoryKey: "uncategorised",
+    });
+    const second = txn({
+      id: "jl-2",
+      amount: -600,
+      dateIso: "2026-05-11",
+      merchant: "JORDAN LEE HO0191683078",
+      type: "TRANSFER",
+      accountId: "NAB · NAB--3000",
+      bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
+      categoryKey: "uncategorised",
+    });
+    const queue = buildReviewQueue([first, second]);
+    const open = queue.filter((row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER");
+    assert.equal(open.length, 2);
+    const at = "2026-09-20T00:00:00Z";
+    const judged = applyVerdicts([first, second], {
+      [oneKey(first)]: verdictFor("not-mine", at),
+      [oneKey(second)]: verdictFor("not-mine", at),
+    });
+    const stored = open.map((row) => resolveReviewItem(row));
+    const next = buildReviewQueue(judged, { stored });
+    assert.equal(openReviewCount(next), 0);
+    assert.equal(stored.filter((row) => row.state === "RESOLVED").length, 2);
+    assert.ok(judged.every((row) => row.type === "TRANSFER" && !row.transferPair));
+    const flow = summarizeMoneyFlow(judged);
+    assert.equal(flow.spending, 0);
+    assert.equal(flow.income, 0);
+    assert.equal(flow.net, 0);
+  });
+
   it("Keep as spending settles an orphan transfer via spent verdict", () => {
     const item = buildReviewQueue([out]).find((row) => row.reason === "UNPAIRED_TRANSFER");
     assert.ok(item);
