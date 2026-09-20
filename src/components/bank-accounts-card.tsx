@@ -14,7 +14,7 @@ export function BankAccountsCard({ tiles }: { tiles: BankInstitutionTile[] }) {
   return (
     <article className="card flex flex-col gap-3 p-[22px]">
       <h3 className="text-[15.5px] font-bold">Bank Accounts</h3>
-      <div className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {tiles.map((tile) => (
           <InstitutionTile key={tile.institution} tile={tile} />
         ))}
