@@ -5,6 +5,7 @@
 
 import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/account-identity";
 import { calendarDate } from "@/lib/money-flow/period";
+import { merchantKey } from "@/lib/money-flow/redact";
 import {
   openReviewCount,
   transferPartnersFor,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/money-flow/review-queue";
 import type { MatchOptions } from "@/lib/money-flow/transfers";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
-import { wordsOf, type VerdictReason } from "@/lib/money-flow/verdicts";
+import type { VerdictReason } from "@/lib/money-flow/verdicts";
 
 export type ReviewOpenActionId =
   | "confirm"
@@ -129,20 +130,21 @@ export function reviewMovementOf(
 }
 
 /**
- * Counterparty key for no-partner unpaired cards: `wordsOf` from verdicts (the
- * same letter-only, length≥3 wording likeKey/oneKey already use) plus in/out.
- * That joins "JORDAN LEE S554…" and "JORDAN LEE HO019…" as `out|jordan lee`
- * without inventing a second payee key. merchantKey keeps a leftover "ho".
+ * Tess Spec soft default: `merchantKey` (existing review/classify tidy
+ * counterparty — digit-bearing tokens stripped) plus the same `account_id`.
+ * OPEN UNPAIRED_TRANSFER siblings only. Soft open — Steven may tighten later
+ * (e.g. leftover letters on refs like HO019, or adding direction).
  */
 export function unpairedSimilarityKey(
   item: ReviewItem,
   byId: Map<string, InterpretedTransaction>,
+  registry: AccountRegistry = {},
 ): string {
   const txn = reviewMovementOf(item, byId);
   if (!txn) return "";
-  const payee = wordsOf(txn).join(" ");
+  const payee = merchantKey(txn);
   if (!payee) return "";
-  return `${txn.amount > 0 ? "in" : "out"}|${payee}`;
+  return `${accountIdOf(txn, registry)}|${payee}`;
 }
 
 export function unpairedAsTransferReason(amount: number): VerdictReason {
@@ -159,14 +161,15 @@ export function similarOpenUnpaired(
   items: ReviewItem[],
   transactions: InterpretedTransaction[],
   options?: MatchOptions,
+  registry: AccountRegistry = {},
 ): ReviewItem[] {
   if (item.reason !== "UNPAIRED_TRANSFER") return [item];
   const byId = new Map(transactions.map((txn) => [txn.id, txn]));
-  const key = unpairedSimilarityKey(item, byId);
+  const key = unpairedSimilarityKey(item, byId, registry);
   if (!key) return [item];
   return items.filter((row) => {
     if (row.state !== "OPEN" || row.reason !== "UNPAIRED_TRANSFER") return false;
-    if (unpairedSimilarityKey(row, byId) !== key) return false;
+    if (unpairedSimilarityKey(row, byId, registry) !== key) return false;
     return transferPartnersFor(row, transactions, options).length === 0;
   });
 }
@@ -177,9 +180,10 @@ export function unpairedSettleTargets(
   transactions: InterpretedTransaction[],
   applySimilar: boolean,
   options?: MatchOptions,
+  registry: AccountRegistry = {},
 ): ReviewItem[] {
   if (!applySimilar) return [item];
-  const similar = similarOpenUnpaired(item, items, transactions, options);
+  const similar = similarOpenUnpaired(item, items, transactions, options, registry);
   return similar.length > 0 ? similar : [item];
 }
 

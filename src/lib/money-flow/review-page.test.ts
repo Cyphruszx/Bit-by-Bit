@@ -206,7 +206,7 @@ describe("OPEN action matrix", () => {
     assert.ok(!ambiguous.some((action) => action.id === "not-that"));
   });
 
-  it("groups no-partner unpaired cards by wordsOf payee plus direction", () => {
+  it("groups no-partner unpaired cards by merchantKey plus account_id", () => {
     const first = txn({
       id: "jl-1",
       amount: -600,
@@ -220,39 +220,40 @@ describe("OPEN action matrix", () => {
       id: "jl-2",
       amount: -600,
       dateIso: "2026-05-11",
+      merchant: "JORDAN LEE T5",
+      accountId: "NAB · NAB--3000",
+      type: "TRANSFER",
+      bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
+    });
+    const otherAccount = txn({
+      id: "jl-other-acct",
+      amount: -600,
+      dateIso: "2026-05-10",
+      merchant: "JORDAN LEE T5",
+      accountId: "Up · Spending",
+      type: "TRANSFER",
+      bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
+    });
+    const leftover = txn({
+      id: "jl-ho",
+      amount: -600,
+      dateIso: "2026-05-09",
       merchant: "JORDAN LEE HO0191683078",
       accountId: "NAB · NAB--3000",
       type: "TRANSFER",
       bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
     });
-    const other = txn({
-      id: "other",
-      amount: -600,
-      dateIso: "2026-05-10",
-      merchant: "Transfer To Save!!",
-      accountId: "NAB · NAB--3000",
-      type: "TRANSFER",
-      bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
-    });
-    const inbound = txn({
-      id: "jl-in",
-      amount: 600,
-      dateIso: "2026-05-12",
-      merchant: "JORDAN LEE INBOUND",
-      accountId: "NAB · NAB--3000",
-      type: "TRANSFER",
-      bank: { category: "Internal transfers", type: "TRANSFER CREDIT" },
-    });
-    const rows = [first, second, other, inbound];
+    const rows = [first, second, otherAccount, leftover];
     const queue = [
       item({ id: "UNPAIRED_TRANSFER:jl-1", reason: "UNPAIRED_TRANSFER", debitId: "jl-1", movementIds: ["jl-1"] }),
       item({ id: "UNPAIRED_TRANSFER:jl-2", reason: "UNPAIRED_TRANSFER", debitId: "jl-2", movementIds: ["jl-2"] }),
-      item({ id: "UNPAIRED_TRANSFER:other", reason: "UNPAIRED_TRANSFER", debitId: "other", movementIds: ["other"] }),
-      item({ id: "UNPAIRED_TRANSFER:jl-in", reason: "UNPAIRED_TRANSFER", creditId: "jl-in", movementIds: ["jl-in"] }),
+      item({ id: "UNPAIRED_TRANSFER:jl-other-acct", reason: "UNPAIRED_TRANSFER", debitId: "jl-other-acct", movementIds: ["jl-other-acct"] }),
+      item({ id: "UNPAIRED_TRANSFER:jl-ho", reason: "UNPAIRED_TRANSFER", debitId: "jl-ho", movementIds: ["jl-ho"] }),
     ];
     const byId = new Map(rows.map((row) => [row.id, row]));
     assert.equal(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[1]!, byId));
-    assert.equal(unpairedSimilarityKey(queue[0]!, byId), "out|jordan lee");
+    assert.match(unpairedSimilarityKey(queue[0]!, byId), /\|jordan lee$/);
+    assert.notEqual(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[2]!, byId));
     assert.notEqual(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[3]!, byId));
     const similar = similarOpenUnpaired(queue[0]!, queue, rows);
     assert.deepEqual(

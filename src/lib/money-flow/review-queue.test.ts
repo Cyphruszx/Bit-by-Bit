@@ -436,7 +436,7 @@ describe("OPEN settle paths", () => {
       id: "jl-2",
       amount: -600,
       dateIso: "2026-05-11",
-      merchant: "JORDAN LEE HO0191683078",
+      merchant: "JORDAN LEE T5",
       type: "TRANSFER",
       accountId: "NAB · NAB--3000",
       bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },

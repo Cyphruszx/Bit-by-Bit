@@ -198,7 +198,7 @@ export function ReviewView() {
             partners={transferPartnersFor(item, allTransactions, matching)}
             payments={refundPaymentsFor(item, allTransactions)}
             onAssignCategory={(merchant, categoryKey) => assignReviewCategory(item, merchant, categoryKey)}
-            similar={similarOpenUnpaired(item, review, allTransactions, matching)}
+            similar={similarOpenUnpaired(item, review, allTransactions, matching, registry)}
             onConfirmAsTransfer={(similar) => confirmReviewAsTransfer(item, similar)}
             onConfirmRefund={(debitId) => confirmReviewRefund(item, debitId)}
             onConfirmTransfer={(creditId) => confirmReviewTransfer(item, creditId)}
