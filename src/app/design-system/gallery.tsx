@@ -135,21 +135,18 @@ export function DesignSystemGallery() {
             </div>
             <div className="flex items-end gap-3 pt-1">
               {radiusSamples.map((sample) => (
-                <div key={sample.label} className="grid justify-items-center gap-1.5">
+                <div key={sample.cssVar} className="grid justify-items-center gap-1">
                   <div
                     className={`h-10 w-[52px] border border-primary/20 bg-accent-surface ${sample.className}`}
                   />
-                  <span className="font-mono text-[11px] text-muted">{sample.label}</span>
+                  <span className="font-mono text-[11px] text-muted">{sample.value}</span>
+                  <span className="text-xs font-semibold text-ink">{sample.name}</span>
                 </div>
               ))}
             </div>
             <p className="text-[12.5px] leading-6 text-muted">
-              16 for cards, 12 for tiles inside cards, 999 for anything that reads as a control or a tag, 4 only for
-              the 8px logo squares.
-            </p>
-            <p className="text-[11px] text-muted">
-              Product mark token is 2px (<code className="font-mono">--radius-mark</code>); reference scale includes 4
-              for small corners.
+              16 for cards, 999 for controls and tags, 2 for the logo mark squares. Don’t invent extra corner radii — if
+              it isn’t mark, card, or pill, use one of those.
             </p>
           </Section>
         </div>

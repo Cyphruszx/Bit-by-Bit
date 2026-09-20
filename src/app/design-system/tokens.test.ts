@@ -71,16 +71,19 @@ describe("design system tokens", () => {
     }
   });
 
-  it("shows the reference radius scale and keeps the product mark at 2px", () => {
+  it("shows only the three product radius tokens", () => {
     assert.deepEqual(
-      radiusSamples.map((sample) => sample.label),
-      ["4", "8", "12", "16", "999"],
+      radiusSamples.map((sample) => [sample.name, sample.value, sample.cssVar]),
+      [
+        ["Mark", "2", "--radius-mark"],
+        ["Card", "16", "--radius-card"],
+        ["Pill", "999", "--radius-pill"],
+      ],
     );
+    for (const sample of radiusSamples) {
+      assert.match(css, new RegExp(`${escapeRegExp(sample.cssVar)}\\s*:`), sample.cssVar);
+    }
     assert.match(css, /--radius-mark:\s*2px/);
-    assert.match(css, /--radius-card:\s*1rem/);
-    assert.match(css, /--radius-pill:\s*9999px/);
-    assert.equal(radiusSamples.find((sample) => sample.label === "16")?.cssVar, "--radius-card");
-    assert.equal(radiusSamples.find((sample) => sample.label === "999")?.cssVar, "--radius-pill");
   });
 });
 

@@ -53,11 +53,9 @@ export const darkColourTokens: ColorToken[] = [
 ];
 
 export const radiusSamples = [
-  { label: "4", className: "rounded-[4px]" },
-  { label: "8", className: "rounded-[8px]" },
-  { label: "12", className: "rounded-[12px]" },
-  { label: "16", className: "rounded-[var(--radius-card)]", cssVar: "--radius-card" },
-  { label: "999", className: "rounded-[var(--radius-pill)]", cssVar: "--radius-pill" },
+  { name: "Mark", value: "2", className: "rounded-[var(--radius-mark)]", cssVar: "--radius-mark" },
+  { name: "Card", value: "16", className: "rounded-[var(--radius-card)]", cssVar: "--radius-card" },
+  { name: "Pill", value: "999", className: "rounded-[var(--radius-pill)]", cssVar: "--radius-pill" },
 ] as const;
 
 export const spaceSamples = [
