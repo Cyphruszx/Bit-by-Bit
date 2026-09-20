@@ -16,68 +16,53 @@ function displayColor(value: string) {
     .toUpperCase()}`;
 }
 
+function displayGradient(value: string) {
+  const hexes = [...value.matchAll(/#([0-9a-f]{3,8})\b/gi)].map((match) => match[0].toUpperCase());
+  if (hexes.length >= 2) return `${hexes[0]}→${hexes[1]}`;
+  return displayColor(value) || value;
+}
+
 export function TokenSwatch({ token }: { token: ColorToken }) {
   const ref = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
-  const [resolved, setResolved] = useState(token.cssVar);
+  const fallback = token.displayHex ?? token.cssVar ?? token.name;
+  const [resolved, setResolved] = useState(fallback);
 
   useEffect(() => {
+    if (token.displayHex) {
+      setResolved(token.displayHex);
+      return;
+    }
     const node = ref.current;
-    if (!node) return;
+    if (!node || !token.cssVar) return;
 
     const read = () => {
-      const styles = getComputedStyle(node);
-      const fromVar = styles.getPropertyValue(token.cssVar).trim();
-      setResolved(displayColor(fromVar) || fromVar || token.cssVar);
+      const raw = getComputedStyle(node).getPropertyValue(token.cssVar).trim();
+      setResolved(token.gradient ? displayGradient(raw) : displayColor(raw) || raw || token.cssVar);
     };
 
     read();
     const observer = new MutationObserver(read);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
-  }, [theme, token.cssVar]);
+  }, [theme, token.cssVar, token.displayHex, token.gradient]);
 
   return (
     <div className="grid gap-1.5">
       <div
         ref={ref}
         className={`h-[60px] rounded-[10px] ${token.swatchClass} ${token.bordered ? "border border-line" : ""}`}
+        style={
+          token.gradient
+            ? { backgroundImage: `var(${token.cssVar})` }
+            : token.displayHex
+              ? { backgroundColor: token.displayHex }
+              : undefined
+        }
       />
       <p className="text-xs font-semibold text-ink">{token.name}</p>
-      <p className="font-mono text-[11px] text-muted">{token.cssVar}</p>
       <p className="font-mono text-[11px] text-muted">{resolved}</p>
-    </div>
-  );
-}
-
-export function FeatureFillSwatch() {
-  const ref = useRef<HTMLDivElement>(null);
-  const { theme } = useTheme();
-  const [resolved, setResolved] = useState("--highlight-gradient");
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const read = () => {
-      const value = getComputedStyle(node).getPropertyValue("--highlight-gradient").trim();
-      setResolved(value || "--highlight-gradient");
-    };
-    read();
-    const observer = new MutationObserver(read);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, [theme]);
-
-  return (
-    <div className="grid gap-1.5">
-      <div
-        ref={ref}
-        className="h-[60px] rounded-[10px] border border-line"
-        style={{ backgroundImage: "var(--highlight-gradient)" }}
-      />
-      <p className="text-xs font-semibold text-ink">Feature fill</p>
-      <p className="font-mono text-[11px] text-muted">--highlight-gradient</p>
-      <p className="font-mono text-[11px] leading-snug text-muted">{resolved}</p>
+      {token.note ? <p className="text-[11px] text-muted">{token.note}</p> : null}
     </div>
   );
 }

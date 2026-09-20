@@ -6,8 +6,8 @@ import { PeriodChip } from "@/components/period-chip";
 import { SummaryCard } from "@/components/summary-card";
 import { useTheme } from "@/components/theme-store";
 import { formatAud, formatSignedAud } from "@/lib/format";
-import { FeatureFillSwatch, TokenSwatch } from "./token-swatch";
-import { colourTokens, exceptionTokens, radiusTokens, spaceSamples } from "./tokens";
+import { TokenSwatch } from "./token-swatch";
+import { colourTokens, darkColourTokens, radiusTokens, spaceSamples } from "./tokens";
 
 const primaryButton =
   "rounded-full bg-primary-strong px-4 py-2 text-[13px] font-bold text-on-primary disabled:opacity-35";
@@ -47,47 +47,35 @@ export function DesignSystemGallery() {
         index="01"
         eyebrow="Colour tokens"
         title="One blue family, one neutral ramp"
-        hint="Blue carries meaning — brand, money in, selection. Neutrals carry everything else."
+        hint="Blue carries meaning — brand, positive movement, selection. Neutrals carry everything else."
       >
-        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Current theme</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {colourTokens.map((token) => (
-            <TokenSwatch key={token.cssVar} token={token} />
-          ))}
-          <FeatureFillSwatch />
+        <div className="grid gap-2.5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Light theme</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {colourTokens.map((token) => (
+              <TokenSwatch key={`light-${token.name}`} token={token} />
+            ))}
+          </div>
         </div>
 
-        {theme === "light" ? (
-          <div className="dark grid gap-2.5 rounded-[14px] border border-line bg-canvas p-[18px]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Dark theme preview</p>
-            <p className="text-[12.5px] text-muted">
-              Forced <code className="font-mono text-[11px]">.dark</code> on this panel so both ramps are visible without leaving Light.
-            </p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {colourTokens.slice(0, 12).map((token) => (
-                <TokenSwatch key={`dark-${token.cssVar}`} token={token} />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="text-[12.5px] text-muted">
-            You are on the dark ramp. Switch to Light to compare the 7b values beside this forced dark panel.
-          </p>
-        )}
-
-        <div className="grid gap-2.5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Named exceptions — not for amounts</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {exceptionTokens.map((token) => (
-              <TokenSwatch key={token.cssVar} token={token} />
+        <div className="dark grid gap-2.5 rounded-[14px] border border-[rgba(111,155,255,0.14)] bg-canvas p-[18px]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Dark theme</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {darkColourTokens.map((token) => (
+              <TokenSwatch key={`dark-${token.name}`} token={token} />
             ))}
           </div>
         </div>
 
         <Guidance
           doText="Use brand blue for money-in figures, the active nav pill, and chart lines. Use the 300/400 steps only inside charts and progress fills."
-          dontText="No red or green for amounts — direction is carried by the − / + sign and weight. No pure black; ink is the ink token, not #000. No new hues."
+          dontText="No red or green for amounts — direction is carried by the − / + sign and weight. No pure black; ink is #101214. No new hues."
         />
+        <p className="text-[12.5px] leading-relaxed text-muted">
+          Attention and negative-strong live in{" "}
+          <code className="font-mono text-[11px]">globals.css</code> as named exceptions. They are not part of this
+          ramp.
+        </p>
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">

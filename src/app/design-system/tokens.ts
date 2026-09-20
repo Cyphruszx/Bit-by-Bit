@@ -1,46 +1,56 @@
 export type ColorToken = {
   name: string;
-  /** Tailwind background class bound to the theme colour. */
+  /** Tailwind background class bound to the theme colour. Empty for gallery-only fills. */
   swatchClass: string;
   /** Custom property declared on `@theme` or `:root` in globals.css. */
-  cssVar: string;
+  cssVar?: string;
   bordered?: boolean;
-  /** Named exception — not for money direction or everyday chrome. */
-  exception?: boolean;
+  /** Bind the swatch to `background-image` instead of a solid colour. */
+  gradient?: boolean;
+  /** Gallery-only fill when no product token exists yet. */
+  displayHex?: string;
+  note?: string;
 };
 
+/** 01 · Light theme — design names, bound to live theme tokens. */
 export const colourTokens: ColorToken[] = [
-  { name: "Primary / brand", swatchClass: "bg-primary", cssVar: "--color-primary" },
-  { name: "Primary strong", swatchClass: "bg-primary-strong", cssVar: "--color-primary-strong" },
-  { name: "Secondary / 400", swatchClass: "bg-secondary", cssVar: "--color-secondary" },
-  { name: "Chart 300", swatchClass: "bg-chart-4", cssVar: "--color-chart-4" },
-  { name: "Accent tint", swatchClass: "bg-accent-surface", cssVar: "--color-accent-surface", bordered: true },
-  { name: "Positive", swatchClass: "bg-positive", cssVar: "--color-positive" },
+  { name: "Brand", swatchClass: "bg-primary", cssVar: "--color-primary" },
+  { name: "Brand deep", swatchClass: "bg-primary-strong", cssVar: "--color-primary-strong" },
+  { name: "Brand 400", swatchClass: "bg-secondary", cssVar: "--color-secondary" },
+  { name: "Brand 300", swatchClass: "bg-chart-4", cssVar: "--color-chart-4" },
+  { name: "Brand tint", swatchClass: "bg-accent-surface", cssVar: "--color-accent-surface", bordered: true },
+  { name: "Feature fill", swatchClass: "", cssVar: "--highlight-gradient", gradient: true },
   { name: "Ink", swatchClass: "bg-ink", cssVar: "--color-ink" },
-  { name: "Ink soft", swatchClass: "bg-ink-soft", cssVar: "--color-ink-soft" },
+  { name: "Ink secondary", swatchClass: "bg-ink-soft", cssVar: "--color-ink-soft" },
   { name: "Muted", swatchClass: "bg-muted", cssVar: "--color-muted" },
-  { name: "On dark muted", swatchClass: "bg-on-dark-muted", cssVar: "--color-on-dark-muted" },
+  { name: "Dim", swatchClass: "bg-on-dark-muted", cssVar: "--color-on-dark-muted" },
   { name: "Line", swatchClass: "bg-line", cssVar: "--color-line", bordered: true },
   { name: "Fill", swatchClass: "bg-surface-subtle", cssVar: "--color-surface-subtle", bordered: true },
+];
+
+/**
+ * 01 · Dark theme — design names. Several light roles remap to a different
+ * token in the 8a block (Brand is `--color-secondary`, not `--color-primary`).
+ */
+export const darkColourTokens: ColorToken[] = [
+  { name: "Brand", swatchClass: "bg-secondary", cssVar: "--color-secondary" },
+  {
+    name: "Brand 500",
+    swatchClass: "",
+    displayHex: "#4F7CF5",
+    note: "Not in theme yet",
+  },
+  { name: "Brand 600", swatchClass: "bg-primary", cssVar: "--color-primary" },
+  { name: "Brand deep", swatchClass: "bg-primary-strong", cssVar: "--color-primary-strong" },
+  { name: "Brand tint", swatchClass: "bg-accent-surface", cssVar: "--color-accent-surface", bordered: true },
+  { name: "Brand text", swatchClass: "bg-chart-4", cssVar: "--color-chart-4" },
+  { name: "Ink", swatchClass: "bg-ink", cssVar: "--color-ink" },
+  { name: "Muted", swatchClass: "bg-muted", cssVar: "--color-muted" },
+  { name: "Dim", swatchClass: "bg-chart-6", cssVar: "--color-chart-6" },
   { name: "Surface", swatchClass: "bg-surface", cssVar: "--color-surface", bordered: true },
-  { name: "Canvas", swatchClass: "bg-canvas", cssVar: "--color-canvas", bordered: true },
-  { name: "Mark 1", swatchClass: "bg-mark-1", cssVar: "--color-mark-1" },
-  { name: "Mark 2", swatchClass: "bg-mark-2", cssVar: "--color-mark-2" },
-  { name: "Mark 3", swatchClass: "bg-mark-3", cssVar: "--color-mark-3" },
-  { name: "Mark 4", swatchClass: "bg-mark-4", cssVar: "--color-mark-4" },
+  { name: "Surface sunk", swatchClass: "bg-surface-subtle", cssVar: "--color-surface-subtle", bordered: true },
+  { name: "Line", swatchClass: "bg-line-dashed", cssVar: "--color-line-dashed" },
 ];
-
-export const exceptionTokens: ColorToken[] = [
-  { name: "Attention", swatchClass: "bg-attention", cssVar: "--color-attention", exception: true },
-  { name: "Attention surface", swatchClass: "bg-attention-surface", cssVar: "--color-attention-surface", bordered: true, exception: true },
-  { name: "Negative strong", swatchClass: "bg-negative-strong", cssVar: "--color-negative-strong", exception: true },
-  { name: "Negative surface", swatchClass: "bg-negative-surface", cssVar: "--color-negative-surface", bordered: true, exception: true },
-];
-
-export const featureFillToken = {
-  name: "Feature fill",
-  cssVar: "--highlight-gradient",
-} as const;
 
 export const radiusTokens = [
   { name: "Mark", cssVar: "--radius-mark", className: "rounded-[var(--radius-mark)]" },
