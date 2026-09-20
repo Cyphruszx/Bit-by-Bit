@@ -99,7 +99,7 @@ function Chip({
       onClick={onClick}
       className={`max-w-[16rem] truncate rounded-full px-3 py-1.5 font-semibold ${subdued ? "text-xs" : "text-sm"} ${
         active
-          ? "bg-primary text-white"
+          ? "bg-primary text-on-primary"
           : `border bg-surface text-ink-soft ${subdued ? "border-dashed border-line-dashed" : "border-line"}`
       }`}
     >

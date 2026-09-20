@@ -46,7 +46,7 @@ export function SpendDonut({
       <div className="grid min-w-0 gap-2 text-[12.5px]">
         {slices.map((slice) => (
           <span key={slice.name} className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ background: slice.color }} />
+            <span className="h-2.5 w-2.5 shrink-0 rounded-[var(--radius-mark)]" style={{ background: slice.color }} />
             <span className="flex-1">{slice.label}</span>
             <b className="tabular-nums">{slice.share}%</b>
           </span>

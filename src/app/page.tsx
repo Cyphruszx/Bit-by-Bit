@@ -47,7 +47,7 @@ export default function Home() {
 
   return (
     <AppFrame>
-      <nav className="mx-auto flex max-w-[1240px] items-center justify-between px-7 py-6">
+      <nav className="mx-auto flex max-w-[1240px] items-center justify-between px-5 py-6 md:px-7">
         <BrandMark />
         <div className="flex items-center gap-3">
           <ThemeToggle />
@@ -57,7 +57,7 @@ export default function Home() {
           </Link>
         </div>
       </nav>
-      <section className="mx-auto grid max-w-[1240px] gap-12 px-7 pb-20 pt-16 md:grid-cols-[1.1fr_.9fr] md:items-center md:pt-24">
+      <section className="mx-auto grid max-w-[1240px] gap-12 px-5 pb-20 pt-16 md:grid-cols-[1.1fr_.9fr] md:items-center md:px-7 md:pt-24">
         <div>
           <p className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-muted">Australian money flow</p>
           <h1 className="max-w-xl text-5xl font-bold tracking-tight md:text-6xl">Upload a statement. See the money flow.</h1>
@@ -90,26 +90,26 @@ export default function Home() {
           </ul>
           <p className="mt-8 text-sm text-on-dark-muted">Then it shows</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-white/10 p-4">
+            <div className="rounded-[var(--radius-inner)] bg-on-primary/10 p-4">
               <p className="text-xs text-on-dark-muted">Money in</p>
               <p className="mt-1 font-bold">Income and refunds</p>
             </div>
-            <div className="rounded-2xl bg-white/10 p-4">
+            <div className="rounded-[var(--radius-inner)] bg-on-primary/10 p-4">
               <p className="text-xs text-on-dark-muted">Money out</p>
               <p className="mt-1 font-bold">Spending by category</p>
             </div>
-            <div className="rounded-2xl bg-white/10 p-4">
+            <div className="rounded-[var(--radius-inner)] bg-on-primary/10 p-4">
               <p className="text-xs text-on-dark-muted">Ledger</p>
               <p className="mt-1 font-bold">Every movement</p>
             </div>
-            <div className="rounded-2xl bg-white/10 p-4">
+            <div className="rounded-[var(--radius-inner)] bg-on-primary/10 p-4">
               <p className="text-xs text-on-dark-muted">Review Queue</p>
               <p className="mt-1 font-bold">When it is unclear</p>
             </div>
           </div>
         </div>
       </section>
-      <section className="mx-auto grid max-w-[1240px] gap-4 px-7 pb-16 md:grid-cols-2 lg:grid-cols-3">
+      <section className="mx-auto grid max-w-[1240px] gap-4 px-5 pb-16 md:grid-cols-2 md:px-7 lg:grid-cols-3">
         {features.map(([title, description]) => (
           <article key={title} className="card p-6">
             <h2 className="font-bold">{title}</h2>
@@ -117,7 +117,7 @@ export default function Home() {
           </article>
         ))}
       </section>
-      <footer className="border-t border-line px-7 py-8 text-center text-sm text-muted">
+      <footer className="border-t border-line px-5 py-8 text-center text-sm text-muted md:px-7">
         {siteName} · Works as a guest in this browser. Sign in to back up the ledger and take it with you.
         {" · "}
         <Link href="/design-system" className="underline-offset-4 hover:underline">

@@ -209,7 +209,7 @@ export function DashboardView() {
           {hidden.map((institution) => (
             <div
               key={institution}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-line-dashed px-6 py-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-dashed border-line-dashed px-6 py-4"
             >
               <p className="text-sm font-semibold text-muted">{institution} · hidden</p>
               <button

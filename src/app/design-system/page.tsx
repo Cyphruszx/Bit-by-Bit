@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function DesignSystemPage() {
   return (
     <AppFrame>
-      <nav className="mx-auto flex max-w-[1240px] items-center justify-between px-7 py-6">
+      <nav className="mx-auto flex max-w-[1240px] items-center justify-between px-5 py-6 md:px-7">
         <BrandMark />
         <div className="flex items-center gap-3">
           <ThemeToggle />
@@ -23,10 +23,10 @@ export default function DesignSystemPage() {
           </Link>
         </div>
       </nav>
-      <main className="mx-auto max-w-[1240px] px-7 pb-20">
+      <main className="mx-auto max-w-[1240px] px-5 pb-20 md:px-7">
         <DesignSystemGallery />
       </main>
-      <footer className="border-t border-line px-7 py-8 text-center text-sm text-muted">
+      <footer className="border-t border-line px-5 py-8 text-center text-sm text-muted md:px-7">
         {siteName} · Preview utility · not a Core flow
       </footer>
     </AppFrame>

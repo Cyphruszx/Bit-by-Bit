@@ -65,7 +65,7 @@ export function RecurringView() {
         <SummaryCard label="Suggestions" value={String(suggestions.length)} detail="Seen in this period" />
       </section>
 
-      <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
+      <article className="mt-8 card p-6">
         <h2 className="text-lg font-bold">Tracked</h2>
         {tracked.length === 0 ? (
           <p className="mt-4 text-sm text-muted">
@@ -89,7 +89,7 @@ export function RecurringView() {
         )}
       </article>
 
-      <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
+      <article className="mt-8 card p-6">
         <h2 className="text-lg font-bold">Suggested from activity</h2>
         {suggestions.length === 0 ? (
           <p className="mt-4 text-sm text-muted">
@@ -179,7 +179,7 @@ function StatusBadge({ status }: { status: TrackingStatus }) {
       : status === "overdue"
         ? "bg-negative-surface text-negative"
         : status === "due"
-          ? "bg-primary text-white"
+          ? "bg-primary text-on-primary"
           : "bg-surface-subtle text-muted";
   return <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${tone}`}>{statusLabel(status)}</span>;
 }
@@ -241,7 +241,7 @@ function AddPaymentForm({
   const [nextDate, setNextDate] = useState(today);
 
   return (
-    <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
+    <article className="mt-8 card p-6">
       <h2 className="text-lg font-bold">Add a payment</h2>
       <form
         className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_8rem_10rem_11rem_auto] lg:items-end"
@@ -298,7 +298,7 @@ function AddPaymentForm({
             className="w-full rounded-full border border-line bg-surface px-4 py-2.5 text-sm outline-none focus:border-primary"
           />
         </label>
-        <button type="submit" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">
+        <button type="submit" className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary">
           Add
         </button>
       </form>

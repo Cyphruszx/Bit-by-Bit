@@ -123,7 +123,7 @@ export function AccountsView() {
       {poolsOn ? <PoolsWidget /> : null}
 
       {suggestions.length > 0 ? (
-        <section className="mt-8 rounded-2xl border border-attention-line bg-attention-surface p-6">
+        <section className="mt-8 rounded-[var(--radius-card)] border border-attention-line bg-attention-surface p-6">
           <h2 className="text-lg font-bold">These might be the same account</h2>
           <div className="mt-4 space-y-3">
             {suggestions.map((suggestion) => {
@@ -136,7 +136,7 @@ export function AccountsView() {
                   <button
                     type="button"
                     onClick={() => merge(drop, keep)}
-                    className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
+                    className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
                   >
                     Merge them
                   </button>
@@ -209,7 +209,7 @@ export function AccountsView() {
       </section>
 
       {files.length > 0 ? (
-        <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
+        <article className="mt-8 card p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Uploaded documents</h2>
             <Link href="/upload" className="text-sm font-semibold text-ink-soft">
@@ -271,7 +271,7 @@ function PoolFilter({
             type="button"
             onClick={() => onChange(chip.id)}
             className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
-              value === chip.id ? "bg-primary text-white" : "border border-line bg-surface text-ink-soft"
+              value === chip.id ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
             }`}
           >
             {chip.label}
@@ -321,7 +321,7 @@ function AccountCard({
   onMerge: (into: AccountTotals) => void;
 }) {
   return (
-    <article className="rounded-2xl border border-line bg-surface p-6">
+    <article className="card p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold">{name}</h3>
@@ -462,7 +462,7 @@ function InlineName({
           ))}
         </datalist>
       ) : null}
-      <button type="button" onClick={save} className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-white">
+      <button type="button" onClick={save} className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary">
         Save
       </button>
     </div>

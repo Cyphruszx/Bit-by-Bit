@@ -24,7 +24,7 @@ export function ClassificationChips({ txn }: { txn: InterpretedTransaction }) {
     <div className="flex flex-wrap items-center gap-1">
       <span
         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-          unsorted ? "bg-attention-surface-strong text-attention" : "bg-primary text-white"
+          unsorted ? "bg-attention-surface-strong text-attention" : "bg-primary text-on-primary"
         }`}
       >
         {group}
