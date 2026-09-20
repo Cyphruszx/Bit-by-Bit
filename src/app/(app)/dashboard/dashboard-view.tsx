@@ -134,7 +134,7 @@ export function DashboardView() {
         </p>
       ) : null}
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start">
+      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.66fr)_minmax(0,1fr)] lg:items-start">
         <div className="grid gap-5">
           <article className="card p-[22px]">
             <div className="mb-3.5 flex items-baseline justify-between gap-4">

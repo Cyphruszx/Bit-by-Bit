@@ -53,7 +53,7 @@ export function FeatureEnableOffer() {
         <button
           type="button"
           onClick={() => acceptEnableOffer(selected)}
-          className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
+          className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
         >
           Enable selected
         </button>
@@ -92,7 +92,7 @@ export function OptionalFeaturesPanel() {
                     type="button"
                     onClick={() => setFeatureOn(key, !on)}
                     className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
-                      on ? "border border-line bg-surface text-ink-soft" : "bg-primary text-white"
+                      on ? "border border-line bg-surface text-ink-soft" : "bg-primary text-on-primary"
                     }`}
                   >
                     {on ? "Turn off" : "Enable"}
@@ -134,7 +134,7 @@ function OpenBankingPanelRow({
         type="button"
         onClick={() => onToggle("OPEN_BANKING", !on)}
         className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
-          on ? "border border-line bg-surface text-ink-soft" : "bg-primary text-white"
+          on ? "border border-line bg-surface text-ink-soft" : "bg-primary text-on-primary"
         }`}
       >
         {on ? "Turn off" : "Enable"}
@@ -162,7 +162,7 @@ export function OpenBankingAccountsControl() {
       <button
         type="button"
         onClick={() => setFeatureOn("OPEN_BANKING", true)}
-        className="mt-4 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
+        className="mt-4 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
       >
         Enable
       </button>
