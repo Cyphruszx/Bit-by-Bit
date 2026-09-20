@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { accountCaption } from "@/lib/money-flow/account-identity";
@@ -92,12 +92,6 @@ export function ReviewView() {
     [accountId, allTransactions, reason, registry, review, sinceIso, surface],
   );
   const paged = useMemo(() => pageReviewItems(items, page), [items, page]);
-  useEffect(() => {
-    setPage(0);
-  }, [surface, reason, accountId, last30]);
-  useEffect(() => {
-    if (paged.page !== page) setPage(paged.page);
-  }, [paged.page, page]);
   const accounts = useMemo(() => accountsFrom(allTransactions, registry), [allTransactions, registry]);
   const byId = useMemo(() => new Map(allTransactions.map((txn) => [txn.id, txn])), [allTransactions]);
   const skippedCount = skippedOpenCount(review);
@@ -114,7 +108,10 @@ export function ReviewView() {
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <SurfaceTab
           active={surface === "open"}
-          onClick={() => setSurface("open")}
+          onClick={() => {
+            setSurface("open");
+            setPage(0);
+          }}
         >
           Open
         </SurfaceTab>
@@ -123,6 +120,7 @@ export function ReviewView() {
           onClick={() => {
             setSurface("history");
             if (reason === "skipped") setReason("all");
+            setPage(0);
           }}
         >
           History
@@ -131,7 +129,14 @@ export function ReviewView() {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {REVIEW_REASON_FILTERS.filter((chip) => surface === "open" || chip.id !== "skipped").map((chip) => (
-          <Chip key={chip.id} active={reason === chip.id} onClick={() => setReason(chip.id)}>
+          <Chip
+            key={chip.id}
+            active={reason === chip.id}
+            onClick={() => {
+              setReason(chip.id);
+              setPage(0);
+            }}
+          >
             {chip.label}
           </Chip>
         ))}
@@ -139,12 +144,21 @@ export function ReviewView() {
           active={Boolean(accountId) || accountOpen}
           onClick={() => {
             setAccountOpen(!accountOpen);
-            if (accountId && accountOpen) setAccountId(undefined);
+            if (accountId && accountOpen) {
+              setAccountId(undefined);
+              setPage(0);
+            }
           }}
         >
           {accountId ? accounts.find((account) => account.id === accountId)?.label ?? "Account" : "Account"}
         </Chip>
-        <Chip active={last30} onClick={() => setLast30(!last30)}>
+        <Chip
+          active={last30}
+          onClick={() => {
+            setLast30(!last30);
+            setPage(0);
+          }}
+        >
           {last30 ? "Date · Last 30 days" : "Date"}
         </Chip>
       </div>
@@ -157,6 +171,7 @@ export function ReviewView() {
             onClick={() => {
               setAccountId(undefined);
               setAccountOpen(false);
+              setPage(0);
             }}
           >
             All
@@ -169,6 +184,7 @@ export function ReviewView() {
               onClick={() => {
                 setAccountId(account.id);
                 setAccountOpen(false);
+                setPage(0);
               }}
             >
               {account.label}
@@ -233,7 +249,10 @@ export function ReviewView() {
               </p>
               <button
                 type="button"
-                onClick={() => setReason("skipped")}
+                onClick={() => {
+                  setReason("skipped");
+                  setPage(0);
+                }}
                 className="mt-4 rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
               >
                 View skipped
@@ -305,7 +324,7 @@ export function ReviewView() {
             <button
               type="button"
               disabled={paged.page === 0}
-              onClick={() => setPage((held) => Math.max(0, held - 1))}
+              onClick={() => setPage(paged.page - 1)}
               className="rounded-full border border-line bg-surface px-4 py-2 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
             >
               Previous
@@ -313,7 +332,7 @@ export function ReviewView() {
             {paged.page < paged.pageCount - 1 ? (
               <button
                 type="button"
-                onClick={() => setPage((held) => held + 1)}
+                onClick={() => setPage(paged.page + 1)}
                 className="rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
               >
                 Load more
