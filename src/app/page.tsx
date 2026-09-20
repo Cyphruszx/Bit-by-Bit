@@ -119,6 +119,10 @@ export default function Home() {
       </section>
       <footer className="border-t border-line px-7 py-8 text-center text-sm text-muted">
         {siteName} · Works as a guest in this browser. Sign in to back up the ledger and take it with you.
+        {" · "}
+        <Link href="/design-system" className="underline-offset-4 hover:underline">
+          Design system
+        </Link>
       </footer>
     </AppFrame>
   );
