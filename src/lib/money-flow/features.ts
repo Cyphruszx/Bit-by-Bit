@@ -4,9 +4,10 @@
  * Day-one Core is Upload / Transactions / Accounts / Dashboard money tiles.
  * After the first CLEARED row the app offers Goals, Linked balances, and Pools.
  * Cash Flow and Recurring stay off the offer (Spec 10.7). Budget waits for
- * Spec 14. OPEN_BANKING is the Spec 12 paid-bundle gate — default off, not on
- * the Core offer, entitlement billing not wired yet. Toggle-off hides UI and
- * archives the layout entry; data stays.
+ * Spec 14. OPEN_BANKING is the Spec 12 paid-bundle gate. The current MVP
+ * defaults it on so Connect bank stays on the Core/Accounts path; an explicit
+ * turn-off is still stored. Not on the Core offer. Entitlement billing is not
+ * wired yet. Toggle-off hides UI and archives the layout entry; data stays.
  */
 
 import { isCleared } from "@/lib/money-flow/tile";
@@ -37,7 +38,7 @@ export const FEATURE_DEFAULTS: Record<FeatureKey, boolean> = {
   POOLS: false,
   CASH_FLOW: false,
   RECURRING: false,
-  OPEN_BANKING: false,
+  OPEN_BANKING: true,
 };
 
 /** Spec 5 + Spec 11. Budget is Spec 14; Cash Flow / Recurring / Open Banking stay off this list. */
@@ -85,7 +86,8 @@ export function isFeatureEnabled(toggles: FeatureToggles | undefined, key: Featu
 
 /**
  * Spec 12.1: Open Banking ingest requires the paid Open Banking Bundle.
- * Billing entitlement is not wired yet — this is the Spec 5 hook, default off.
+ * Billing entitlement is not wired yet — this is the Spec 5 hook.
+ * MVP defaults the gate on for missing/empty keys; explicit false stays off.
  */
 export function hasOpenBankingBundle(toggles: FeatureToggles | undefined): boolean {
   return isFeatureEnabled(toggles, "OPEN_BANKING");

@@ -79,7 +79,7 @@ export function OptionalFeaturesPanel() {
       <p className="mt-2 text-sm text-muted">
         {hasCleared
           ? "Goals, Linked balances, and Pools stay off until you enable them. Turning one off hides it without deleting what you already set up."
-          : "Enable Open Banking to show Connect bank on Accounts. Goals, Linked balances, and Pools appear here after the first cleared movement."}
+          : "Open Banking is on for this MVP, so Connect bank is on Accounts. You can turn it off here. Goals, Linked balances, and Pools appear here after the first cleared movement."}
       </p>
       <ul className="mt-4 space-y-3">
         {hasCleared

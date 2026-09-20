@@ -243,10 +243,10 @@ describe("Fiskil end-user create/link 1:1 with user_id", () => {
 });
 
 describe("Open Banking provision gate", () => {
-  it("refuses create/link without the OPEN_BANKING bundle toggle", async () => {
+  it("refuses create/link when the OPEN_BANKING bundle toggle is off", async () => {
     const { ensure } = deps();
     const refused = await provisionOpenBankingEndUser(
-      { userId: "user-1", email: "sam@example.com" },
+      { userId: "user-1", email: "sam@example.com", featureToggles: { OPEN_BANKING: false } },
       ensure,
     );
     assert.equal(refused.ok, false);
