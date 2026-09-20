@@ -1,4 +1,4 @@
 export const siteName = "BitbyBit";
-export const siteTagline = "Upload any statement. See the money flow.";
+export const siteTagline = "See the money flow.";
 export const siteDescription =
-  "BitbyBit reads bank files, PDFs, spreadsheets, and photos of receipts, then turns them into money in, money out, and a first pass of categories.";
+  "BitbyBit reads Australian bank CSVs and statement photos, then shows money in, money out, and categories. Start as a guest — statements stay in this browser until you sign in.";
