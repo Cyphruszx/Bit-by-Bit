@@ -152,8 +152,91 @@ export function DesignSystemGallery() {
         </div>
       </div>
 
+      <Section index="04" eyebrow="Layout grid" title="One shell, four page grids">
+        <div className="grid gap-2 rounded-[var(--radius-inner)] border border-primary/20 bg-accent-surface px-4 py-3.5 text-[12.5px] leading-normal text-ink-soft">
+          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-primary-strong">Fixed for every page</p>
+          <p>
+            Desktop shell <span className="font-bold text-ink">1240px</span> · padding{" "}
+            <span className="font-bold text-ink">28px</span> · gutter{" "}
+            <span className="font-bold text-ink">20px</span>
+            {" — "}
+            mobile <span className="font-bold text-ink">390px</span> · padding{" "}
+            <span className="font-bold text-ink">20px</span> · gutter{" "}
+            <span className="font-bold text-ink">14px</span>
+          </p>
+          <p>Column count changes per page; shell, gutter and card radius never do.</p>
+        </div>
+
+        <div className="grid gap-3.5">
+          <LayoutPage
+            name="Dashboard"
+            spec="4 × 1fr, then three body options"
+            note="One Dashboard grid. Stat strip stays 4-up. Three body options: full width, 1.66fr / 1fr, or half/half."
+          >
+            <div className="grid grid-cols-4 gap-2">
+              <WireTile />
+              <WireTile />
+              <WireTile />
+              <WireTile />
+            </div>
+            <p className="text-[11px] font-semibold text-muted">1 · full 1fr</p>
+            <WireTile height="h-[58px]" className="bg-chart-5" />
+            <p className="text-[11px] font-semibold text-muted">2 · 1.66fr / 1fr</p>
+            <div className="grid grid-cols-[minmax(0,1.66fr)_minmax(0,1fr)] gap-2">
+              <WireTile height="h-[58px]" className="bg-chart-5" />
+              <WireTile height="h-[58px]" />
+            </div>
+            <p className="text-[11px] font-semibold text-muted">3 · 1fr / 1fr</p>
+            <div className="grid grid-cols-2 gap-2">
+              <WireTile height="h-[58px]" className="bg-chart-5" />
+              <WireTile height="h-[58px]" />
+            </div>
+          </LayoutPage>
+
+          <LayoutPage
+            name="Transactions"
+            spec="full bleed, single column"
+            note="Filter strip then one table card. Columns: date 92px, merchant auto, category 140px, account 160px, amount right-aligned 120px."
+          >
+            <div className="h-[18px] w-[62%] rounded-[var(--radius-pill)] border border-primary/15 bg-accent-surface" />
+            <WireTile height="h-[72px]" className="bg-chart-5" />
+          </LayoutPage>
+
+          <LayoutPage
+            name="Detail & settings"
+            spec="720px max, 1fr / 1fr"
+            note="Forms cap at 720px and centre in the shell. Paired fields split 1fr / 1fr; anything longer than a date stays full width."
+          >
+            <div className="mx-auto grid w-[64%] gap-2">
+              <WireTile height="h-[22px]" />
+              <div className="grid grid-cols-2 gap-2">
+                <WireTile height="h-[34px]" />
+                <WireTile height="h-[34px]" />
+              </div>
+            </div>
+          </LayoutPage>
+
+          <LayoutPage
+            name="Mobile — any page"
+            spec="390px, 1 column"
+            note="Desktop body columns stack in rail order; the 4-up stat strip becomes a 2 × 2."
+          >
+            <div className="mx-auto grid w-24 gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <WireTile height="h-3.5" />
+                <WireTile height="h-3.5" />
+                <WireTile height="h-3.5" />
+                <WireTile height="h-3.5" />
+              </div>
+              <WireTile height="h-[34px]" className="bg-chart-5" />
+              <WireTile height="h-5" />
+            </div>
+          </LayoutPage>
+        </div>
+      </Section>
+
       <Section
-        index="04"
+        index="05"
         eyebrow="Components"
         title="The real chrome"
         hint="These are the product components, not restyled stand-ins."
@@ -278,7 +361,7 @@ export function DesignSystemGallery() {
         </div>
       </Section>
 
-      <Section index="05" eyebrow="Language and colour" title="Do and don’t">
+      <Section index="06" eyebrow="Language and colour" title="Do and don’t">
         <Guidance
           doText="One primary per view — the deep blue Add. Blue for money-in, selection, and the highlight leftover card labelled Safe to spend."
           dontText="Don’t invent Available, Spendable, or Regulars in chrome. Don’t put two filled buttons side by side. Don’t colour amounts red or green."
@@ -314,6 +397,39 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+function LayoutPage({
+  name,
+  spec,
+  note,
+  children,
+}: {
+  name: string;
+  spec: string;
+  note: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2.5">
+        <span className="text-[12.5px] font-semibold">{name}</span>
+        <span className="font-mono text-[11px] text-muted">{spec}</span>
+      </div>
+      <div className="grid gap-2 rounded-[var(--radius-inner)] border border-dashed border-primary/30 bg-surface-faint p-2">
+        {children}
+      </div>
+      <p className="text-[11.5px] text-muted">{note}</p>
+    </div>
+  );
+}
+
+function WireTile({ className = "", height = "h-6" }: { className?: string; height?: string }) {
+  return (
+    <div
+      className={`${height} rounded-[var(--radius-inner)] border border-primary/15 bg-accent-surface ${className}`}
+    />
   );
 }
 
