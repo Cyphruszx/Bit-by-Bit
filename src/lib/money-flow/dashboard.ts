@@ -1,12 +1,22 @@
-import { accountCaption, type AccountRegistry } from "@/lib/money-flow/account-identity";
+import {
+  accountCaption,
+  accountLabel,
+  canonicalAccountId,
+  clearedBalanceOf,
+  type AccountMeta,
+  type AccountRegistry,
+} from "@/lib/money-flow/account-identity";
 import { chartLabel } from "@/lib/money-flow/category-book";
 import { needsReview } from "@/lib/money-flow/classify";
+import { UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
 import { monthKey } from "@/lib/money-flow/period";
+import { livePools, membersOf, type PoolBook } from "@/lib/money-flow/pools";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { countedMovements, isEarnings, isRefundCredit, isSpending, tileAmount } from "@/lib/money-flow/summary";
 import { topChartCategories } from "@/lib/money-flow/tag-charts";
 import { categoryOf } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
+import type { AccountTotals, InstitutionAccounts } from "@/lib/money-flow/accounts";
 
 export type DashboardPoint = {
   key: string;
@@ -54,10 +64,141 @@ export function spendDonutSlices(categories: CategorySpend[], limit = 6): SpendS
   }));
 }
 
+export const SPEND_FILL_TOKENS = [
+  "bg-primary",
+  "bg-chart-1",
+  "bg-chart-2",
+  "bg-chart-3",
+  "bg-chart-4",
+] as const;
+
+export function spendFillToken(index: number): string {
+  return SPEND_FILL_TOKENS[index % SPEND_FILL_TOKENS.length];
+}
+
+/** Scale both bars to the larger of spend vs budget so overspend still fits the track. */
+export function stackedBarPercents(spent: number, target: number): { spend: number; budget: number } {
+  const scale = Math.max(spent, target, 0);
+  if (scale <= 0) return { spend: 0, budget: 0 };
+  return {
+    spend: Math.round((spent / scale) * 100),
+    budget: target > 0 ? Math.round((target / scale) * 100) : 0,
+  };
+}
+
+export function institutionAccountName(label: string, institution: string): string {
+  const prefix = `${institution} · `;
+  return label.startsWith(prefix) ? label.slice(prefix.length) : label;
+}
+
+export type BankAccountLine = {
+  id: string;
+  name: string;
+  amount: number | null;
+};
+
+export type BankInstitutionTile = {
+  institution: string;
+  accounts: BankAccountLine[];
+};
+
+/**
+ * Prefer a stored cleared balance. Otherwise use the account's counted net
+ * (same method as Total balance). Missing both is null — never a $0 skeleton.
+ */
+export function accountDisplayAmount(
+  accountId: string,
+  movementNet: number | null,
+  meta: Record<string, AccountMeta> = {},
+  mergedInto: Record<string, string> = {},
+): number | null {
+  const held = clearedBalanceOf(accountId, meta, mergedInto);
+  if (!held.missing) return held.amount;
+  return movementNet;
+}
+
+/**
+ * Institution tiles for the dashboard Bank Accounts card. Soft-pool members
+ * stay under their bank as their own rows — balances are never merged.
+ */
+export function bankInstitutionTiles(
+  groups: InstitutionAccounts[],
+  options: {
+    meta?: Record<string, AccountMeta>;
+    mergedInto?: Record<string, string>;
+    book?: PoolBook;
+  } = {},
+): BankInstitutionTile[] {
+  const meta = options.meta ?? {};
+  const mergedInto = options.mergedInto ?? {};
+  const tiles = new Map<string, BankAccountLine[]>();
+  const order = groups.map((group) => group.institution);
+
+  const add = (institution: string, line: BankAccountLine) => {
+    const held = tiles.get(institution) ?? [];
+    if (held.some((row) => row.id === line.id)) return;
+    tiles.set(institution, [...held, line]);
+  };
+
+  for (const group of groups) {
+    for (const account of group.accounts) {
+      add(group.institution, lineFromAccount(account, group.institution, meta, mergedInto));
+    }
+  }
+
+  if (options.book) {
+    for (const pool of livePools(options.book)) {
+      for (const member of membersOf(options.book, pool.id)) {
+        const id = canonicalAccountId(member.accountId, mergedInto);
+        const existing = groups.find((group) => group.accounts.some((account) => account.id === id));
+        const account = existing?.accounts.find((row) => row.id === id);
+        const institution = existing?.institution ?? institutionFromAccountId(id);
+        add(institution, {
+          id,
+          name: account
+            ? institutionAccountName(account.label, institution)
+            : institutionAccountName(accountLabel(id), institution),
+          amount: accountDisplayAmount(id, account?.flow.net ?? null, meta, mergedInto),
+        });
+      }
+    }
+  }
+
+  return [...tiles.entries()]
+    .filter(([, accounts]) => accounts.length > 0)
+    .sort((left, right) => {
+      const leftIndex = order.indexOf(left[0]);
+      const rightIndex = order.indexOf(right[0]);
+      if (leftIndex === -1 && rightIndex === -1) return left[0].localeCompare(right[0]);
+      if (leftIndex === -1) return 1;
+      if (rightIndex === -1) return -1;
+      return leftIndex - rightIndex;
+    })
+    .map(([institution, accounts]) => ({ institution, accounts }));
+}
+
+function lineFromAccount(
+  account: AccountTotals,
+  institution: string,
+  meta: Record<string, AccountMeta>,
+  mergedInto: Record<string, string>,
+): BankAccountLine {
+  return {
+    id: account.id,
+    name: institutionAccountName(account.label, institution),
+    amount: accountDisplayAmount(account.id, account.flow.net, meta, mergedInto),
+  };
+}
+
+function institutionFromAccountId(id: string): string {
+  const [first] = id.split(" · ");
+  return first?.trim() || UNKNOWN_INSTITUTION;
+}
+
 export function budgetRowsFromPrior(
   current: CategorySpend[],
   prior: CategorySpend[],
-  limit = 4,
+  limit = 5,
 ): BudgetRow[] {
   const priorBy = new Map(prior.map((row) => [row.name, row.amount]));
   return current
