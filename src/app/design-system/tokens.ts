@@ -52,18 +52,20 @@ export const darkColourTokens: ColorToken[] = [
   { name: "Line", swatchClass: "bg-line-dashed", cssVar: "--color-line-dashed" },
 ];
 
-export const radiusTokens = [
-  { name: "Mark", cssVar: "--radius-mark", className: "rounded-[var(--radius-mark)]" },
-  { name: "Card", cssVar: "--radius-card", className: "rounded-[var(--radius-card)]" },
-  { name: "Pill", cssVar: "--radius-pill", className: "rounded-[var(--radius-pill)]" },
+export const radiusSamples = [
+  { label: "4", className: "rounded-[4px]" },
+  { label: "8", className: "rounded-[8px]" },
+  { label: "12", className: "rounded-[12px]" },
+  { label: "16", className: "rounded-[var(--radius-card)]", cssVar: "--radius-card" },
+  { label: "999", className: "rounded-[var(--radius-pill)]", cssVar: "--radius-pill" },
 ] as const;
 
 export const spaceSamples = [
-  { px: 4, barClass: "w-1 bg-chart-4", use: "icon gaps, tight stacks" },
-  { px: 8, barClass: "w-2 bg-chart-4", use: "label to value" },
-  { px: 12, barClass: "w-3 bg-secondary", use: "list row internals" },
-  { px: 16, barClass: "w-4 bg-secondary", use: "block groups" },
-  { px: 20, barClass: "w-5 bg-primary", use: "grid gutter" },
+  { px: 4, barClass: "w-[4px] bg-chart-4", use: "icon gaps, tight stacks" },
+  { px: 8, barClass: "w-[8px] bg-chart-4", use: "label to value" },
+  { px: 12, barClass: "w-[12px] bg-secondary", use: "list row internals" },
+  { px: 16, barClass: "w-[16px] bg-secondary", use: "block groups" },
+  { px: 20, barClass: "w-[20px] bg-primary", use: "grid gutter" },
   { px: 22, barClass: "w-[22px] bg-primary", use: "card padding" },
-  { px: 28, barClass: "w-7 bg-primary-strong", use: "shell padding" },
+  { px: 28, barClass: "w-[28px] bg-primary-strong", use: "shell padding" },
 ] as const;

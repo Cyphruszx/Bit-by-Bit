@@ -7,7 +7,7 @@ import { SummaryCard } from "@/components/summary-card";
 import { useTheme } from "@/components/theme-store";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { TokenSwatch } from "./token-swatch";
-import { colourTokens, darkColourTokens, radiusTokens, spaceSamples } from "./tokens";
+import { colourTokens, darkColourTokens, radiusSamples, spaceSamples } from "./tokens";
 
 const primaryButton =
   "rounded-full bg-primary-strong px-4 py-2 text-[13px] font-bold text-on-primary disabled:opacity-35";
@@ -123,26 +123,33 @@ export function DesignSystemGallery() {
         </Section>
 
         <div className="grid gap-5">
-          <Section index="03" eyebrow="Spacing and radius" title="4px base, generous cards">
+          <Section index="03" eyebrow="Spacing & radius" title="4px base, generous cards">
             <div className="grid gap-2">
               {spaceSamples.map((sample) => (
                 <div key={sample.px} className="flex items-center gap-3">
-                  <span className="w-10 shrink-0 font-mono text-[11px] text-muted">{sample.px}</span>
+                  <span className="w-[52px] shrink-0 font-mono text-[11px] text-muted">{sample.px}</span>
                   <span className={`h-2.5 rounded-sm ${sample.barClass}`} />
                   <span className="text-xs text-muted">{sample.use}</span>
                 </div>
               ))}
             </div>
             <div className="flex items-end gap-3 pt-1">
-              {radiusTokens.map((token) => (
-                <div key={token.cssVar} className="grid justify-items-center gap-1.5">
-                  <div className={`h-10 w-[52px] border border-primary/20 bg-accent-surface ${token.className}`} />
-                  <span className="font-mono text-[11px] text-muted">{token.name}</span>
+              {radiusSamples.map((sample) => (
+                <div key={sample.label} className="grid justify-items-center gap-1.5">
+                  <div
+                    className={`h-10 w-[52px] border border-primary/20 bg-accent-surface ${sample.className}`}
+                  />
+                  <span className="font-mono text-[11px] text-muted">{sample.label}</span>
                 </div>
               ))}
             </div>
             <p className="text-[12.5px] leading-6 text-muted">
-              16 for cards, 12 for tiles inside cards, 999 for controls and tags, 2px only for the logo squares.
+              16 for cards, 12 for tiles inside cards, 999 for anything that reads as a control or a tag, 4 only for
+              the 8px logo squares.
+            </p>
+            <p className="text-[11px] text-muted">
+              Product mark token is 2px (<code className="font-mono">--radius-mark</code>); reference scale includes 4
+              for small corners.
             </p>
           </Section>
         </div>

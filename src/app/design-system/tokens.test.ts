@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { colourTokens, darkColourTokens, radiusTokens } from "./tokens";
+import { colourTokens, darkColourTokens, radiusSamples, spaceSamples } from "./tokens";
 
 const css = readFileSync(new URL("../globals.css", import.meta.url), "utf8");
 
@@ -61,10 +61,26 @@ describe("design system tokens", () => {
     assert.doesNotMatch(css, /#4[fF]7[cC][fF]5/);
   });
 
-  it("binds radius samples to the live radius variables", () => {
-    for (const token of radiusTokens) {
-      assert.match(css, new RegExp(`${escapeRegExp(token.cssVar)}\\s*:`), token.cssVar);
+  it("uses the reference spacing steps with bar width equal to the px value", () => {
+    assert.deepEqual(
+      spaceSamples.map((sample) => sample.px),
+      [4, 8, 12, 16, 20, 22, 28],
+    );
+    for (const sample of spaceSamples) {
+      assert.match(sample.barClass, new RegExp(`w-\\[${sample.px}px\\]`));
     }
+  });
+
+  it("shows the reference radius scale and keeps the product mark at 2px", () => {
+    assert.deepEqual(
+      radiusSamples.map((sample) => sample.label),
+      ["4", "8", "12", "16", "999"],
+    );
+    assert.match(css, /--radius-mark:\s*2px/);
+    assert.match(css, /--radius-card:\s*1rem/);
+    assert.match(css, /--radius-pill:\s*9999px/);
+    assert.equal(radiusSamples.find((sample) => sample.label === "16")?.cssVar, "--radius-card");
+    assert.equal(radiusSamples.find((sample) => sample.label === "999")?.cssVar, "--radius-pill");
   });
 });
 
