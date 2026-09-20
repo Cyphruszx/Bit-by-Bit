@@ -7,6 +7,7 @@ import { accountIdOf, type AccountRegistry } from "@/lib/money-flow/account-iden
 import { calendarDate } from "@/lib/money-flow/period";
 import { merchantKey } from "@/lib/money-flow/redact";
 import {
+  isReviewDeferred,
   openReviewCount,
   transferPartnersFor,
   type ReviewItem,
@@ -24,6 +25,7 @@ export type ReviewOpenActionId =
   | "keep-as-money"
   | "assign-category"
   | "skip"
+  | "undefer"
   | "dismiss"
   | "not-that"
   | "keep-filing";
@@ -42,6 +44,7 @@ export type ReviewOpenActionContext = {
   selectedPaymentId?: string;
   selectedCategoryKey?: string;
   keepAsLabel?: string;
+  deferred?: boolean;
 };
 
 /**
@@ -51,16 +54,19 @@ export type ReviewOpenActionContext = {
 export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext): ReviewOpenAction[] {
   const partnerCount = ctx.partnerCount ?? 0;
   const paymentCount = ctx.paymentCount ?? 0;
+  const deferred = ctx.deferred ?? isReviewDeferred(item);
+  let actions: ReviewOpenAction[];
   switch (item.reason) {
     case "UNPAIRED_TRANSFER":
       if (partnerCount > 0) {
         const hasPick = Boolean(ctx.selectedPartnerId);
-        return [
+        actions = [
           { id: "confirm", label: "Confirm", role: "primary", enabled: hasPick },
           { id: "not-that", label: "Not that", role: "secondary", enabled: hasPick },
         ];
+        break;
       }
-      return [
+      actions = [
         { id: "confirm-as-transfer", label: "Confirm as transfer", role: "primary", enabled: true },
         {
           id: "keep-as-money",
@@ -70,20 +76,21 @@ export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext
         },
         { id: "skip", label: "Skip for now", role: "secondary", enabled: true },
       ];
+      break;
     case "PARTIAL_REFUND":
     case "FULL_REFUND_AMBIGUOUS": {
       const paymentReady = Boolean(ctx.selectedPaymentId) || paymentCount === 0;
-      const actions: ReviewOpenAction[] = [
+      actions = [
         { id: "confirm-refund", label: "Confirm refund", role: "primary", enabled: paymentReady },
         { id: "mark-income", label: "Mark as income", role: "secondary", enabled: true },
       ];
       if (paymentCount > 1 && ctx.selectedPaymentId) {
         actions.push({ id: "not-that", label: "Not that", role: "secondary", enabled: true });
       }
-      return actions;
+      break;
     }
     case "UNREVIEWED_KIND":
-      return [
+      actions = [
         {
           id: "assign-category",
           label: "Assign category",
@@ -92,14 +99,21 @@ export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext
         },
         { id: "skip", label: "Skip for now", role: "secondary", enabled: true },
       ];
+      break;
     case "INGEST_PARSE":
-      return [{ id: "dismiss", label: "Dismiss", role: "primary", enabled: true }];
+      actions = [{ id: "dismiss", label: "Dismiss", role: "primary", enabled: true }];
+      break;
     default:
-      return [
+      actions = [
         { id: "keep-filing", label: "Keep this filing", role: "primary", enabled: true },
         { id: "skip", label: "Skip for now", role: "secondary", enabled: true },
       ];
   }
+  if (deferred) {
+    actions = actions.filter((action) => action.id !== "skip");
+    actions.push({ id: "undefer", label: "Back to Open", role: "secondary", enabled: true });
+  }
+  return actions;
 }
 
 export function keepAsMoneyLabel(
@@ -130,10 +144,8 @@ export function reviewMovementOf(
 }
 
 /**
- * Tess Spec soft default: `merchantKey` (existing review/classify tidy
- * counterparty — digit-bearing tokens stripped) plus the same `account_id`.
- * OPEN UNPAIRED_TRANSFER siblings only. Soft open — Steven may tighten later
- * (e.g. leftover letters on refs like HO019, or adding direction).
+ * Same-account counterparty key for Apply to similar. Trailing bank/ref tokens
+ * (`S554…`, `H019…`, `HO019…`, `T5`) are stripped so person-name prefixes match.
  */
 export function unpairedSimilarityKey(
   item: ReviewItem,
@@ -142,9 +154,22 @@ export function unpairedSimilarityKey(
 ): string {
   const txn = reviewMovementOf(item, byId);
   if (!txn) return "";
-  const payee = merchantKey(txn);
+  const payee = similarCounterpartyKey(txn.merchant);
   if (!payee) return "";
   return `${accountIdOf(txn, registry)}|${payee}`;
+}
+
+/** Strip trailing alphanumeric ref codes / digit-letter tails after a name prefix. */
+export function similarCounterpartyKey(merchant: string): string {
+  const tokens = merchant.trim().split(/\s+/).filter(Boolean);
+  while (tokens.length > 1 && isTrailingBankRef(tokens[tokens.length - 1]!)) {
+    tokens.pop();
+  }
+  return merchantKey({ merchant: tokens.join(" ") });
+}
+
+function isTrailingBankRef(token: string): boolean {
+  return /\d/.test(token);
 }
 
 export function unpairedAsTransferReason(amount: number): VerdictReason {
@@ -164,14 +189,89 @@ export function similarOpenUnpaired(
   registry: AccountRegistry = {},
 ): ReviewItem[] {
   if (item.reason !== "UNPAIRED_TRANSFER") return [item];
+  if (isReviewDeferred(item)) return [item];
   const byId = new Map(transactions.map((txn) => [txn.id, txn]));
   const key = unpairedSimilarityKey(item, byId, registry);
   if (!key) return [item];
   return items.filter((row) => {
     if (row.state !== "OPEN" || row.reason !== "UNPAIRED_TRANSFER") return false;
+    if (isReviewDeferred(row)) return false;
     if (unpairedSimilarityKey(row, byId, registry) !== key) return false;
     return transferPartnersFor(row, transactions, options).length === 0;
   });
+}
+
+export type SimilarMovementPreview = {
+  id: string;
+  dateIso: string;
+  amount: number;
+  line: string;
+};
+
+export function similarMovementPreviews(
+  similar: ReviewItem[],
+  transactions: InterpretedTransaction[],
+): SimilarMovementPreview[] {
+  const byId = new Map(transactions.map((txn) => [txn.id, txn]));
+  return similar.flatMap((row) => {
+    const txn = reviewMovementOf(row, byId);
+    if (!txn) return [];
+    return [{ id: row.id, dateIso: txn.dateIso, amount: txn.amount, line: reviewStatementLine(txn) }];
+  });
+}
+
+export function reviewStatementLine(txn: InterpretedTransaction): string {
+  return txn.description?.trim() || txn.merchant;
+}
+
+export type ReviewMovementFact = {
+  id: string;
+  role: "out" | "in" | "movement";
+  amount: number;
+  dateIso: string;
+  account: string;
+  merchant: string;
+  line: string;
+};
+
+export function reviewMovementFacts(
+  item: ReviewItem,
+  byId: Map<string, InterpretedTransaction>,
+  accountLabel: (id: string) => string,
+): ReviewMovementFact[] {
+  const facts: ReviewMovementFact[] = [];
+  const seen = new Set<string>();
+  const push = (id: string | undefined, role: ReviewMovementFact["role"]) => {
+    if (!id || seen.has(id)) return;
+    const txn = byId.get(id);
+    if (!txn) return;
+    seen.add(id);
+    facts.push({
+      id,
+      role,
+      amount: txn.amount,
+      dateIso: txn.dateIso,
+      account: accountLabel(id),
+      merchant: txn.merchant,
+      line: reviewStatementLine(txn),
+    });
+  };
+
+  if (item.reason === "UNPAIRED_TRANSFER") {
+    push(item.debitId, "out");
+    push(item.creditId, "in");
+    if (facts.length > 0) return facts;
+  }
+  if (item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") {
+    push(item.creditId, "in");
+    push(item.debitId, "out");
+    if (facts.length > 0) return facts;
+  }
+  for (const id of item.movementIds) {
+    push(id, "movement");
+    if (facts.length >= 4) break;
+  }
+  return facts;
 }
 
 export function unpairedSettleTargets(
@@ -189,13 +289,14 @@ export function unpairedSettleTargets(
 
 export type ReviewSurface = "open" | "history";
 
-export type ReviewReasonFilter = "all" | "unpaired" | "refund" | "needs_category";
+export type ReviewReasonFilter = "all" | "unpaired" | "refund" | "needs_category" | "skipped";
 
 export const REVIEW_REASON_FILTERS: { id: ReviewReasonFilter; label: string; reasons?: ReviewReason[] }[] = [
   { id: "all", label: "All" },
   { id: "unpaired", label: "Unpaired", reasons: ["UNPAIRED_TRANSFER"] },
   { id: "refund", label: "Refund", reasons: ["PARTIAL_REFUND", "FULL_REFUND_AMBIGUOUS"] },
   { id: "needs_category", label: "Needs category", reasons: ["UNREVIEWED_KIND"] },
+  { id: "skipped", label: "Skipped" },
 ];
 
 export type ReviewPageFilter = {
@@ -227,17 +328,26 @@ export function last30DaysSince(todayIso: string): string {
   return new Date(start).toISOString().slice(0, 10);
 }
 
+export function skippedOpenCount(items: ReviewItem[]): number {
+  return items.filter(isReviewDeferred).length;
+}
+
 export function filterReviewItems(
   items: ReviewItem[],
   filter: ReviewPageFilter,
   transactions: InterpretedTransaction[] = [],
   registry: AccountRegistry = {},
 ): ReviewItem[] {
-  const reasons = REVIEW_REASON_FILTERS.find((row) => row.id === filter.reason)?.reasons;
+  const skippedOnly = filter.reason === "skipped";
+  const reasons = skippedOnly ? undefined : REVIEW_REASON_FILTERS.find((row) => row.id === filter.reason)?.reasons;
   const byId = new Map(transactions.map((txn) => [txn.id, txn]));
   return items.filter((item) => {
     if (filter.surface === "open" && item.state !== "OPEN") return false;
     if (filter.surface === "history" && item.state === "OPEN") return false;
+    if (filter.surface === "open") {
+      if (skippedOnly && !isReviewDeferred(item)) return false;
+      if (!skippedOnly && isReviewDeferred(item)) return false;
+    }
     if (reasons && !reasons.includes(item.reason)) return false;
     if (filter.accountId && !itemTouchesAccount(item, filter.accountId, byId, registry)) return false;
     if (filter.sinceIso && !itemOnOrAfter(item, filter.sinceIso, byId)) return false;

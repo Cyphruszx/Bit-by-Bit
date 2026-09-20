@@ -16,12 +16,16 @@ import {
   confirmTransferPair,
   declineReviewSuggestion,
   declineTransferSuggestion,
+  deferReviewItem,
   dismissReviewItem,
+  isReviewDeferred,
   moneyTrustHoldIds,
   openReviewCount,
+  parseReviewItems,
   refundPaymentsFor,
   resolveReviewItem,
   transferPartnersFor,
+  undeferReviewItem,
 } from "./review-queue";
 import { summarizeMoneyFlow } from "./summary";
 import { applyVerdicts, oneKey, verdictFor } from "./verdicts";
@@ -419,6 +423,22 @@ describe("OPEN settle paths", () => {
     assert.equal(flow.spending, 0);
     assert.equal(flow.net, 0);
     assert.equal(flow.transfers, 0);
+  });
+
+  it("Skip for now stays OPEN and rebuilds into the stored deferred hint", () => {
+    const item = buildReviewQueue([out]).find((row) => row.reason === "UNPAIRED_TRANSFER");
+    assert.ok(item);
+    const deferred = deferReviewItem(item!);
+    assert.equal(deferred.state, "OPEN");
+    assert.ok(isReviewDeferred(deferred));
+    assert.equal(undeferReviewItem(deferred).deferredAt, undefined);
+    const parsed = parseReviewItems([deferred]);
+    assert.equal(parsed[0]?.deferredAt, deferred.deferredAt);
+    const rebuilt = buildReviewQueue([out], { stored: parsed });
+    const held = rebuilt.find((row) => row.id === item!.id);
+    assert.equal(held?.state, "OPEN");
+    assert.ok(isReviewDeferred(held!));
+    assert.equal(openReviewCount(rebuilt), 1);
   });
 
   it("Apply to similar resolves each matching OPEN orphan and records History", () => {

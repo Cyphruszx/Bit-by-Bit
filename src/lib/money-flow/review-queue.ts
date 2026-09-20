@@ -50,6 +50,8 @@ export type ReviewItem = {
   declinedCreditIds?: string[];
   /** Payments the person declined for this OPEN refund — stay OPEN, do not dismiss. */
   declinedDebitIds?: string[];
+  /** Skip for now — still OPEN, recoverable from the Skipped filter. */
+  deferredAt?: string;
 };
 
 export type TransferConfidence = "high" | "medium" | "low";
@@ -105,7 +107,36 @@ export function dismissReviewItem(item: ReviewItem): ReviewItem {
 }
 
 export function resolveReviewItem(item: ReviewItem): ReviewItem {
-  return { ...item, state: "RESOLVED", resolvedAt: new Date().toISOString() };
+  const next = { ...item, state: "RESOLVED" as const, resolvedAt: new Date().toISOString() };
+  delete next.deferredAt;
+  return next;
+}
+
+export function deferReviewItem(item: ReviewItem): ReviewItem {
+  return { ...item, state: "OPEN", deferredAt: new Date().toISOString() };
+}
+
+export function undeferReviewItem(item: ReviewItem): ReviewItem {
+  const next = { ...item, state: "OPEN" as const };
+  delete next.deferredAt;
+  return next;
+}
+
+export function isReviewDeferred(item: ReviewItem): boolean {
+  return item.state === "OPEN" && Boolean(item.deferredAt);
+}
+
+function withStoredOpenHints(item: ReviewItem, stored?: ReviewItem[]): ReviewItem {
+  const prior = (stored ?? []).find((row) => row.id === item.id && row.state === "OPEN");
+  if (!prior) return item;
+  const declinedCredits = [...new Set([...(item.declinedCreditIds ?? []), ...(prior.declinedCreditIds ?? [])])];
+  const declinedDebits = [...new Set([...(item.declinedDebitIds ?? []), ...(prior.declinedDebitIds ?? [])])];
+  return {
+    ...item,
+    ...(declinedCredits.length > 0 ? { declinedCreditIds: declinedCredits } : {}),
+    ...(declinedDebits.length > 0 ? { declinedDebitIds: declinedDebits } : {}),
+    ...(prior.deferredAt ? { deferredAt: prior.deferredAt } : {}),
+  };
 }
 
 /**
@@ -213,14 +244,14 @@ function detectReviewItems(
 
   const push = (item: ReviewItem) => {
     if (closed.has(item.id)) return;
-    items.push(item);
+    items.push(withStoredOpenHints(item, options.stored));
     for (const id of item.movementIds) claimed.add(id);
   };
 
   for (const item of unpairedTransfers(transactions, options)) push(item);
   for (const item of refundItems(transactions, claimed, options.stored)) push(item);
   for (const item of ingestParseItems(options)) {
-    if (!closed.has(item.id)) items.push(item);
+    if (!closed.has(item.id)) items.push(withStoredOpenHints(item, options.stored));
   }
   for (const item of unreviewedKindItems(transactions, claimed)) push(item);
   for (const item of aiLowConfidenceItems(transactions, claimed)) push(item);
@@ -606,6 +637,7 @@ export function parseReviewItems(value: unknown): ReviewItem[] {
       ...(Array.isArray(held.declinedDebitIds) && held.declinedDebitIds.every((id) => typeof id === "string")
         ? { declinedDebitIds: held.declinedDebitIds }
         : {}),
+      ...(held.state === "OPEN" && typeof held.deferredAt === "string" ? { deferredAt: held.deferredAt } : {}),
     });
   }
   return items;

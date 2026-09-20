@@ -9,12 +9,23 @@ import {
   reviewNavBadgeCount,
   reviewOpenedOn,
   reviewOpenActions,
+  reviewMovementFacts,
+  similarCounterpartyKey,
+  similarMovementPreviews,
   similarOpenUnpaired,
+  skippedOpenCount,
   unpairedAsTransferReason,
   unpairedSettleTargets,
   unpairedSimilarityKey,
 } from "./review-page";
-import { dismissReviewItem, resolveReviewItem, REVIEW_REASONS, type ReviewItem } from "./review-queue";
+import {
+  deferReviewItem,
+  dismissReviewItem,
+  resolveReviewItem,
+  undeferReviewItem,
+  REVIEW_REASONS,
+  type ReviewItem,
+} from "./review-queue";
 import type { InterpretedTransaction } from "./types";
 
 function item(over: Partial<ReviewItem> & Pick<ReviewItem, "id" | "reason">): ReviewItem {
@@ -122,6 +133,32 @@ describe("Review page filters and history", () => {
     assert.equal(reviewNavBadgeCount([resolvedTransfer, dismissedParse]), 0);
   });
 
+  it("Skip defers OPEN items into the Skipped filter and can return them", () => {
+    const held = deferReviewItem(openKind);
+    assert.equal(held.state, "OPEN");
+    assert.ok(held.deferredAt);
+    const withSkip = [openTransfer, openRefund, held, dismissedParse, resolvedTransfer];
+    assert.deepEqual(
+      filterReviewItems(withSkip, { surface: "open", reason: "all" }).map((row) => row.id),
+      [openTransfer.id, openRefund.id],
+    );
+    assert.deepEqual(
+      filterReviewItems(withSkip, { surface: "open", reason: "skipped" }).map((row) => row.id),
+      [held.id],
+    );
+    assert.equal(skippedOpenCount(withSkip), 1);
+    assert.equal(reviewNavBadgeCount(withSkip), 3);
+    const restored = undeferReviewItem(held);
+    assert.equal(restored.state, "OPEN");
+    assert.equal(restored.deferredAt, undefined);
+    assert.deepEqual(
+      filterReviewItems([openTransfer, openRefund, restored], { surface: "open", reason: "all" }).map(
+        (row) => row.id,
+      ),
+      [openTransfer.id, openRefund.id, openKind.id],
+    );
+  });
+
   it("same-institution note only when transfer items are present", () => {
     assert.equal(hasOpenTransferItems(queue), true);
     assert.equal(hasOpenTransferItems([openRefund, openKind]), false);
@@ -206,12 +243,13 @@ describe("OPEN action matrix", () => {
     assert.ok(!ambiguous.some((action) => action.id === "not-that"));
   });
 
-  it("groups no-partner unpaired cards by merchantKey plus account_id", () => {
+  it("strips trailing bank/ref tokens so JORDAN LEE variants match on the same account", () => {
     const first = txn({
       id: "jl-1",
       amount: -600,
       dateIso: "2026-05-14",
       merchant: "JORDAN LEE S55497275522",
+      description: "JORDAN LEE S55497275522",
       accountId: "NAB · NAB--3000",
       type: "TRANSFER",
       bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
@@ -243,23 +281,45 @@ describe("OPEN action matrix", () => {
       type: "TRANSFER",
       bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
     });
-    const rows = [first, second, otherAccount, leftover];
+    const href = txn({
+      id: "jl-h",
+      amount: -600,
+      dateIso: "2026-05-08",
+      merchant: "JORDAN LEE H0191683078",
+      accountId: "NAB · NAB--3000",
+      type: "TRANSFER",
+      bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
+    });
+    const rows = [first, second, otherAccount, leftover, href];
     const queue = [
       item({ id: "UNPAIRED_TRANSFER:jl-1", reason: "UNPAIRED_TRANSFER", debitId: "jl-1", movementIds: ["jl-1"] }),
       item({ id: "UNPAIRED_TRANSFER:jl-2", reason: "UNPAIRED_TRANSFER", debitId: "jl-2", movementIds: ["jl-2"] }),
       item({ id: "UNPAIRED_TRANSFER:jl-other-acct", reason: "UNPAIRED_TRANSFER", debitId: "jl-other-acct", movementIds: ["jl-other-acct"] }),
       item({ id: "UNPAIRED_TRANSFER:jl-ho", reason: "UNPAIRED_TRANSFER", debitId: "jl-ho", movementIds: ["jl-ho"] }),
+      item({ id: "UNPAIRED_TRANSFER:jl-h", reason: "UNPAIRED_TRANSFER", debitId: "jl-h", movementIds: ["jl-h"] }),
     ];
     const byId = new Map(rows.map((row) => [row.id, row]));
+    assert.equal(similarCounterpartyKey("JORDAN LEE S55497275522"), "jordan lee");
+    assert.equal(similarCounterpartyKey("JORDAN LEE H0191683078"), "jordan lee");
+    assert.equal(similarCounterpartyKey("JORDAN LEE HO0191683078"), "jordan lee");
     assert.equal(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[1]!, byId));
+    assert.equal(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[3]!, byId));
+    assert.equal(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[4]!, byId));
     assert.match(unpairedSimilarityKey(queue[0]!, byId), /\|jordan lee$/);
     assert.notEqual(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[2]!, byId));
-    assert.notEqual(unpairedSimilarityKey(queue[0]!, byId), unpairedSimilarityKey(queue[3]!, byId));
     const similar = similarOpenUnpaired(queue[0]!, queue, rows);
     assert.deepEqual(
       similar.map((row) => row.id).sort(),
-      ["UNPAIRED_TRANSFER:jl-1", "UNPAIRED_TRANSFER:jl-2"],
+      ["UNPAIRED_TRANSFER:jl-1", "UNPAIRED_TRANSFER:jl-2", "UNPAIRED_TRANSFER:jl-h", "UNPAIRED_TRANSFER:jl-ho"],
     );
+    const withDeferred = similarOpenUnpaired(queue[0]!, [queue[0]!, deferReviewItem(queue[1]!)], rows);
+    assert.deepEqual(
+      withDeferred.map((row) => row.id),
+      ["UNPAIRED_TRANSFER:jl-1"],
+    );
+    const previews = similarMovementPreviews(similar, rows);
+    assert.equal(previews.length, 4);
+    assert.ok(previews.some((row) => row.line === "JORDAN LEE S55497275522" && row.amount === -600));
     assert.deepEqual(
       unpairedSettleTargets(queue[0]!, queue, rows, true).map((row) => row.id).sort(),
       similar.map((row) => row.id).sort(),
@@ -270,6 +330,10 @@ describe("OPEN action matrix", () => {
     );
     assert.equal(unpairedAsTransferReason(-600), "not-mine");
     assert.equal(unpairedAsTransferReason(600), "own-account");
+    const facts = reviewMovementFacts(queue[0]!, byId, (id) => byId.get(id)?.accountId ?? id);
+    assert.equal(facts[0]?.account, "NAB · NAB--3000");
+    assert.equal(facts[0]?.line, "JORDAN LEE S55497275522");
+    assert.equal(facts[0]?.dateIso, "2026-05-14");
   });
 
   it("gives UNREVIEWED_KIND Assign category and Skip for now", () => {
@@ -281,6 +345,19 @@ describe("OPEN action matrix", () => {
     assert.deepEqual(
       actions.map((action) => action.id),
       ["assign-category", "skip"],
+    );
+  });
+
+  it("replaces Skip with Back to Open on deferred cards", () => {
+    const actions = reviewOpenActions(deferReviewItem(openKind), {
+      partnerCount: 0,
+      paymentCount: 0,
+      selectedCategoryKey: "groceries",
+      deferred: true,
+    });
+    assert.deepEqual(
+      actions.map((action) => action.id),
+      ["assign-category", "undefer"],
     );
   });
 });

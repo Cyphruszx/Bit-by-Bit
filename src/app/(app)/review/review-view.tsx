@@ -17,12 +17,17 @@ import {
   REVIEW_REASON_LABEL,
   reviewOpenedOn,
   reviewOpenActions,
+  reviewMovementFacts,
+  similarMovementPreviews,
   similarOpenUnpaired,
+  skippedOpenCount,
   type ReviewOpenActionId,
   type ReviewReasonFilter,
   type ReviewSurface,
+  type SimilarMovementPreview,
 } from "@/lib/money-flow/review-page";
 import {
+  isReviewDeferred,
   refundPaymentsFor,
   transferPartnersFor,
   type RefundPayment,
@@ -55,6 +60,8 @@ export function ReviewView() {
     mergedInto,
     payers,
     review,
+    skipReviewItem,
+    undeferReviewItem,
   } = useMoneyFlow();
   const [surface, setSurface] = useState<ReviewSurface>("open");
   const [reason, setReason] = useState<ReviewReasonFilter>("all");
@@ -62,7 +69,6 @@ export function ReviewView() {
   const [last30, setLast30] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [hideSameInstNote, setHideSameInstNote] = useState(false);
-  const [skipped, setSkipped] = useState<string[]>([]);
 
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
@@ -75,31 +81,42 @@ export function ReviewView() {
   const today = todayIso();
   const sinceIso = last30 ? last30DaysSince(today) : undefined;
   const items = useMemo(
-    () =>
-      filterReviewItems(review, { surface, reason, accountId, sinceIso }, allTransactions, registry).filter(
-        (item) => surface === "history" || !skipped.includes(item.id),
-      ),
-    [accountId, allTransactions, reason, registry, review, sinceIso, skipped, surface],
+    () => filterReviewItems(review, { surface, reason, accountId, sinceIso }, allTransactions, registry),
+    [accountId, allTransactions, reason, registry, review, sinceIso, surface],
   );
   const accounts = useMemo(() => accountsFrom(allTransactions, registry), [allTransactions, registry]);
   const byId = useMemo(() => new Map(allTransactions.map((txn) => [txn.id, txn])), [allTransactions]);
-  const showSameInstNote = !hideSameInstNote && hasOpenTransferItems(review) && surface === "open";
+  const skippedCount = skippedOpenCount(review);
+  const showSameInstNote =
+    !hideSameInstNote &&
+    hasOpenTransferItems(review.filter((item) => !isReviewDeferred(item))) &&
+    surface === "open" &&
+    reason !== "skipped";
 
   return (
     <>
       <h1 className="text-3xl font-bold tracking-tight">Review</h1>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
-        <SurfaceTab active={surface === "open"} onClick={() => setSurface("open")}>
+        <SurfaceTab
+          active={surface === "open"}
+          onClick={() => setSurface("open")}
+        >
           Open
         </SurfaceTab>
-        <SurfaceTab active={surface === "history"} onClick={() => setSurface("history")}>
+        <SurfaceTab
+          active={surface === "history"}
+          onClick={() => {
+            setSurface("history");
+            if (reason === "skipped") setReason("all");
+          }}
+        >
           History
         </SurfaceTab>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {REVIEW_REASON_FILTERS.map((chip) => (
+        {REVIEW_REASON_FILTERS.filter((chip) => surface === "open" || chip.id !== "skipped").map((chip) => (
           <Chip key={chip.id} active={reason === chip.id} onClick={() => setReason(chip.id)}>
             {chip.label}
           </Chip>
@@ -165,16 +182,44 @@ export function ReviewView() {
         </div>
       ) : null}
 
-      {items.length === 0 && surface === "open" ? (
+      {items.length === 0 && surface === "open" && reason === "skipped" ? (
         <article className="card mt-6 p-[22px] text-center">
-          <h2 className="text-lg font-bold">Nothing left to review</h2>
+          <h2 className="text-lg font-bold">Nothing skipped</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            Open is clear. New unpaired transfers, refunds, and uncategorised spend will show up here
-            when they need a decision.
+            Skip for now holds items here so you can come back. They stay Open until you act.
           </p>
-          <p className="mx-auto mt-3 max-w-md text-sm text-muted">
-            Money-trust items never auto-dismiss — check History for what you already confirmed.
-          </p>
+        </article>
+      ) : null}
+
+      {items.length === 0 && surface === "open" && reason !== "skipped" ? (
+        <article className="card mt-6 p-[22px] text-center">
+          {skippedCount > 0 ? (
+            <>
+              <h2 className="text-lg font-bold">Nothing left in Open</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+                {skippedCount} skipped {skippedCount === 1 ? "item is" : "items are"} waiting in
+                Skipped. Open that filter to act or send them back.
+              </p>
+              <button
+                type="button"
+                onClick={() => setReason("skipped")}
+                className="mt-4 rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
+              >
+                View skipped
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-bold">Nothing left to review</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+                Open is clear. New unpaired transfers, refunds, and uncategorised spend will show up
+                here when they need a decision.
+              </p>
+              <p className="mx-auto mt-3 max-w-md text-sm text-muted">
+                Money-trust items never auto-dismiss — check History for what you already confirmed.
+              </p>
+            </>
+          )}
         </article>
       ) : null}
 
@@ -207,7 +252,8 @@ export function ReviewView() {
             onKeepAsMoney={(similar) => keepReviewAsMoney(item, similar)}
             onKeepFiling={() => keepReviewFiling(item)}
             onMarkIncome={() => markReviewIncome(item)}
-            onSkip={() => setSkipped((held) => (held.includes(item.id) ? held : [...held, item.id]))}
+            onSkip={() => skipReviewItem(item)}
+            onUndefer={() => undeferReviewItem(item)}
             accountLabel={(id) => {
               const txn = byId.get(id);
               return txn ? accountCaption(txn, registry) : id;
@@ -237,6 +283,7 @@ function ReviewCard({
   onKeepFiling,
   onMarkIncome,
   onSkip,
+  onUndefer,
   accountLabel,
 }: {
   item: ReviewItem;
@@ -256,10 +303,9 @@ function ReviewCard({
   onKeepFiling: () => void;
   onMarkIncome: () => void;
   onSkip: () => void;
+  onUndefer: () => void;
   accountLabel: (id: string) => string;
 }) {
-  const debit = item.debitId ? byId.get(item.debitId) : undefined;
-  const credit = item.creditId ? byId.get(item.creditId) : undefined;
   const suggestions = pickerGroups()
     .flatMap((group) => group.categories)
     .slice(0, 3);
@@ -278,6 +324,9 @@ function ReviewCard({
       ? payments[0]?.id
       : undefined;
   const merchant = item.label.replace(/ needs a category$/i, "");
+  const facts = reviewMovementFacts(item, byId, accountLabel);
+  const similarPreviews = similarMovementPreviews(similar, [...byId.values()]);
+  const deferred = isReviewDeferred(item);
 
   return (
     <article className={`card p-[22px] ${history ? "bg-surface-subtle text-muted shadow-none" : ""}`}>
@@ -295,6 +344,7 @@ function ReviewCard({
             <Badge muted={history} strong={!history && item.state === "OPEN"}>
               {item.state}
             </Badge>
+            {deferred ? <Badge muted={history}>Skipped</Badge> : null}
           </div>
           <p className="mt-2 text-xs text-muted">
             {item.state === "OPEN" ? "Opened" : item.state === "DISMISSED" ? "Dismissed" : "Confirmed"}
@@ -304,23 +354,29 @@ function ReviewCard({
         </div>
       </div>
 
-      {item.reason === "UNPAIRED_TRANSFER" && debit ? (
-        <div className="mt-4 rounded-[var(--radius-inner)] bg-surface-subtle px-4 py-3">
-          <p className="text-2xl font-bold tabular-nums">{formatSignedAud(debit.amount)}</p>
-          <p className="mt-1 text-sm font-semibold">{accountLabel(debit.id)}</p>
-          <p className="text-xs text-muted">
-            {formatDisplayDate(debit.dateIso)} · {debit.merchant}
-          </p>
-        </div>
-      ) : null}
-
-      {item.reason === "UNPAIRED_TRANSFER" && !debit && credit ? (
-        <div className="mt-4 rounded-[var(--radius-inner)] bg-surface-subtle px-4 py-3">
-          <p className="text-2xl font-bold tabular-nums text-positive">{formatSignedAud(credit.amount)}</p>
-          <p className="mt-1 text-sm font-semibold">{accountLabel(credit.id)}</p>
-          <p className="text-xs text-muted">
-            {formatDisplayDate(credit.dateIso)} · {credit.merchant}
-          </p>
+      {facts.length > 0 ? (
+        <div className={`mt-4 grid gap-2 ${facts.length > 1 ? "sm:grid-cols-2" : ""}`}>
+          {facts.map((fact) => (
+            <div key={fact.id} className="rounded-[var(--radius-inner)] bg-surface-subtle px-4 py-3">
+              {facts.length > 1 ? (
+                <p className="text-[10.5px] font-bold tracking-wide text-muted uppercase">
+                  {fact.role === "out" ? "Out" : fact.role === "in" ? "In" : "Movement"}
+                </p>
+              ) : null}
+              <p
+                className={`text-xl font-bold tabular-nums ${fact.amount > 0 ? "text-positive" : ""} ${facts.length > 1 ? "mt-0.5" : ""}`}
+              >
+                {formatSignedAud(fact.amount)}
+              </p>
+              <p className="mt-1 text-sm font-semibold">{fact.account}</p>
+              <p className="text-xs text-muted">
+                {formatDisplayDate(fact.dateIso)} · {fact.merchant}
+              </p>
+              {fact.line !== fact.merchant ? (
+                <p className="mt-0.5 text-xs text-ink-soft">{fact.line}</p>
+              ) : null}
+            </div>
+          ))}
         </div>
       ) : null}
 
@@ -362,20 +418,10 @@ function ReviewCard({
         </div>
       ) : null}
 
-      {(item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") && credit ? (
-        <div className="mt-4 rounded-[var(--radius-inner)] bg-surface-subtle px-4 py-3">
-          <p className="text-2xl font-bold tabular-nums text-positive">{formatSignedAud(credit.amount)}</p>
-          <p className="mt-1 text-sm font-semibold">{credit.merchant}</p>
-          <p className="text-xs text-muted">
-            {formatDisplayDate(credit.dateIso)}
-            {debit ? ` · ${debit.merchant}` : ""}
-          </p>
-          {!history ? (
-            <p className="mt-2 text-xs text-muted">
-              Looks like a refund. Confirm to keep it as Refund, or mark as income if it is not.
-            </p>
-          ) : null}
-        </div>
+      {(item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") && !history ? (
+        <p className="mt-3 text-xs text-muted">
+          Looks like a refund. Confirm to keep it as Refund, or mark as income if it is not.
+        </p>
       ) : null}
 
       {(item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") &&
@@ -410,11 +456,13 @@ function ReviewCard({
       ) : null}
 
       {item.reason === "UNREVIEWED_KIND" && !history ? (
-        <div className="mt-4 rounded-[var(--radius-inner)] bg-surface-subtle px-4 py-3">
-          <p className="text-lg font-bold">{merchant}</p>
-          <p className="text-xs text-muted">
-            {item.movementIds.length} movement{item.movementIds.length === 1 ? "" : "s"}
-          </p>
+        <div className="mt-4">
+          <p className="text-sm font-bold">{merchant}</p>
+          {item.movementIds.length > facts.length ? (
+            <p className="text-xs text-muted">
+              {item.movementIds.length} movements · showing {facts.length}
+            </p>
+          ) : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {suggestions.map((category) => (
               <button
@@ -468,8 +516,9 @@ function ReviewCard({
           selectedPaymentId={selectedPayment}
           selectedCategoryKey={pickedCategory}
           keepAsLabel={keepAsMoneyLabel(item, byId)}
-          similarCount={partners.length === 0 ? similar.length : 0}
+          similarPreviews={partners.length === 0 ? similarPreviews : []}
           applySimilar={applySimilar}
+          deferred={deferred}
           onApplySimilar={setApplySimilar}
           onAction={(action) => {
             const batch = applySimilar && similar.length > 1 ? similar : undefined;
@@ -480,6 +529,7 @@ function ReviewCard({
             if (action === "keep-as-money") onKeepAsMoney(batch);
             if (action === "assign-category" && pickedCategory) onAssignCategory(merchant, pickedCategory);
             if (action === "skip") onSkip();
+            if (action === "undefer") onUndefer();
             if (action === "dismiss") onDismiss();
             if (action === "not-that") onDecline(selectedPartner ?? selectedPayment);
             if (action === "keep-filing") onKeepFiling();
@@ -498,8 +548,9 @@ function ReviewActions({
   selectedPaymentId,
   selectedCategoryKey,
   keepAsLabel,
-  similarCount,
+  similarPreviews,
   applySimilar,
+  deferred,
   onApplySimilar,
   onAction,
 }: {
@@ -510,8 +561,9 @@ function ReviewActions({
   selectedPaymentId?: string;
   selectedCategoryKey?: string;
   keepAsLabel: string;
-  similarCount: number;
+  similarPreviews: SimilarMovementPreview[];
   applySimilar: boolean;
+  deferred: boolean;
   onApplySimilar: (value: boolean) => void;
   onAction: (action: ReviewOpenActionId) => void;
 }) {
@@ -522,35 +574,51 @@ function ReviewActions({
     selectedPaymentId,
     selectedCategoryKey,
     keepAsLabel,
+    deferred,
   });
+  const similarCount = similarPreviews.length;
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2">
-      {actions.map((action) => (
-        <button
-          key={action.id}
-          type="button"
-          disabled={!action.enabled}
-          onClick={() => onAction(action.id)}
-          className={`rounded-full px-4 py-2 text-xs ${
-            action.role === "primary"
-              ? "bg-primary font-bold text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
-              : "border border-line bg-surface font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
-          }`}
-        >
-          {action.label}
-        </button>
-      ))}
+    <div className="mt-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {actions.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            disabled={!action.enabled}
+            onClick={() => onAction(action.id)}
+            className={`rounded-full px-4 py-2 text-xs ${
+              action.role === "primary"
+                ? "bg-primary font-bold text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
+                : "border border-line bg-surface font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
+            }`}
+          >
+            {action.label}
+          </button>
+        ))}
+        {similarCount > 1 ? (
+          <label className="flex items-center gap-2 text-xs font-semibold text-ink-soft">
+            <input
+              type="checkbox"
+              checked={applySimilar}
+              onChange={(event) => onApplySimilar(event.target.checked)}
+              className="size-3.5 accent-[var(--color-primary)]"
+            />
+            Apply to {similarCount} similar
+          </label>
+        ) : null}
+      </div>
       {similarCount > 1 ? (
-        <label className="flex items-center gap-2 text-xs font-semibold text-ink-soft">
-          <input
-            type="checkbox"
-            checked={applySimilar}
-            onChange={(event) => onApplySimilar(event.target.checked)}
-            className="size-3.5 accent-[var(--color-primary)]"
-          />
-          Apply to {similarCount} similar
-        </label>
+        <ul className={`space-y-1.5 ${applySimilar ? "" : "opacity-60"}`}>
+          {similarPreviews.map((row) => (
+            <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
+              <span className="min-w-0 truncate text-ink-soft">{row.line}</span>
+              <span className="shrink-0 tabular-nums text-muted">
+                {formatDisplayDate(row.dateIso)} · {formatSignedAud(row.amount)}
+              </span>
+            </li>
+          ))}
+        </ul>
       ) : null}
     </div>
   );

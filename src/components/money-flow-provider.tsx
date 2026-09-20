@@ -40,9 +40,11 @@ import {
   confirmRefundPair,
   confirmTransferPair,
   declineReviewSuggestion,
+  deferReviewItem,
   dismissReviewItem as closeParseItem,
   openReviewCount,
   resolveReviewItem,
+  undeferReviewItem,
   type ReviewItem,
 } from "@/lib/money-flow/review-queue";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
@@ -150,6 +152,8 @@ type MoneyFlowState = {
   keepReviewFiling: (item: ReviewItem) => void;
   declineReviewItem: (item: ReviewItem, partnerId?: string) => void;
   dismissReviewItem: (item: ReviewItem) => void;
+  skipReviewItem: (item: ReviewItem) => void;
+  undeferReviewItem: (item: ReviewItem) => void;
   clearInterpretation: () => void;
   /** What one movement was for. A person choosing settles it against every later re-read. */
   setTransactionCategory: (id: string, categoryKey: string) => void;
@@ -258,6 +262,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       keepReviewFiling,
       declineReviewItem,
       dismissReviewItem,
+      skipReviewItem,
+      undeferReviewItem: restoreReviewItem,
       importDocuments,
       removeStatement,
       clearInterpretation: clearLedger,
@@ -682,6 +688,16 @@ function reviewRegistry() {
 function dismissReviewItem(item: ReviewItem) {
   if (!canDismiss(item.reason)) return;
   commit(recordReview(snapshot.ledger, closeParseItem(item)));
+}
+
+function skipReviewItem(item: ReviewItem) {
+  if (item.state !== "OPEN") return;
+  commit(recordReview(snapshot.ledger, deferReviewItem(item)));
+}
+
+function restoreReviewItem(item: ReviewItem) {
+  if (item.state !== "OPEN") return;
+  commit(recordReview(snapshot.ledger, undeferReviewItem(item)));
 }
 
 function setMerchantTags(merchant: string, tags: string[]) {
