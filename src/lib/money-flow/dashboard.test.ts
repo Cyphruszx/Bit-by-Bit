@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { accountsByInstitution } from "./accounts";
 import {
+  accountDisplayAmount,
+  bankInstitutionTiles,
   budgetRowsFromPrior,
+  institutionAccountName,
   monthlyBalanceSeries,
   payRunCount,
   recentLedgerRows,
   spendDonutSlices,
+  spendFillToken,
+  stackedBarPercents,
 } from "./dashboard";
 import type { InterpretedTransaction } from "./types";
 
@@ -114,6 +120,81 @@ describe("dashboard widgets", () => {
         ["Cafe", 60],
         ["Pay", 100],
       ],
+    );
+  });
+
+  it("scales stacked spend and budget bars to the larger figure", () => {
+    assert.deepEqual(stackedBarPercents(1420, 1350), { spend: 100, budget: 95 });
+    assert.deepEqual(stackedBarPercents(720, 800), { spend: 90, budget: 100 });
+    assert.deepEqual(stackedBarPercents(7800, 0), { spend: 100, budget: 0 });
+    assert.deepEqual(stackedBarPercents(0, 0), { spend: 0, budget: 0 });
+  });
+
+  it("cycles spend fills through brand and chart tokens", () => {
+    assert.equal(spendFillToken(0), "bg-primary");
+    assert.equal(spendFillToken(1), "bg-chart-1");
+    assert.equal(spendFillToken(4), "bg-chart-4");
+    assert.equal(spendFillToken(5), "bg-primary");
+  });
+
+  it("strips the institution prefix from a compact account row", () => {
+    assert.equal(institutionAccountName("NAB · Everyday", "NAB"), "Everyday");
+    assert.equal(institutionAccountName("Smart Access", "CommBank"), "Smart Access");
+  });
+
+  it("prefers a stored cleared balance and does not invent a $0 skeleton", () => {
+    assert.equal(
+      accountDisplayAmount("NAB · Everyday", 100, { "NAB · Everyday": { clearedBalance: 4280.12 } }),
+      4280.12,
+    );
+    assert.equal(accountDisplayAmount("NAB · Everyday", 100, {}), 100);
+    assert.equal(accountDisplayAmount("NAB · Everyday", null, {}), null);
+  });
+
+  it("keeps 1–3 real account rows per bank and does not merge soft-pool balances", () => {
+    const rows = [
+      txn("1", "2026-03-01", 4280, { accountId: "NAB · Everyday", institution: "NAB", type: "earned", categoryKey: "salary" }),
+      txn("2", "2026-03-01", 12400, { accountId: "NAB · Savings", institution: "NAB", type: "earned", categoryKey: "salary" }),
+      txn("3", "2026-03-01", 2145, { accountId: "CommBank · Smart Access", institution: "CommBank", type: "earned", categoryKey: "salary" }),
+    ];
+    const groups = accountsByInstitution(rows);
+    const tiles = bankInstitutionTiles(groups, {
+      meta: {
+        "NAB · Everyday": { clearedBalance: 4280.12 },
+        "NAB · Savings": { clearedBalance: 12400 },
+        "CommBank · Smart Access": { clearedBalance: 2145.67 },
+      },
+      book: {
+        pools: [
+          {
+            id: "holiday",
+            userId: "u",
+            name: "Holiday",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+        members: [
+          { poolId: "holiday", accountId: "NAB · Everyday", addedAt: "2026-01-01T00:00:00.000Z" },
+          { poolId: "holiday", accountId: "NAB · Savings", addedAt: "2026-01-02T00:00:00.000Z" },
+        ],
+      },
+    });
+
+    const nab = tiles.find((tile) => tile.institution === "NAB");
+    const commbank = tiles.find((tile) => tile.institution === "CommBank");
+    assert.equal(nab?.accounts.length, 2);
+    assert.equal(commbank?.accounts.length, 1);
+    assert.deepEqual(
+      nab?.accounts.map((account) => [account.name, account.amount]),
+      [
+        ["Everyday", 4280.12],
+        ["Savings", 12400],
+      ],
+    );
+    assert.notEqual(
+      (nab?.accounts[0]?.amount ?? 0) + (nab?.accounts[1]?.amount ?? 0),
+      nab?.accounts[0]?.amount,
     );
   });
 });
