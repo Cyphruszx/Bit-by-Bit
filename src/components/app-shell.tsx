@@ -17,7 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AppFrame>
       <header className="app-header relative z-10">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-7 py-4">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-5 py-4 md:px-7">
           <BrandMark href="/dashboard" />
           <div className="hidden md:block">
             <AppNav />
@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <PeriodFilterBar />
-      <div className="relative z-10 mx-auto max-w-[1240px] px-7 py-7 pb-24 md:pb-10">
+      <div className="relative z-10 mx-auto max-w-[1240px] px-5 py-7 pb-24 md:px-7 md:pb-10">
         {ready ? children : <p className="text-muted">Reading the statements you have already added…</p>}
         <p className="mt-16 text-center text-[12.5px] text-muted">
           <Link href="/design-system" className="underline-offset-4 hover:underline">

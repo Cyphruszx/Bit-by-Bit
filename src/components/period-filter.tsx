@@ -30,7 +30,7 @@ export function PeriodFilterBar() {
 
   return (
     <div className="app-period">
-      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2 px-7 py-[11px]">
+      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2 px-5 py-[11px] md:px-7">
         <p className="mr-1 text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted">Period</p>
         <PeriodChip
           active={period.kind === "month"}

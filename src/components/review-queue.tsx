@@ -41,7 +41,7 @@ export function ReviewQueue() {
   if (items.length === 0) {
     if (openReviewCount !== 0) return null;
     return (
-      <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
+      <article className="mt-4 card p-4">
         <h2 className="text-base font-bold">Everything is sorted</h2>
         <p className="mt-0.5 text-xs text-muted">The Review Queue is clear — nothing is OPEN.</p>
       </article>
@@ -51,7 +51,7 @@ export function ReviewQueue() {
   const shown = open ? items : items.slice(0, SHOWN);
 
   return (
-    <article className="mt-4 rounded-2xl border border-line bg-surface p-4">
+    <article className="mt-4 card p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-bold">Review queue</h2>
@@ -157,7 +157,7 @@ function ReviewActions({
         <button
           type="button"
           onClick={onConfirmTransfer}
-          className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-white"
+          className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-on-primary"
         >
           Confirm transfer
         </button>
@@ -168,7 +168,7 @@ function ReviewActions({
         <button
           type="button"
           onClick={onConfirmRefund}
-          className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-white"
+          className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-on-primary"
         >
           Confirm refund
         </button>

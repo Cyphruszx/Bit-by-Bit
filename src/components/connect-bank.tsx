@@ -198,7 +198,7 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
   };
 
   return (
-    <section className="mt-8 rounded-2xl border border-line bg-surface p-6">
+    <section className="mt-8 card p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">Open Banking</h2>
@@ -231,7 +231,7 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
               type="button"
               onClick={() => void connect()}
               disabled={busy || atCap}
-              className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary disabled:opacity-50"
             >
               {busy ? "Connecting…" : "Connect bank"}
             </button>
@@ -250,7 +250,7 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
       </div>
 
       {atCap ? (
-        <p className="mt-4 rounded-xl border border-attention-line bg-attention-surface px-4 py-3 text-sm text-attention-ink">
+        <p className="mt-4 rounded-[var(--radius-inner)] border border-attention-line bg-attention-surface px-4 py-3 text-sm text-attention-ink">
           {connectCapCopy(listed.connectionCount || MAX_BANK_CONNECTIONS)}
         </p>
       ) : null}

@@ -157,7 +157,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           setDragging(false);
           interpret([...event.dataTransfer.files]);
         }}
-        className={`rounded-3xl border-2 border-dashed p-8 text-center transition ${
+        className={`rounded-[var(--radius-card)] border-2 border-dashed p-8 text-center transition ${
           dragging ? "border-primary bg-accent-surface" : "border-line bg-surface"
         }`}
       >
@@ -408,7 +408,7 @@ function ConfirmMapper({
         </div>
       ) : null}
       {blockers.length > 0 ? (
-        <div className="mt-4 space-y-2 rounded-2xl border border-negative bg-negative-surface p-4">
+        <div className="mt-4 space-y-2 rounded-[var(--radius-card)] border border-negative bg-negative-surface p-4">
           {blockers.map((issue) => (
             <p className="text-sm font-semibold text-negative" key={issue.message}>
               {issue.message}
@@ -421,7 +421,7 @@ function ConfirmMapper({
         </p>
       )}
       {notes.length > 0 ? (
-        <div className="mt-4 rounded-2xl border border-attention-line bg-attention-surface p-4">
+        <div className="mt-4 rounded-[var(--radius-card)] border border-attention-line bg-attention-surface p-4">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-attention">How this file was read</p>
           <ul className="mt-2 space-y-1">
             {notes.map((issue) => (
@@ -474,7 +474,7 @@ function MappedPreviewTable({
             : `${total} movement${total === 1 ? "" : "s"}`}
         </p>
       </div>
-      <div className="mt-2 overflow-x-auto rounded-2xl border border-line bg-surface">
+      <div className="mt-2 overflow-x-auto card">
         <table className="w-full min-w-[28rem] text-left text-sm">
           <thead className="bg-surface-subtle text-xs font-bold uppercase tracking-[0.12em] text-muted">
             <tr>

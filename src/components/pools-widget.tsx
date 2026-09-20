@@ -81,7 +81,7 @@ export function PoolsWidget() {
   };
 
   return (
-    <article className="mt-8 rounded-2xl border border-line bg-surface p-6">
+    <article className="mt-8 card p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">{POOLS_TITLE}</h2>
@@ -189,7 +189,7 @@ function PoolCard({
   const missingHint = bookMembers.some((member) => memberSignedBalance(member.accountId, accountMeta, mergedInto).missing);
 
   return (
-    <div className="rounded-xl border border-line px-4 py-4" style={pool.colour ? { borderColor: pool.colour } : undefined}>
+    <div className="rounded-[var(--radius-inner)] border border-line px-4 py-4" style={pool.colour ? { borderColor: pool.colour } : undefined}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           {editing ? (

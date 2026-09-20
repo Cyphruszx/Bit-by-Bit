@@ -71,7 +71,7 @@ export function TagChartCard({
     : "rounded-full px-3 py-1.5 text-sm font-semibold";
 
   return (
-    <article className={`rounded-2xl border border-line bg-surface ${compact ? "p-4" : "p-6"}`}>
+    <article className={`card ${compact ? "p-4" : "p-6"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className={compact ? "text-base font-bold" : "text-lg font-bold"}>{title}</h2>
@@ -406,8 +406,8 @@ function PieChart({
                 type="button"
                 aria-pressed={selected}
                 onClick={() => onSelectTag(slice.name)}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl text-left ${
-                  compact ? "px-2 py-1 text-xs" : "rounded-2xl px-3 py-2 text-sm"
+                className={`flex w-full items-center justify-between gap-3 rounded-[var(--radius-inner)] text-left ${
+                  compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"
                 } ${selected ? "bg-accent-surface" : ""}`}
               >
                 <span className="inline-flex min-w-0 items-center gap-2">

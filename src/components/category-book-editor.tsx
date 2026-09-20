@@ -53,7 +53,7 @@ export function CategoryBookEditor({
           <button
             type="button"
             onClick={() => setAddingGroup(true)}
-            className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white"
+            className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary"
           >
             Add group
           </button>
@@ -118,7 +118,7 @@ function GroupCard({
   const canRemove = categories.every((category) => !category.builtin);
 
   return (
-    <section className="rounded-2xl border border-line bg-surface">
+    <section className="card">
       <header className="flex flex-wrap items-center gap-2 px-5 py-4">
         <button
           type="button"
@@ -417,7 +417,7 @@ function NameForm({
         autoFocus
         className="w-40 rounded-full border border-line bg-surface px-2.5 py-1 text-sm outline-none focus:border-primary"
       />
-      <button type="submit" className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white">
+      <button type="submit" className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-on-primary">
         {submitLabel}
       </button>
       <button type="button" onClick={onCancel} className="text-xs font-semibold text-muted">

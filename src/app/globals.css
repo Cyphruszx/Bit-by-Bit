@@ -265,7 +265,7 @@ a:hover {
   background: var(--highlight-gradient);
   border: 1px solid rgba(157, 186, 247, 0.35);
   border-radius: var(--radius-card);
-  color: #ffffff;
+  color: var(--color-on-primary);
   box-shadow: var(--shadow-card);
 }
 

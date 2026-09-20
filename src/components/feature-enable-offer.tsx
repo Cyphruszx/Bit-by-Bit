@@ -29,7 +29,7 @@ export function FeatureEnableOffer() {
   };
 
   return (
-    <section className="mt-8 rounded-2xl border border-attention-line bg-attention-surface p-6">
+    <section className="mt-8 rounded-[var(--radius-card)] border border-attention-line bg-attention-surface p-6">
       <h2 className="text-lg font-bold">Turn on extra Core features?</h2>
       <p className="mt-2 text-sm text-attention-ink">
         Your first cleared movements are in. Enable Goals, Linked balances, and Pools when you want
@@ -74,7 +74,7 @@ export function OptionalFeaturesPanel() {
   const hasCleared = hasClearedMovement(allTransactions);
 
   return (
-    <details className="mt-8 rounded-2xl border border-line bg-surface p-6">
+    <details className="mt-8 card p-6">
       <summary className="cursor-pointer text-lg font-bold">Optional features</summary>
       <p className="mt-2 text-sm text-muted">
         {hasCleared
@@ -156,7 +156,7 @@ export function OpenBankingAccountsControl() {
   }
 
   return (
-    <section className="mt-8 rounded-2xl border border-line bg-surface p-6">
+    <section className="mt-8 card p-6">
       <h2 className="text-lg font-bold">{OPEN_BANKING_LABEL}</h2>
       <p className="mt-2 text-sm text-muted">{OPEN_BANKING_STUB_NOTE}</p>
       <button

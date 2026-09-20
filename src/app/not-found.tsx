@@ -6,7 +6,7 @@ import { siteName } from "@/lib/brand";
 export default function NotFound() {
   return (
     <AppFrame>
-      <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+      <main className="flex min-h-screen flex-col items-center justify-center px-5 text-center md:px-7">
         <BrandMark />
         <h1 className="mt-10 text-3xl font-bold">This page is not here yet</h1>
         <p className="mt-3 max-w-md text-muted">

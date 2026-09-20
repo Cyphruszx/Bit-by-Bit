@@ -137,7 +137,7 @@ export function TransactionTable({
           aria-pressed={showStatement}
           onClick={() => setShowStatement((open) => !open)}
           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-            showStatement ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
+            showStatement ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
           }`}
         >
           {showStatement ? "Hide statement" : "Show statement"}
@@ -156,7 +156,7 @@ export function TransactionTable({
               aria-label={value === "all" ? "All directions" : value === "in" ? "Money in" : "Money out"}
               onClick={() => setDirection(value)}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                direction === value ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
+                direction === value ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
               }`}
             >
               {label}
@@ -169,7 +169,7 @@ export function TransactionTable({
           {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
         </p>
       ) : (
-        <div className="mt-3 overflow-x-auto rounded-xl border border-surface-subtle">
+        <div className="mt-3 overflow-x-auto rounded-[var(--radius-inner)] border border-surface-subtle">
           <table className="w-full min-w-[900px] border-collapse text-left">
             <thead className="sticky top-0 z-10 bg-accent-surface-subtle">
               <tr>
@@ -283,7 +283,7 @@ export function TransactionTable({
                 aria-label={`${size} rows per page`}
                 onClick={() => setPageSize(size)}
                 className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  pageSize === size ? "bg-primary text-white" : "bg-accent-surface text-ink-soft"
+                  pageSize === size ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
                 }`}
               >
                 {size}

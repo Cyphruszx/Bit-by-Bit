@@ -7,10 +7,10 @@ export function BrandMark({ href = "/", size = "md" }: { href?: string; size?: "
   return (
     <Link href={href} className="flex items-center gap-2.5 text-ink">
       <span aria-hidden className="grid grid-cols-2 gap-0.5">
-        <span className="h-2 w-2 rounded-[2px] bg-mark-1" />
-        <span className="h-2 w-2 rounded-[2px] bg-mark-2" />
-        <span className="h-2 w-2 rounded-[2px] bg-mark-3" />
-        <span className="h-2 w-2 rounded-[2px] bg-mark-4" />
+        <span className="h-2 w-2 rounded-[var(--radius-mark)] bg-mark-1" />
+        <span className="h-2 w-2 rounded-[var(--radius-mark)] bg-mark-2" />
+        <span className="h-2 w-2 rounded-[var(--radius-mark)] bg-mark-3" />
+        <span className="h-2 w-2 rounded-[var(--radius-mark)] bg-mark-4" />
       </span>
       <span className={labelClass}>{siteName}</span>
     </Link>
