@@ -31,8 +31,8 @@ export type ReviewOpenAction = {
 };
 
 export type ReviewOpenActionContext = {
-  partnerCount: number;
-  paymentCount: number;
+  partnerCount?: number;
+  paymentCount?: number;
   selectedPartnerId?: string;
   selectedPaymentId?: string;
   selectedCategoryKey?: string;
@@ -44,9 +44,11 @@ export type ReviewOpenActionContext = {
  * not a lone Not that. Not that only appears when there is a pairing to decline.
  */
 export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext): ReviewOpenAction[] {
+  const partnerCount = ctx.partnerCount ?? 0;
+  const paymentCount = ctx.paymentCount ?? 0;
   switch (item.reason) {
     case "UNPAIRED_TRANSFER":
-      if (ctx.partnerCount > 0) {
+      if (partnerCount > 0) {
         const hasPick = Boolean(ctx.selectedPartnerId);
         return [
           { id: "confirm", label: "Confirm", role: "primary", enabled: hasPick },
@@ -64,12 +66,12 @@ export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext
       ];
     case "PARTIAL_REFUND":
     case "FULL_REFUND_AMBIGUOUS": {
-      const paymentReady = Boolean(ctx.selectedPaymentId) || ctx.paymentCount === 0;
+      const paymentReady = Boolean(ctx.selectedPaymentId) || paymentCount === 0;
       const actions: ReviewOpenAction[] = [
         { id: "confirm-refund", label: "Confirm refund", role: "primary", enabled: paymentReady },
         { id: "mark-income", label: "Mark as income", role: "secondary", enabled: true },
       ];
-      if (ctx.paymentCount > 1 && ctx.selectedPaymentId) {
+      if (paymentCount > 1 && ctx.selectedPaymentId) {
         actions.push({ id: "not-that", label: "Not that", role: "secondary", enabled: true });
       }
       return actions;
