@@ -86,6 +86,21 @@ describe("design system tokens", () => {
     }
     assert.match(css, /--radius-inner:\s*10px/);
   });
+
+  it("keeps gallery chrome on named section-01 tokens", () => {
+    const gallery = readFileSync(new URL("./gallery.tsx", import.meta.url), "utf8");
+    assert.doesNotMatch(gallery, /bg-chart-5/);
+    assert.doesNotMatch(gallery, /rgba?\(/);
+    assert.doesNotMatch(gallery, /bg-\[#/);
+    assert.doesNotMatch(gallery, /border-\[#/);
+    assert.doesNotMatch(gallery, /border-\[rgba/);
+    assert.doesNotMatch(gallery, /bg-canvas/);
+    assert.doesNotMatch(gallery, /bg-surface-faint/);
+    assert.doesNotMatch(gallery, /bg-mark-[1-4]/);
+    assert.match(gallery, /fill = "bg-accent-surface"/);
+    assert.match(gallery, /fill="bg-chart-4"/);
+    assert.match(gallery, /ink \(`--color-ink`\) is #101214/);
+  });
 });
 
 function escapeRegExp(value: string) {

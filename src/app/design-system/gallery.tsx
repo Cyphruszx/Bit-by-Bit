@@ -58,7 +58,7 @@ export function DesignSystemGallery() {
           </div>
         </div>
 
-        <div className="dark grid gap-2.5 rounded-[14px] border border-[rgba(111,155,255,0.14)] bg-canvas p-[18px]">
+        <div className="dark grid gap-2.5 rounded-[14px] border border-secondary/20 bg-surface-subtle p-[18px]">
           <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Dark theme</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {darkColourTokens.map((token) => (
@@ -69,7 +69,7 @@ export function DesignSystemGallery() {
 
         <Guidance
           doText="Use brand blue for money-in figures, the active nav pill, and chart lines. Use the 300/400 steps only inside charts and progress fills."
-          dontText="No red or green for amounts — direction is carried by the − / + sign and weight. No pure black; ink is #101214. No new hues."
+          dontText="No red or green for amounts — direction is carried by the − / + sign and weight. No pure black; ink (`--color-ink`) is #101214 in light. No new hues."
         />
         <p className="text-[12.5px] leading-relaxed text-muted">
           Attention and negative-strong live in{" "}
@@ -180,15 +180,15 @@ export function DesignSystemGallery() {
               <WireTile />
             </div>
             <p className="text-[11px] font-semibold text-muted">1 · full 1fr</p>
-            <WireTile height="h-[58px]" className="bg-chart-5" />
+            <WireTile height="h-[58px]" fill="bg-chart-4" />
             <p className="text-[11px] font-semibold text-muted">2 · 1.66fr / 1fr</p>
             <div className="grid grid-cols-[minmax(0,1.66fr)_minmax(0,1fr)] gap-2">
-              <WireTile height="h-[58px]" className="bg-chart-5" />
+              <WireTile height="h-[58px]" fill="bg-chart-4" />
               <WireTile height="h-[58px]" />
             </div>
             <p className="text-[11px] font-semibold text-muted">3 · 1fr / 1fr</p>
             <div className="grid grid-cols-2 gap-2">
-              <WireTile height="h-[58px]" className="bg-chart-5" />
+              <WireTile height="h-[58px]" fill="bg-chart-4" />
               <WireTile height="h-[58px]" />
             </div>
           </LayoutPage>
@@ -199,7 +199,7 @@ export function DesignSystemGallery() {
             note="Filter strip then one table card. Columns: date 92px, merchant auto, category 140px, account 160px, amount right-aligned 120px."
           >
             <div className="h-[18px] w-[62%] rounded-[var(--radius-pill)] border border-primary/15 bg-accent-surface" />
-            <WireTile height="h-[72px]" className="bg-chart-5" />
+            <WireTile height="h-[72px]" fill="bg-chart-4" />
           </LayoutPage>
 
           <LayoutPage
@@ -228,7 +228,7 @@ export function DesignSystemGallery() {
                 <WireTile height="h-3.5" />
                 <WireTile height="h-3.5" />
               </div>
-              <WireTile height="h-[34px]" className="bg-chart-5" />
+              <WireTile height="h-[34px]" fill="bg-chart-4" />
               <WireTile height="h-5" />
             </div>
           </LayoutPage>
@@ -331,7 +331,7 @@ export function DesignSystemGallery() {
                 <p className="mt-1 text-[12.5px] text-muted">
                   First-run list noun. Regulars stays in the glossary only.
                 </p>
-                <ul className="mt-4 divide-y divide-line-dashed text-sm">
+                <ul className="mt-4 divide-y divide-line text-sm">
                   <li className="flex justify-between py-2 font-semibold">
                     <span>Netflix</span>
                     <span className="tabular-nums">{`\u2212${formatAud(22.99)}`}</span>
@@ -350,12 +350,14 @@ export function DesignSystemGallery() {
             <div className="flex flex-wrap items-center gap-6">
               <BrandMark />
               <span aria-hidden className="grid grid-cols-2 gap-0.5">
-                <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-mark-1" />
-                <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-mark-2" />
-                <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-mark-3" />
-                <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-mark-4" />
+                <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-primary" />
+                <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-chart-4" />
+                <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-secondary" />
+                <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-primary-strong" />
               </span>
-              <p className="text-[12.5px] text-muted">Four squares, mark tokens, radius 2px, 2px gap.</p>
+              <p className="text-[12.5px] text-muted">
+                Four squares — Brand, Brand 300, Brand 400, Brand deep — radius 2px, 2px gap.
+              </p>
             </div>
           </div>
         </div>
@@ -417,7 +419,7 @@ function LayoutPage({
         <span className="text-[12.5px] font-semibold">{name}</span>
         <span className="font-mono text-[11px] text-muted">{spec}</span>
       </div>
-      <div className="grid gap-2 rounded-[var(--radius-inner)] border border-dashed border-primary/30 bg-surface-faint p-2">
+      <div className="grid gap-2 rounded-[var(--radius-inner)] border border-dashed border-primary/30 bg-surface-subtle p-2">
         {children}
       </div>
       <p className="text-[11.5px] text-muted">{note}</p>
@@ -425,11 +427,9 @@ function LayoutPage({
   );
 }
 
-function WireTile({ className = "", height = "h-6" }: { className?: string; height?: string }) {
+function WireTile({ fill = "bg-accent-surface", height = "h-6" }: { fill?: string; height?: string }) {
   return (
-    <div
-      className={`${height} rounded-[var(--radius-inner)] border border-primary/15 bg-accent-surface ${className}`}
-    />
+    <div className={`${height} rounded-[var(--radius-inner)] border border-primary/15 ${fill}`} />
   );
 }
 
@@ -443,7 +443,7 @@ function TypeRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline gap-[18px] border-b border-line-dashed py-3 last:border-b-0">
+    <div className="flex items-baseline gap-[18px] border-b border-line py-3 last:border-b-0">
       <span className="w-[112px] shrink-0 font-mono text-[11px] text-muted">{spec}</span>
       <span className={sampleClass}>{children}</span>
     </div>
