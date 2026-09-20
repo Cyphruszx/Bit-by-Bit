@@ -29,16 +29,14 @@ export function TokenSwatch({ token }: { token: ColorToken }) {
   const [resolved, setResolved] = useState(fallback);
 
   useEffect(() => {
-    if (token.displayHex) {
-      setResolved(token.displayHex);
-      return;
-    }
+    if (token.displayHex) return;
     const node = ref.current;
-    if (!node || !token.cssVar) return;
+    const cssVar = token.cssVar;
+    if (!node || !cssVar) return;
 
     const read = () => {
-      const raw = getComputedStyle(node).getPropertyValue(token.cssVar).trim();
-      setResolved(token.gradient ? displayGradient(raw) : displayColor(raw) || raw || token.cssVar);
+      const raw = getComputedStyle(node).getPropertyValue(cssVar).trim();
+      setResolved(token.gradient ? displayGradient(raw) : displayColor(raw) || raw || cssVar);
     };
 
     read();
