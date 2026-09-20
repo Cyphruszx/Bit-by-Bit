@@ -324,9 +324,11 @@ export function transferPartnersFor(
     ? [unique.credit]
     : contested
       ? contested.candidates
-      : item.movementIds
-          .map((id) => byId.get(id))
-          .filter((txn): txn is InterpretedTransaction => Boolean(txn) && txn.id !== item.debitId && txn.amount > 0);
+      : item.movementIds.flatMap((id) => {
+          const txn = byId.get(id);
+          if (!txn || txn.id === item.debitId || txn.amount <= 0) return [];
+          return [txn];
+        });
 
   const registry: AccountRegistry = {
     institutions: options.institutions ?? {},
