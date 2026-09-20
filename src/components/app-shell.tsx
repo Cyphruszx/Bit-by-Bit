@@ -51,6 +51,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <PeriodFilterBar />
       <div className="relative z-10 mx-auto max-w-[1240px] px-7 py-7 pb-24 md:pb-10">
         {ready ? children : <p className="text-muted">Reading the statements you have already added…</p>}
+        <p className="mt-16 text-center text-[12.5px] text-muted">
+          <Link href="/design-system" className="underline-offset-4 hover:underline">
+            Design system
+          </Link>
+        </p>
       </div>
       <MobileNav />
     </AppFrame>

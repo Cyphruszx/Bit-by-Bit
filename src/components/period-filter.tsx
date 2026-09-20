@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { PeriodChip } from "@/components/period-chip";
 import {
   formatMonthLabel,
   isLastTwelveMonths,
@@ -102,35 +103,6 @@ export function PeriodFilterBar() {
         ) : null}
       </div>
     </div>
-  );
-}
-
-function PeriodChip({
-  active,
-  onClick,
-  children,
-  disabled = false,
-  ariaLabel,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-  disabled?: boolean;
-  ariaLabel?: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      aria-pressed={active}
-      disabled={disabled}
-      onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-35 ${
-        active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
