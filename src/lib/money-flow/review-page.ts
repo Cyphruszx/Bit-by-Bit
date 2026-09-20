@@ -12,6 +12,107 @@ import {
 } from "@/lib/money-flow/review-queue";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
+export type ReviewOpenActionId =
+  | "confirm"
+  | "confirm-refund"
+  | "mark-income"
+  | "keep-as-money"
+  | "assign-category"
+  | "skip"
+  | "dismiss"
+  | "not-that"
+  | "keep-filing";
+
+export type ReviewOpenAction = {
+  id: ReviewOpenActionId;
+  label: string;
+  role: "primary" | "secondary";
+  enabled: boolean;
+};
+
+export type ReviewOpenActionContext = {
+  partnerCount: number;
+  paymentCount: number;
+  selectedPartnerId?: string;
+  selectedPaymentId?: string;
+  selectedCategoryKey?: string;
+  keepAsLabel?: string;
+};
+
+/**
+ * Spec 7 / Wonder action matrix. Every OPEN reason has an enabled path that is
+ * not a lone Not that. Not that only appears when there is a pairing to decline.
+ */
+export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext): ReviewOpenAction[] {
+  switch (item.reason) {
+    case "UNPAIRED_TRANSFER":
+      if (ctx.partnerCount > 0) {
+        const hasPick = Boolean(ctx.selectedPartnerId);
+        return [
+          { id: "confirm", label: "Confirm", role: "primary", enabled: hasPick },
+          { id: "not-that", label: "Not that", role: "secondary", enabled: hasPick },
+        ];
+      }
+      return [
+        {
+          id: "keep-as-money",
+          label: ctx.keepAsLabel ?? "Keep as spending",
+          role: "primary",
+          enabled: true,
+        },
+        { id: "skip", label: "Skip for now", role: "secondary", enabled: true },
+      ];
+    case "PARTIAL_REFUND":
+    case "FULL_REFUND_AMBIGUOUS": {
+      const paymentReady = Boolean(ctx.selectedPaymentId) || ctx.paymentCount === 0;
+      const actions: ReviewOpenAction[] = [
+        { id: "confirm-refund", label: "Confirm refund", role: "primary", enabled: paymentReady },
+        { id: "mark-income", label: "Mark as income", role: "secondary", enabled: true },
+      ];
+      if (ctx.paymentCount > 1 && ctx.selectedPaymentId) {
+        actions.push({ id: "not-that", label: "Not that", role: "secondary", enabled: true });
+      }
+      return actions;
+    }
+    case "UNREVIEWED_KIND":
+      return [
+        {
+          id: "assign-category",
+          label: "Assign category",
+          role: "primary",
+          enabled: Boolean(ctx.selectedCategoryKey),
+        },
+        { id: "skip", label: "Skip for now", role: "secondary", enabled: true },
+      ];
+    case "INGEST_PARSE":
+      return [{ id: "dismiss", label: "Dismiss", role: "primary", enabled: true }];
+    default:
+      return [
+        { id: "keep-filing", label: "Keep this filing", role: "primary", enabled: true },
+        { id: "skip", label: "Skip for now", role: "secondary", enabled: true },
+      ];
+  }
+}
+
+export function keepAsMoneyLabel(
+  item: ReviewItem,
+  byId: Map<string, InterpretedTransaction>,
+): string {
+  const debit = item.debitId ? byId.get(item.debitId) : undefined;
+  const credit = item.creditId ? byId.get(item.creditId) : undefined;
+  if (credit && !debit) return "Keep as income";
+  if (debit) return "Keep as spending";
+  const first = item.movementIds.map((id) => byId.get(id)).find((txn): txn is InterpretedTransaction => Boolean(txn));
+  return first && first.amount > 0 ? "Keep as income" : "Keep as spending";
+}
+
+export function openActionsAreUseful(actions: ReviewOpenAction[]): boolean {
+  const enabled = actions.filter((action) => action.enabled);
+  if (enabled.length === 0) return false;
+  if (enabled.every((action) => action.id === "not-that")) return false;
+  return enabled.some((action) => action.role === "primary") || enabled.some((action) => action.id !== "not-that");
+}
+
 export type ReviewSurface = "open" | "history";
 
 export type ReviewReasonFilter = "all" | "unpaired" | "refund" | "needs_category";

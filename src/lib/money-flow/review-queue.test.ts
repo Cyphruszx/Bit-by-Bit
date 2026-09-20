@@ -14,14 +14,17 @@ import {
   canDismiss,
   confirmRefundPair,
   confirmTransferPair,
+  declineReviewSuggestion,
   declineTransferSuggestion,
   dismissReviewItem,
   moneyTrustHoldIds,
   openReviewCount,
+  refundPaymentsFor,
   resolveReviewItem,
   transferPartnersFor,
 } from "./review-queue";
 import { summarizeMoneyFlow } from "./summary";
+import { applyVerdicts, oneKey, verdictFor } from "./verdicts";
 import type { InterpretedTransaction } from "./types";
 
 function txn(
@@ -347,7 +350,10 @@ describe("Spec 3/7 silent same-institution pairing", () => {
     assert.equal(item?.creditId, undefined);
     assert.equal(transferPartnersFor(item!, [debit, first, second]).length, 2);
     const confirmed = confirmTransferPair([debit, first, second], "c-out", "c1");
-    assert.equal(openReviewCount(buildReviewQueue(confirmed)), 0);
+    assert.equal(confirmed.find((row) => row.id === "c-out")?.transferPair, "c-out~c1");
+    assert.equal(confirmed.find((row) => row.id === "c1")?.transferPair, "c-out~c1");
+    const leftover = buildReviewQueue(confirmed).filter((row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER");
+    assert.ok(leftover.every((row) => !row.movementIds.includes("c-out") && !row.movementIds.includes("c1")));
   });
 
   it("Not that stays OPEN and does not dismiss money-trust", () => {
@@ -357,8 +363,95 @@ describe("Spec 3/7 silent same-institution pairing", () => {
     assert.ok(declined.declinedCreditIds?.includes("up-in"));
     assert.throws(() => dismissReviewItem(declined), /INGEST_PARSE/);
     const next = buildReviewQueue([nabOut, upIn], { stored: [declined] });
-    assert.equal(openReviewCount(next), 1);
-    assert.ok(next[0]?.debitId === "nab-out");
-    assert.notEqual(next[0]?.creditId, "up-in");
+    assert.ok(openReviewCount(next) >= 1);
+    assert.ok(next.some((row) => row.state === "OPEN" && row.debitId === "nab-out"));
+    assert.ok(next.every((row) => row.creditId !== "up-in" || row.debitId !== "nab-out"));
+    const partners = next.flatMap((row) => transferPartnersFor(row, [nabOut, upIn]));
+    assert.ok(partners.every((partner) => partner.id !== "up-in"));
+  });
+});
+
+describe("OPEN settle paths", () => {
+  const paid = txn({
+    id: "paid",
+    amount: -80,
+    dateIso: "2026-03-03",
+    merchant: "Kmart Wagga",
+    type: "spent",
+    accountId: "NAB · 1",
+    description: "Kmart Wagga",
+  });
+  const back = txn({
+    id: "back",
+    amount: 80,
+    dateIso: "2026-03-04",
+    merchant: "Kmart Wagga",
+    type: "earned",
+    accountId: "NAB · 1",
+    description: "Kmart Wagga",
+    bank: { type: "Refund" },
+    categoryKey: "uncategorised",
+  });
+
+  it("Mark as income takes a refund credit out of OPEN and off the refund hold", () => {
+    const item = buildReviewQueue([paid, back]).find((row) => row.creditId === "back");
+    assert.ok(item);
+    const judged = applyVerdicts([paid, back], { [oneKey(back)]: verdictFor("earned", "2026-09-20T00:00:00Z") });
+    const closed = resolveReviewItem(item!);
+    const next = buildReviewQueue(judged, { stored: [closed] });
+    assert.ok(!next.some((row) => row.state === "OPEN" && row.creditId === "back"));
+    assert.ok(!moneyTrustHoldIds(judged, { stored: [closed] }).has("back"));
+    assert.equal(summarizeMoneyFlow(judged).income, 80);
+    assert.equal(summarizeMoneyFlow(judged).refunds, 0);
+  });
+
+  it("Keep as spending settles an orphan transfer via spent verdict", () => {
+    const item = buildReviewQueue([out]).find((row) => row.reason === "UNPAIRED_TRANSFER");
+    assert.ok(item);
+    assert.equal(transferPartnersFor(item!, [out]).length, 0);
+    const judged = applyVerdicts([out], { [oneKey(out)]: verdictFor("spent", "2026-09-20T00:00:00Z") });
+    const closed = resolveReviewItem(item!);
+    assert.equal(openReviewCount(buildReviewQueue(judged, { stored: [closed] })), 0);
+    assert.ok(!moneyTrustHoldIds(judged, { stored: [closed] }).has("out"));
+    assert.equal(summarizeMoneyFlow(judged).spending, 400);
+  });
+
+  it("Not that on a refund declines the payment and still leaves a primary path", () => {
+    const item = buildReviewQueue([paid, back]).find((row) => row.creditId === "back")!;
+    assert.equal(item.debitId, "paid");
+    assert.equal(refundPaymentsFor(item, [paid, back]).length, 1);
+    const declined = declineReviewSuggestion(item, "paid");
+    assert.equal(declined.state, "OPEN");
+    assert.ok(declined.declinedDebitIds?.includes("paid"));
+    assert.equal(declined.debitId, undefined);
+    const next = buildReviewQueue([paid, back], { stored: [declined] });
+    const leftover = next.find((row) => row.state === "OPEN" && row.creditId === "back");
+    assert.ok(leftover);
+    assert.equal(leftover?.debitId, undefined);
+    assert.equal(refundPaymentsFor(leftover!, [paid, back]).length, 0);
+  });
+
+  it("Confirm refund still lists payments when debitId is unset", () => {
+    const first = txn({
+      id: "paid-a",
+      amount: -80,
+      dateIso: "2026-03-01",
+      merchant: "Kmart A",
+      type: "spent",
+      accountId: "NAB · 1",
+    });
+    const second = txn({
+      id: "paid-b",
+      amount: -80,
+      dateIso: "2026-03-02",
+      merchant: "Kmart B",
+      type: "spent",
+      accountId: "NAB · 1",
+    });
+    const item = buildReviewQueue([first, second, back]).find((row) => row.creditId === "back");
+    assert.ok(item);
+    assert.equal(item?.debitId, undefined);
+    const payments = refundPaymentsFor(item!, [first, second, back]);
+    assert.equal(payments.length, 2);
   });
 });

@@ -48,6 +48,8 @@ export type ReviewItem = {
   resolvedAt?: string;
   /** Credits the person declined for this OPEN transfer — stay OPEN, do not dismiss. */
   declinedCreditIds?: string[];
+  /** Payments the person declined for this OPEN refund — stay OPEN, do not dismiss. */
+  declinedDebitIds?: string[];
 };
 
 export type TransferConfidence = "high" | "medium" | "low";
@@ -116,6 +118,23 @@ export function declineTransferSuggestion(item: ReviewItem, creditId: string): R
   delete next.resolvedAt;
   if (item.creditId === creditId) delete next.creditId;
   return next;
+}
+
+export function declineRefundSuggestion(item: ReviewItem, debitId: string): ReviewItem {
+  const declined = [...new Set([...(item.declinedDebitIds ?? []), debitId])];
+  const next: ReviewItem = { ...item, state: "OPEN", declinedDebitIds: declined };
+  delete next.resolvedAt;
+  if (item.debitId === debitId) delete next.debitId;
+  return next;
+}
+
+/** Decline this pairing suggestion. Stay OPEN. Next remaining candidate, or clear the pick. */
+export function declineReviewSuggestion(item: ReviewItem, partnerId: string): ReviewItem {
+  if (item.reason === "UNPAIRED_TRANSFER") return declineTransferSuggestion(item, partnerId);
+  if (item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") {
+    return declineRefundSuggestion(item, partnerId);
+  }
+  return item;
 }
 
 /**
@@ -199,7 +218,7 @@ function detectReviewItems(
   };
 
   for (const item of unpairedTransfers(transactions, options)) push(item);
-  for (const item of refundItems(transactions, claimed)) push(item);
+  for (const item of refundItems(transactions, claimed, options.stored)) push(item);
   for (const item of ingestParseItems(options)) {
     if (!closed.has(item.id)) items.push(item);
   }
@@ -360,6 +379,7 @@ function partnerConfidence(
 function refundItems(
   transactions: InterpretedTransaction[],
   claimed: Set<string>,
+  stored?: ReviewItem[],
 ): ReviewItem[] {
   const items: ReviewItem[] = [];
   const byAccount = new Map<string, InterpretedTransaction[]>();
@@ -370,8 +390,10 @@ function refundItems(
 
   for (const credit of transactions) {
     if (claimed.has(credit.id) || !isRefundCandidate(credit)) continue;
+    const declined = declinedDebitsFor(stored, credit.id);
     const key = credit.accountId ?? credit.accountKey ?? credit.sourceFile;
     const payments = (byAccount.get(key) ?? []).filter((debit) => {
+      if (declined.has(debit.id)) return false;
       if (debit.amount >= 0 || settledMoneyTrust(debit)) return false;
       if (Math.round(Math.abs(debit.amount) * 100) !== Math.round(credit.amount * 100)) return false;
       const lag = calendarDaysBetween(debit.dateIso, credit.dateIso);
@@ -386,6 +408,7 @@ function refundItems(
         movementIds: [credit.id],
         creditId: credit.id,
         label: `Refund-shaped ${money(credit.amount)} with no exact payment to reverse`,
+        ...(declined.size > 0 ? { declinedDebitIds: [...declined] } : {}),
       });
       continue;
     }
@@ -404,10 +427,59 @@ function refundItems(
         payments.length === 1
           ? `Confirm refund of ${money(credit.amount)} against ${nearest.merchant}`
           : `Refund of ${money(credit.amount)} matches ${payments.length} payments`,
+      ...(declined.size > 0 ? { declinedDebitIds: [...declined] } : {}),
     });
   }
 
   return items;
+}
+
+function declinedDebitsFor(stored: ReviewItem[] | undefined, creditId: string): Set<string> {
+  const ids = new Set<string>();
+  for (const item of stored ?? []) {
+    if (item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") continue;
+    if (item.creditId !== creditId && !item.movementIds.includes(creditId)) continue;
+    for (const id of item.declinedDebitIds ?? []) ids.add(id);
+  }
+  return ids;
+}
+
+export type RefundPayment = {
+  id: string;
+  merchant: string;
+  amount: number;
+  dateIso: string;
+};
+
+/** Candidate payments for an OPEN refund. Declined payments stay out. */
+export function refundPaymentsFor(
+  item: ReviewItem,
+  transactions: InterpretedTransaction[],
+): RefundPayment[] {
+  if (item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") return [];
+  if (!item.creditId) return [];
+  const declined = new Set(item.declinedDebitIds ?? []);
+  const byId = new Map(transactions.map((txn) => [txn.id, txn]));
+  const credit = byId.get(item.creditId);
+  if (!credit) return [];
+  const key = credit.accountId ?? credit.accountKey ?? credit.sourceFile;
+  return transactions
+    .filter((debit) => {
+      if (declined.has(debit.id) || debit.id === credit.id) return false;
+      if (debit.amount >= 0 || settledMoneyTrust(debit)) return false;
+      const debitKey = debit.accountId ?? debit.accountKey ?? debit.sourceFile;
+      if (debitKey !== key) return false;
+      if (Math.round(Math.abs(debit.amount) * 100) !== Math.round(credit.amount * 100)) return false;
+      const lag = calendarDaysBetween(debit.dateIso, credit.dateIso);
+      return lag >= 0 && lag <= REFUND_WINDOW_DAYS;
+    })
+    .sort((a, b) => b.dateIso.localeCompare(a.dateIso) || b.id.localeCompare(a.id))
+    .map((debit) => ({
+      id: debit.id,
+      merchant: debit.merchant,
+      amount: debit.amount,
+      dateIso: debit.dateIso,
+    }));
 }
 
 function ingestParseItems(options: ReviewQueueOptions): ReviewItem[] {
@@ -530,6 +602,9 @@ export function parseReviewItems(value: unknown): ReviewItem[] {
       ...(typeof held.resolvedAt === "string" ? { resolvedAt: held.resolvedAt } : {}),
       ...(Array.isArray(held.declinedCreditIds) && held.declinedCreditIds.every((id) => typeof id === "string")
         ? { declinedCreditIds: held.declinedCreditIds }
+        : {}),
+      ...(Array.isArray(held.declinedDebitIds) && held.declinedDebitIds.every((id) => typeof id === "string")
+        ? { declinedDebitIds: held.declinedDebitIds }
         : {}),
     });
   }

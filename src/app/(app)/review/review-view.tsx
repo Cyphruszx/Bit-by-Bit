@@ -11,16 +11,20 @@ import { APP_TIME_ZONE } from "@/lib/money-flow/period";
 import {
   filterReviewItems,
   hasOpenTransferItems,
+  keepAsMoneyLabel,
   last30DaysSince,
   REVIEW_REASON_FILTERS,
   REVIEW_REASON_LABEL,
   reviewOpenedOn,
+  reviewOpenActions,
+  type ReviewOpenActionId,
   type ReviewReasonFilter,
   type ReviewSurface,
 } from "@/lib/money-flow/review-page";
 import {
-  canDismiss,
+  refundPaymentsFor,
   transferPartnersFor,
+  type RefundPayment,
   type ReviewItem,
   type TransferConfidence,
   type TransferPartner,
@@ -37,15 +41,18 @@ export function ReviewView() {
   const {
     accountNames,
     allTransactions,
+    assignReviewCategory,
     confirmReviewRefund,
     confirmReviewTransfer,
     declineReviewItem,
     dismissReviewItem,
     institutionOverrides,
+    keepReviewAsMoney,
+    keepReviewFiling,
+    markReviewIncome,
     mergedInto,
     payers,
     review,
-    setMerchantCategory,
   } = useMoneyFlow();
   const [surface, setSurface] = useState<ReviewSurface>("open");
   const [reason, setReason] = useState<ReviewReasonFilter>("all");
@@ -53,6 +60,7 @@ export function ReviewView() {
   const [last30, setLast30] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [hideSameInstNote, setHideSameInstNote] = useState(false);
+  const [skipped, setSkipped] = useState<string[]>([]);
 
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
@@ -65,8 +73,11 @@ export function ReviewView() {
   const today = todayIso();
   const sinceIso = last30 ? last30DaysSince(today) : undefined;
   const items = useMemo(
-    () => filterReviewItems(review, { surface, reason, accountId, sinceIso }, allTransactions, registry),
-    [accountId, allTransactions, reason, registry, review, sinceIso, surface],
+    () =>
+      filterReviewItems(review, { surface, reason, accountId, sinceIso }, allTransactions, registry).filter(
+        (item) => surface === "history" || !skipped.includes(item.id),
+      ),
+    [accountId, allTransactions, reason, registry, review, sinceIso, skipped, surface],
   );
   const accounts = useMemo(() => accountsFrom(allTransactions, registry), [allTransactions, registry]);
   const byId = useMemo(() => new Map(allTransactions.map((txn) => [txn.id, txn])), [allTransactions]);
@@ -183,11 +194,16 @@ export function ReviewView() {
             history={surface === "history"}
             openedOn={reviewOpenedOn(item, allTransactions)}
             partners={transferPartnersFor(item, allTransactions, matching)}
-            onCategory={(merchant, categoryKey) => setMerchantCategory(merchant, categoryKey)}
-            onConfirmRefund={() => confirmReviewRefund(item)}
+            payments={refundPaymentsFor(item, allTransactions)}
+            onAssignCategory={(merchant, categoryKey) => assignReviewCategory(item, merchant, categoryKey)}
+            onConfirmRefund={(debitId) => confirmReviewRefund(item, debitId)}
             onConfirmTransfer={(creditId) => confirmReviewTransfer(item, creditId)}
-            onDecline={(creditId) => declineReviewItem(item, creditId)}
+            onDecline={(partnerId) => declineReviewItem(item, partnerId)}
             onDismiss={() => dismissReviewItem(item)}
+            onKeepAsMoney={() => keepReviewAsMoney(item)}
+            onKeepFiling={() => keepReviewFiling(item)}
+            onMarkIncome={() => markReviewIncome(item)}
+            onSkip={() => setSkipped((held) => (held.includes(item.id) ? held : [...held, item.id]))}
             accountLabel={(id) => {
               const txn = byId.get(id);
               return txn ? accountCaption(txn, registry) : id;
@@ -205,11 +221,16 @@ function ReviewCard({
   history,
   openedOn,
   partners,
-  onCategory,
+  payments,
+  onAssignCategory,
   onConfirmRefund,
   onConfirmTransfer,
   onDecline,
   onDismiss,
+  onKeepAsMoney,
+  onKeepFiling,
+  onMarkIncome,
+  onSkip,
   accountLabel,
 }: {
   item: ReviewItem;
@@ -217,17 +238,37 @@ function ReviewCard({
   history: boolean;
   openedOn?: string;
   partners: TransferPartner[];
-  onCategory: (merchant: string, categoryKey: string) => void;
-  onConfirmRefund: () => void;
+  payments: RefundPayment[];
+  onAssignCategory: (merchant: string, categoryKey: string) => void;
+  onConfirmRefund: (debitId?: string) => void;
   onConfirmTransfer: (creditId: string) => void;
-  onDecline: (creditId?: string) => void;
+  onDecline: (partnerId?: string) => void;
   onDismiss: () => void;
+  onKeepAsMoney: () => void;
+  onKeepFiling: () => void;
+  onMarkIncome: () => void;
+  onSkip: () => void;
   accountLabel: (id: string) => string;
 }) {
   const debit = item.debitId ? byId.get(item.debitId) : undefined;
   const credit = item.creditId ? byId.get(item.creditId) : undefined;
-  const [picked, setPicked] = useState<string | undefined>(item.creditId);
-  const selected = partners.find((partner) => partner.id === picked);
+  const suggestions = pickerGroups()
+    .flatMap((group) => group.categories)
+    .slice(0, 3);
+  const [pickedPartner, setPickedPartner] = useState<string | undefined>(item.creditId ?? partners[0]?.id);
+  const [pickedPayment, setPickedPayment] = useState<string | undefined>(
+    item.debitId ?? (payments.length === 1 ? payments[0]?.id : undefined),
+  );
+  const [pickedCategory, setPickedCategory] = useState<string | undefined>(suggestions[0]?.key);
+  const selectedPartner = partners.some((partner) => partner.id === pickedPartner)
+    ? pickedPartner
+    : partners[0]?.id;
+  const selectedPayment = payments.some((payment) => payment.id === pickedPayment)
+    ? pickedPayment
+    : payments.length === 1
+      ? payments[0]?.id
+      : undefined;
+  const merchant = item.label.replace(/ needs a category$/i, "");
 
   return (
     <article className={`card p-[22px] ${history ? "bg-surface-subtle text-muted shadow-none" : ""}`}>
@@ -264,17 +305,27 @@ function ReviewCard({
         </div>
       ) : null}
 
+      {item.reason === "UNPAIRED_TRANSFER" && !debit && credit ? (
+        <div className="mt-4 rounded-[var(--radius-inner)] bg-surface-subtle px-4 py-3">
+          <p className="text-2xl font-bold tabular-nums text-positive">{formatSignedAud(credit.amount)}</p>
+          <p className="mt-1 text-sm font-semibold">{accountLabel(credit.id)}</p>
+          <p className="text-xs text-muted">
+            {formatDisplayDate(credit.dateIso)} · {credit.merchant}
+          </p>
+        </div>
+      ) : null}
+
       {item.reason === "UNPAIRED_TRANSFER" && !history && partners.length > 0 ? (
         <div className="mt-4">
           <p className="text-sm font-bold">Suggested partners</p>
           <ul className="mt-2 space-y-2">
             {partners.map((partner) => {
-              const active = picked === partner.id;
+              const active = selectedPartner === partner.id;
               return (
                 <li key={partner.id}>
                   <button
                     type="button"
-                    onClick={() => setPicked(partner.id)}
+                    onClick={() => setPickedPartner(partner.id)}
                     className={`flex w-full items-center justify-between gap-3 rounded-[var(--radius-inner)] border px-4 py-3 text-left ${
                       active ? "border-primary bg-surface" : "border-line bg-surface"
                     }`}
@@ -312,16 +363,86 @@ function ReviewCard({
           </p>
           {!history ? (
             <p className="mt-2 text-xs text-muted">
-              Looks like a refund. Confirm to keep it as Refund, or leave it Open if it is not.
+              Looks like a refund. Confirm to keep it as Refund, or mark as income if it is not.
             </p>
           ) : null}
         </div>
       ) : null}
 
+      {(item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") &&
+      !history &&
+      payments.length > 1 ? (
+        <div className="mt-4">
+          <p className="text-sm font-bold">Matching payments</p>
+          <ul className="mt-2 space-y-2">
+            {payments.map((payment) => {
+              const active = selectedPayment === payment.id;
+              return (
+                <li key={payment.id}>
+                  <button
+                    type="button"
+                    onClick={() => setPickedPayment(payment.id)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-[var(--radius-inner)] border px-4 py-3 text-left ${
+                      active ? "border-primary bg-surface" : "border-line bg-surface"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{payment.merchant}</p>
+                      <p className="text-xs text-muted">
+                        {formatSignedAud(payment.amount)} · {formatDisplayDate(payment.dateIso)}
+                      </p>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
       {item.reason === "UNREVIEWED_KIND" && !history ? (
         <div className="mt-4 rounded-[var(--radius-inner)] bg-surface-subtle px-4 py-3">
-          <p className="text-lg font-bold">{item.label.replace(/ needs a category$/i, "")}</p>
-          <p className="text-xs text-muted">{item.movementIds.length} movement{item.movementIds.length === 1 ? "" : "s"}</p>
+          <p className="text-lg font-bold">{merchant}</p>
+          <p className="text-xs text-muted">
+            {item.movementIds.length} movement{item.movementIds.length === 1 ? "" : "s"}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {suggestions.map((category) => (
+              <button
+                key={category.key}
+                type="button"
+                onClick={() => setPickedCategory(category.key)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  pickedCategory === category.key
+                    ? "border-primary bg-accent-surface text-primary-strong"
+                    : "border-line bg-surface text-ink-soft"
+                }`}
+              >
+                {category.label}
+              </button>
+            ))}
+            <label className="flex items-center">
+              <span className="sr-only">Category for {merchant}</span>
+              <select
+                value={suggestions.some((category) => category.key === pickedCategory) ? UNCATEGORISED : (pickedCategory ?? UNCATEGORISED)}
+                onChange={(event) => {
+                  if (event.target.value !== UNCATEGORISED) setPickedCategory(event.target.value);
+                }}
+                className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold outline-none focus:border-primary"
+              >
+                <option value={UNCATEGORISED}>Other</option>
+                {pickerGroups().map((group) => (
+                  <optgroup key={group.id} label={group.label}>
+                    {group.categories.map((category) => (
+                      <option key={category.key} value={category.key}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
       ) : null}
 
@@ -332,12 +453,23 @@ function ReviewCard({
       {history ? null : (
         <ReviewActions
           item={item}
-          selectedCreditId={selected?.id}
-          onCategory={onCategory}
-          onConfirmRefund={onConfirmRefund}
-          onConfirmTransfer={() => selected && onConfirmTransfer(selected.id)}
-          onDecline={() => onDecline(selected?.id)}
-          onDismiss={onDismiss}
+          partnerCount={partners.length}
+          paymentCount={payments.length}
+          selectedPartnerId={selectedPartner}
+          selectedPaymentId={selectedPayment}
+          selectedCategoryKey={pickedCategory}
+          keepAsLabel={keepAsMoneyLabel(item, byId)}
+          onAction={(action) => {
+            if (action === "confirm" && selectedPartner) onConfirmTransfer(selectedPartner);
+            if (action === "confirm-refund") onConfirmRefund(selectedPayment);
+            if (action === "mark-income") onMarkIncome();
+            if (action === "keep-as-money") onKeepAsMoney();
+            if (action === "assign-category" && pickedCategory) onAssignCategory(merchant, pickedCategory);
+            if (action === "skip") onSkip();
+            if (action === "dismiss") onDismiss();
+            if (action === "not-that") onDecline(selectedPartner ?? selectedPayment);
+            if (action === "keep-filing") onKeepFiling();
+          }}
         />
       )}
     </article>
@@ -346,109 +478,49 @@ function ReviewCard({
 
 function ReviewActions({
   item,
-  selectedCreditId,
-  onCategory,
-  onConfirmRefund,
-  onConfirmTransfer,
-  onDecline,
-  onDismiss,
+  partnerCount,
+  paymentCount,
+  selectedPartnerId,
+  selectedPaymentId,
+  selectedCategoryKey,
+  keepAsLabel,
+  onAction,
 }: {
   item: ReviewItem;
-  selectedCreditId?: string;
-  onCategory: (merchant: string, categoryKey: string) => void;
-  onConfirmRefund: () => void;
-  onConfirmTransfer: () => void;
-  onDecline: () => void;
-  onDismiss: () => void;
+  partnerCount: number;
+  paymentCount: number;
+  selectedPartnerId?: string;
+  selectedPaymentId?: string;
+  selectedCategoryKey?: string;
+  keepAsLabel: string;
+  onAction: (action: ReviewOpenActionId) => void;
 }) {
-  if (item.reason === "UNREVIEWED_KIND") {
-    const merchant = item.label.replace(/ needs a category$/i, "");
-    return (
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {pickerGroups()
-          .flatMap((group) => group.categories)
-          .slice(0, 3)
-          .map((category) => (
-            <button
-              key={category.key}
-              type="button"
-              onClick={() => onCategory(merchant, category.key)}
-              className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft"
-            >
-              {category.label}
-            </button>
-          ))}
-        <label className="flex items-center">
-          <span className="sr-only">Category for {merchant}</span>
-          <select
-            value={UNCATEGORISED}
-            onChange={(event) => {
-              if (event.target.value !== UNCATEGORISED) onCategory(merchant, event.target.value);
-            }}
-            className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold outline-none focus:border-primary"
-          >
-            <option value={UNCATEGORISED}>Other</option>
-            {pickerGroups().map((group) => (
-              <optgroup key={group.id} label={group.label}>
-                {group.categories.map((category) => (
-                  <option key={category.key} value={category.key}>
-                    {category.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-      </div>
-    );
-  }
-
-  if (canDismiss(item.reason)) {
-    return (
-      <div className="mt-4">
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="rounded-full bg-accent-surface px-4 py-2 text-xs font-semibold text-ink-soft"
-        >
-          Dismiss
-        </button>
-      </div>
-    );
-  }
-
-  const canConfirmTransfer = item.reason === "UNPAIRED_TRANSFER" && Boolean(selectedCreditId);
-  const canConfirmRefund =
-    (item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") &&
-    Boolean(item.debitId && item.creditId);
+  const actions = reviewOpenActions(item, {
+    partnerCount,
+    paymentCount,
+    selectedPartnerId,
+    selectedPaymentId,
+    selectedCategoryKey,
+    keepAsLabel,
+  });
 
   return (
     <div className="mt-4 flex flex-wrap gap-2">
-      {canConfirmTransfer ? (
+      {actions.map((action) => (
         <button
+          key={action.id}
           type="button"
-          onClick={onConfirmTransfer}
-          className="rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
+          disabled={!action.enabled}
+          onClick={() => onAction(action.id)}
+          className={`rounded-full px-4 py-2 text-xs ${
+            action.role === "primary"
+              ? "bg-primary font-bold text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
+              : "border border-line bg-surface font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
+          }`}
         >
-          Confirm
+          {action.label}
         </button>
-      ) : null}
-      {canConfirmRefund ? (
-        <button
-          type="button"
-          onClick={onConfirmRefund}
-          className="rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
-        >
-          Confirm refund
-        </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={onDecline}
-        className="rounded-full border border-line bg-surface px-4 py-2 text-xs font-semibold text-ink-soft"
-      >
-        Not that
-      </button>
+      ))}
     </div>
   );
 }

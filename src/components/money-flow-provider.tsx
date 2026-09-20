@@ -39,7 +39,7 @@ import {
   canDismiss,
   confirmRefundPair,
   confirmTransferPair,
-  declineTransferSuggestion,
+  declineReviewSuggestion,
   dismissReviewItem as closeParseItem,
   openReviewCount,
   resolveReviewItem,
@@ -137,8 +137,12 @@ type MoneyFlowState = {
   review: ReviewItem[];
   openReviewCount: number;
   confirmReviewTransfer: (item: ReviewItem, creditId?: string) => void;
-  confirmReviewRefund: (item: ReviewItem) => void;
-  declineReviewItem: (item: ReviewItem, creditId?: string) => void;
+  confirmReviewRefund: (item: ReviewItem, debitId?: string) => void;
+  markReviewIncome: (item: ReviewItem) => void;
+  keepReviewAsMoney: (item: ReviewItem) => void;
+  assignReviewCategory: (item: ReviewItem, merchant: string, categoryKey: string) => void;
+  keepReviewFiling: (item: ReviewItem) => void;
+  declineReviewItem: (item: ReviewItem, partnerId?: string) => void;
   dismissReviewItem: (item: ReviewItem) => void;
   clearInterpretation: () => void;
   /** What one movement was for. A person choosing settles it against every later re-read. */
@@ -241,6 +245,10 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       openReviewCount: openReviewCount(review),
       confirmReviewTransfer,
       confirmReviewRefund,
+      markReviewIncome,
+      keepReviewAsMoney,
+      assignReviewCategory,
+      keepReviewFiling,
       declineReviewItem,
       dismissReviewItem,
       importDocuments,
@@ -557,20 +565,79 @@ function confirmReviewTransfer(item: ReviewItem, creditId?: string) {
   );
 }
 
-function confirmReviewRefund(item: ReviewItem) {
-  if (!item.creditId || !item.debitId) return;
+function confirmReviewRefund(item: ReviewItem, debitId?: string) {
   if (item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") return;
+  const refundId = item.creditId;
+  if (!refundId) return;
+  const paymentId = debitId ?? item.debitId;
+  if (paymentId) {
+    editWith(
+      (ledger) => recordReview(ledger, resolveReviewItem({ ...item, debitId: paymentId })),
+      (rows) => confirmRefundPair(rows, paymentId, refundId),
+    );
+    return;
+  }
+  const credit = ledgerTransactions(snapshot.ledger).find((row) => row.id === refundId);
+  if (!credit) return;
+  settleReviewWithVerdict(item, credit, "money-back");
+}
+
+function markReviewIncome(item: ReviewItem) {
+  if (item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") return;
+  const credit = reviewMovement(item.creditId);
+  if (!credit) return;
+  settleReviewWithVerdict(item, credit, "earned");
+}
+
+function keepReviewAsMoney(item: ReviewItem) {
+  if (item.reason !== "UNPAIRED_TRANSFER") return;
+  const txn = reviewMovement(item.debitId ?? item.creditId ?? item.movementIds[0]);
+  if (!txn) return;
+  settleReviewWithVerdict(item, txn, txn.amount < 0 ? "spent" : "earned");
+}
+
+function assignReviewCategory(item: ReviewItem, merchant: string, categoryKey: string) {
+  if (item.reason !== "UNREVIEWED_KIND") return;
+  const row = ledgerTransactions(snapshot.ledger).find((txn) => sameMerchant(txn.merchant, merchant));
   editWith(
-    (ledger) => recordReview(ledger, resolveReviewItem(item)),
-    (rows) => confirmRefundPair(rows, item.debitId!, item.creditId!),
+    (ledger) => {
+      const remembered = row ? recordCorrection(ledger, row, categoryKey, new Date().toISOString()) : ledger;
+      return recordReview(remembered, resolveReviewItem(item));
+    },
+    (rows) => categorizeMerchant(rows, merchant, categoryKey),
   );
 }
 
-function declineReviewItem(item: ReviewItem, creditId?: string) {
-  if (item.reason !== "UNPAIRED_TRANSFER") return;
-  const partnerId = creditId ?? item.creditId;
-  if (!partnerId) return;
-  commit(recordReview(snapshot.ledger, declineTransferSuggestion(item, partnerId)));
+function keepReviewFiling(item: ReviewItem) {
+  commit(recordReview(snapshot.ledger, resolveReviewItem(item)));
+}
+
+function declineReviewItem(item: ReviewItem, partnerId?: string) {
+  const suggestionId =
+    partnerId ??
+    (item.reason === "UNPAIRED_TRANSFER" ? item.creditId : item.debitId);
+  if (!suggestionId) return;
+  if (item.reason !== "UNPAIRED_TRANSFER" && item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") {
+    return;
+  }
+  commit(recordReview(snapshot.ledger, declineReviewSuggestion(item, suggestionId)));
+}
+
+function reviewMovement(id: string | undefined) {
+  if (!id) return undefined;
+  return ledgerTransactions(snapshot.ledger).find((row) => row.id === id);
+}
+
+function settleReviewWithVerdict(item: ReviewItem, txn: InterpretedTransaction, reason: VerdictReason) {
+  const settings = {
+    institutions: snapshot.ledger.institutions ?? {},
+    names: snapshot.ledger.accounts ?? {},
+    payers: snapshot.ledger.payers ?? {},
+    mergedInto: snapshot.ledger.mergedInto,
+  };
+  const held = { ...(snapshot.ledger.verdicts ?? {}) };
+  held[oneKey(txn, settings)] = verdictFor(reason, new Date().toISOString());
+  commit(recordReview({ ...snapshot.ledger, verdicts: held }, resolveReviewItem(item)));
 }
 
 function dismissReviewItem(item: ReviewItem) {

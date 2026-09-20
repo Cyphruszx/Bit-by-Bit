@@ -583,7 +583,9 @@ export function recordTaxonomy(ledger: Ledger, book: CategoryBook | null): Ledge
 
 /** Records a closed Review Queue item, or an OPEN item that still carries declined partners. */
 export function recordReview(ledger: Ledger, item: ReviewItem): Ledger {
-  const keepOpenDecline = item.state === "OPEN" && (item.declinedCreditIds?.length ?? 0) > 0;
+  const keepOpenDecline =
+    item.state === "OPEN" &&
+    ((item.declinedCreditIds?.length ?? 0) > 0 || (item.declinedDebitIds?.length ?? 0) > 0);
   if (item.state === "OPEN" && !keepOpenDecline) return ledger;
   const held = (ledger.review ?? []).filter((row) => row.id !== item.id);
   return { ...ledger, review: [...held, item] };
