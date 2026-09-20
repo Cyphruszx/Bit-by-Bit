@@ -33,12 +33,13 @@ import {
 import { applyBook, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
-import { forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
+import { applySilentSameInstitutionUniquePairs, forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
 import {
   buildReviewQueue,
   canDismiss,
   confirmRefundPair,
   confirmTransferPair,
+  declineTransferSuggestion,
   dismissReviewItem as closeParseItem,
   openReviewCount,
   resolveReviewItem,
@@ -135,9 +136,9 @@ type MoneyFlowState = {
   /** Spec 7 Review Queue. Badge is the OPEN count. */
   review: ReviewItem[];
   openReviewCount: number;
-  confirmReviewTransfer: (item: ReviewItem) => void;
+  confirmReviewTransfer: (item: ReviewItem, creditId?: string) => void;
   confirmReviewRefund: (item: ReviewItem) => void;
-  declineReviewItem: (item: ReviewItem) => void;
+  declineReviewItem: (item: ReviewItem, creditId?: string) => void;
   dismissReviewItem: (item: ReviewItem) => void;
   clearInterpretation: () => void;
   /** What one movement was for. A person choosing settles it against every later re-read. */
@@ -204,7 +205,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const categoryBook = resolveBook(held.ledger.taxonomy);
     applyBook(categoryBook);
     const classified = forgetAutoPairs(classify(stored, { rules: held.ledger.rules ?? {} }));
-    const allTransactions = applyVerdicts(classified, held.ledger.verdicts ?? {}, registry);
+    const judged = applyVerdicts(classified, held.ledger.verdicts ?? {}, registry);
+    const allTransactions = applySilentSameInstitutionUniquePairs(judged, matching);
     const review = buildReviewQueue(allTransactions, {
       ...matching,
       imports: held.ledger.imports,
@@ -545,11 +547,13 @@ function mergePayers(from: string, into: string | null) {
   commit(recordPayerMerge(snapshot.ledger, from, into));
 }
 
-function confirmReviewTransfer(item: ReviewItem) {
-  if (item.reason !== "UNPAIRED_TRANSFER" || !item.debitId || !item.creditId) return;
+function confirmReviewTransfer(item: ReviewItem, creditId?: string) {
+  const debitId = item.debitId;
+  const partnerId = creditId ?? item.creditId;
+  if (item.reason !== "UNPAIRED_TRANSFER" || !debitId || !partnerId) return;
   editWith(
-    (ledger) => recordReview(ledger, resolveReviewItem(item)),
-    (rows) => confirmTransferPair(rows, item.debitId!, item.creditId!),
+    (ledger) => recordReview(ledger, resolveReviewItem({ ...item, creditId: partnerId })),
+    (rows) => confirmTransferPair(rows, debitId, partnerId),
   );
 }
 
@@ -562,24 +566,11 @@ function confirmReviewRefund(item: ReviewItem) {
   );
 }
 
-function declineReviewItem(item: ReviewItem) {
-  if (item.reason === "INGEST_PARSE") return;
-  const settings = {
-    institutions: snapshot.ledger.institutions ?? {},
-    names: snapshot.ledger.accounts ?? {},
-    payers: snapshot.ledger.payers ?? {},
-    mergedInto: snapshot.ledger.mergedInto,
-  };
-  const held = { ...(snapshot.ledger.verdicts ?? {}) };
-  const now = new Date().toISOString();
-  const stored = ledgerTransactions(snapshot.ledger);
-  for (const id of item.movementIds) {
-    const txn = stored.find((row) => row.id === id);
-    if (!txn) continue;
-    const reason = txn.amount > 0 ? "earned" : "spent";
-    held[oneKey(txn, settings)] = verdictFor(reason, now);
-  }
-  commit(recordReview({ ...snapshot.ledger, verdicts: held }, resolveReviewItem(item)));
+function declineReviewItem(item: ReviewItem, creditId?: string) {
+  if (item.reason !== "UNPAIRED_TRANSFER") return;
+  const partnerId = creditId ?? item.creditId;
+  if (!partnerId) return;
+  commit(recordReview(snapshot.ledger, declineTransferSuggestion(item, partnerId)));
 }
 
 function dismissReviewItem(item: ReviewItem) {

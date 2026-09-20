@@ -1,13 +1,15 @@
 /**
- * Spec 7 Review Queue skeleton.
+ * Spec 7 Review Queue.
  *
- * Core ingest still only detects candidates. OPEN money-trust items are held out of
- * Income / Spending / Refund credits / Net until RESOLVE writes ledger truth.
- * Only INGEST_PARSE may be dismissed. Spec 10 month-freeze: a refund OPEN item
- * holds the credit, never the original spend.
+ * Unique same-institution pairs resolve silently (Spec 3/7) and never appear OPEN.
+ * Cross-institution / contested / orphan / unknown-institution stay OPEN with a
+ * partner picker. OPEN money-trust items are held out of Income / Spending /
+ * Refund credits / Net until RESOLVE. Only INGEST_PARSE may be dismissed.
  */
 
+import { accountCaption, type AccountRegistry } from "@/lib/money-flow/account-identity";
 import { confidenceNeededFor } from "@/lib/money-flow/ai";
+import { isSilentSameInstitutionUniquePair } from "@/lib/money-flow/auto-pairs";
 import { needsReview } from "@/lib/money-flow/classify";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { merchantKey } from "@/lib/money-flow/redact";
@@ -44,6 +46,19 @@ export type ReviewItem = {
   importId?: string;
   label: string;
   resolvedAt?: string;
+  /** Credits the person declined for this OPEN transfer — stay OPEN, do not dismiss. */
+  declinedCreditIds?: string[];
+};
+
+export type TransferConfidence = "high" | "medium" | "low";
+
+export type TransferPartner = {
+  id: string;
+  account: string;
+  amount: number;
+  dateIso: string;
+  merchant: string;
+  confidence: TransferConfidence;
 };
 
 type ImportHint = { id: string; filename: string; error?: string };
@@ -89,6 +104,18 @@ export function dismissReviewItem(item: ReviewItem): ReviewItem {
 
 export function resolveReviewItem(item: ReviewItem): ReviewItem {
   return { ...item, state: "RESOLVED", resolvedAt: new Date().toISOString() };
+}
+
+/**
+ * Spec 7P.2: decline this suggestion. Stay OPEN. Soft later: next vs clear —
+ * remaining candidates stay; a last decline clears the suggested credit.
+ */
+export function declineTransferSuggestion(item: ReviewItem, creditId: string): ReviewItem {
+  const declined = [...new Set([...(item.declinedCreditIds ?? []), creditId])];
+  const next: ReviewItem = { ...item, state: "OPEN", declinedCreditIds: declined };
+  delete next.resolvedAt;
+  if (item.creditId === creditId) delete next.creditId;
+  return next;
 }
 
 /**
@@ -198,7 +225,7 @@ function detectReviewItems(
 
 function unpairedTransfers(
   transactions: InterpretedTransaction[],
-  options: MatchOptions,
+  options: ReviewQueueOptions,
 ): ReviewItem[] {
   const open = transactions.filter((txn) => !settledMoneyTrust(txn));
   const match = matchTransfers(open, options);
@@ -206,6 +233,13 @@ function unpairedTransfers(
   const used = new Set<string>();
 
   for (const pair of match.pairs) {
+    if (isSilentSameInstitutionUniquePair(pair, options.institutions)) {
+      used.add(pair.debit.id);
+      used.add(pair.credit.id);
+      continue;
+    }
+    const declined = declinedCreditsFor(options.stored, pair.debit.id);
+    if (declined.has(pair.credit.id)) continue;
     used.add(pair.debit.id);
     used.add(pair.credit.id);
     items.push({
@@ -216,12 +250,16 @@ function unpairedTransfers(
       debitId: pair.debit.id,
       creditId: pair.credit.id,
       label: `Likely transfer of ${money(pair.debit.amount)} from ${pair.fromAccount} to ${pair.toAccount}`,
+      ...(declined.size > 0 ? { declinedCreditIds: [...declined] } : {}),
     });
   }
 
   for (const row of match.contested) {
+    const declined = declinedCreditsFor(options.stored, row.debit.id);
+    const candidates = row.candidates.filter((credit) => !declined.has(credit.id));
+    if (candidates.length === 0) continue;
     used.add(row.debit.id);
-    const candidateIds = row.candidates.map((credit) => credit.id);
+    const candidateIds = candidates.map((credit) => credit.id);
     for (const id of candidateIds) used.add(id);
     items.push({
       id: `UNPAIRED_TRANSFER:${row.debit.id}`,
@@ -229,13 +267,19 @@ function unpairedTransfers(
       state: "OPEN",
       movementIds: [row.debit.id, ...candidateIds],
       debitId: row.debit.id,
-      label: `Contested transfer of ${money(row.debit.amount)} — more than one matching credit`,
+      ...(candidates.length === 1 ? { creditId: candidates[0]!.id } : {}),
+      label:
+        candidates.length === 1
+          ? `Likely transfer of ${money(row.debit.amount)} — confirm the matching credit`
+          : `Contested transfer of ${money(row.debit.amount)} — more than one matching credit`,
+      ...(declined.size > 0 ? { declinedCreditIds: [...declined] } : {}),
     });
   }
 
   for (const txn of open) {
     if (used.has(txn.id) || !unpairedTransferCandidate(txn)) continue;
     used.add(txn.id);
+    const declined = declinedCreditsFor(options.stored, txn.id);
     items.push({
       id: `UNPAIRED_TRANSFER:${txn.id}`,
       reason: "UNPAIRED_TRANSFER",
@@ -243,10 +287,72 @@ function unpairedTransfers(
       movementIds: [txn.id],
       ...(txn.amount < 0 ? { debitId: txn.id } : { creditId: txn.id }),
       label: `Looks like a transfer (${money(txn.amount)}) but the other leg is not here`,
+      ...(declined.size > 0 ? { declinedCreditIds: [...declined] } : {}),
     });
   }
 
   return items;
+}
+
+function declinedCreditsFor(stored: ReviewItem[] | undefined, debitId: string): Set<string> {
+  const ids = new Set<string>();
+  for (const item of stored ?? []) {
+    if (item.reason !== "UNPAIRED_TRANSFER") continue;
+    if (item.debitId !== debitId && !item.movementIds.includes(debitId)) continue;
+    for (const id of item.declinedCreditIds ?? []) ids.add(id);
+  }
+  return ids;
+}
+
+/** Suggested partners for an OPEN unpaired transfer. No fake inbound before a pick. */
+export function transferPartnersFor(
+  item: ReviewItem,
+  transactions: InterpretedTransaction[],
+  options: MatchOptions = {},
+): TransferPartner[] {
+  if (item.reason !== "UNPAIRED_TRANSFER" || !item.debitId) return [];
+  const declined = new Set(item.declinedCreditIds ?? []);
+  const byId = new Map(transactions.map((txn) => [txn.id, txn]));
+  const debit = byId.get(item.debitId);
+  if (!debit) return [];
+
+  const open = transactions.filter((txn) => !settledMoneyTrust(txn) || item.movementIds.includes(txn.id));
+  const match = matchTransfers(open, options);
+  const unique = match.pairs.find((pair) => pair.debit.id === item.debitId);
+  const contested = match.contested.find((row) => row.debit.id === item.debitId);
+  const credits = unique
+    ? [unique.credit]
+    : contested
+      ? contested.candidates
+      : item.movementIds
+          .map((id) => byId.get(id))
+          .filter((txn): txn is InterpretedTransaction => Boolean(txn) && txn.id !== item.debitId && txn.amount > 0);
+
+  const registry: AccountRegistry = {
+    institutions: options.institutions ?? {},
+    ...(options.accounts ? { names: options.accounts } : {}),
+    ...(options.mergedInto ? { mergedInto: options.mergedInto } : {}),
+  };
+
+  return credits
+    .filter((credit) => !declined.has(credit.id))
+    .map((credit) => ({
+      id: credit.id,
+      account: unique?.toAccount || accountCaption(credit, registry),
+      amount: credit.amount,
+      dateIso: credit.dateIso,
+      merchant: credit.merchant,
+      confidence: partnerConfidence(debit, credit, contested && contested.candidates.length > 1 ? "contested" : "unique"),
+    }));
+}
+
+function partnerConfidence(
+  debit: InterpretedTransaction,
+  credit: InterpretedTransaction,
+  kind: "unique" | "contested",
+): TransferConfidence {
+  if (kind === "contested") return "medium";
+  return calendarDaysBetween(debit.dateIso, credit.dateIso) <= 1 ? "high" : "medium";
 }
 
 function refundItems(
@@ -420,6 +526,9 @@ export function parseReviewItems(value: unknown): ReviewItem[] {
       ...(typeof held.creditId === "string" ? { creditId: held.creditId } : {}),
       ...(typeof held.importId === "string" ? { importId: held.importId } : {}),
       ...(typeof held.resolvedAt === "string" ? { resolvedAt: held.resolvedAt } : {}),
+      ...(Array.isArray(held.declinedCreditIds) && held.declinedCreditIds.every((id) => typeof id === "string")
+        ? { declinedCreditIds: held.declinedCreditIds }
+        : {}),
     });
   }
   return items;

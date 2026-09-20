@@ -7,17 +7,19 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { forgetAutoPairs } from "./auto-pairs";
+import { applySilentSameInstitutionUniquePairs, forgetAutoPairs } from "./auto-pairs";
 import {
   REVIEW_REASONS,
   buildReviewQueue,
   canDismiss,
   confirmRefundPair,
   confirmTransferPair,
+  declineTransferSuggestion,
   dismissReviewItem,
   moneyTrustHoldIds,
   openReviewCount,
   resolveReviewItem,
+  transferPartnersFor,
 } from "./review-queue";
 import { summarizeMoneyFlow } from "./summary";
 import type { InterpretedTransaction } from "./types";
@@ -234,5 +236,129 @@ describe("RESOLVE transfer writes ledger truth", () => {
     const [item] = buildReviewQueue([out, intoSave]);
     assert.equal(openReviewCount([item!]), 1);
     assert.equal(openReviewCount([resolveReviewItem(item!)]), 0);
+  });
+});
+
+describe("Spec 3/7 silent same-institution pairing", () => {
+  const nabOut = txn({
+    id: "nab-out",
+    amount: -400,
+    dateIso: "2026-03-12",
+    type: "spent",
+    accountId: "NAB · Everyday",
+    institution: "NAB",
+    merchant: "Transfer To Savings",
+    categoryKey: "uncategorised",
+  });
+  const nabIn = txn({
+    id: "nab-in",
+    amount: 400,
+    dateIso: "2026-03-12",
+    type: "earned",
+    accountId: "NAB · Savings",
+    institution: "NAB",
+    merchant: "Transfer From Everyday",
+    categoryKey: "uncategorised",
+  });
+  const upIn = txn({
+    id: "up-in",
+    amount: 400,
+    dateIso: "2026-03-12",
+    type: "earned",
+    accountId: "Up · Spending",
+    institution: "Up",
+    merchant: "Osko Payment Received",
+    categoryKey: "uncategorised",
+  });
+
+  it("does not open unique same-institution pairs and writes the pair", () => {
+    const paired = applySilentSameInstitutionUniquePairs([nabOut, nabIn]);
+    assert.ok(paired.every((row) => row.transferPair));
+    assert.equal(openReviewCount(buildReviewQueue(paired)), 0);
+    const flow = summarizeMoneyFlow(paired);
+    assert.equal(flow.transfers, 400);
+    assert.equal(flow.income, 0);
+    assert.equal(flow.spending, 0);
+  });
+
+  it("keeps unknown-institution unique pairs OPEN", () => {
+    const queue = buildReviewQueue([out, intoSave]);
+    assert.ok(queue.some((item) => item.reason === "UNPAIRED_TRANSFER" && item.state === "OPEN"));
+    assert.ok(queue[0]?.debitId && queue[0]?.creditId);
+  });
+
+  it("keeps cross-institution unique pairs OPEN with a suggested partner", () => {
+    const queue = buildReviewQueue([nabOut, upIn]);
+    const item = queue.find((row) => row.reason === "UNPAIRED_TRANSFER" && row.state === "OPEN");
+    assert.ok(item);
+    assert.equal(item?.debitId, "nab-out");
+    assert.equal(item?.creditId, "up-in");
+    const partners = transferPartnersFor(item!, [nabOut, upIn]);
+    assert.equal(partners.length, 1);
+    assert.equal(partners[0]?.id, "up-in");
+    assert.equal(partners[0]?.confidence, "high");
+  });
+
+  it("lets Confirm write a cross-institution pair and clears OPEN", () => {
+    const item = buildReviewQueue([nabOut, upIn]).find((row) => row.reason === "UNPAIRED_TRANSFER");
+    assert.ok(item?.debitId && item.creditId);
+    const confirmed = confirmTransferPair([nabOut, upIn], item!.debitId!, item!.creditId!);
+    assert.equal(openReviewCount(buildReviewQueue(confirmed)), 0);
+    assert.equal(summarizeMoneyFlow(confirmed).transfers, 400);
+  });
+
+  it("keeps contested same-institution pairs OPEN for a pick", () => {
+    const first = txn({
+      id: "c1",
+      amount: 2000,
+      dateIso: "2026-06-01",
+      type: "earned",
+      accountId: "NAB · Savings",
+      institution: "NAB",
+      merchant: "Osko Payment Received",
+      description: "Osko Payment Received",
+      categoryKey: "uncategorised",
+    });
+    const second = txn({
+      id: "c2",
+      amount: 2000,
+      dateIso: "2026-06-01",
+      type: "earned",
+      accountId: "NAB · Offset",
+      institution: "NAB",
+      merchant: "Wages",
+      description: "Wages",
+      categoryKey: "uncategorised",
+    });
+    const debit = txn({
+      id: "c-out",
+      amount: -2000,
+      dateIso: "2026-06-01",
+      type: "spent",
+      accountId: "NAB · Everyday",
+      institution: "NAB",
+      merchant: "JORDAN LEE T5",
+      description: "JORDAN LEE T5",
+      categoryKey: "uncategorised",
+    });
+    const queue = buildReviewQueue([debit, first, second]);
+    const item = queue.find((row) => row.reason === "UNPAIRED_TRANSFER" && row.state === "OPEN");
+    assert.ok(item);
+    assert.equal(item?.creditId, undefined);
+    assert.equal(transferPartnersFor(item!, [debit, first, second]).length, 2);
+    const confirmed = confirmTransferPair([debit, first, second], "c-out", "c1");
+    assert.equal(openReviewCount(buildReviewQueue(confirmed)), 0);
+  });
+
+  it("Not that stays OPEN and does not dismiss money-trust", () => {
+    const item = buildReviewQueue([nabOut, upIn]).find((row) => row.reason === "UNPAIRED_TRANSFER")!;
+    const declined = declineTransferSuggestion(item, item.creditId!);
+    assert.equal(declined.state, "OPEN");
+    assert.ok(declined.declinedCreditIds?.includes("up-in"));
+    assert.throws(() => dismissReviewItem(declined), /INGEST_PARSE/);
+    const next = buildReviewQueue([nabOut, upIn], { stored: [declined] });
+    assert.equal(openReviewCount(next), 1);
+    assert.ok(next[0]?.debitId === "nab-out");
+    assert.notEqual(next[0]?.creditId, "up-in");
   });
 });

@@ -1,5 +1,5 @@
 import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFlowAi } from "@/lib/money-flow/ai";
-import { forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
+import { applySilentSameInstitutionUniquePairs, forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
 import { coreIngestUnavailable, ocrPagesFor } from "@/lib/money-flow/core-ingest";
 import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
 import { parseDocument } from "@/lib/money-flow/parsers";
@@ -112,9 +112,11 @@ export async function interpretDocuments(
     }
   }
 
-  // Spec 7: Core never auto-resolves money-trust. Detect candidates for the insight;
-  // do not write transferPair / refundPair or rewrite type to moved / returned.
+  // Spec 7: Core never auto-resolves money-trust, except Spec 3/7 unique
+  // same-institution pairs (no OPEN item). Refunds and cross-institution
+  // / contested / orphan / unknown-institution stay for Review.
   merged = forgetAutoPairs(merged);
+  merged = applySilentSameInstitutionUniquePairs(merged);
 
   const flow = summarizeMoneyFlow(merged);
   const pending = pendingPairInsight(merged);

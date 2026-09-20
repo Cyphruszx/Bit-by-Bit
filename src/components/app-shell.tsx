@@ -25,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2.5">
             {openReviewCount > 0 ? (
               <Link
-                href="/transactions"
+                href="/review"
                 className="rounded-full bg-accent-surface px-3 py-1 text-[12.5px] font-semibold text-primary-strong"
               >
                 {formatCount(openReviewCount)} to review
