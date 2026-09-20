@@ -15,6 +15,7 @@ import {
   last30DaysSince,
   REVIEW_REASON_FILTERS,
   REVIEW_REASON_LABEL,
+  reviewItemIsCredit,
   reviewOpenedOn,
   reviewOpenActions,
   reviewMovementFacts,
@@ -49,6 +50,7 @@ export function ReviewView() {
     allTransactions,
     assignReviewCategory,
     confirmReviewAsTransfer,
+    confirmReviewAsLoan,
     confirmReviewRefund,
     confirmReviewTransfer,
     declineReviewItem,
@@ -245,6 +247,7 @@ export function ReviewView() {
             onAssignCategory={(merchant, categoryKey) => assignReviewCategory(item, merchant, categoryKey)}
             similar={similarOpenUnpaired(item, review, allTransactions, matching, registry)}
             onConfirmAsTransfer={(similar) => confirmReviewAsTransfer(item, similar)}
+            onConfirmAsLoan={(similar) => confirmReviewAsLoan(item, similar)}
             onConfirmRefund={(debitId) => confirmReviewRefund(item, debitId)}
             onConfirmTransfer={(creditId) => confirmReviewTransfer(item, creditId)}
             onDecline={(partnerId) => declineReviewItem(item, partnerId)}
@@ -275,6 +278,7 @@ function ReviewCard({
   similar,
   onAssignCategory,
   onConfirmAsTransfer,
+  onConfirmAsLoan,
   onConfirmRefund,
   onConfirmTransfer,
   onDecline,
@@ -295,6 +299,7 @@ function ReviewCard({
   similar: ReviewItem[];
   onAssignCategory: (merchant: string, categoryKey: string) => void;
   onConfirmAsTransfer: (similar?: ReviewItem[]) => void;
+  onConfirmAsLoan: (similar?: ReviewItem[]) => void;
   onConfirmRefund: (debitId?: string) => void;
   onConfirmTransfer: (creditId: string) => void;
   onDecline: (partnerId?: string) => void;
@@ -516,6 +521,7 @@ function ReviewCard({
           selectedPaymentId={selectedPayment}
           selectedCategoryKey={pickedCategory}
           keepAsLabel={keepAsMoneyLabel(item, byId)}
+          isCredit={reviewItemIsCredit(item, byId)}
           similarPreviews={partners.length === 0 ? similarPreviews : []}
           applySimilar={applySimilar}
           deferred={deferred}
@@ -524,6 +530,7 @@ function ReviewCard({
             const batch = applySimilar && similar.length > 1 ? similar : undefined;
             if (action === "confirm" && selectedPartner) onConfirmTransfer(selectedPartner);
             if (action === "confirm-as-transfer") onConfirmAsTransfer(batch);
+            if (action === "confirm-as-loan") onConfirmAsLoan(batch);
             if (action === "confirm-refund") onConfirmRefund(selectedPayment);
             if (action === "mark-income") onMarkIncome();
             if (action === "keep-as-money") onKeepAsMoney(batch);
@@ -548,6 +555,7 @@ function ReviewActions({
   selectedPaymentId,
   selectedCategoryKey,
   keepAsLabel,
+  isCredit,
   similarPreviews,
   applySimilar,
   deferred,
@@ -561,6 +569,7 @@ function ReviewActions({
   selectedPaymentId?: string;
   selectedCategoryKey?: string;
   keepAsLabel: string;
+  isCredit: boolean;
   similarPreviews: SimilarMovementPreview[];
   applySimilar: boolean;
   deferred: boolean;
@@ -575,6 +584,7 @@ function ReviewActions({
     selectedCategoryKey,
     keepAsLabel,
     deferred,
+    isCredit,
   });
   const similarCount = similarPreviews.length;
 

@@ -9,12 +9,15 @@ import {
   reviewNavBadgeCount,
   reviewOpenedOn,
   reviewOpenActions,
+  fileAsLoanDrawdown,
+  reviewItemIsCredit,
   reviewMovementFacts,
   similarCounterpartyKey,
   similarMovementPreviews,
   similarOpenUnpaired,
   skippedOpenCount,
   unpairedAsTransferReason,
+  unpairedLoanReason,
   unpairedSettleTargets,
   unpairedSimilarityKey,
 } from "./review-page";
@@ -183,7 +186,7 @@ describe("OPEN action matrix", () => {
     const cases: { item: ReviewItem; ctx: Parameters<typeof reviewOpenActions>[1] }[] = [
       { item: openTransfer, ctx: { partnerCount: 2, selectedPartnerId: "in" } },
       { item: item({ id: "UNPAIRED_TRANSFER:out", reason: "UNPAIRED_TRANSFER", debitId: "out", movementIds: ["out"] }), ctx: { partnerCount: 0 } },
-      { item: item({ id: "UNPAIRED_TRANSFER:in", reason: "UNPAIRED_TRANSFER", creditId: "in", movementIds: ["in"] }), ctx: { partnerCount: 0, keepAsLabel: "Keep as income" } },
+      { item: item({ id: "UNPAIRED_TRANSFER:in", reason: "UNPAIRED_TRANSFER", creditId: "in", movementIds: ["in"] }), ctx: { partnerCount: 0, keepAsLabel: "Keep as income", isCredit: true } },
       { item: openRefund, ctx: { partnerCount: 0, paymentCount: 1, selectedPaymentId: "paid" } },
       { item: item({ id: "PARTIAL_REFUND:back", reason: "PARTIAL_REFUND", creditId: "back", movementIds: ["back"] }), ctx: { partnerCount: 0, paymentCount: 0 } },
       { item: item({ id: "FULL_REFUND_AMBIGUOUS:back", reason: "FULL_REFUND_AMBIGUOUS", creditId: "back", movementIds: ["back"] }), ctx: { partnerCount: 0, paymentCount: 2 } },
@@ -223,6 +226,15 @@ describe("OPEN action matrix", () => {
     );
     assert.equal(orphan[0]?.label, "Confirm as transfer");
     assert.equal(orphan[1]?.label, "Keep as spending");
+    const creditOrphan = reviewOpenActions(
+      item({ id: "UNPAIRED_TRANSFER:in", reason: "UNPAIRED_TRANSFER", creditId: "in", movementIds: ["in"] }),
+      { partnerCount: 0, keepAsLabel: "Keep as income", isCredit: true },
+    );
+    assert.deepEqual(
+      creditOrphan.map((action) => action.id),
+      ["confirm-as-transfer", "confirm-as-loan", "keep-as-money", "skip"],
+    );
+    assert.equal(creditOrphan.find((action) => action.id === "confirm-as-loan")?.label, "Confirm as loan");
   });
 
   it("always offers Confirm refund and Mark as income, even without debitId", () => {
@@ -330,6 +342,8 @@ describe("OPEN action matrix", () => {
     );
     assert.equal(unpairedAsTransferReason(-600), "not-mine");
     assert.equal(unpairedAsTransferReason(600), "own-account");
+    assert.equal(unpairedLoanReason(), "borrowed");
+    assert.equal(reviewItemIsCredit(queue[0]!, byId), false);
     const facts = reviewMovementFacts(queue[0]!, byId, (id) => byId.get(id)?.accountId ?? id);
     assert.equal(facts[0]?.account, "NAB · NAB--3000");
     assert.equal(facts[0]?.line, "JORDAN LEE S55497275522");
@@ -346,6 +360,23 @@ describe("OPEN action matrix", () => {
       actions.map((action) => action.id),
       ["assign-category", "skip"],
     );
+    const creditKind = reviewOpenActions(openKind, {
+      partnerCount: 0,
+      paymentCount: 0,
+      selectedCategoryKey: "groceries",
+      isCredit: true,
+    });
+    assert.deepEqual(
+      creditKind.map((action) => action.id),
+      ["assign-category", "confirm-as-loan", "skip"],
+    );
+    const filed = fileAsLoanDrawdown(
+      txn({ id: "loan-in", amount: 25000, dateIso: "2026-03-12", merchant: "SocietyOne" }),
+    );
+    assert.equal(filed.type, "DEBT_PRINCIPAL");
+    assert.equal(filed.categoryKey, "debt-payments");
+    assert.ok(filed.tags?.includes("Drawdown"));
+    assert.equal(filed.decidedBy, "user_overridden");
   });
 
   it("replaces Skip with Back to Open on deferred cards", () => {

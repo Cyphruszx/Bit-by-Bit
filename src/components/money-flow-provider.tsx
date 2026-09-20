@@ -49,9 +49,12 @@ import {
 } from "@/lib/money-flow/review-queue";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import {
+  fileAsLoanDrawdown,
+  reviewItemIsCredit,
   reviewMovementOf,
   unpairedAsTransferReason,
   unpairedKeepReason,
+  unpairedLoanReason,
 } from "@/lib/money-flow/review-page";
 import { categorizeMerchant, removeTag, renameTag, sameMerchant, tagMerchant, withCategory, withTags } from "@/lib/money-flow/tags";
 import {
@@ -145,6 +148,7 @@ type MoneyFlowState = {
   openReviewCount: number;
   confirmReviewTransfer: (item: ReviewItem, creditId?: string) => void;
   confirmReviewAsTransfer: (item: ReviewItem, similar?: ReviewItem[]) => void;
+  confirmReviewAsLoan: (item: ReviewItem, similar?: ReviewItem[]) => void;
   confirmReviewRefund: (item: ReviewItem, debitId?: string) => void;
   markReviewIncome: (item: ReviewItem) => void;
   keepReviewAsMoney: (item: ReviewItem, similar?: ReviewItem[]) => void;
@@ -255,6 +259,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       openReviewCount: openReviewCount(review),
       confirmReviewTransfer,
       confirmReviewAsTransfer,
+      confirmReviewAsLoan,
       confirmReviewRefund,
       markReviewIncome,
       keepReviewAsMoney,
@@ -605,6 +610,41 @@ function markReviewIncome(item: ReviewItem) {
 function confirmReviewAsTransfer(item: ReviewItem, similar?: ReviewItem[]) {
   if (item.reason !== "UNPAIRED_TRANSFER") return;
   settleUnpairedBatch(item, similar, "transfer");
+}
+
+function confirmReviewAsLoan(item: ReviewItem, similar?: ReviewItem[]) {
+  if (item.reason !== "UNPAIRED_TRANSFER" && item.reason !== "UNREVIEWED_KIND") return;
+  const stored = ledgerTransactions(snapshot.ledger);
+  const byId = new Map(stored.map((txn) => [txn.id, txn]));
+  const targets = (similar && similar.length > 0 ? similar : [item]).filter((row) =>
+    reviewItemIsCredit(row, byId),
+  );
+  if (targets.length === 0) return;
+  const ids = new Set(
+    targets.flatMap((row) => {
+      if (row.reason === "UNREVIEWED_KIND") return row.movementIds;
+      const txn = reviewMovementOf(row, byId);
+      return txn ? [txn.id] : row.movementIds;
+    }),
+  );
+  const settings = reviewRegistry();
+  const at = new Date().toISOString();
+  editWith(
+    (ledger) => {
+      let next = ledger;
+      const rows = ledgerTransactions(next);
+      const rowById = new Map(rows.map((txn) => [txn.id, txn]));
+      for (const target of targets) {
+        const txn = reviewMovementOf(target, rowById);
+        if (!txn || txn.amount <= 0) continue;
+        next = recordVerdict(next, oneKey(txn, settings), verdictFor(unpairedLoanReason(), at));
+        next = recordCorrection(next, txn, "debt-payments", at);
+        next = recordReview(next, resolveReviewItem(target));
+      }
+      return next;
+    },
+    (rows) => rows.map((txn) => (ids.has(txn.id) ? fileAsLoanDrawdown(txn) : txn)),
+  );
 }
 
 function keepReviewAsMoney(item: ReviewItem, similar?: ReviewItem[]) {

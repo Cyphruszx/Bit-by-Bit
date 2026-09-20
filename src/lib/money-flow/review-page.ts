@@ -13,6 +13,7 @@ import {
   type ReviewItem,
   type ReviewReason,
 } from "@/lib/money-flow/review-queue";
+import { tagsOf, withCategory, withTags } from "@/lib/money-flow/tags";
 import type { MatchOptions } from "@/lib/money-flow/transfers";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import type { VerdictReason } from "@/lib/money-flow/verdicts";
@@ -20,6 +21,7 @@ import type { VerdictReason } from "@/lib/money-flow/verdicts";
 export type ReviewOpenActionId =
   | "confirm"
   | "confirm-as-transfer"
+  | "confirm-as-loan"
   | "confirm-refund"
   | "mark-income"
   | "keep-as-money"
@@ -45,6 +47,7 @@ export type ReviewOpenActionContext = {
   selectedCategoryKey?: string;
   keepAsLabel?: string;
   deferred?: boolean;
+  isCredit?: boolean;
 };
 
 /**
@@ -55,6 +58,7 @@ export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext
   const partnerCount = ctx.partnerCount ?? 0;
   const paymentCount = ctx.paymentCount ?? 0;
   const deferred = ctx.deferred ?? isReviewDeferred(item);
+  const isCredit = ctx.isCredit ?? reviewItemIsCredit(item);
   let actions: ReviewOpenAction[];
   switch (item.reason) {
     case "UNPAIRED_TRANSFER":
@@ -68,6 +72,9 @@ export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext
       }
       actions = [
         { id: "confirm-as-transfer", label: "Confirm as transfer", role: "primary", enabled: true },
+        ...(isCredit
+          ? [{ id: "confirm-as-loan" as const, label: "Confirm as loan", role: "primary" as const, enabled: true }]
+          : []),
         {
           id: "keep-as-money",
           label: ctx.keepAsLabel ?? "Keep as spending",
@@ -97,6 +104,9 @@ export function reviewOpenActions(item: ReviewItem, ctx: ReviewOpenActionContext
           role: "primary",
           enabled: Boolean(ctx.selectedCategoryKey),
         },
+        ...(isCredit
+          ? [{ id: "confirm-as-loan" as const, label: "Confirm as loan", role: "primary" as const, enabled: true }]
+          : []),
         { id: "skip", label: "Skip for now", role: "secondary", enabled: true },
       ];
       break;
@@ -180,6 +190,30 @@ export function unpairedKeepReason(amount: number): VerdictReason {
   return amount < 0 ? "spent" : "earned";
 }
 
+export function unpairedLoanReason(): VerdictReason {
+  return "borrowed";
+}
+
+export function reviewItemIsCredit(
+  item: ReviewItem,
+  byId: Map<string, InterpretedTransaction> = new Map(),
+): boolean {
+  if (item.reason === "UNREVIEWED_KIND" && byId.size > 0) {
+    const rows = item.movementIds
+      .map((id) => byId.get(id))
+      .filter((txn): txn is InterpretedTransaction => Boolean(txn));
+    return rows.length > 0 && rows.every((txn) => txn.amount > 0);
+  }
+  const txn = reviewMovementOf(item, byId);
+  if (txn) return txn.amount > 0;
+  return Boolean(item.creditId) && !item.debitId;
+}
+
+/** Spec 3 DEBT_PRINCIPAL drawdown: existing debt-payments category + Drawdown tag. */
+export function fileAsLoanDrawdown(txn: InterpretedTransaction): InterpretedTransaction {
+  return withTags(withCategory(txn, "debt-payments"), [...tagsOf(txn), "Drawdown"]);
+}
+
 /** OPEN no-partner UNPAIRED_TRANSFER items that share the current card's payee key. */
 export function similarOpenUnpaired(
   item: ReviewItem,
@@ -193,10 +227,13 @@ export function similarOpenUnpaired(
   const byId = new Map(transactions.map((txn) => [txn.id, txn]));
   const key = unpairedSimilarityKey(item, byId, registry);
   if (!key) return [item];
+  const seed = reviewMovementOf(item, byId);
   return items.filter((row) => {
     if (row.state !== "OPEN" || row.reason !== "UNPAIRED_TRANSFER") return false;
     if (isReviewDeferred(row)) return false;
     if (unpairedSimilarityKey(row, byId, registry) !== key) return false;
+    const other = reviewMovementOf(row, byId);
+    if (seed && other && Math.sign(seed.amount) !== Math.sign(other.amount)) return false;
     return transferPartnersFor(row, transactions, options).length === 0;
   });
 }

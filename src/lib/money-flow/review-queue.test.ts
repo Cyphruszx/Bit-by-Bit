@@ -27,7 +27,10 @@ import {
   transferPartnersFor,
   undeferReviewItem,
 } from "./review-queue";
+import { EMPTY_LEDGER, recordReview } from "./ledger";
+import { fileAsLoanDrawdown } from "./review-page";
 import { summarizeMoneyFlow } from "./summary";
+import { countsAsIncome, countsAsSpending } from "./taxonomy";
 import { applyVerdicts, oneKey, verdictFor } from "./verdicts";
 import type { InterpretedTransaction } from "./types";
 
@@ -479,6 +482,88 @@ describe("OPEN settle paths", () => {
     assert.equal(flow.spending, 0);
     assert.equal(flow.income, 0);
     assert.equal(flow.net, 0);
+  });
+
+  it("Confirm as loan files a credit as DEBT_PRINCIPAL and keeps tiles out of Income", () => {
+    const draw = txn({
+      id: "loan-in",
+      amount: 25000,
+      dateIso: "2026-03-12",
+      type: "TRANSFER",
+      accountId: "NAB · Everyday",
+      merchant: "SOCIETYONE DRAWDOWN",
+      categoryKey: "uncategorised",
+      bank: { category: "Internal transfers", type: "TRANSFER CREDIT" },
+    });
+    const item = buildReviewQueue([draw]).find((row) => row.reason === "UNPAIRED_TRANSFER");
+    assert.ok(item);
+    assert.equal(item?.creditId, "loan-in");
+    const at = "2026-09-20T00:00:00Z";
+    const filed = fileAsLoanDrawdown(draw);
+    const judged = applyVerdicts([filed], { [oneKey(draw)]: verdictFor("borrowed", at) });
+    assert.equal(judged[0]?.type, "DEBT_PRINCIPAL");
+    assert.equal(judged[0]?.categoryKey, "debt-payments");
+    assert.ok(judged[0]?.tags?.includes("Drawdown"));
+    assert.equal(judged[0]?.transferPair, undefined);
+    assert.equal(judged[0]?.decidedBy, "user_overridden");
+    assert.equal(countsAsIncome("DEBT_PRINCIPAL"), false);
+    assert.equal(countsAsSpending("DEBT_PRINCIPAL"), false);
+    const closed = resolveReviewItem(item!);
+    assert.equal(openReviewCount(buildReviewQueue(judged, { stored: [closed] })), 0);
+    const flow = summarizeMoneyFlow(judged);
+    assert.equal(flow.income, 0);
+    assert.equal(flow.spending, 0);
+    assert.equal(flow.net, 0);
+    assert.equal(flow.cashIn, 25000);
+    assert.equal(flow.transfers, 0);
+  });
+
+  it("Apply to similar Confirm as loan resolves matching credit orphans", () => {
+    const first = txn({
+      id: "loan-1",
+      amount: 8000,
+      dateIso: "2026-05-14",
+      merchant: "LATITUDE FIN S55497275522",
+      type: "TRANSFER",
+      accountId: "NAB · Everyday",
+      bank: { category: "Internal transfers", type: "TRANSFER CREDIT" },
+      categoryKey: "uncategorised",
+    });
+    const second = txn({
+      id: "loan-2",
+      amount: 8000,
+      dateIso: "2026-05-11",
+      merchant: "LATITUDE FIN H0191683078",
+      type: "TRANSFER",
+      accountId: "NAB · Everyday",
+      bank: { category: "Internal transfers", type: "TRANSFER CREDIT" },
+      categoryKey: "uncategorised",
+    });
+    const queue = buildReviewQueue([first, second]);
+    const open = queue.filter((row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER");
+    assert.equal(open.length, 2);
+    const at = "2026-09-20T00:00:00Z";
+    const judged = applyVerdicts([fileAsLoanDrawdown(first), fileAsLoanDrawdown(second)], {
+      [oneKey(first)]: verdictFor("borrowed", at),
+      [oneKey(second)]: verdictFor("borrowed", at),
+    });
+    const stored = open.map((row) => resolveReviewItem(row));
+    const next = buildReviewQueue(judged, { stored });
+    assert.equal(openReviewCount(next), 0);
+    assert.ok(judged.every((row) => row.type === "DEBT_PRINCIPAL" && !row.transferPair));
+    assert.equal(summarizeMoneyFlow(judged).income, 0);
+    assert.equal(summarizeMoneyFlow(judged).cashIn, 16000);
+  });
+
+  it("persists a skipped OPEN item and drops it when Skip is cleared", () => {
+    const item = buildReviewQueue([out]).find((row) => row.reason === "UNPAIRED_TRANSFER");
+    assert.ok(item);
+    const deferred = deferReviewItem(item!);
+    const stored = recordReview(EMPTY_LEDGER, deferred);
+    assert.equal(stored.review?.[0]?.state, "OPEN");
+    assert.equal(stored.review?.[0]?.deferredAt, deferred.deferredAt);
+    const restored = recordReview(stored, undeferReviewItem(deferred));
+    assert.equal((restored.review ?? []).some((row) => row.id === item!.id), false);
   });
 
   it("Keep as spending settles an orphan transfer via spent verdict", () => {

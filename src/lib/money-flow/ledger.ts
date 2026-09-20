@@ -581,13 +581,17 @@ export function recordTaxonomy(ledger: Ledger, book: CategoryBook | null): Ledge
   return { ...ledger, taxonomy: book };
 }
 
-/** Records a closed Review Queue item, or an OPEN item that still carries declined partners. */
+/** Records a closed Review Queue item, an OPEN decline, or a deferred Skip. */
 export function recordReview(ledger: Ledger, item: ReviewItem): Ledger {
-  const keepOpenDecline =
-    item.state === "OPEN" &&
-    ((item.declinedCreditIds?.length ?? 0) > 0 || (item.declinedDebitIds?.length ?? 0) > 0);
-  if (item.state === "OPEN" && !keepOpenDecline) return ledger;
   const held = (ledger.review ?? []).filter((row) => row.id !== item.id);
+  if (item.state !== "OPEN") {
+    return { ...ledger, review: [...held, item] };
+  }
+  const keepOpen =
+    (item.declinedCreditIds?.length ?? 0) > 0 ||
+    (item.declinedDebitIds?.length ?? 0) > 0 ||
+    Boolean(item.deferredAt);
+  if (!keepOpen) return { ...ledger, review: held };
   return { ...ledger, review: [...held, item] };
 }
 
