@@ -365,6 +365,37 @@ export function last30DaysSince(todayIso: string): string {
   return new Date(start).toISOString().slice(0, 10);
 }
 
+export const REVIEW_PAGE_SIZE = 5;
+
+export type ReviewPageWindow<T> = {
+  items: T[];
+  page: number;
+  pageCount: number;
+  total: number;
+  from: number;
+  to: number;
+};
+
+export function pageReviewItems<T>(
+  items: T[],
+  page: number,
+  size = REVIEW_PAGE_SIZE,
+): ReviewPageWindow<T> {
+  const total = items.length;
+  const pageCount = Math.max(1, Math.ceil(total / size) || 1);
+  const safePage = Math.min(Math.max(0, page), pageCount - 1);
+  const start = total === 0 ? 0 : safePage * size;
+  const slice = items.slice(start, start + size);
+  return {
+    items: slice,
+    page: safePage,
+    pageCount: total === 0 ? 1 : pageCount,
+    total,
+    from: total === 0 ? 0 : start + 1,
+    to: start + slice.length,
+  };
+}
+
 export function skippedOpenCount(items: ReviewItem[]): number {
   return items.filter(isReviewDeferred).length;
 }

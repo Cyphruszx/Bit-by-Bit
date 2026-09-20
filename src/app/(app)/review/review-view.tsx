@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { accountCaption } from "@/lib/money-flow/account-identity";
@@ -13,6 +13,8 @@ import {
   hasOpenTransferItems,
   keepAsMoneyLabel,
   last30DaysSince,
+  pageReviewItems,
+  REVIEW_PAGE_SIZE,
   REVIEW_REASON_FILTERS,
   REVIEW_REASON_LABEL,
   reviewItemIsCredit,
@@ -64,6 +66,8 @@ export function ReviewView() {
     review,
     skipReviewItem,
     undeferReviewItem,
+    lastReviewUndo,
+    undoReviewAction,
   } = useMoneyFlow();
   const [surface, setSurface] = useState<ReviewSurface>("open");
   const [reason, setReason] = useState<ReviewReasonFilter>("all");
@@ -71,6 +75,7 @@ export function ReviewView() {
   const [last30, setLast30] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [hideSameInstNote, setHideSameInstNote] = useState(false);
+  const [page, setPage] = useState(0);
 
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
@@ -86,6 +91,13 @@ export function ReviewView() {
     () => filterReviewItems(review, { surface, reason, accountId, sinceIso }, allTransactions, registry),
     [accountId, allTransactions, reason, registry, review, sinceIso, surface],
   );
+  const paged = useMemo(() => pageReviewItems(items, page), [items, page]);
+  useEffect(() => {
+    setPage(0);
+  }, [surface, reason, accountId, last30]);
+  useEffect(() => {
+    if (paged.page !== page) setPage(paged.page);
+  }, [paged.page, page]);
   const accounts = useMemo(() => accountsFrom(allTransactions, registry), [allTransactions, registry]);
   const byId = useMemo(() => new Map(allTransactions.map((txn) => [txn.id, txn])), [allTransactions]);
   const skippedCount = skippedOpenCount(review);
@@ -170,6 +182,23 @@ export function ReviewView() {
         noise.
       </p>
 
+      {lastReviewUndo ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-inner)] border border-line bg-surface px-4 py-3">
+          <p className="text-sm text-ink-soft">
+            {lastReviewUndo.label}
+            {lastReviewUndo.itemIds.length > 1 ? ` · ${lastReviewUndo.itemIds.length} items` : ""}. Undo
+            puts them back in Open.
+          </p>
+          <button
+            type="button"
+            onClick={undoReviewAction}
+            className="rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
+          >
+            Undo
+          </button>
+        </div>
+      ) : null}
+
       {showSameInstNote ? (
         <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft">
           <span>Same-institution unique pairs are matched automatically and not listed.</span>
@@ -235,7 +264,7 @@ export function ReviewView() {
       ) : null}
 
       <div className="mt-6 space-y-4">
-        {items.map((item) => (
+        {paged.items.map((item) => (
           <ReviewCard
             key={item.id}
             item={item}
@@ -244,6 +273,8 @@ export function ReviewView() {
             openedOn={reviewOpenedOn(item, allTransactions)}
             partners={transferPartnersFor(item, allTransactions, matching)}
             payments={refundPaymentsFor(item, allTransactions)}
+            canUndo={Boolean(lastReviewUndo?.itemIds.includes(item.id))}
+            onUndo={undoReviewAction}
             onAssignCategory={(merchant, categoryKey) => assignReviewCategory(item, merchant, categoryKey)}
             similar={similarOpenUnpaired(item, review, allTransactions, matching, registry)}
             onConfirmAsTransfer={(similar) => confirmReviewAsTransfer(item, similar)}
@@ -264,6 +295,33 @@ export function ReviewView() {
           />
         ))}
       </div>
+
+      {paged.total > REVIEW_PAGE_SIZE ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-muted">
+            Showing {paged.from}–{paged.to} of {paged.total}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={paged.page === 0}
+              onClick={() => setPage((held) => Math.max(0, held - 1))}
+              className="rounded-full border border-line bg-surface px-4 py-2 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Previous
+            </button>
+            {paged.page < paged.pageCount - 1 ? (
+              <button
+                type="button"
+                onClick={() => setPage((held) => held + 1)}
+                className="rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
+              >
+                Load more
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -288,6 +346,8 @@ function ReviewCard({
   onMarkIncome,
   onSkip,
   onUndefer,
+  canUndo,
+  onUndo,
   accountLabel,
 }: {
   item: ReviewItem;
@@ -297,6 +357,8 @@ function ReviewCard({
   partners: TransferPartner[];
   payments: RefundPayment[];
   similar: ReviewItem[];
+  canUndo: boolean;
+  onUndo: () => void;
   onAssignCategory: (merchant: string, categoryKey: string) => void;
   onConfirmAsTransfer: (similar?: ReviewItem[]) => void;
   onConfirmAsLoan: (similar?: ReviewItem[]) => void;
@@ -357,6 +419,15 @@ function ReviewCard({
             {item.label ? ` · ${item.label}` : ""}
           </p>
         </div>
+        {history && canUndo ? (
+          <button
+            type="button"
+            onClick={onUndo}
+            className="rounded-full border border-line bg-surface px-4 py-2 text-xs font-semibold text-ink-soft"
+          >
+            Undo
+          </button>
+        ) : null}
       </div>
 
       {facts.length > 0 ? (
