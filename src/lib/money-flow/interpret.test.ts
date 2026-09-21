@@ -283,9 +283,12 @@ LTransfer
     assert.equal(detectFileKind("statement.pdf", "application/pdf", pdf), "pdf");
     const parsed = await parseDocument("statement.pdf", "application/pdf", pdf);
     assert.ok(parsed.transactions.length >= 1, JSON.stringify(parsed, null, 2));
-    const gated = await interpretDocuments([file("statement.pdf", "application/pdf", pdf)]);
-    assert.equal(gated.transactions.length, 0);
-    assert.match(gated.files[0]?.processingError ?? "", /OCR|unavailable/i);
+    assert.equal(parsed.ocrPages ?? 0, 0);
+    const interpreted = await interpretDocuments([file("statement.pdf", "application/pdf", pdf)]);
+    assert.ok(interpreted.transactions.length >= 1);
+    assert.equal(interpreted.files[0]?.kind, "pdf");
+    assert.equal(interpreted.files[0]?.ocrPages, undefined);
+    assert.ok(interpreted.files[0]?.notes.some((note) => /text extract/i.test(note)));
   });
 
   it("sniffs file kinds from names and bytes", () => {

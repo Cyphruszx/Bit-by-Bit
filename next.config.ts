@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     },
   },
   transpilePackages: ["@fiskil/link"],
-  serverExternalPackages: ["tesseract.js", "unpdf", "xlsx", "mammoth"],
+  serverExternalPackages: ["tesseract.js", "unpdf", "xlsx", "mammoth", "@napi-rs/canvas", "pdfjs-dist"],
 };
 
 export default nextConfig;

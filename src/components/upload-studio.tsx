@@ -6,7 +6,7 @@ import { useMoneyFlow } from "@/components/money-flow-provider";
 import { useSession } from "@/components/session-store";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
-import { acceptedDropTypes } from "@/lib/money-flow/accept";
+import { acceptedDropTypes, looksLikeImageUpload } from "@/lib/money-flow/accept";
 import { accountsFrom, suggestNameForKey, type AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import {
@@ -20,12 +20,20 @@ import {
   guestDeviceId,
   localQuotaStore,
   OCR_PAGE_WEEKLY_LIMIT,
+  ocrPagesToChargeAfterInterpret,
   peekQuota,
   quotaSubject,
   tryChargeCsv,
   tryChargeOcr,
   type IngestDraft,
 } from "@/lib/money-flow/core-ingest";
+import {
+  confirmChargeCopy,
+  ingestChannelLabel,
+  ocrQuotaError,
+  UPLOAD_STUDIO_BODY,
+  UPLOAD_STUDIO_HEADING,
+} from "@/lib/money-flow/ingest-copy";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
@@ -91,11 +99,11 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
     startTransition(async () => {
       const store = localQuotaStore();
       const subject = quotaSubject(actor());
-      const ocrGuess = /\.(png|jpe?g|webp|gif|heic)$/i.test(list[0].name) || list[0].type.startsWith("image/");
+      const ocrGuess = looksLikeImageUpload(list[0].name, list[0].type);
       if (ocrGuess) {
         const charged = tryChargeOcr(store, subject, 1);
         if (!charged.ok) {
-          setError("This week's 20 OCR pages are used.");
+          setError(ocrQuotaError(1));
           refreshQuota();
           return;
         }
@@ -107,7 +115,17 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
         refreshQuota();
         return;
       }
-      setDraft(createDraft(result, hashes));
+      const nextDraft = createDraft(result, hashes);
+      const extraOcr = ocrPagesToChargeAfterInterpret(nextDraft.ocrPages, ocrGuess ? 1 : 0);
+      if (extraOcr > 0) {
+        const charged = tryChargeOcr(store, subject, extraOcr);
+        if (!charged.ok) {
+          setError(ocrQuotaError(extraOcr));
+          refreshQuota();
+          return;
+        }
+      }
+      setDraft(nextDraft);
       refreshQuota();
     });
   }
@@ -162,13 +180,12 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
         }`}
       >
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Core feature</p>
-        <h2 className="mt-2 text-2xl font-bold">Drop a CSV or a photo</h2>
+        <h2 className="mt-2 text-2xl font-bold">{UPLOAD_STUDIO_HEADING}</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted">
-          Core ingest is CSV and OCR only — one file at a time. Excel, OFX, and QIF are unavailable. Photograph a
-          statement page for OCR; digital PDF is not a Core path
+          {UPLOAD_STUDIO_BODY}
           {aiReady
-            ? ". AI vision can read photos and suggest tags when a merchant is still unlabelled."
-            : ". Add OPENAI_API_KEY to .env.local to let AI read receipt photos; until then, photos use on-device OCR."}
+            ? " AI vision can read photos and suggest tags when a merchant is still unlabelled."
+            : " Add OPENAI_API_KEY to .env.local to let AI read receipt photos; until then, photos use on-device OCR."}
         </p>
         <input
           ref={inputRef}
@@ -370,11 +387,7 @@ function ConfirmMapper({
   return (
     <section className="card p-6">
       <h2 className="text-lg font-bold">Confirm & import</h2>
-      <p className="mt-1 text-sm text-muted">
-        {draft.channel === "csv"
-          ? "A CSV slot is used only when you confirm. Discard now and nothing is charged."
-          : "OCR pages were charged when this photo was read. Confirm writes the rows."}
-      </p>
+      <p className="mt-1 text-sm text-muted">{confirmChargeCopy(draft.result.files[0]?.kind, draft.channel)}</p>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Detected bank</dt>
@@ -382,7 +395,7 @@ function ConfirmMapper({
         </div>
         <div>
           <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Channel</dt>
-          <dd className="mt-1 font-semibold">{draft.channel === "csv" ? "CSV" : "OCR"}</dd>
+          <dd className="mt-1 font-semibold">{ingestChannelLabel(draft.result.files[0]?.kind, draft.channel)}</dd>
         </div>
       </dl>
       {quotaLabel ? <p className="mt-3 text-sm text-muted">{quotaLabel}</p> : null}

@@ -16,13 +16,16 @@ import {
   createDraft,
   CSV_WEEKLY_LIMIT,
   detectedBankLabel,
+  draftChannel,
   ingestChannel,
+  intakeOcrPages,
   isLaunchPreset,
   LAUNCH_BANK_PRESETS,
   memoryQuotaStore,
   needsManualMap,
   OCR_PAGE_WEEKLY_LIMIT,
   ocrPagesFor,
+  ocrPagesToChargeAfterInterpret,
   peekQuota,
   persistUploadStatus,
   quotaSubject,
@@ -94,23 +97,28 @@ function interpretation(
 }
 
 describe("Spec 2 format gates", () => {
-  it("accepts CSV and OCR only", () => {
+  it("accepts CSV, digital PDF, and OCR photos", () => {
     assert.equal(ingestChannel("csv"), "csv");
     assert.equal(ingestChannel("text"), "csv");
+    assert.equal(ingestChannel("pdf"), "csv");
     assert.equal(ingestChannel("image"), "ocr");
     assert.equal(ingestChannel("xlsx"), undefined);
     assert.equal(ingestChannel("ofx"), undefined);
     assert.equal(ingestChannel("qif"), undefined);
-    assert.equal(ingestChannel("pdf"), undefined);
     assert.match(coreIngestUnavailable("xlsx") ?? "", /unavailable/i);
     assert.match(coreIngestUnavailable("ofx") ?? "", /unavailable/i);
     assert.match(coreIngestUnavailable("qif") ?? "", /unavailable/i);
-    assert.match(coreIngestUnavailable("pdf") ?? "", /OCR|photograph/i);
+    assert.match(coreIngestUnavailable("xlsx") ?? "", /Excel, OFX, and QIF/i);
+    assert.equal(coreIngestUnavailable("pdf"), undefined);
     assert.equal(coreIngestUnavailable("csv"), undefined);
     assert.equal(coreIngestUnavailable("image"), undefined);
     assert.equal(CORE_FILES_PER_ATTEMPT, 1);
     assert.equal(ocrPagesFor("csv"), 0);
+    assert.equal(ocrPagesFor("pdf"), 0);
+    assert.equal(ocrPagesFor("pdf", 4), 4);
     assert.equal(ocrPagesFor("image", 3), 3);
+    assert.equal(draftChannel("pdf", 0), "csv");
+    assert.equal(draftChannel("pdf", 2), "ocr");
   });
 
   it("rejects Excel, OFX, and QIF at interpret", async () => {
@@ -153,6 +161,42 @@ describe("Spec 2 quotas", () => {
     assert.equal(auWeekKey(new Date("2026-09-20T12:00:00.000Z")), "2026-09-14");
     // Monday 21 Sep 2026 00:30 AEST is the next week
     assert.equal(auWeekKey(new Date("2026-09-20T14:30:00.000Z")), "2026-09-21");
+  });
+
+  it("charges text-extract PDF like one CSV Confirm slot and scanned PDF per OCR page", () => {
+    const store = memoryQuotaStore();
+    const subject = quotaSubject({ deviceId: "pdf" });
+    const at = new Date("2026-09-14T04:00:00.000Z");
+    const textDraft = createDraft(
+      interpretation([txn({ id: "a", institution: "NAB", accountId: "NAB · 1" })], {
+        filename: "statement.pdf",
+        fileType: "pdf",
+        kind: "pdf",
+      }),
+    );
+    assert.equal(textDraft.channel, "csv");
+    assert.equal(textDraft.ocrPages, 0);
+    assert.equal(intakeOcrPages("pdf"), 0);
+    assert.equal(ocrPagesToChargeAfterInterpret(textDraft.ocrPages, 0), 0);
+    assert.equal(tryChargeOcr(store, subject, ocrPagesToChargeAfterInterpret(textDraft.ocrPages, 0), at).ok, true);
+    assert.equal(peekQuota(store, subject, at).ocrPages, 0);
+    assert.equal(tryChargeCsv(store, subject, at).ok, true);
+    assert.equal(peekQuota(store, subject, at).csv, 1);
+
+    const scanned = createDraft(
+      interpretation([txn({ id: "b", institution: "NAB", accountId: "NAB · 1" })], {
+        filename: "scan.pdf",
+        fileType: "pdf",
+        kind: "pdf",
+        ocrPages: 3,
+      }),
+    );
+    assert.equal(scanned.channel, "ocr");
+    assert.equal(scanned.ocrPages, 3);
+    assert.equal(ocrPagesToChargeAfterInterpret(scanned.ocrPages, 0), 3);
+    assert.equal(tryChargeOcr(store, subject, 3, at).ok, true);
+    assert.equal(peekQuota(store, subject, at).ocrPages, 3);
+    assert.equal(peekQuota(store, subject, at).csv, 1);
   });
 
   it("charges OCR pages at intake, including failures, and never page-counts CSV", () => {

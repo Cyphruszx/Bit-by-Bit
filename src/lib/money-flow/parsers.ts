@@ -6,6 +6,14 @@ import { accountRefFromText } from "@/lib/money-flow/account-identity";
 import { identifyAccounts } from "@/lib/money-flow/accounts";
 import { detectInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import {
+  extractPdfText,
+  pdfOverSoftSize,
+  pdfTextUsable,
+  PDF_SOFT_MAX_PAGES,
+  rasterizePdfPages,
+  type PdfReadOptions,
+} from "@/lib/money-flow/pdf";
 import { readBankSource } from "@/lib/money-flow/bank-filter";
 import { sourceFromPairs } from "@/lib/money-flow/source";
 import { interpretTable, rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
@@ -13,8 +21,15 @@ import { transactionsFromText } from "@/lib/money-flow/text-lines";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import { looksLikeUpStatement } from "@/lib/money-flow/up-statement";
 
+export type ParsedDocument = {
+  transactions: InterpretedTransaction[];
+  notes: string[];
+  ocrPages?: number;
+};
+
 export type ParseDocumentOptions = {
   ai?: MoneyFlowAi | null;
+  pdf?: PdfReadOptions;
 };
 
 export async function parseDocument(
@@ -22,7 +37,7 @@ export async function parseDocument(
   mime: string,
   bytes: Uint8Array,
   options: ParseDocumentOptions = {},
-): Promise<{ transactions: InterpretedTransaction[]; notes: string[] }> {
+): Promise<ParsedDocument> {
   const kind = detectFileKind(filename, mime, bytes);
   const notes: string[] = [];
 
@@ -84,14 +99,7 @@ export async function parseDocument(
     return { transactions, notes: sheetNotes };
   }
   if (kind === "pdf") {
-    const { extractText } = await import("unpdf");
-    const extracted = await extractText(bytes, { mergePages: true });
-    const text = extracted.text.trim();
-    if (!text) {
-      notes.push("This PDF looks scanned. BitbyBit will try OCR next if you upload a photo of the page.");
-      return { transactions: [], notes };
-    }
-    return stamped({ transactions: transactionsFromExtractedText(text, filename), notes: notesForText(text) }, { text, filename });
+    return readPdfDocument(filename, bytes, options);
   }
   if (kind === "docx") {
     const mammoth = await import("mammoth");
@@ -110,6 +118,74 @@ export async function parseDocument(
     { transactions: transactionsFromExtractedText(fallback, filename), notes: notesForText(fallback) },
     { text: fallback, filename },
   );
+}
+
+async function readPdfDocument(
+  filename: string,
+  bytes: Uint8Array,
+  options: ParseDocumentOptions,
+): Promise<ParsedDocument> {
+  const notes: string[] = [];
+  if (pdfOverSoftSize(bytes.byteLength)) {
+    notes.push("This PDF is larger than 10MB. Try a smaller export if reading is slow.");
+  }
+
+  let text = "";
+  let pageCount = 1;
+  try {
+    const extracted = await (options.pdf?.extractText ?? extractPdfText)(bytes);
+    text = extracted.text.trim();
+    pageCount = extracted.pageCount;
+  } catch (error) {
+    notes.push(
+      `Could not read PDF text (${error instanceof Error ? error.message : "unknown error"}). Trying OCR.`,
+    );
+  }
+
+  if (pdfTextUsable(text)) {
+    return {
+      ...stamped(
+        {
+          transactions: transactionsFromExtractedText(text, filename),
+          notes: [...notes, ...notesForText(text), "Read as a digital PDF (text extract)."],
+        },
+        { text, filename },
+      ),
+      ocrPages: 0,
+    };
+  }
+
+  notes.push("This PDF has little usable text, so BitbyBit OCR'd each page.");
+  const capped = Math.min(Math.max(pageCount, 1), PDF_SOFT_MAX_PAGES);
+  if (pageCount > PDF_SOFT_MAX_PAGES) {
+    notes.push(`Only the first ${PDF_SOFT_MAX_PAGES} pages were OCR'd.`);
+  }
+
+  let images: Uint8Array[];
+  try {
+    images = await (options.pdf?.rasterize ?? rasterizePdfPages)(bytes, capped);
+  } catch (error) {
+    return {
+      transactions: [],
+      notes: [
+        ...notes,
+        `Could not rasterize this PDF for OCR (${error instanceof Error ? error.message : "unknown error"}).`,
+      ],
+      ocrPages: 0,
+    };
+  }
+
+  const pages = await Promise.all(
+    images.map((image, index) =>
+      readImageDocument(`${filename} · p${index + 1}`, "image/png", image, options.ai, options.pdf?.ocr),
+    ),
+  );
+  const transactions = pages.flatMap((page) => page.transactions);
+  const pageNotes = pages.flatMap((page) => page.notes);
+  return {
+    ...stamped({ transactions, notes: [...notes, ...pageNotes] }, { filename }),
+    ocrPages: images.length,
+  };
 }
 
 /** Names the bank once per document, from whatever that document happened to reveal. */
