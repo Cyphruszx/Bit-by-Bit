@@ -5,6 +5,7 @@ import { readMovement } from "@/lib/money-flow/interpret-row";
 import { accountRefFromText } from "@/lib/money-flow/account-identity";
 import { identifyAccounts } from "@/lib/money-flow/accounts";
 import { detectInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
+import { classifyKnownInternalTransfers } from "@/lib/money-flow/internal-transfers";
 import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import {
   extractPdfText,
@@ -51,7 +52,15 @@ export async function parseDocument(
   }
   if (kind === "ofx") {
     const text = decodeText(bytes);
-    return stamped({ transactions: parseOfx(text, filename), notes }, { org: ofxOrg(text), filename });
+    const ledgerBal = ofxLedgerBalance(text);
+    return stamped(
+      {
+        transactions: parseOfx(text, filename, ledgerBal),
+        notes,
+        ...(ledgerBal != null ? { statedBalance: ledgerBal } : {}),
+      },
+      { org: ofxOrg(text), filename },
+    );
   }
   if (kind === "qif") {
     return stamped({ transactions: parseQif(decodeText(bytes), filename), notes }, { filename });
@@ -99,7 +108,7 @@ export async function parseDocument(
         ),
       };
     });
-    const transactions = sheets.flatMap((sheet) => sheet.transactions);
+    const transactions = classifyKnownInternalTransfers(sheets.flatMap((sheet) => sheet.transactions));
     const sheetNotes = sheets.flatMap((sheet) => sheet.notes);
     if (workbook.SheetNames.length > 1) sheetNotes.unshift(`Read ${workbook.SheetNames.length} sheets`);
     const statedBalance = sheets.map((sheet) => sheet.statedBalance).find((value) => value != null);
@@ -204,7 +213,9 @@ function stamped(
   // which is how a PDF statement and a CSV export of the same account become one.
   const documentRef = signals.text ? accountRefFromText(signals.text) : {};
   return {
-    transactions: identifyAccounts(result.transactions, detectInstitution(signals), documentRef),
+    transactions: classifyKnownInternalTransfers(
+      identifyAccounts(result.transactions, detectInstitution(signals), documentRef),
+    ),
     notes: result.notes,
     ...(result.statedBalance != null ? { statedBalance: result.statedBalance } : {}),
   };
@@ -305,8 +316,9 @@ function flattenJsonRecords(value: unknown): Array<Record<string, string | numbe
   return [];
 }
 
-function parseOfx(text: string, sourceFile: string): InterpretedTransaction[] {
+function parseOfx(text: string, sourceFile: string, ledgerBal?: number | null): InterpretedTransaction[] {
   const blocks = text.split(/<STMTTRN>/i).slice(1);
+  const balanceCell = ledgerBal != null ? String(ledgerBal) : "";
   return blocks.flatMap((block, index) => {
     const amount = parseAmount(ofxField(block, "TRNAMT"));
     const posted = ofxField(block, "DTPOSTED");
@@ -330,6 +342,7 @@ function parseOfx(text: string, sourceFile: string): InterpretedTransaction[] {
           ["Name", ofxField(block, "NAME")],
           ["Memo", ofxField(block, "MEMO")],
           ["Reference", ofxField(block, "FITID")],
+          ...(balanceCell ? ([["Balance", balanceCell]] as Array<[string, string]>) : []),
         ]),
         categoryKey: read.categoryKey,
         ...(read.tag ? { tags: [read.tag] } : {}),
@@ -343,6 +356,13 @@ function parseOfx(text: string, sourceFile: string): InterpretedTransaction[] {
       } satisfies InterpretedTransaction,
     ];
   });
+}
+
+/** Statement LEDGERBAL BALAMT, not AVAILBAL. Preferred for Account balance when present. */
+function ofxLedgerBalance(text: string): number | null {
+  const match = text.match(/<LEDGERBAL>[\s\S]*?<BALAMT>\s*([^<\n]+)/i);
+  if (!match) return null;
+  return parseAmount(match[1].trim());
 }
 
 function ofxField(block: string, tag: string): string {

@@ -296,9 +296,9 @@ describe("dashboard widgets", () => {
     const flow = summarizeMoneyFlow(rows);
     assert.equal(flow.income, 3000);
     assert.equal(flow.spending, 40);
-    assert.equal(flow.cashIn, 28400, "direction only: salary + loan + transfer in");
-    assert.equal(flow.cashOut, 440, "direction only: shop + transfer out");
+    assert.equal(flow.cashIn, 28000, "salary + loan — classified transfer omitted");
+    assert.equal(flow.cashOut, 40, "shop only — classified transfer omitted");
     assert.notEqual(flow.cashIn, flow.income);
-    assert.notEqual(flow.cashOut, flow.spending);
+    assert.equal(flow.cashOut, flow.spending, "shop is the only remaining outflow");
   });
 });

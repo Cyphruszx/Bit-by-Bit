@@ -159,12 +159,11 @@ describe("the movements the taxonomy has to get right", () => {
 
   it("keeps the household's cash tied to the statements while its income is not", async () => {
     const flow = summarizeMoneyFlow(await ledger());
-    // Raw, over all three statements, so the $118,183.87 the person moved between their
-    // own accounts is in here twice on purpose — this is the cash that crossed an account
-    // boundary, not what the household earned or spent.
-    assert.equal(flow.cashIn, 289235.48);
-    assert.equal(flow.cashOut, 289742.99);
-    assert.equal(flow.cashNet, -507.51, "unchanged by the redesign, because no amount moved");
+    // Money in/out omit classified internals ($56,289.42 of paired legs).
+    // public/samples: nab-medicare.csv, nab-rent.csv, up-2025-07-to-2026-06.txt
+    assert.equal(flow.cashIn, 232946.06);
+    assert.equal(flow.cashOut, 233453.57);
+    assert.equal(flow.cashNet, -507.51, "household net unchanged: both legs leave together");
     // Spec 7: OPEN unpaired transfers are held out of Income/Spending. $25,000 of what
     // arrived was borrowed, so it is in the cash and not in the earnings.
     assert.equal(flow.income, 145096.99);

@@ -9,7 +9,7 @@ import { categoryOf } from "@/lib/money-flow/tags";
 import { countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
 import { moneyTrustHoldIds } from "@/lib/money-flow/review-queue";
 import { isActualSavings, isCleared, tileAmount } from "@/lib/money-flow/tile";
-import { excludingUpTransfers } from "@/lib/money-flow/up-cash";
+import { excludingInternalTransfers } from "@/lib/money-flow/internal-transfers";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
@@ -61,10 +61,11 @@ export type FlowOverTimePoint = {
  *
  * Tiles are Σ `base_amount` of CLEARED counted rows. Missing `status`/`baseAmount`
  * on a stored row means CLEARED / `amount` (interim for ledgers written before
- * those fields). Cash in/out still sum statement `amount` by sign only — the
- * dashboard Money in / Money out tiles use these, not Income / Spending.
- * Up CSV Transaction Type "Transfer" (Spending ↔ savers) is left out of cash
- * in/out so those tiles match the statement's external money.
+ * those fields). Cash in/out still sum statement `amount` by sign only —
+ * Transactions Money in / Money out use these, not Income / Spending, and omit
+ * every TRANSFER kind (and proved pairs). Bank Transfer type and Up OFX pocket
+ * names are classify paths that stamp TRANSFER; they are not a tile denylist.
+ * Dashboard Income / Spending / Net stay on countedMovements.
  */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const counted = countedMovements(transactions);
@@ -74,7 +75,7 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const spending = roundMoney(
     counted.filter(isSpending).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
-  const cashRows = excludingUpTransfers(transactions);
+  const cashRows = excludingInternalTransfers(transactions);
   const cashIn = roundMoney(
     cashRows.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
   );

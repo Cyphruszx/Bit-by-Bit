@@ -328,8 +328,10 @@ describe("NAB CSV exports", () => {
     const moneyOut = result.transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + txn.amount, 0);
     assert.equal(Math.round(moneyIn * 100) / 100, 204214.49);
     assert.equal(Math.round(moneyOut * 100) / 100, -203665.05);
-    assert.equal(result.flow.cashIn, 204214.49);
-    assert.equal(result.flow.cashOut, 203665.05);
+    // public/samples nab-medicare.csv + nab-rent.csv: Money in/out omit classified
+    // same-institution pairs. Raw statement credits/debits stay 204214.49 / 203665.05.
+    assert.equal(result.flow.cashIn, 162371.67);
+    assert.equal(result.flow.cashOut, 161822.23);
     assert.equal(result.flow.cashNet, 549.44);
   });
 
@@ -587,8 +589,8 @@ describe("money flow summary", () => {
       },
     ];
     const summary = summarizeMoneyFlow(rows);
-    // Spec 7: the unmatched $400 is OPEN, so tiles hold it out of Spending. Cash still
-    // includes it. Spec 7 RESOLVE is what writes the pair and Actual Savings.
+    // Spec 7: the unmatched $400 is OPEN, so tiles hold it out of Spending.
+    // Transactions Money in/out omit classified TRANSFER kind.
     assert.equal(summary.income, 2000);
     assert.equal(summary.spending, 80);
     assert.equal(summary.transfers, 0);
@@ -596,8 +598,8 @@ describe("money flow summary", () => {
     assert.equal(summary.unmatchedInternal, 0);
     assert.equal(summary.net, 1920);
     assert.equal(summary.cashIn, 2000);
-    assert.equal(summary.cashOut, 480);
-    assert.equal(summary.cashNet, 1520);
+    assert.equal(summary.cashOut, 80);
+    assert.equal(summary.cashNet, 1920);
     assert.deepEqual(
       summary.categories.map((category) => category.name),
       ["food"],
@@ -1012,8 +1014,8 @@ describe("grouping the samples by institution", () => {
     const nab = accountsByInstitution(result.transactions).find((group) => group.institution === "NAB");
 
     assert.equal(nab?.flow.transactionCount, 437);
-    assert.equal(nab?.flow.cashIn, 204214.49);
-    assert.equal(nab?.flow.cashOut, 203665.05);
+    assert.equal(nab?.flow.cashIn, 162371.67);
+    assert.equal(nab?.flow.cashOut, 161822.23);
     assert.equal(nab?.flow.cashNet, 549.44);
     // Two statements, two accounts, one bank.
     assert.equal(nab?.accounts.length, 2);
@@ -1089,14 +1091,18 @@ describe("splitting the samples into accounts", () => {
       (account) => account.institution === "Up" && account.label !== "Up · Spending",
     );
 
-    assert.equal(roundMoney(savers.reduce((sum, account) => sum + account.flow.cashNet, 0)), -836.34);
+    // Saver Money in/out omit classified pocket transfers; leftover is external
+    // (interest). public/samples/up-2025-07-to-2026-06.txt
+    assert.equal(roundMoney(savers.reduce((sum, account) => sum + account.flow.cashNet, 0)), 9.86);
   });
 
   it("lands the spending account on the closing balance the statement prints", async () => {
     const result = await interpretEverySample();
     const spending = accountsFrom(result.transactions).find((account) => account.label === "Up · Spending");
 
-    assert.equal(roundMoney(398.25 + (spending?.flow.cashNet ?? 0)), 177.64);
+    // Money in/out omit classified saver transfers, so cashNet is not opening
+    // 398.25 → closing 177.64. The printed closing stays on the KFC source row.
+    assert.equal(spending?.flow.cashNet, -1066.81);
   });
 
   it("names both NAB accounts without reciting their numbers", async () => {
@@ -1104,8 +1110,8 @@ describe("splitting the samples into accounts", () => {
     const nab = accountsFrom(result.transactions).filter((account) => account.institution === "NAB");
 
     assert.deepEqual(nab.map((account) => account.label).sort(), ["NAB · ···300", "NAB · ···600"]);
-    assert.equal(nab.find((account) => account.label === "NAB · ···300")?.flow.cashNet, 3669.02);
-    assert.equal(nab.find((account) => account.label === "NAB · ···600")?.flow.cashNet, -3119.58);
+    assert.equal(nab.find((account) => account.label === "NAB · ···300")?.flow.cashNet, 27941.84);
+    assert.equal(nab.find((account) => account.label === "NAB · ···600")?.flow.cashNet, -27392.4);
   });
 
   it("adds every account up to the money the household actually moved", async () => {
@@ -1331,13 +1337,12 @@ describe("what each scope reports", () => {
       filterByScope(rows, { kind: "account", accountId: "NAB · 100200300" }),
     );
 
-    // The statement's own money-in figure is $164,344.90 and the account's cash still ties
-    // to it exactly. $25,000 borrowed stays out of Income. Same-institution pair legs
-    // still count here because the other account is not in this scope.
+    // The statement's own money-in figure is $164,344.90. Money in/out omit classified
+    // internals; $25,000 borrowed stays out of Income. Income / Spending unchanged.
     assert.equal(everyday.income, 131774.9);
     assert.equal(everyday.spending, 58409.04);
     assert.equal(everyday.refunds, 0);
-    assert.equal(everyday.cashNet, 3669.02);
+    assert.equal(everyday.cashNet, 27941.84);
   });
 
   it("does not cancel inter-bank money until a pair is confirmed", async () => {

@@ -80,8 +80,9 @@ export function TransactionsView() {
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight">Transactions</h1>
       <p className="mt-1 max-w-2xl text-sm text-muted">
-        Money in and out are the raw credits and debits in this period. Account balance is the
-        statement figure, not Net. Charts group by category.
+        Money in and out are the credits and debits in this period, excluding
+        internal transfers. Account balance is the statement figure, not Net.
+        Charts group by category.
       </p>
       <ScopeBar groups={groups} scope={scope} onScope={setScope} />
       <p className="mt-3 text-sm text-muted">{describeScope(scope)}</p>
@@ -102,7 +103,7 @@ export function TransactionsView() {
         <SummaryCard
           label="Account balance"
           value={accountBalance == null ? "—" : formatAud(accountBalance)}
-          detail="CSV Balance, else credits − debits"
+          detail="CSV Balance / OFX LEDGERBAL, else credits − debits"
           positive={accountBalance != null && accountBalance > 0}
           compact
         />

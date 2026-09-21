@@ -13,7 +13,7 @@ import { monthKey } from "@/lib/money-flow/period";
 import { livePools, membersOf, type PoolBook } from "@/lib/money-flow/pools";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { countedMovements, isEarnings, isRefundCredit, isSpending, tileAmount } from "@/lib/money-flow/summary";
-import { derivedMovementBalance } from "@/lib/money-flow/statement-balance";
+import { derivedMovementBalance, mostRecentStatedBalances } from "@/lib/money-flow/statement-balance";
 import { topChartCategories } from "@/lib/money-flow/tag-charts";
 import { categoryOf } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
@@ -200,7 +200,12 @@ export function bankInstitutionTiles(
           name: account
             ? institutionAccountName(account.label, institution)
             : institutionAccountName(accountLabel(id), institution),
-          amount: accountDisplayAmount(id, derivedMovementBalance(account?.transactions ?? []), meta, mergedInto),
+          amount: accountDisplayAmount(
+            id,
+            statedOrDerivedBalance(account?.transactions ?? [], id, mergedInto),
+            meta,
+            mergedInto,
+          ),
         });
       }
     }
@@ -228,8 +233,24 @@ function lineFromAccount(
   return {
     id: account.id,
     name: institutionAccountName(account.label, institution),
-    amount: accountDisplayAmount(account.id, derivedMovementBalance(account.transactions), meta, mergedInto),
+    amount: accountDisplayAmount(
+      account.id,
+      statedOrDerivedBalance(account.transactions, account.id, mergedInto),
+      meta,
+      mergedInto,
+    ),
   };
+}
+
+/** CSV Balance / OFX LEDGERBAL on the rows, else credits − debits after transfer exclude. */
+function statedOrDerivedBalance(
+  transactions: InterpretedTransaction[],
+  accountId: string,
+  mergedInto: Record<string, string>,
+): number | null {
+  const stated = mostRecentStatedBalances(transactions, mergedInto)[canonicalAccountId(accountId, mergedInto)];
+  if (stated != null) return stated;
+  return derivedMovementBalance(transactions);
 }
 
 function institutionFromAccountId(id: string): string {

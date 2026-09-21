@@ -28,6 +28,7 @@ import {
 } from "@/lib/money-flow/taxonomy";
 import { hasSource, sourceValue } from "@/lib/money-flow/source";
 import { nameFromPrintedLines } from "@/lib/money-flow/up-statement";
+import { classifyKnownInternalTransfer } from "@/lib/money-flow/internal-transfers";
 import { migrateDecidedBy, migrateStoredType } from "@/lib/money-flow/movement-kind";
 import type { DecidedBy, InterpretedTransaction, SourceRow } from "@/lib/money-flow/types";
 
@@ -93,11 +94,11 @@ export function upgradeTransaction(row: StoredTransaction): InterpretedTransacti
 
 /** Spec 10: stored rows without `base_amount` / status still tile as CLEARED amount. */
 function withLedgerDefaults(row: InterpretedTransaction): InterpretedTransaction {
-  return {
+  return classifyKnownInternalTransfer({
     ...row,
     baseAmount: row.baseAmount ?? row.amount,
     status: row.status ?? "CLEARED",
-  };
+  });
 }
 
 export function upgradeTransactions(rows: StoredTransaction[]): InterpretedTransaction[] {
