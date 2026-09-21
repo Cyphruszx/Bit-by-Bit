@@ -9,6 +9,7 @@ import { categoryOf } from "@/lib/money-flow/tags";
 import { countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
 import { moneyTrustHoldIds } from "@/lib/money-flow/review-queue";
 import { isActualSavings, isCleared, tileAmount } from "@/lib/money-flow/tile";
+import { excludingUpTransfers } from "@/lib/money-flow/up-cash";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
@@ -62,6 +63,8 @@ export type FlowOverTimePoint = {
  * on a stored row means CLEARED / `amount` (interim for ledgers written before
  * those fields). Cash in/out still sum statement `amount` by sign only — the
  * dashboard Money in / Money out tiles use these, not Income / Spending.
+ * Up CSV Transaction Type "Transfer" (Spending ↔ savers) is left out of cash
+ * in/out so those tiles match the statement's external money.
  */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const counted = countedMovements(transactions);
@@ -71,11 +74,12 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const spending = roundMoney(
     counted.filter(isSpending).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
+  const cashRows = excludingUpTransfers(transactions);
   const cashIn = roundMoney(
-    transactions.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
+    cashRows.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
   );
   const cashOut = roundMoney(
-    transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    cashRows.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   // One side of each transfer pair: the money that moved, not the two rows for it.
   // Household cancellation — not Spec 10 Actual Savings.
