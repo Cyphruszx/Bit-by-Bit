@@ -804,7 +804,7 @@ function applyStatedBalances(
   held: Record<string, AccountMeta> | undefined,
   result: { files: FileInterpretation[]; transactions: InterpretedTransaction[] },
   mergedInto: Record<string, string>,
-  existing: InterpretedTransaction[] = [],
+  existing: LedgerEntry[] = [],
 ): Record<string, AccountMeta> {
   const next: Record<string, AccountMeta> = { ...held };
   const fromRows = mostRecentStatedBalances([...existing, ...result.transactions], mergedInto);

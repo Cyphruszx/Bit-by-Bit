@@ -3,6 +3,9 @@ import { parseAmount, roundMoney } from "@/lib/money-flow/parse-values";
 import { sourceValue } from "@/lib/money-flow/source";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
+type BalanceSourceRow = Pick<InterpretedTransaction, "id" | "dateIso" | "sourceFile"> &
+  Partial<Pick<InterpretedTransaction, "accountId" | "accountKey" | "source">>;
+
 /** AU bank CSV / statement cells that print a running or closing balance. */
 export const STATED_BALANCE_HEADERS = [
   "closing balance",
@@ -15,7 +18,7 @@ export const STATED_BALANCE_HEADERS = [
  * The bank's printed balance on this row, when the file carried one.
  * Not Income − Spending, and not a period cashNet.
  */
-export function statedBalanceFromSource(txn: InterpretedTransaction): number | null {
+export function statedBalanceFromSource(txn: BalanceSourceRow): number | null {
   for (const header of STATED_BALANCE_HEADERS) {
     const raw = sourceValue(txn.source, header);
     if (!raw.trim()) continue;
@@ -30,7 +33,7 @@ export function statedBalanceFromSource(txn: InterpretedTransaction): number | n
  * Up) take the earliest row on the latest date; oldest-first files take the last.
  */
 export function mostRecentStatedBalances(
-  transactions: InterpretedTransaction[],
+  transactions: BalanceSourceRow[],
   mergedInto: Record<string, string> = {},
 ): Record<string, number> {
   const byAccount = new Map<string, Array<{ dateIso: string; index: number; amount: number }>>();
@@ -81,14 +84,14 @@ export function derivedMovementBalance(transactions: InterpretedTransaction[]): 
   return roundMoney(rows.reduce((sum, txn) => sum + txn.amount, 0));
 }
 
-function accountIdForBalance(txn: InterpretedTransaction, mergedInto: Record<string, string>): string {
+function accountIdForBalance(txn: BalanceSourceRow, mergedInto: Record<string, string>): string {
   const raw = txn.accountId?.trim() || txn.accountKey?.trim();
   if (raw) return canonicalAccountId(raw, mergedInto);
   return canonicalAccountId(`Unknown source · ${txn.sourceFile}`, mergedInto);
 }
 
 /** Row order in the original file, encoded as `{sourceFile}-{index}-…` by the readers. */
-function fileIndexOf(txn: InterpretedTransaction): number {
+function fileIndexOf(txn: BalanceSourceRow): number {
   const prefix = `${txn.sourceFile}-`;
   if (!txn.id.startsWith(prefix)) return Number.MAX_SAFE_INTEGER;
   const n = Number(txn.id.slice(prefix.length).split("-")[0]);
