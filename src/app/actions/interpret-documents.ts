@@ -2,12 +2,13 @@
 
 import { CORE_FILES_PER_ATTEMPT, coreIngestUnavailable } from "@/lib/money-flow/core-ingest";
 import { detectFileKind } from "@/lib/money-flow/detect";
+import { INTERPRET_EMPTY_ERROR } from "@/lib/money-flow/ingest-copy";
 import { interpretDocuments, MAX_FILE_BYTES } from "@/lib/money-flow/interpret";
 
 export async function interpretUploadedDocuments(formData: FormData) {
   const files = formData.getAll("files").filter((value): value is File => value instanceof File && value.size > 0);
   if (files.length === 0) {
-    return { ok: false as const, error: "Choose a CSV or a photo to interpret." };
+    return { ok: false as const, error: INTERPRET_EMPTY_ERROR };
   }
   if (files.length > CORE_FILES_PER_ATTEMPT) {
     return { ok: false as const, error: "Upload one file at a time." };
