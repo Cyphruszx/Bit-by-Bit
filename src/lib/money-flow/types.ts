@@ -53,6 +53,8 @@ export type BankWords = {
   category?: string;
   type?: string;
   merchant?: string;
+  /** Merchant category code when the feed already carried one (CDR / acquirer). */
+  mcc?: string;
 };
 
 /**

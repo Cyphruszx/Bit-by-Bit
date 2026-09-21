@@ -1,3 +1,4 @@
+import { resolveMerchant } from "@/lib/merchants/resolve";
 import {
   categoryLabel,
   CATEGORY_KEYS,
@@ -76,13 +77,20 @@ const RULES: Rule[] = [
  * into a bucket — it is waiting to be looked at, and only saying so separately keeps a
  * genuine miss from hiding among the things a person filed under Other on purpose.
  */
-export function categorize(description: string, amount: number): string | null {
+export function categorize(
+  description: string,
+  amount: number,
+  options: { mcc?: string | number | null } = {},
+): string | null {
   const direction = amount > 0 ? "in" : "out";
   for (const [pattern, category, when] of RULES) {
     if (when && when !== direction) continue;
     if (pattern.test(description)) return category;
   }
-  return null;
+  // Seed is spend-side: a credit is Medicare, ATO, salary, or a reversal, and the
+  // existing directional rules plus the bank's own label already speak for those.
+  if (amount > 0) return null;
+  return resolveMerchant(description, { mcc: options.mcc })?.suggestion ?? null;
 }
 
 /** Everything a model may answer with: a category, or a category and one of its tags. */

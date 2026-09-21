@@ -49,6 +49,8 @@ export type FiskilBankingTransaction = {
   executionAt?: string;
   merchant?: string;
   category?: string;
+  /** Four-digit MCC when the payload already carried one. */
+  mcc?: string;
 };
 
 export type FiskilBankingBalance = {
@@ -165,6 +167,7 @@ export function parseTransaction(raw: unknown): FiskilBankingTransaction | undef
   if (!dateIso) return undefined;
   const description =
     asId(row.description) ?? asId(row.reference) ?? asId(nested(row.merchant).name) ?? "Bank transaction";
+  const mcc = mccOf(row);
   return {
     id,
     accountId,
@@ -178,6 +181,7 @@ export function parseTransaction(raw: unknown): FiskilBankingTransaction | undef
     ...(asId(row.category) ?? asId(nested(row.category).name)
       ? { category: asId(row.category) ?? asId(nested(row.category).name) }
       : {}),
+    ...(mcc ? { mcc } : {}),
   };
 }
 
@@ -313,6 +317,27 @@ function asId(value: unknown): string | undefined {
 
 function uniqueIds(values: Array<string | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value)))];
+}
+
+/** CDR / acquirer MCC when already present. Does not call any extra Fiskil API. */
+function mccOf(row: Record<string, unknown>): string | undefined {
+  const merchant = nested(row.merchant);
+  const category = nested(row.merchant_category);
+  const candidates = [
+    row.merchant_category_code,
+    row.merchantCategoryCode,
+    row.mcc,
+    merchant.merchant_category_code,
+    merchant.category_code,
+    merchant.mcc,
+    category.code,
+    category.mcc,
+  ];
+  for (const value of candidates) {
+    const digits = String(typeof value === "number" ? value : (asId(value) ?? "")).replace(/\D/g, "");
+    if (digits.length >= 3 && digits.length <= 4) return digits.padStart(4, "0");
+  }
+  return undefined;
 }
 
 async function readJson(response: Response): Promise<unknown> {

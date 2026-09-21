@@ -113,6 +113,36 @@ describe("movement interpretation", () => {
     assert.equal(txn.type, "SPENDING");
   });
 
+  it("files a WW statement alias from the merchant seed", () => {
+    const txn = interpretMovement({
+      dateIso: "2026-06-29",
+      amount: -42.1,
+      directionKnown: true,
+      description: "EFTPOS WW METRO 3120",
+      sourceFile: "nab.csv",
+      id: "ww",
+      confidence: 0.92,
+    });
+    assert.equal(txn.categoryKey, "groceries");
+    assert.equal(txn.decidedBy, "rules");
+  });
+
+  it("falls back to MCC when the name is unknown", () => {
+    const txn = interpretMovement({
+      dateIso: "2026-06-29",
+      amount: -18.5,
+      directionKnown: true,
+      description: "UNKNOWN LOCAL COUNTER",
+      mcc: "5812",
+      sourceFile: "open-banking",
+      id: "mcc",
+      confidence: 1,
+    });
+    assert.equal(txn.categoryKey, "eating-out");
+    assert.equal(txn.decidedBy, "rules");
+    assert.equal(txn.bank?.mcc, "5812");
+  });
+
   it("reads a lender's drawdown as borrowing, not as income", () => {
     const txn = interpretMovement({
       dateIso: "2026-06-30",

@@ -131,8 +131,9 @@ describe("the movements the taxonomy has to get right", () => {
     const progress = reviewProgress(rows);
 
     // OPEN unpaired transfers leave the counted set, so a larger share is already
-    // placed. What is left is still ordered by how much money is behind it.
-    assert.equal(progress.percent, 62);
+    // placed. The merchant seed files more of the long tail (67% of 1303 rows on the
+    // three sample statements) without touching Income 145096.99 / Spending 89913.17.
+    assert.equal(progress.percent, 67);
     assert.ok(groups.length < 250, `${groups.length} questions, not one per movement`);
     assert.ok(
       Math.abs(groups[0].amount) > Math.abs(groups[groups.length - 1].amount),
@@ -146,12 +147,12 @@ describe("the movements the taxonomy has to get right", () => {
 
     // The three statement readers each build their own rows, and a tag wired into one of
     // them reached only that bank's movements — 97 Woolworths shops arrived untagged that
-    // way. Counting across all three is what catches it.
+    // way. Two Bakers Delight purchases (NSI bakery → groceries) bring the sample to 99.
     assert.ok(tagged.length > 600, `only ${tagged.length} movements carry a tag`);
 
     const counted = new Map<string, number>();
     for (const txn of tagged) for (const tag of txn.tags ?? []) counted.set(tag, (counted.get(tag) ?? 0) + 1);
-    assert.equal(counted.get("Groceries"), 97);
+    assert.equal(counted.get("Groceries"), 99);
     assert.equal(counted.get("Restaurants"), 224);
     assert.equal(counted.get("Rebate"), 177);
   });

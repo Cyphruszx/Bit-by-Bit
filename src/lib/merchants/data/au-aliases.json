@@ -1,0 +1,3100 @@
+{
+  "_meta": {
+    "source": "bitbybit-seed-v1",
+    "country": "AU",
+    "count": 309
+  },
+  "aliases": [
+    {
+      "alias": "WOOLWORTHS",
+      "canonicalName": "Woolworths",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WOOLWORTHS SUPERMARKET",
+      "canonicalName": "Woolworths",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WOOLWORTHS METRO",
+      "canonicalName": "Woolworths Metro",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WOOLWORTHS METROGO",
+      "canonicalName": "Woolworths MetroGo",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WOOLWORTHS ONLINE",
+      "canonicalName": "Woolworths",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WOOLIES",
+      "canonicalName": "Woolworths",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WOOLIE",
+      "canonicalName": "Woolworths",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WW",
+      "canonicalName": "Woolworths",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WW METRO",
+      "canonicalName": "Woolworths Metro",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "EVERYDAY MARKET",
+      "canonicalName": "Woolworths Everyday Market",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COLES",
+      "canonicalName": "Coles",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COLES SUPERMARKET",
+      "canonicalName": "Coles",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COLES CENTRAL",
+      "canonicalName": "Coles Central",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COLES LOCAL",
+      "canonicalName": "Coles Local",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COLES ONLINE",
+      "canonicalName": "Coles",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ALDI",
+      "canonicalName": "Aldi",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "IGA",
+      "canonicalName": "IGA",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SUPA IGA",
+      "canonicalName": "IGA",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FOODWORKS",
+      "canonicalName": "Foodworks",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HARRIS FARM",
+      "canonicalName": "Harris Farm Markets",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HARRIS FARM MARKETS",
+      "canonicalName": "Harris Farm Markets",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COSTCO",
+      "canonicalName": "Costco",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FOODLAND",
+      "canonicalName": "Foodland",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DRAKES",
+      "canonicalName": "Drakes",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FRIENDLY GROCER",
+      "canonicalName": "Friendly Grocer",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SPUD LITE",
+      "canonicalName": "Spud Lite",
+      "categoryKey": "groceries",
+      "tags": [
+        "supermarket"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COLES EXPRESS",
+      "canonicalName": "Coles Express",
+      "categoryKey": "car",
+      "tags": [
+        "fuel",
+        "convenience"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BWS",
+      "canonicalName": "BWS",
+      "categoryKey": "eating-out",
+      "tags": [
+        "alcohol"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DAN MURPHY",
+      "canonicalName": "Dan Murphy's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "alcohol"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DAN MURPHYS",
+      "canonicalName": "Dan Murphy's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "alcohol"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "LIQUORLAND",
+      "canonicalName": "Liquorland",
+      "categoryKey": "eating-out",
+      "tags": [
+        "alcohol"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FIRST CHOICE LIQUOR",
+      "canonicalName": "First Choice Liquor",
+      "categoryKey": "eating-out",
+      "tags": [
+        "alcohol"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BOTTLE O",
+      "canonicalName": "The Bottle-O",
+      "categoryKey": "eating-out",
+      "tags": [
+        "alcohol"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BOTTLEO",
+      "canonicalName": "The Bottle-O",
+      "categoryKey": "eating-out",
+      "tags": [
+        "alcohol"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CELLARBRATIONS",
+      "canonicalName": "Cellarbrations",
+      "categoryKey": "eating-out",
+      "tags": [
+        "alcohol"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "VINTAGE CELLARS",
+      "canonicalName": "Vintage Cellars",
+      "categoryKey": "eating-out",
+      "tags": [
+        "alcohol"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MCDONALDS",
+      "canonicalName": "McDonald's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MCDONALD S",
+      "canonicalName": "McDonald's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MACCAS",
+      "canonicalName": "McDonald's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MACCA",
+      "canonicalName": "McDonald's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MCDONALDS RESTAURANT",
+      "canonicalName": "McDonald's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "KFC",
+      "canonicalName": "KFC",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HUNGRY JACKS",
+      "canonicalName": "Hungry Jack's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HUNGRY JACK S",
+      "canonicalName": "Hungry Jack's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "RED ROOSTER",
+      "canonicalName": "Red Rooster",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "NANDOS",
+      "canonicalName": "Nando's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "NANDO S",
+      "canonicalName": "Nando's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SUBWAY",
+      "canonicalName": "Subway",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GUZMAN Y GOMEZ",
+      "canonicalName": "Guzman y Gomez",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GYG",
+      "canonicalName": "Guzman y Gomez",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ZAMBRERO",
+      "canonicalName": "Zambrero",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GRILLD",
+      "canonicalName": "Grill'd",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GRILL D",
+      "canonicalName": "Grill'd",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "OPORTO",
+      "canonicalName": "Oporto",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DOMINOS",
+      "canonicalName": "Domino's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DOMINO S",
+      "canonicalName": "Domino's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "PIZZA HUT",
+      "canonicalName": "Pizza Hut",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CRUST PIZZA",
+      "canonicalName": "Crust",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MAD MEX",
+      "canonicalName": "Mad Mex",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SCHNITZ",
+      "canonicalName": "Schnitz",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BETTYS BURGERS",
+      "canonicalName": "Betty's Burgers",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ROLL D",
+      "canonicalName": "Roll'd",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SUSHI HUB",
+      "canonicalName": "Sushi Hub",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SUSHI SUSHI",
+      "canonicalName": "Sushi Sushi",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BOOST JUICE",
+      "canonicalName": "Boost Juice",
+      "categoryKey": "eating-out",
+      "tags": [
+        "fast-food"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GLORIA JEANS",
+      "canonicalName": "Gloria Jean's",
+      "categoryKey": "eating-out",
+      "tags": [
+        "coffee"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "STARBUCKS",
+      "canonicalName": "Starbucks",
+      "categoryKey": "eating-out",
+      "tags": [
+        "coffee"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "THE COFFEE CLUB",
+      "canonicalName": "The Coffee Club",
+      "categoryKey": "eating-out",
+      "tags": [
+        "coffee"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COFFEE CLUB",
+      "canonicalName": "The Coffee Club",
+      "categoryKey": "eating-out",
+      "tags": [
+        "coffee"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SOUL ORIGIN",
+      "canonicalName": "Soul Origin",
+      "categoryKey": "eating-out",
+      "tags": [
+        "coffee"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CHATIME",
+      "canonicalName": "Chatime",
+      "categoryKey": "eating-out",
+      "tags": [
+        "coffee"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GONG CHA",
+      "canonicalName": "Gong Cha",
+      "categoryKey": "eating-out",
+      "tags": [
+        "coffee"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "UBER EATS",
+      "canonicalName": "Uber Eats",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "UBEREATS",
+      "canonicalName": "Uber Eats",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MENULOG",
+      "canonicalName": "Menulog",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DOORDASH",
+      "canonicalName": "DoorDash",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DELIVEROO",
+      "canonicalName": "Deliveroo",
+      "categoryKey": "eating-out",
+      "tags": [
+        "takeaway"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AMPOL",
+      "canonicalName": "Ampol",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BP",
+      "canonicalName": "BP",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SHELL",
+      "canonicalName": "Shell",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CALTEX",
+      "canonicalName": "Caltex",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "7 ELEVEN",
+      "canonicalName": "7-Eleven",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "7ELEVEN",
+      "canonicalName": "7-Eleven",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SEVEN ELEVEN",
+      "canonicalName": "7-Eleven",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "UNITED PETROLEUM",
+      "canonicalName": "United Petroleum",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "METRO PETROLEUM",
+      "canonicalName": "Metro Petroleum",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "LIBERTY",
+      "canonicalName": "Liberty",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "VIBE",
+      "canonicalName": "Vibe",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FREEDOM FUELS",
+      "canonicalName": "Freedom Fuels",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "EG AUSTRALIA",
+      "canonicalName": "EG Australia",
+      "categoryKey": "car",
+      "tags": [
+        "fuel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BP PULSE",
+      "canonicalName": "bp pulse",
+      "categoryKey": "car",
+      "tags": [
+        "ev-charging"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ULTRATUNE",
+      "canonicalName": "Ultra Tune",
+      "categoryKey": "car",
+      "tags": [
+        "servicing"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ULTRA TUNE",
+      "canonicalName": "Ultra Tune",
+      "categoryKey": "car",
+      "tags": [
+        "servicing"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MYCAR",
+      "canonicalName": "mycar Tyre & Auto",
+      "categoryKey": "car",
+      "tags": [
+        "servicing"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "REPCO",
+      "canonicalName": "Repco",
+      "categoryKey": "car",
+      "tags": [
+        "automotive"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SUPERCHEAP AUTO",
+      "canonicalName": "Supercheap Auto",
+      "categoryKey": "car",
+      "tags": [
+        "automotive"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SUPER CHEAP AUTO",
+      "canonicalName": "Supercheap Auto",
+      "categoryKey": "car",
+      "tags": [
+        "automotive"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AUTOBARN",
+      "canonicalName": "Autobarn",
+      "categoryKey": "car",
+      "tags": [
+        "automotive"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BOB JANE",
+      "canonicalName": "Bob Jane T-Marts",
+      "categoryKey": "car",
+      "tags": [
+        "servicing"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "JAX TYRES",
+      "canonicalName": "Jax Tyres & Auto",
+      "categoryKey": "car",
+      "tags": [
+        "servicing"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BUNNINGS",
+      "canonicalName": "Bunnings Warehouse",
+      "categoryKey": "home-garden",
+      "tags": [
+        "hardware"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BUNNINGS WAREHOUSE",
+      "canonicalName": "Bunnings Warehouse",
+      "categoryKey": "home-garden",
+      "tags": [
+        "hardware"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MITRE 10",
+      "canonicalName": "Mitre 10",
+      "categoryKey": "home-garden",
+      "tags": [
+        "hardware"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MITRE10",
+      "canonicalName": "Mitre 10",
+      "categoryKey": "home-garden",
+      "tags": [
+        "hardware"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "IKEA",
+      "canonicalName": "IKEA",
+      "categoryKey": "home-garden",
+      "tags": [
+        "furniture"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AMART FURNITURE",
+      "canonicalName": "Amart Furniture",
+      "categoryKey": "home-garden",
+      "tags": [
+        "furniture"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FANTASTIC FURNITURE",
+      "canonicalName": "Fantastic Furniture",
+      "categoryKey": "home-garden",
+      "tags": [
+        "furniture"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FREEDOM FURNITURE",
+      "canonicalName": "Freedom Furniture",
+      "categoryKey": "home-garden",
+      "tags": [
+        "furniture"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DOMAYNE",
+      "canonicalName": "Domayne",
+      "categoryKey": "home-garden",
+      "tags": [
+        "furniture"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FORTY WINKS",
+      "canonicalName": "Forty Winks",
+      "categoryKey": "home-garden",
+      "tags": [
+        "furniture"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ADAIRS",
+      "canonicalName": "Adairs",
+      "categoryKey": "home-garden",
+      "tags": [
+        "homewares"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SPOTLIGHT",
+      "canonicalName": "Spotlight",
+      "categoryKey": "home-garden",
+      "tags": [
+        "homewares"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "LINCRAFT",
+      "canonicalName": "Lincraft",
+      "categoryKey": "home-garden",
+      "tags": [
+        "homewares"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BEAUMONT TILES",
+      "canonicalName": "Beaumont Tiles",
+      "categoryKey": "home-garden",
+      "tags": [
+        "hardware"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BEACON LIGHTING",
+      "canonicalName": "Beacon Lighting",
+      "categoryKey": "home-garden",
+      "tags": [
+        "home-improvement"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BARBEQUES GALORE",
+      "canonicalName": "Barbeques Galore",
+      "categoryKey": "home-garden",
+      "tags": [
+        "home-improvement"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "OFFICEWORKS",
+      "canonicalName": "Officeworks",
+      "categoryKey": "shopping",
+      "tags": [
+        "office-supplies"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "KMART",
+      "canonicalName": "Kmart",
+      "categoryKey": "shopping",
+      "tags": [
+        "department-stores"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TARGET",
+      "canonicalName": "Target",
+      "categoryKey": "shopping",
+      "tags": [
+        "department-stores"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BIG W",
+      "canonicalName": "Big W",
+      "categoryKey": "shopping",
+      "tags": [
+        "department-stores"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BIGW",
+      "canonicalName": "Big W",
+      "categoryKey": "shopping",
+      "tags": [
+        "department-stores"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MYER",
+      "canonicalName": "Myer",
+      "categoryKey": "shopping",
+      "tags": [
+        "department-stores"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DAVID JONES",
+      "canonicalName": "David Jones",
+      "categoryKey": "shopping",
+      "tags": [
+        "department-stores"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "THE REJECT SHOP",
+      "canonicalName": "The Reject Shop",
+      "categoryKey": "shopping",
+      "tags": [
+        "department-stores"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "REJECT SHOP",
+      "canonicalName": "The Reject Shop",
+      "categoryKey": "shopping",
+      "tags": [
+        "department-stores"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HARVEY NORMAN",
+      "canonicalName": "Harvey Norman",
+      "categoryKey": "shopping",
+      "tags": [
+        "electronics"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "JB HI FI",
+      "canonicalName": "JB Hi-Fi",
+      "categoryKey": "shopping",
+      "tags": [
+        "electronics"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "JB HIFI",
+      "canonicalName": "JB Hi-Fi",
+      "categoryKey": "shopping",
+      "tags": [
+        "electronics"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "JBHIFI",
+      "canonicalName": "JB Hi-Fi",
+      "categoryKey": "shopping",
+      "tags": [
+        "electronics"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "THE GOOD GUYS",
+      "canonicalName": "The Good Guys",
+      "categoryKey": "shopping",
+      "tags": [
+        "electronics"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BING LEE",
+      "canonicalName": "Bing Lee",
+      "categoryKey": "shopping",
+      "tags": [
+        "electronics"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "THE ICONIC",
+      "canonicalName": "The Iconic",
+      "categoryKey": "shopping",
+      "tags": [
+        "clothing"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ASOS",
+      "canonicalName": "ASOS",
+      "categoryKey": "shopping",
+      "tags": [
+        "clothing"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CATCH",
+      "canonicalName": "Catch",
+      "categoryKey": "shopping",
+      "tags": [
+        "online-marketplaces"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AMAZON",
+      "canonicalName": "Amazon",
+      "categoryKey": "shopping",
+      "tags": [
+        "online-marketplaces"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AMAZON AU",
+      "canonicalName": "Amazon",
+      "categoryKey": "shopping",
+      "tags": [
+        "online-marketplaces"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AMAZON MARKETPLACE",
+      "canonicalName": "Amazon",
+      "categoryKey": "shopping",
+      "tags": [
+        "online-marketplaces"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "EBAY",
+      "canonicalName": "eBay",
+      "categoryKey": "shopping",
+      "tags": [
+        "online-marketplaces"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "KOGAN",
+      "canonicalName": "Kogan",
+      "categoryKey": "shopping",
+      "tags": [
+        "online-marketplaces"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TEMU",
+      "canonicalName": "Temu",
+      "categoryKey": "shopping",
+      "tags": [
+        "online-marketplaces"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SHEIN",
+      "canonicalName": "Shein",
+      "categoryKey": "shopping",
+      "tags": [
+        "clothing"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ALIEXPRESS",
+      "canonicalName": "AliExpress",
+      "categoryKey": "shopping",
+      "tags": [
+        "online-marketplaces"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "REBEL",
+      "canonicalName": "Rebel",
+      "categoryKey": "shopping",
+      "tags": [
+        "sporting-goods"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "REBEL SPORT",
+      "canonicalName": "Rebel",
+      "categoryKey": "shopping",
+      "tags": [
+        "sporting-goods"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ANACONDA",
+      "canonicalName": "Anaconda",
+      "categoryKey": "shopping",
+      "tags": [
+        "sporting-goods"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BCF",
+      "canonicalName": "BCF",
+      "categoryKey": "shopping",
+      "tags": [
+        "sporting-goods"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "EB GAMES",
+      "canonicalName": "EB Games",
+      "categoryKey": "shopping",
+      "tags": [
+        "hobbies"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DYMOCKS",
+      "canonicalName": "Dymocks",
+      "categoryKey": "shopping",
+      "tags": [
+        "books-news"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "QBD BOOKS",
+      "canonicalName": "QBD Books",
+      "categoryKey": "shopping",
+      "tags": [
+        "books-news"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BABY BUNTING",
+      "canonicalName": "Baby Bunting",
+      "categoryKey": "shopping",
+      "tags": [
+        "other-merchandise"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "PETBARN",
+      "canonicalName": "Petbarn",
+      "categoryKey": "pets",
+      "tags": [
+        "pet-supplies"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "PETSTOCK",
+      "canonicalName": "Petstock",
+      "categoryKey": "pets",
+      "tags": [
+        "pet-supplies"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GREENCROSS VETS",
+      "canonicalName": "Greencross Vets",
+      "categoryKey": "pets",
+      "tags": [
+        "veterinary-services"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GREENCROSS",
+      "canonicalName": "Greencross Vets",
+      "categoryKey": "pets",
+      "tags": [
+        "veterinary-services"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AGL",
+      "canonicalName": "AGL",
+      "categoryKey": "utilities",
+      "tags": [
+        "gas-electricity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AGL ENERGY",
+      "canonicalName": "AGL",
+      "categoryKey": "utilities",
+      "tags": [
+        "gas-electricity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ORIGIN ENERGY",
+      "canonicalName": "Origin Energy",
+      "categoryKey": "utilities",
+      "tags": [
+        "gas-electricity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ENERGYAUSTRALIA",
+      "canonicalName": "EnergyAustralia",
+      "categoryKey": "utilities",
+      "tags": [
+        "gas-electricity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ENERGY AUSTRALIA",
+      "canonicalName": "EnergyAustralia",
+      "categoryKey": "utilities",
+      "tags": [
+        "gas-electricity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "RED ENERGY",
+      "canonicalName": "Red Energy",
+      "categoryKey": "utilities",
+      "tags": [
+        "gas-electricity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ALINTA",
+      "canonicalName": "Alinta Energy",
+      "categoryKey": "utilities",
+      "tags": [
+        "gas-electricity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SIMPLY ENERGY",
+      "canonicalName": "Simply Energy",
+      "categoryKey": "utilities",
+      "tags": [
+        "gas-electricity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SYDNEY WATER",
+      "canonicalName": "Sydney Water",
+      "categoryKey": "utilities",
+      "tags": [
+        "water"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "YARRA VALLEY WATER",
+      "canonicalName": "Yarra Valley Water",
+      "categoryKey": "utilities",
+      "tags": [
+        "water"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SOUTH EAST WATER",
+      "canonicalName": "South East Water",
+      "categoryKey": "utilities",
+      "tags": [
+        "water"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HUNTER WATER",
+      "canonicalName": "Hunter Water",
+      "categoryKey": "utilities",
+      "tags": [
+        "water"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SA WATER",
+      "canonicalName": "SA Water",
+      "categoryKey": "utilities",
+      "tags": [
+        "water"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "UNITYWATER",
+      "canonicalName": "Unitywater",
+      "categoryKey": "utilities",
+      "tags": [
+        "water"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "QUEENSLAND URBAN UTILITIES",
+      "canonicalName": "Urban Utilities",
+      "categoryKey": "utilities",
+      "tags": [
+        "water"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ICON WATER",
+      "canonicalName": "Icon Water",
+      "categoryKey": "utilities",
+      "tags": [
+        "water"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TELSTRA",
+      "canonicalName": "Telstra",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "mobile"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "OPTUS",
+      "canonicalName": "Optus",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "mobile"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "VODAFONE",
+      "canonicalName": "Vodafone",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "mobile"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TPG",
+      "canonicalName": "TPG",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "internet"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BELONG",
+      "canonicalName": "Belong",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "internet"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "EXETEL",
+      "canonicalName": "Exetel",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "internet"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AUSSIE BROADBAND",
+      "canonicalName": "Aussie Broadband",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "internet"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AUSSIEBB",
+      "canonicalName": "Aussie Broadband",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "internet"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "IINET",
+      "canonicalName": "iiNet",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "internet"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SUPERLOOP",
+      "canonicalName": "Superloop",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "internet"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AMAYSIM",
+      "canonicalName": "amaysim",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "mobile"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BOOST MOBILE",
+      "canonicalName": "Boost Mobile",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "mobile"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FELIX MOBILE",
+      "canonicalName": "Felix",
+      "categoryKey": "internet-phone",
+      "tags": [
+        "mobile"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "OPAL",
+      "canonicalName": "Opal",
+      "categoryKey": "getting-around",
+      "tags": [
+        "public-transit"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "OPAL TAP",
+      "canonicalName": "Opal",
+      "categoryKey": "getting-around",
+      "tags": [
+        "public-transit"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TRANSPORT FOR NSW",
+      "canonicalName": "Transport for NSW",
+      "categoryKey": "getting-around",
+      "tags": [
+        "public-transit"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TFNSW",
+      "canonicalName": "Transport for NSW",
+      "categoryKey": "getting-around",
+      "tags": [
+        "public-transit"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SYDNEY TRAINS",
+      "canonicalName": "Sydney Trains",
+      "categoryKey": "getting-around",
+      "tags": [
+        "public-transit"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MYKI",
+      "canonicalName": "myki",
+      "categoryKey": "getting-around",
+      "tags": [
+        "public-transit"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TRANSLINK",
+      "canonicalName": "Translink",
+      "categoryKey": "getting-around",
+      "tags": [
+        "public-transit"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "UBER",
+      "canonicalName": "Uber",
+      "categoryKey": "getting-around",
+      "tags": [
+        "rideshare"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "UBER TRIP",
+      "canonicalName": "Uber",
+      "categoryKey": "getting-around",
+      "tags": [
+        "rideshare"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DIDI",
+      "canonicalName": "DiDi",
+      "categoryKey": "getting-around",
+      "tags": [
+        "rideshare"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "13CABS",
+      "canonicalName": "13cabs",
+      "categoryKey": "getting-around",
+      "tags": [
+        "taxis-ride-shares"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "13 CABS",
+      "canonicalName": "13cabs",
+      "categoryKey": "getting-around",
+      "tags": [
+        "taxis-ride-shares"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "LINKT",
+      "canonicalName": "Linkt",
+      "categoryKey": "getting-around",
+      "tags": [
+        "tolls"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "EASTLINK",
+      "canonicalName": "EastLink",
+      "categoryKey": "getting-around",
+      "tags": [
+        "tolls"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CITYLINK",
+      "canonicalName": "CityLink",
+      "categoryKey": "getting-around",
+      "tags": [
+        "tolls"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WILSON PARKING",
+      "canonicalName": "Wilson Parking",
+      "categoryKey": "getting-around",
+      "tags": [
+        "parking"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SECURE PARKING",
+      "canonicalName": "Secure Parking",
+      "categoryKey": "getting-around",
+      "tags": [
+        "parking"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CARE PARK",
+      "canonicalName": "Care Park",
+      "categoryKey": "getting-around",
+      "tags": [
+        "parking"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "LIME",
+      "canonicalName": "Lime",
+      "categoryKey": "getting-around",
+      "tags": [
+        "bikes-scooters"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AFTERPAY",
+      "canonicalName": "Afterpay",
+      "categoryKey": "debt-payments",
+      "tags": [
+        "bnpl"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ZIP",
+      "canonicalName": "Zip",
+      "categoryKey": "debt-payments",
+      "tags": [
+        "bnpl"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ZIP PAY",
+      "canonicalName": "Zip",
+      "categoryKey": "debt-payments",
+      "tags": [
+        "bnpl"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ZIPPAY",
+      "canonicalName": "Zip",
+      "categoryKey": "debt-payments",
+      "tags": [
+        "bnpl"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HUMM",
+      "canonicalName": "Humm",
+      "categoryKey": "debt-payments",
+      "tags": [
+        "bnpl"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HUMMGROUP",
+      "canonicalName": "Humm",
+      "categoryKey": "debt-payments",
+      "tags": [
+        "bnpl"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "LATITUDE PAY",
+      "canonicalName": "Latitude",
+      "categoryKey": "debt-payments",
+      "tags": [
+        "bnpl"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "OPENPAY",
+      "canonicalName": "Openpay",
+      "categoryKey": "debt-payments",
+      "tags": [
+        "bnpl"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ACCOUNT FEE",
+      "canonicalName": "Account fee",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "bank-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MONTHLY FEE",
+      "canonicalName": "Monthly fee",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "bank-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "OVERDRAWN",
+      "canonicalName": "Overdrawn",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "overdraft-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DISHONOUR",
+      "canonicalName": "Dishonour",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "insufficient-funds"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ATM FEE",
+      "canonicalName": "ATM fee",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "atm-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "INTNL TRAN FEE",
+      "canonicalName": "International fee",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "foreign-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FOREIGN CURRENCY FEE",
+      "canonicalName": "Foreign currency fee",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "foreign-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COMMBANK FEE",
+      "canonicalName": "CommBank fee",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "bank-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "NAB FEE",
+      "canonicalName": "NAB fee",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "bank-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WESTPAC FEE",
+      "canonicalName": "Westpac fee",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "bank-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ANZ FEE",
+      "canonicalName": "ANZ fee",
+      "categoryKey": "bank-fees",
+      "tags": [
+        "bank-fees"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ATO",
+      "canonicalName": "ATO",
+      "categoryKey": "government-tax",
+      "tags": [
+        "ato"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AUSTRALIAN TAXATION",
+      "canonicalName": "ATO",
+      "categoryKey": "government-tax",
+      "tags": [
+        "ato"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TAX OFFICE",
+      "canonicalName": "ATO",
+      "categoryKey": "government-tax",
+      "tags": [
+        "ato"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MYGOV",
+      "canonicalName": "myGov",
+      "categoryKey": "government-tax",
+      "tags": [
+        "government-services"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SERVICE NSW",
+      "canonicalName": "Service NSW",
+      "categoryKey": "government-tax",
+      "tags": [
+        "government-services"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "VICROADS",
+      "canonicalName": "VicRoads",
+      "categoryKey": "government-tax",
+      "tags": [
+        "government-services"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "VIC ROADS",
+      "canonicalName": "VicRoads",
+      "categoryKey": "government-tax",
+      "tags": [
+        "government-services"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "REVENUE NSW",
+      "canonicalName": "Revenue NSW",
+      "categoryKey": "government-tax",
+      "tags": [
+        "tax-payment"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SERVICES AUSTRALIA",
+      "canonicalName": "Services Australia",
+      "categoryKey": "government-tax",
+      "tags": [
+        "government-services"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CHEMIST WAREHOUSE",
+      "canonicalName": "Chemist Warehouse",
+      "categoryKey": "medical",
+      "tags": [
+        "pharmacy"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "PRICELINE",
+      "canonicalName": "Priceline",
+      "categoryKey": "medical",
+      "tags": [
+        "pharmacy"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BLOOMS",
+      "canonicalName": "Blooms The Chemist",
+      "categoryKey": "medical",
+      "tags": [
+        "pharmacy"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AMCAL",
+      "canonicalName": "Amcal",
+      "categoryKey": "medical",
+      "tags": [
+        "pharmacy"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TERRY WHITE",
+      "canonicalName": "TerryWhite Chemmart",
+      "categoryKey": "medical",
+      "tags": [
+        "pharmacy"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CHEMMART",
+      "canonicalName": "TerryWhite Chemmart",
+      "categoryKey": "medical",
+      "tags": [
+        "pharmacy"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "OPSM",
+      "canonicalName": "OPSM",
+      "categoryKey": "medical",
+      "tags": [
+        "optical"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SPECSAVERS",
+      "canonicalName": "Specsavers",
+      "categoryKey": "medical",
+      "tags": [
+        "optical"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BUPA",
+      "canonicalName": "Bupa",
+      "categoryKey": "medical",
+      "tags": [
+        "private-cover"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "MEDIBANK",
+      "canonicalName": "Medibank",
+      "categoryKey": "medical",
+      "tags": [
+        "private-cover"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HCF",
+      "canonicalName": "HCF",
+      "categoryKey": "medical",
+      "tags": [
+        "private-cover"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "NIB",
+      "canonicalName": "nib",
+      "categoryKey": "medical",
+      "tags": [
+        "private-cover"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "LAVERTY",
+      "canonicalName": "Laverty Pathology",
+      "categoryKey": "medical",
+      "tags": [
+        "other-medical"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AUSTRALIAN CLINICAL LABS",
+      "canonicalName": "Australian Clinical Labs",
+      "categoryKey": "medical",
+      "tags": [
+        "other-medical"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "4CYTE",
+      "canonicalName": "4Cyte Pathology",
+      "categoryKey": "medical",
+      "tags": [
+        "other-medical"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "NRMA",
+      "canonicalName": "NRMA",
+      "categoryKey": "insurance",
+      "tags": [
+        "insurance"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "RACV",
+      "canonicalName": "RACV",
+      "categoryKey": "insurance",
+      "tags": [
+        "insurance"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "RACQ",
+      "canonicalName": "RACQ",
+      "categoryKey": "insurance",
+      "tags": [
+        "insurance"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AAMI",
+      "canonicalName": "AAMI",
+      "categoryKey": "insurance",
+      "tags": [
+        "insurance"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GIO",
+      "canonicalName": "GIO",
+      "categoryKey": "insurance",
+      "tags": [
+        "insurance"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ALLIANZ",
+      "canonicalName": "Allianz",
+      "categoryKey": "insurance",
+      "tags": [
+        "insurance"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BUDGET DIRECT",
+      "canonicalName": "Budget Direct",
+      "categoryKey": "insurance",
+      "tags": [
+        "insurance"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "YOUIE",
+      "canonicalName": "Youi",
+      "categoryKey": "insurance",
+      "tags": [
+        "insurance"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BINGLE",
+      "canonicalName": "Bingle",
+      "categoryKey": "insurance",
+      "tags": [
+        "insurance"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "NETFLIX",
+      "canonicalName": "Netflix",
+      "categoryKey": "entertainment",
+      "tags": [
+        "streaming"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SPOTIFY",
+      "canonicalName": "Spotify",
+      "categoryKey": "entertainment",
+      "tags": [
+        "music-audio"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DISNEY PLUS",
+      "canonicalName": "Disney+",
+      "categoryKey": "entertainment",
+      "tags": [
+        "streaming"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "DISNEY",
+      "canonicalName": "Disney+",
+      "categoryKey": "entertainment",
+      "tags": [
+        "streaming"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "STAN",
+      "canonicalName": "Stan",
+      "categoryKey": "entertainment",
+      "tags": [
+        "streaming"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BINGE",
+      "canonicalName": "Binge",
+      "categoryKey": "entertainment",
+      "tags": [
+        "streaming"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "KAYO",
+      "canonicalName": "Kayo Sports",
+      "categoryKey": "entertainment",
+      "tags": [
+        "sport"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "KAYO SPORTS",
+      "canonicalName": "Kayo Sports",
+      "categoryKey": "entertainment",
+      "tags": [
+        "sport"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AMAZON PRIME",
+      "canonicalName": "Amazon Prime",
+      "categoryKey": "entertainment",
+      "tags": [
+        "streaming"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "PRIME VIDEO",
+      "canonicalName": "Prime Video",
+      "categoryKey": "entertainment",
+      "tags": [
+        "streaming"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "EVENT CINEMAS",
+      "canonicalName": "Event Cinemas",
+      "categoryKey": "entertainment",
+      "tags": [
+        "tv-movies"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HOYTS",
+      "canonicalName": "Hoyts",
+      "categoryKey": "entertainment",
+      "tags": [
+        "tv-movies"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "VILLAGE CINEMAS",
+      "canonicalName": "Village Cinemas",
+      "categoryKey": "entertainment",
+      "tags": [
+        "tv-movies"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TICKETEK",
+      "canonicalName": "Ticketek",
+      "categoryKey": "entertainment",
+      "tags": [
+        "events"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "TICKETMASTER",
+      "canonicalName": "Ticketmaster",
+      "categoryKey": "entertainment",
+      "tags": [
+        "events"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "STEAMGAMES",
+      "canonicalName": "Steam",
+      "categoryKey": "entertainment",
+      "tags": [
+        "video-games"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "STEAM",
+      "canonicalName": "Steam",
+      "categoryKey": "entertainment",
+      "tags": [
+        "video-games"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "QANTAS",
+      "canonicalName": "Qantas",
+      "categoryKey": "travel",
+      "tags": [
+        "flights"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "JETSTAR",
+      "canonicalName": "Jetstar",
+      "categoryKey": "travel",
+      "tags": [
+        "flights"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "VIRGIN AUSTRALIA",
+      "canonicalName": "Virgin Australia",
+      "categoryKey": "travel",
+      "tags": [
+        "flights"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "REX AIRLINES",
+      "canonicalName": "Rex",
+      "categoryKey": "travel",
+      "tags": [
+        "flights"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AIRBNB",
+      "canonicalName": "Airbnb",
+      "categoryKey": "travel",
+      "tags": [
+        "accommodation"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BOOKING COM",
+      "canonicalName": "Booking.com",
+      "categoryKey": "travel",
+      "tags": [
+        "hotels"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BOOKING.COM",
+      "canonicalName": "Booking.com",
+      "categoryKey": "travel",
+      "tags": [
+        "hotels"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "EXPEDIA",
+      "canonicalName": "Expedia",
+      "categoryKey": "travel",
+      "tags": [
+        "other-travel"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WEBJET",
+      "canonicalName": "Webjet",
+      "categoryKey": "travel",
+      "tags": [
+        "flights"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "QUEST APARTMENTS",
+      "canonicalName": "Quest",
+      "categoryKey": "travel",
+      "tags": [
+        "accommodation"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "BIG 4",
+      "canonicalName": "BIG4 Holiday Parks",
+      "categoryKey": "travel",
+      "tags": [
+        "accommodation"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ANYTIME FITNESS",
+      "canonicalName": "Anytime Fitness",
+      "categoryKey": "personal-care",
+      "tags": [
+        "gyms-fitness"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "FITNESS FIRST",
+      "canonicalName": "Fitness First",
+      "categoryKey": "personal-care",
+      "tags": [
+        "gyms-fitness"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "F45",
+      "canonicalName": "F45",
+      "categoryKey": "personal-care",
+      "tags": [
+        "fitness"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SNAP FITNESS",
+      "canonicalName": "Snap Fitness",
+      "categoryKey": "personal-care",
+      "tags": [
+        "gyms-fitness"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "JETTS",
+      "canonicalName": "Jetts",
+      "categoryKey": "personal-care",
+      "tags": [
+        "gyms-fitness"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "PLUS FITNESS",
+      "canonicalName": "Plus Fitness",
+      "categoryKey": "personal-care",
+      "tags": [
+        "gyms-fitness"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GOODLIFE",
+      "canonicalName": "Goodlife",
+      "categoryKey": "personal-care",
+      "tags": [
+        "gyms-fitness"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "JUST CUTS",
+      "canonicalName": "Just Cuts",
+      "categoryKey": "personal-care",
+      "tags": [
+        "hair-beauty"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GOODSTART",
+      "canonicalName": "Goodstart Early Learning",
+      "categoryKey": "education-childcare",
+      "tags": [
+        "childcare"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GUARDIAN CHILDCARE",
+      "canonicalName": "Guardian Childcare",
+      "categoryKey": "education-childcare",
+      "tags": [
+        "childcare"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "ONLY ABOUT CHILDREN",
+      "canonicalName": "Only About Children",
+      "categoryKey": "education-childcare",
+      "tags": [
+        "childcare"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "RED CROSS",
+      "canonicalName": "Australian Red Cross",
+      "categoryKey": "donations",
+      "tags": [
+        "charity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SALVATION ARMY",
+      "canonicalName": "Salvation Army",
+      "categoryKey": "donations",
+      "tags": [
+        "charity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SALVOS",
+      "canonicalName": "Salvation Army",
+      "categoryKey": "donations",
+      "tags": [
+        "charity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "LIFELINE",
+      "canonicalName": "Lifeline",
+      "categoryKey": "donations",
+      "tags": [
+        "charity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "WORLD VISION",
+      "canonicalName": "World Vision",
+      "categoryKey": "donations",
+      "tags": [
+        "charity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "THE SMITH FAMILY",
+      "canonicalName": "The Smith Family",
+      "categoryKey": "donations",
+      "tags": [
+        "charity"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "COMMSEC",
+      "canonicalName": "CommSec",
+      "categoryKey": "invest",
+      "tags": [
+        "brokerage-fee"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "SELFWEALTH",
+      "canonicalName": "SelfWealth",
+      "categoryKey": "invest",
+      "tags": [
+        "brokerage-fee"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "AUSTRALIAN SUPER",
+      "canonicalName": "AustralianSuper",
+      "categoryKey": "invest",
+      "tags": [
+        "super"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HOSTPLUS",
+      "canonicalName": "Hostplus",
+      "categoryKey": "invest",
+      "tags": [
+        "super"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "HESTA",
+      "canonicalName": "HESTA",
+      "categoryKey": "invest",
+      "tags": [
+        "super"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "REST SUPER",
+      "canonicalName": "Rest",
+      "categoryKey": "invest",
+      "tags": [
+        "super"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "CBUS",
+      "canonicalName": "Cbus",
+      "categoryKey": "invest",
+      "tags": [
+        "super"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "RAY WHITE",
+      "canonicalName": "Ray White",
+      "categoryKey": "rent-mortgage",
+      "tags": [
+        "rent"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "LJ HOOKER",
+      "canonicalName": "LJ Hooker",
+      "categoryKey": "rent-mortgage",
+      "tags": [
+        "rent"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "Raine AND Horne",
+      "canonicalName": "Raine & Horne",
+      "categoryKey": "rent-mortgage",
+      "tags": [
+        "rent"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    }
+  ]
+}

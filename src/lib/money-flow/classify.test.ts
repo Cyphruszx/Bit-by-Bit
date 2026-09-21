@@ -149,4 +149,18 @@ describe("walking the ladder", () => {
     const once = classify([txn(), txn({ merchant: "Woolworths" })], { rules });
     assert.deepEqual(classify(once, { rules }), once);
   });
+
+  it("files an unreviewed seed hit as rules, and never over a person", () => {
+    const seeded = classify([txn({ merchant: "WW Metro", description: "EFTPOS WW METRO 3120" })])[0];
+    assert.equal(seeded?.categoryKey, "groceries");
+    assert.equal(seeded?.decidedBy, "rules");
+
+    const chosen = txn({
+      merchant: "WW Metro",
+      description: "EFTPOS WW METRO 3120",
+      categoryKey: "entertainment",
+      decidedBy: "said",
+    });
+    assert.deepEqual(classify([chosen]), [chosen]);
+  });
 });

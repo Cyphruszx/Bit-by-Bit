@@ -26,6 +26,7 @@
  * importing another statement re-decides everything rather than layering on top.
  */
 
+import { resolveMerchant } from "@/lib/merchants/resolve";
 import { merchantKey } from "@/lib/money-flow/redact";
 import { ruleFor, type Rules } from "@/lib/money-flow/rules";
 import { authorityOf, isUserOverridden } from "@/lib/money-flow/movement-kind";
@@ -87,6 +88,15 @@ export function classify(
     const known = remembered.get(merchantKey(txn));
     if (known && outranks("merchant", txn.decidedBy)) {
       return coreKind(placed(txn, known, "merchant"));
+    }
+
+    // Seed is the same `rules` rung as the reader table: aliases / NSI / MCC, never
+    // above a person or a proved pair, and only for rows still waiting.
+    if (txn.amount <= 0 && needsReview(txn) && outranks("rules", txn.decidedBy)) {
+      const seed = resolveMerchant([txn.merchant, txn.description].filter(Boolean).join(" "), {
+        mcc: txn.bank?.mcc,
+      });
+      if (seed) return coreKind(placed(txn, seed.categoryKey, "rules"));
     }
 
     // Only unsorted rows: a bank label the person mapped, after the merchant ladder

@@ -1,0 +1,4095 @@
+{
+  "_meta": {
+    "source": "name-suggestion-index",
+    "version": "8.0.20260918",
+    "generated": "2026-09-18T19:50:18.997Z",
+    "url": "https://github.com/osmlab/name-suggestion-index",
+    "license": "BSD-3-Clause",
+    "filter": "brands/* with locationSet.include containing au",
+    "count": 493
+  },
+  "brands": [
+    {
+      "name": "1825 Interiors",
+      "names": [
+        "1825 Interiors"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q111080640"
+    },
+    {
+      "name": "4Cyte Pathology",
+      "names": [
+        "4Cyte Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q137825538"
+    },
+    {
+      "name": "85°C Bakery Cafe",
+      "names": [
+        "85°C Bakery Cafe",
+        "85 cafe",
+        "85 degrees",
+        "85 degrees c",
+        "85 degrees celsius",
+        "85c",
+        "85c bakery cafe",
+        "85c daily cafe",
+        "85oc"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q4644852"
+    },
+    {
+      "name": "99 Bikes",
+      "names": [
+        "99 Bikes",
+        "bike barn"
+      ],
+      "osm": "shop=bicycle",
+      "wikidata": "Q110288298"
+    },
+    {
+      "name": "Abbott Pathology",
+      "names": [
+        "Abbott Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q126165721"
+    },
+    {
+      "name": "Adairs",
+      "names": [
+        "Adairs"
+      ],
+      "osm": "shop=houseware",
+      "wikidata": "Q109626904"
+    },
+    {
+      "name": "Adairs Kids",
+      "names": [
+        "Adairs Kids"
+      ],
+      "osm": "shop=household_linen",
+      "wikidata": "Q109626904"
+    },
+    {
+      "name": "Adina Hotels",
+      "names": [
+        "Adina Hotels",
+        "Adina Apartment Hotel",
+        "adina"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q50406079"
+    },
+    {
+      "name": "AFGRI Equipment",
+      "names": [
+        "AFGRI Equipment"
+      ],
+      "osm": "shop=agrarian",
+      "wikidata": "Q119264464"
+    },
+    {
+      "name": "AG Warehouse",
+      "names": [
+        "AG Warehouse"
+      ],
+      "osm": "shop=agrarian",
+      "wikidata": "Q119261591"
+    },
+    {
+      "name": "AHEPA Hall",
+      "names": [
+        "AHEPA Hall",
+        "AHEPA",
+        "american hellenic educational progressive association",
+        "the order of ahepa"
+      ],
+      "osm": "amenity=social_centre",
+      "wikidata": "Q4743973"
+    },
+    {
+      "name": "Aldi",
+      "names": [
+        "Aldi",
+        "aldi australia",
+        "aldi süd",
+        "aldi uk",
+        "aldi usa"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q41171672"
+    },
+    {
+      "name": "ALH Hotels",
+      "names": [
+        "ALH Hotels"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q119159708"
+    },
+    {
+      "name": "Allianz",
+      "names": [
+        "Allianz",
+        "allianz versicherung"
+      ],
+      "osm": "office=insurance",
+      "wikidata": "Q487292"
+    },
+    {
+      "name": "Ally Fashion",
+      "names": [
+        "Ally Fashion"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q19870623"
+    },
+    {
+      "name": "Amart Furniture",
+      "names": [
+        "Amart Furniture"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q114119879"
+    },
+    {
+      "name": "Amber",
+      "names": [
+        "Amber"
+      ],
+      "osm": "shop=tiles",
+      "wikidata": "Q127697724"
+    },
+    {
+      "name": "Amcal",
+      "names": [
+        "Amcal",
+        "amcal pharmacy",
+        "guardian",
+        "guardian pharmacies",
+        "guardian pharmacy"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q63367373"
+    },
+    {
+      "name": "Ampol",
+      "names": [
+        "Ampol"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q4748528"
+    },
+    {
+      "name": "Anaconda",
+      "names": [
+        "Anaconda"
+      ],
+      "osm": "shop=outdoor",
+      "wikidata": "Q105981238"
+    },
+    {
+      "name": "Angus and Coote",
+      "names": [
+        "Angus and Coote"
+      ],
+      "osm": "shop=jewelry",
+      "wikidata": "Q18162112"
+    },
+    {
+      "name": "AS Colour",
+      "names": [
+        "AS Colour"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q121646382"
+    },
+    {
+      "name": "Atura Hotels",
+      "names": [
+        "Atura Hotels"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q110168350"
+    },
+    {
+      "name": "Audika",
+      "names": [
+        "Audika"
+      ],
+      "osm": "shop=hearing_aids",
+      "wikidata": "Q2870745"
+    },
+    {
+      "name": "Aussie",
+      "names": [
+        "Aussie"
+      ],
+      "osm": "office=mortgage",
+      "wikidata": "Q4822807"
+    },
+    {
+      "name": "Aussie Disposals",
+      "names": [
+        "Aussie Disposals"
+      ],
+      "osm": "shop=outdoor",
+      "wikidata": "Q117847729"
+    },
+    {
+      "name": "Australia Post Parcel Locker",
+      "names": [
+        "Australia Post Parcel Locker",
+        "Australia Post"
+      ],
+      "osm": "amenity=parcel_locker",
+      "wikidata": "Q1142936"
+    },
+    {
+      "name": "Australian Clinical Labs",
+      "names": [
+        "Australian Clinical Labs",
+        "clinical labs"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q105256111"
+    },
+    {
+      "name": "Australian Red Cross Blood Service",
+      "names": [
+        "Australian Red Cross Blood Service"
+      ],
+      "osm": "healthcare=blood_donation",
+      "wikidata": "Q4824602"
+    },
+    {
+      "name": "Autobarn",
+      "names": [
+        "Autobarn"
+      ],
+      "osm": "shop=car_parts",
+      "wikidata": "Q105831666"
+    },
+    {
+      "name": "Avani",
+      "names": [
+        "Avani",
+        "Avani Hotels & Resorts"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q48989823"
+    },
+    {
+      "name": "AXA",
+      "names": [
+        "AXA"
+      ],
+      "osm": "office=insurance",
+      "wikidata": "Q160054"
+    },
+    {
+      "name": "Baby Bunting",
+      "names": [
+        "Baby Bunting"
+      ],
+      "osm": "shop=baby_goods",
+      "wikidata": "Q109626935"
+    },
+    {
+      "name": "Bailey Nelson",
+      "names": [
+        "Bailey Nelson"
+      ],
+      "osm": "shop=optician",
+      "wikidata": "Q107639842"
+    },
+    {
+      "name": "Bakers Delight",
+      "names": [
+        "Bakers Delight"
+      ],
+      "osm": "shop=bakery",
+      "wikidata": "Q4849261"
+    },
+    {
+      "name": "Balfours",
+      "names": [
+        "Balfours"
+      ],
+      "osm": "shop=bakery",
+      "wikidata": "Q4850765"
+    },
+    {
+      "name": "Banjo's Bakery Cafe",
+      "names": [
+        "Banjo's Bakery Cafe"
+      ],
+      "osm": "shop=bakery",
+      "wikidata": "Q105904686"
+    },
+    {
+      "name": "Barbeques Galore",
+      "names": [
+        "Barbeques Galore"
+      ],
+      "osm": "shop=bbq",
+      "wikidata": "Q4859570"
+    },
+    {
+      "name": "bareMinerals",
+      "names": [
+        "bareMinerals"
+      ],
+      "osm": "shop=cosmetics",
+      "wikidata": "Q66740659"
+    },
+    {
+      "name": "Barry's",
+      "names": [
+        "Barry's"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q96373178"
+    },
+    {
+      "name": "Battery World",
+      "names": [
+        "Battery World"
+      ],
+      "osm": "shop=electrical",
+      "wikidata": "Q124003678"
+    },
+    {
+      "name": "BCF",
+      "names": [
+        "BCF"
+      ],
+      "osm": "shop=outdoor",
+      "wikidata": "Q16246527"
+    },
+    {
+      "name": "Beacon Lighting",
+      "names": [
+        "Beacon Lighting"
+      ],
+      "osm": "shop=lighting",
+      "wikidata": "Q109626941"
+    },
+    {
+      "name": "Beaumont Tiles",
+      "names": [
+        "Beaumont Tiles"
+      ],
+      "osm": "shop=tiles",
+      "wikidata": "Q127327896"
+    },
+    {
+      "name": "Bed Bath N' Table",
+      "names": [
+        "Bed Bath N' Table"
+      ],
+      "osm": "shop=houseware",
+      "wikidata": "Q118551276"
+    },
+    {
+      "name": "Beds R Us",
+      "names": [
+        "Beds R Us"
+      ],
+      "osm": "shop=bed",
+      "wikidata": "Q126179491"
+    },
+    {
+      "name": "Bedshed",
+      "names": [
+        "Bedshed"
+      ],
+      "osm": "shop=bed",
+      "wikidata": "Q84452962"
+    },
+    {
+      "name": "Beechworth Bakery",
+      "names": [
+        "Beechworth Bakery"
+      ],
+      "osm": "shop=bakery",
+      "wikidata": "Q28183324"
+    },
+    {
+      "name": "Beeline",
+      "names": [
+        "Beeline"
+      ],
+      "osm": "office=telecommunication",
+      "wikidata": "Q402880"
+    },
+    {
+      "name": "Ben Sherman",
+      "names": [
+        "Ben Sherman"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q18169875"
+    },
+    {
+      "name": "BenGong's Tea",
+      "names": [
+        "BenGong's Tea"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q124799096"
+    },
+    {
+      "name": "Bennett's Petroleum",
+      "names": [
+        "Bennett's Petroleum"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q105846396"
+    },
+    {
+      "name": "Bento",
+      "names": [
+        "Bento"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q105906945"
+    },
+    {
+      "name": "Best & Less",
+      "names": [
+        "Best & Less"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q4896542"
+    },
+    {
+      "name": "Best Brains",
+      "names": [
+        "Best Brains",
+        "best brains learning center",
+        "best brains learning centre"
+      ],
+      "osm": "amenity=prep_school",
+      "wikidata": "Q130507507"
+    },
+    {
+      "name": "Best Friends",
+      "names": [
+        "Best Friends"
+      ],
+      "osm": "shop=pet",
+      "wikidata": "Q106540748"
+    },
+    {
+      "name": "Betts",
+      "names": [
+        "Betts"
+      ],
+      "osm": "shop=shoes",
+      "wikidata": "Q118555401"
+    },
+    {
+      "name": "Betty's Burgers",
+      "names": [
+        "Betty's Burgers"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q109406096"
+    },
+    {
+      "name": "Bevilles Jewellers",
+      "names": [
+        "Bevilles Jewellers"
+      ],
+      "osm": "shop=jewelry",
+      "wikidata": "Q117837188"
+    },
+    {
+      "name": "Biba Smart Playground",
+      "names": [
+        "Biba Smart Playground",
+        "Biba"
+      ],
+      "osm": "leisure=playground",
+      "wikidata": "Q116211938"
+    },
+    {
+      "name": "Big 4 Holiday Parks",
+      "names": [
+        "Big 4 Holiday Parks",
+        "BIG4 Holiday Parks"
+      ],
+      "osm": "tourism=caravan_site",
+      "wikidata": "Q18636678"
+    },
+    {
+      "name": "Big W",
+      "names": [
+        "Big W"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q4906646"
+    },
+    {
+      "name": "Bing Lee",
+      "names": [
+        "Bing Lee"
+      ],
+      "osm": "shop=electronics",
+      "wikidata": "Q4914136"
+    },
+    {
+      "name": "Blooms The Chemist",
+      "names": [
+        "Blooms The Chemist"
+      ],
+      "osm": "shop=chemist",
+      "wikidata": "Q63367543"
+    },
+    {
+      "name": "Blue Illusion",
+      "names": [
+        "Blue Illusion"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q118464703"
+    },
+    {
+      "name": "Bob Jane T-Marts",
+      "names": [
+        "Bob Jane T-Marts"
+      ],
+      "osm": "shop=tyres",
+      "wikidata": "Q16952468"
+    },
+    {
+      "name": "Bonds",
+      "names": [
+        "Bonds"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q4941440"
+    },
+    {
+      "name": "Boost Juice",
+      "names": [
+        "Boost Juice"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q4943789"
+    },
+    {
+      "name": "Bottlemart",
+      "names": [
+        "Bottlemart"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q102863175"
+    },
+    {
+      "name": "Bounce Inc",
+      "names": [
+        "Bounce Inc",
+        "BOUNCEinc",
+        "bounce"
+      ],
+      "osm": "leisure=trampoline_park",
+      "wikidata": "Q120405695"
+    },
+    {
+      "name": "bp pulse",
+      "names": [
+        "bp pulse",
+        "bp chargemaster",
+        "chargemaster"
+      ],
+      "osm": "amenity=charging_station",
+      "wikidata": "Q39057719"
+    },
+    {
+      "name": "BP Shop",
+      "names": [
+        "BP Shop",
+        "bp"
+      ],
+      "osm": "shop=convenience",
+      "wikidata": "Q152057"
+    },
+    {
+      "name": "Bras N Things",
+      "names": [
+        "Bras N Things"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q120669960"
+    },
+    {
+      "name": "Breadtop",
+      "names": [
+        "Breadtop"
+      ],
+      "osm": "shop=bakery",
+      "wikidata": "Q4959217"
+    },
+    {
+      "name": "BrewDog",
+      "names": [
+        "BrewDog"
+      ],
+      "osm": "amenity=pub",
+      "wikidata": "Q911367"
+    },
+    {
+      "name": "Brumby's Bakeries",
+      "names": [
+        "Brumby's Bakeries",
+        "brumby's"
+      ],
+      "osm": "shop=bakery",
+      "wikidata": "Q4978794"
+    },
+    {
+      "name": "Bucking Bull",
+      "names": [
+        "Bucking Bull"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q18208286"
+    },
+    {
+      "name": "Bunnings Warehouse",
+      "names": [
+        "Bunnings Warehouse"
+      ],
+      "osm": "shop=doityourself",
+      "wikidata": "Q4997829"
+    },
+    {
+      "name": "Burger Urge",
+      "names": [
+        "Burger Urge"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q19589751"
+    },
+    {
+      "name": "Burnsco",
+      "names": [
+        "Burnsco"
+      ],
+      "osm": "shop=boat",
+      "wikidata": "Q116825899"
+    },
+    {
+      "name": "Burson Auto Parts",
+      "names": [
+        "Burson Auto Parts"
+      ],
+      "osm": "shop=car_parts",
+      "wikidata": "Q117075930"
+    },
+    {
+      "name": "BWS",
+      "names": [
+        "BWS"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q4836848"
+    },
+    {
+      "name": "Cali Press",
+      "names": [
+        "Cali Press"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q110910956"
+    },
+    {
+      "name": "Caltex",
+      "names": [
+        "Caltex"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q277470"
+    },
+    {
+      "name": "Capital Pathology",
+      "names": [
+        "Capital Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q137825557"
+    },
+    {
+      "name": "Carpet Court",
+      "names": [
+        "Carpet Court"
+      ],
+      "osm": "shop=carpet",
+      "wikidata": "Q117156437"
+    },
+    {
+      "name": "Casetify",
+      "names": [
+        "Casetify"
+      ],
+      "osm": "shop=mobile_phone_accessories",
+      "wikidata": "Q64209733"
+    },
+    {
+      "name": "Cash Converters",
+      "names": [
+        "Cash Converters"
+      ],
+      "osm": "shop=pawnbroker",
+      "wikidata": "Q5048645"
+    },
+    {
+      "name": "Cellarbrations",
+      "names": [
+        "Cellarbrations"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q109807592"
+    },
+    {
+      "name": "Centrelink",
+      "names": [
+        "Centrelink"
+      ],
+      "osm": "office=government"
+    },
+    {
+      "name": "CeX",
+      "names": [
+        "CeX"
+      ],
+      "osm": "shop=electronics",
+      "wikidata": "Q5055676"
+    },
+    {
+      "name": "Cha Payom",
+      "names": [
+        "Cha Payom"
+      ],
+      "osm": "shop=tea",
+      "wikidata": "Q125873635"
+    },
+    {
+      "name": "Change Group",
+      "names": [
+        "Change Group"
+      ],
+      "osm": "amenity=bureau_de_change",
+      "wikidata": "Q5071758"
+    },
+    {
+      "name": "Charging the Regions",
+      "names": [
+        "Charging the Regions"
+      ],
+      "osm": "amenity=charging_station",
+      "wikidata": "Q106320264"
+    },
+    {
+      "name": "Chemist King Discount Pharmacy",
+      "names": [
+        "Chemist King Discount Pharmacy",
+        "chemist king",
+        "chemist king discount pharmacies"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q63367667"
+    },
+    {
+      "name": "Chemist Warehouse",
+      "names": [
+        "Chemist Warehouse"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q48782120"
+    },
+    {
+      "name": "Chicha San Chen",
+      "names": [
+        "Chicha San Chen"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q133042869"
+    },
+    {
+      "name": "Chicken Treat",
+      "names": [
+        "Chicken Treat"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q5096274"
+    },
+    {
+      "name": "Choices Flooring",
+      "names": [
+        "Choices Flooring"
+      ],
+      "osm": "shop=flooring",
+      "wikidata": "Q117155570"
+    },
+    {
+      "name": "Cibo Espresso",
+      "names": [
+        "Cibo Espresso"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q5119230"
+    },
+    {
+      "name": "Cignall",
+      "names": [
+        "Cignall"
+      ],
+      "osm": "shop=tobacco"
+    },
+    {
+      "name": "Cincotta Chemist",
+      "names": [
+        "Cincotta Chemist",
+        "Cincotta Discount Chemist"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q131758504"
+    },
+    {
+      "name": "City Beach",
+      "names": [
+        "City Beach"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q16958619"
+    },
+    {
+      "name": "City Chic",
+      "names": [
+        "City Chic"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q123383442"
+    },
+    {
+      "name": "Clinpath Pathology",
+      "names": [
+        "Clinpath Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q137825555"
+    },
+    {
+      "name": "Cloud 9 Smoke Shop Australia",
+      "names": [
+        "Cloud 9 Smoke Shop Australia"
+      ],
+      "osm": "shop=e-cigarette",
+      "wikidata": "Q117822054"
+    },
+    {
+      "name": "Coach",
+      "names": [
+        "Coach",
+        "coach new york",
+        "coach ny"
+      ],
+      "osm": "shop=bag",
+      "wikidata": "Q727697"
+    },
+    {
+      "name": "Cold Rock Ice Creamery",
+      "names": [
+        "Cold Rock Ice Creamery"
+      ],
+      "osm": "amenity=ice_cream",
+      "wikidata": "Q2982390"
+    },
+    {
+      "name": "Coles",
+      "names": [
+        "Coles"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q1108172"
+    },
+    {
+      "name": "Coles Central",
+      "names": [
+        "Coles Central"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q5144653"
+    },
+    {
+      "name": "Coles Local",
+      "names": [
+        "Coles Local"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q104850818"
+    },
+    {
+      "name": "Colette by Colette Hayman",
+      "names": [
+        "Colette by Colette Hayman"
+      ],
+      "osm": "shop=bag",
+      "wikidata": "Q117746003"
+    },
+    {
+      "name": "Connect Hearing",
+      "names": [
+        "Connect Hearing"
+      ],
+      "osm": "shop=hearing_aids"
+    },
+    {
+      "name": "Connor",
+      "names": [
+        "Connor"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q113468988"
+    },
+    {
+      "name": "Containers for Change",
+      "names": [
+        "Containers for Change"
+      ],
+      "osm": "amenity=recycling",
+      "wikidata": "Q124060523"
+    },
+    {
+      "name": "Costco",
+      "names": [
+        "Costco",
+        "costco wholesale"
+      ],
+      "osm": "shop=wholesale",
+      "wikidata": "Q715583"
+    },
+    {
+      "name": "Costco Food Court",
+      "names": [
+        "Costco Food Court",
+        "Costco"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q715583"
+    },
+    {
+      "name": "Costco Gasoline",
+      "names": [
+        "Costco Gasoline",
+        "Costco",
+        "costco gas",
+        "costco wholesale"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q715583"
+    },
+    {
+      "name": "Country Road",
+      "names": [
+        "Country Road"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q2998907"
+    },
+    {
+      "name": "Crown Resorts",
+      "names": [
+        "Crown Resorts"
+      ],
+      "osm": "amenity=casino",
+      "wikidata": "Q1029724"
+    },
+    {
+      "name": "Crunch Fitness",
+      "names": [
+        "Crunch Fitness",
+        "crunch"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q5190093"
+    },
+    {
+      "name": "Crust",
+      "names": [
+        "Crust"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q100792715"
+    },
+    {
+      "name": "CycleBar",
+      "names": [
+        "CycleBar"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q121459827"
+    },
+    {
+      "name": "Daiso Japan",
+      "names": [
+        "Daiso Japan",
+        "Daiso",
+        "daiso japan value store"
+      ],
+      "osm": "shop=variety_store",
+      "wikidata": "Q866991"
+    },
+    {
+      "name": "Dan Murphy's",
+      "names": [
+        "Dan Murphy's"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q5214075"
+    },
+    {
+      "name": "Dangerfield",
+      "names": [
+        "Dangerfield"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q119220880"
+    },
+    {
+      "name": "Daniel's Donuts",
+      "names": [
+        "Daniel's Donuts"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q116147181"
+    },
+    {
+      "name": "David Jones",
+      "names": [
+        "David Jones"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q5235753"
+    },
+    {
+      "name": "Dendy",
+      "names": [
+        "Dendy",
+        "Dendy Cinemas",
+        "dendy cinema"
+      ],
+      "osm": "amenity=cinema",
+      "wikidata": "Q22907727"
+    },
+    {
+      "name": "Dimmeys",
+      "names": [
+        "Dimmeys"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q17003075"
+    },
+    {
+      "name": "Din Tai Fung",
+      "names": [
+        "Din Tai Fung"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q699142"
+    },
+    {
+      "name": "Direct Factory Outlets",
+      "names": [
+        "Direct Factory Outlets"
+      ],
+      "osm": "shop=mall",
+      "wikidata": "Q5280270"
+    },
+    {
+      "name": "Dollarama",
+      "names": [
+        "Dollarama"
+      ],
+      "osm": "shop=variety_store",
+      "wikidata": "Q3033947"
+    },
+    {
+      "name": "Domayne",
+      "names": [
+        "Domayne"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q106224590"
+    },
+    {
+      "name": "Donut King",
+      "names": [
+        "Donut King"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q5296921"
+    },
+    {
+      "name": "Dorevitch Pathology",
+      "names": [
+        "Dorevitch Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q126165490"
+    },
+    {
+      "name": "Dotti",
+      "names": [
+        "Dotti"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q5299495"
+    },
+    {
+      "name": "Douglass Hanly Moir",
+      "names": [
+        "Douglass Hanly Moir"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q30253740"
+    },
+    {
+      "name": "Drakes",
+      "names": [
+        "Drakes"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q48988077"
+    },
+    {
+      "name": "Duncan's",
+      "names": [
+        "Duncan's"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q119104909"
+    },
+    {
+      "name": "Dunlop Super Dealer",
+      "names": [
+        "Dunlop Super Dealer",
+        "beaurepaires"
+      ],
+      "osm": "shop=tyres",
+      "wikidata": "Q131625949"
+    },
+    {
+      "name": "dusk",
+      "names": [
+        "dusk"
+      ],
+      "osm": "shop=candles",
+      "wikidata": "Q120669167"
+    },
+    {
+      "name": "Dymocks",
+      "names": [
+        "Dymocks"
+      ],
+      "osm": "shop=books",
+      "wikidata": "Q1280883"
+    },
+    {
+      "name": "Dôme",
+      "names": [
+        "Dôme"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q5289995"
+    },
+    {
+      "name": "Early Settler",
+      "names": [
+        "Early Settler"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q111080173"
+    },
+    {
+      "name": "EB Games",
+      "names": [
+        "EB Games",
+        "electronics boutique / eb games"
+      ],
+      "osm": "shop=video_games",
+      "wikidata": "Q5322604"
+    },
+    {
+      "name": "Econo Lodge",
+      "names": [
+        "Econo Lodge"
+      ],
+      "osm": "tourism=motel",
+      "wikidata": "Q5333330"
+    },
+    {
+      "name": "Edge Clothing",
+      "names": [
+        "Edge Clothing"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q117847766"
+    },
+    {
+      "name": "EG Australia",
+      "names": [
+        "EG Australia",
+        "Ampol",
+        "caltex woolworths",
+        "eg ampol",
+        "woolworths caltex",
+        "woolworths petrol"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q4748528"
+    },
+    {
+      "name": "El Jannah",
+      "names": [
+        "El Jannah"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q96377069"
+    },
+    {
+      "name": "Elders",
+      "names": [
+        "Elders"
+      ],
+      "osm": "shop=agrarian",
+      "wikidata": "Q5353983"
+    },
+    {
+      "name": "Element by Westin",
+      "names": [
+        "Element by Westin",
+        "Element"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q91948072"
+    },
+    {
+      "name": "Eu Yan Sang",
+      "names": [
+        "Eu Yan Sang"
+      ],
+      "osm": "shop=herbalist",
+      "wikidata": "Q4207246"
+    },
+    {
+      "name": "Eureka Street Furniture",
+      "names": [
+        "Eureka Street Furniture"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q111081528"
+    },
+    {
+      "name": "Event Cinemas",
+      "names": [
+        "Event Cinemas",
+        "event cinema"
+      ],
+      "osm": "amenity=cinema",
+      "wikidata": "Q5416698"
+    },
+    {
+      "name": "EzyMart",
+      "names": [
+        "EzyMart"
+      ],
+      "osm": "shop=convenience",
+      "wikidata": "Q117220554"
+    },
+    {
+      "name": "F45 Training",
+      "names": [
+        "F45 Training"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q64390973"
+    },
+    {
+      "name": "Fantastic Furniture",
+      "names": [
+        "Fantastic Furniture"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q18164803"
+    },
+    {
+      "name": "Ferguson Plarre's Bakehouse",
+      "names": [
+        "Ferguson Plarre's Bakehouse",
+        "fergusson plarre"
+      ],
+      "osm": "shop=bakery",
+      "wikidata": "Q5444249"
+    },
+    {
+      "name": "Fernwood Fitness",
+      "names": [
+        "Fernwood Fitness"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q115668528"
+    },
+    {
+      "name": "First Choice Liquor",
+      "names": [
+        "First Choice Liquor"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q4596269"
+    },
+    {
+      "name": "Fishbowl",
+      "names": [
+        "Fishbowl"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q110785465"
+    },
+    {
+      "name": "Fitness First",
+      "names": [
+        "Fitness First"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q127120"
+    },
+    {
+      "name": "Five Guys",
+      "names": [
+        "Five Guys"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q1131810"
+    },
+    {
+      "name": "Flight Club",
+      "names": [
+        "Flight Club"
+      ],
+      "osm": "amenity=bar",
+      "wikidata": "Q112668069"
+    },
+    {
+      "name": "Flip Out",
+      "names": [
+        "Flip Out"
+      ],
+      "osm": "leisure=trampoline_park",
+      "wikidata": "Q141100414"
+    },
+    {
+      "name": "Floorworld",
+      "names": [
+        "Floorworld"
+      ],
+      "osm": "shop=flooring",
+      "wikidata": "Q117156913"
+    },
+    {
+      "name": "Foodary",
+      "names": [
+        "Foodary",
+        "Ampol",
+        "ampol foodary"
+      ],
+      "osm": "shop=convenience",
+      "wikidata": "Q4748528"
+    },
+    {
+      "name": "Foodland",
+      "names": [
+        "Foodland"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q5465555"
+    },
+    {
+      "name": "Foodworks",
+      "names": [
+        "Foodworks"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q5465579"
+    },
+    {
+      "name": "Forever New",
+      "names": [
+        "Forever New"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q119221929"
+    },
+    {
+      "name": "Forty Winks",
+      "names": [
+        "Forty Winks"
+      ],
+      "osm": "shop=bed",
+      "wikidata": "Q106283438"
+    },
+    {
+      "name": "Fox in a Box",
+      "names": [
+        "Fox in a Box"
+      ],
+      "osm": "leisure=escape_game",
+      "wikidata": "Q137563898"
+    },
+    {
+      "name": "Freedom",
+      "names": [
+        "Freedom",
+        "freedom furniture"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q5500546"
+    },
+    {
+      "name": "Friendly Grocer",
+      "names": [
+        "Friendly Grocer"
+      ],
+      "osm": "shop=convenience",
+      "wikidata": "Q24190419"
+    },
+    {
+      "name": "Gelatissimo",
+      "names": [
+        "Gelatissimo"
+      ],
+      "osm": "amenity=ice_cream",
+      "wikidata": "Q105270111"
+    },
+    {
+      "name": "General Pants Co.",
+      "names": [
+        "General Pants Co."
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q5532086"
+    },
+    {
+      "name": "Genesis Health and Fitness",
+      "names": [
+        "Genesis Health and Fitness"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q122949631"
+    },
+    {
+      "name": "Ghanda",
+      "names": [
+        "Ghanda"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q105960946"
+    },
+    {
+      "name": "Glassons",
+      "names": [
+        "Glassons"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q118384067"
+    },
+    {
+      "name": "Godfreys",
+      "names": [
+        "Godfreys"
+      ],
+      "osm": "shop=vacuum_cleaner",
+      "wikidata": "Q17005430"
+    },
+    {
+      "name": "Godiva",
+      "names": [
+        "Godiva"
+      ],
+      "osm": "shop=chocolate",
+      "wikidata": "Q931084"
+    },
+    {
+      "name": "Goldmark",
+      "names": [
+        "Goldmark"
+      ],
+      "osm": "shop=jewelry",
+      "wikidata": "Q17005474"
+    },
+    {
+      "name": "Gong Cha",
+      "names": [
+        "Gong Cha"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q5581670"
+    },
+    {
+      "name": "Goodyear",
+      "names": [
+        "Goodyear",
+        "goodyear auto service center",
+        "goodyear commercial tire & service centers"
+      ],
+      "osm": "shop=car_repair",
+      "wikidata": "Q620875"
+    },
+    {
+      "name": "GPT Group",
+      "names": [
+        "GPT Group"
+      ],
+      "osm": "shop=mall",
+      "wikidata": "Q3100507"
+    },
+    {
+      "name": "Greencross Vets",
+      "names": [
+        "Greencross Vets"
+      ],
+      "osm": "amenity=veterinary",
+      "wikidata": "Q41179992"
+    },
+    {
+      "name": "Grill'd",
+      "names": [
+        "Grill'd"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q18165852"
+    },
+    {
+      "name": "Gull",
+      "names": [
+        "Gull"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q5617739"
+    },
+    {
+      "name": "Guzman y Gomez",
+      "names": [
+        "Guzman y Gomez"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q23019759"
+    },
+    {
+      "name": "H&R Block",
+      "names": [
+        "H&R Block",
+        "h&r block canada",
+        "hr block"
+      ],
+      "osm": "office=tax_advisor",
+      "wikidata": "Q5627799"
+    },
+    {
+      "name": "Habitat for Humanity ReStore",
+      "names": [
+        "Habitat for Humanity ReStore"
+      ],
+      "osm": "shop=charity",
+      "wikidata": "Q108414596"
+    },
+    {
+      "name": "Hairhouse",
+      "names": [
+        "Hairhouse"
+      ],
+      "osm": "shop=hairdresser_supply",
+      "wikidata": "Q118383855"
+    },
+    {
+      "name": "Hallensteins",
+      "names": [
+        "Hallensteins",
+        "Hallenstein Brothers"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q24189399"
+    },
+    {
+      "name": "Happy Lamb Hot Pot",
+      "names": [
+        "Happy Lamb Hot Pot"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q123091978"
+    },
+    {
+      "name": "Harris Farm Markets",
+      "names": [
+        "Harris Farm Markets",
+        "Harris Market Farms"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q5664888"
+    },
+    {
+      "name": "Harris Scarfe",
+      "names": [
+        "Harris Scarfe"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q5665029"
+    },
+    {
+      "name": "Harvey Norman",
+      "names": [
+        "Harvey Norman"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q4040441"
+    },
+    {
+      "name": "Hearing Australia",
+      "names": [
+        "Hearing Australia"
+      ],
+      "osm": "healthcare=audiologist",
+      "wikidata": "Q4824238"
+    },
+    {
+      "name": "Helloworld Travel",
+      "names": [
+        "Helloworld Travel"
+      ],
+      "osm": "shop=travel_agency",
+      "wikidata": "Q48772712"
+    },
+    {
+      "name": "Heytea",
+      "names": [
+        "Heytea"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q60875376"
+    },
+    {
+      "name": "Hog's Breath Cafe",
+      "names": [
+        "Hog's Breath Cafe"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q5876920"
+    },
+    {
+      "name": "Hoka",
+      "names": [
+        "Hoka"
+      ],
+      "osm": "shop=sports",
+      "wikidata": "Q16908664"
+    },
+    {
+      "name": "Holden",
+      "names": [
+        "Holden"
+      ],
+      "osm": "shop=car_repair",
+      "wikidata": "Q29281"
+    },
+    {
+      "name": "Holey Moley",
+      "names": [
+        "Holey Moley"
+      ],
+      "osm": "leisure=miniature_golf",
+      "wikidata": "Q85766991"
+    },
+    {
+      "name": "Home Timber & Hardware",
+      "names": [
+        "Home Timber & Hardware"
+      ],
+      "osm": "shop=doityourself",
+      "wikidata": "Q17006984"
+    },
+    {
+      "name": "HomeCo",
+      "names": [
+        "HomeCo",
+        "home consortium"
+      ],
+      "osm": "shop=mall",
+      "wikidata": "Q106773031"
+    },
+    {
+      "name": "Hotworx",
+      "names": [
+        "Hotworx"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q115527690"
+    },
+    {
+      "name": "House",
+      "names": [
+        "House"
+      ],
+      "osm": "shop=houseware",
+      "wikidata": "Q117921987"
+    },
+    {
+      "name": "House Bed & Bath",
+      "names": [
+        "House Bed & Bath",
+        "House"
+      ],
+      "osm": "shop=houseware",
+      "wikidata": "Q117921987"
+    },
+    {
+      "name": "Howards Storage World",
+      "names": [
+        "Howards Storage World"
+      ],
+      "osm": "shop=houseware",
+      "wikidata": "Q106283555"
+    },
+    {
+      "name": "Hoyts",
+      "names": [
+        "Hoyts"
+      ],
+      "osm": "amenity=cinema",
+      "wikidata": "Q5922976"
+    },
+    {
+      "name": "Hudsons Coffee",
+      "names": [
+        "Hudsons Coffee"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q5929076"
+    },
+    {
+      "name": "Huffer",
+      "names": [
+        "Huffer"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q107862765"
+    },
+    {
+      "name": "Hui Lau Shan",
+      "names": [
+        "Hui Lau Shan"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q5934913"
+    },
+    {
+      "name": "Hungry Jack's",
+      "names": [
+        "Hungry Jack's"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q3036373"
+    },
+    {
+      "name": "IGA",
+      "names": [
+        "IGA"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q5970945"
+    },
+    {
+      "name": "IKEA",
+      "names": [
+        "IKEA"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q54078"
+    },
+    {
+      "name": "IKEA Bistro",
+      "names": [
+        "IKEA Bistro",
+        "IKEA"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q54078"
+    },
+    {
+      "name": "IKEA Café",
+      "names": [
+        "IKEA Café",
+        "IKEA"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q54078"
+    },
+    {
+      "name": "IKEA Restaurant",
+      "names": [
+        "IKEA Restaurant",
+        "IKEA"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q54078"
+    },
+    {
+      "name": "IKEA Småland",
+      "names": [
+        "IKEA Småland",
+        "IKEA",
+        "Småland"
+      ],
+      "osm": "leisure=indoor_play",
+      "wikidata": "Q54078"
+    },
+    {
+      "name": "IKEA Swedish Food Market",
+      "names": [
+        "IKEA Swedish Food Market",
+        "IKEA"
+      ],
+      "osm": "shop=convenience",
+      "wikidata": "Q54078"
+    },
+    {
+      "name": "Industrie",
+      "names": [
+        "Industrie"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q117746099"
+    },
+    {
+      "name": "InMotion",
+      "names": [
+        "InMotion"
+      ],
+      "osm": "shop=electronics",
+      "wikidata": "Q109648041"
+    },
+    {
+      "name": "InXpress",
+      "names": [
+        "InXpress"
+      ],
+      "osm": "amenity=post_depot",
+      "wikidata": "Q130400315"
+    },
+    {
+      "name": "Ippudo",
+      "names": [
+        "Ippudo"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q6065417"
+    },
+    {
+      "name": "Ixina",
+      "names": [
+        "Ixina"
+      ],
+      "osm": "shop=kitchen",
+      "wikidata": "Q3156424"
+    },
+    {
+      "name": "Jacqui E",
+      "names": [
+        "Jacqui E"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q118383260"
+    },
+    {
+      "name": "Jamaica Blue",
+      "names": [
+        "Jamaica Blue"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q24965819"
+    },
+    {
+      "name": "Jax Tyres & Auto",
+      "names": [
+        "Jax Tyres & Auto"
+      ],
+      "osm": "shop=tyres",
+      "wikidata": "Q54010471"
+    },
+    {
+      "name": "Jay Jays",
+      "names": [
+        "Jay Jays"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q6166759"
+    },
+    {
+      "name": "Jaycar",
+      "names": [
+        "Jaycar"
+      ],
+      "osm": "shop=electronics",
+      "wikidata": "Q6167713"
+    },
+    {
+      "name": "JB Hi-Fi",
+      "names": [
+        "JB Hi-Fi"
+      ],
+      "osm": "shop=electronics",
+      "wikidata": "Q3310113"
+    },
+    {
+      "name": "JD Sports",
+      "names": [
+        "JD Sports",
+        "jd"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q6108019"
+    },
+    {
+      "name": "Jeanswest",
+      "names": [
+        "Jeanswest"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q6172434"
+    },
+    {
+      "name": "Jenny Craig",
+      "names": [
+        "Jenny Craig"
+      ],
+      "osm": "healthcare=counselling",
+      "wikidata": "Q6179221"
+    },
+    {
+      "name": "Jetts Fitness",
+      "names": [
+        "Jetts Fitness"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q24185346"
+    },
+    {
+      "name": "Jigsaw",
+      "names": [
+        "Jigsaw"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q6192383"
+    },
+    {
+      "name": "Johnny Bigg",
+      "names": [
+        "Johnny Bigg"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q113469024"
+    },
+    {
+      "name": "Johnson Fitness & Wellness",
+      "names": [
+        "Johnson Fitness & Wellness",
+        "johnson fitness & wellness store"
+      ],
+      "osm": "shop=sports",
+      "wikidata": "Q120785852"
+    },
+    {
+      "name": "Jucy",
+      "names": [
+        "Jucy"
+      ],
+      "osm": "amenity=car_rental",
+      "wikidata": "Q22032112"
+    },
+    {
+      "name": "Just Cuts",
+      "names": [
+        "Just Cuts"
+      ],
+      "osm": "shop=hairdresser",
+      "wikidata": "Q116784479"
+    },
+    {
+      "name": "Just Jeans",
+      "names": [
+        "Just Jeans"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q6316068"
+    },
+    {
+      "name": "K Hub",
+      "names": [
+        "K Hub",
+        "Kmart"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q6421682"
+    },
+    {
+      "name": "Kaisercraft",
+      "names": [
+        "Kaisercraft"
+      ],
+      "osm": "shop=craft",
+      "wikidata": "Q118342651"
+    },
+    {
+      "name": "Kate Spade New York",
+      "names": [
+        "Kate Spade New York",
+        "kate spade ny"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q6375797"
+    },
+    {
+      "name": "Kathmandu",
+      "names": [
+        "Kathmandu"
+      ],
+      "osm": "shop=outdoor",
+      "wikidata": "Q1736294"
+    },
+    {
+      "name": "Katies",
+      "names": [
+        "Katies"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q120646115"
+    },
+    {
+      "name": "KFL Supermarkets",
+      "names": [
+        "KFL Supermarkets"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q113462406"
+    },
+    {
+      "name": "Kidstuff",
+      "names": [
+        "Kidstuff"
+      ],
+      "osm": "shop=toys",
+      "wikidata": "Q117746407"
+    },
+    {
+      "name": "Kieser",
+      "names": [
+        "Kieser",
+        "kieser training"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q1112367"
+    },
+    {
+      "name": "Kinokuniya",
+      "names": [
+        "Kinokuniya"
+      ],
+      "osm": "shop=books",
+      "wikidata": "Q703227"
+    },
+    {
+      "name": "Kitchen Connection",
+      "names": [
+        "Kitchen Connection"
+      ],
+      "osm": "shop=kitchen",
+      "wikidata": "Q111081406"
+    },
+    {
+      "name": "Kitchen Warehouse",
+      "names": [
+        "Kitchen Warehouse"
+      ],
+      "osm": "shop=kitchen",
+      "wikidata": "Q63603149"
+    },
+    {
+      "name": "Kmart",
+      "names": [
+        "Kmart"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q6421682"
+    },
+    {
+      "name": "Koenigsegg",
+      "names": [
+        "Koenigsegg"
+      ],
+      "osm": "shop=car_repair",
+      "wikidata": "Q35594"
+    },
+    {
+      "name": "Kürtősh",
+      "names": [
+        "Kürtősh"
+      ],
+      "osm": "shop=pastry",
+      "wikidata": "Q117257108"
+    },
+    {
+      "name": "L'Antica Pizzeria da Michele",
+      "names": [
+        "L'Antica Pizzeria da Michele"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q137571344"
+    },
+    {
+      "name": "La Porchetta",
+      "names": [
+        "La Porchetta"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q6464528"
+    },
+    {
+      "name": "La-Z-Boy",
+      "names": [
+        "La-Z-Boy",
+        "la-z-boy furniture gallery",
+        "lazy boy"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q6391583"
+    },
+    {
+      "name": "Laser Clinics",
+      "names": [
+        "Laser Clinics"
+      ],
+      "osm": "shop=beauty",
+      "wikidata": "Q126539797"
+    },
+    {
+      "name": "Laverty Pathology",
+      "names": [
+        "Laverty Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q105256033"
+    },
+    {
+      "name": "LEGOLAND Discovery Centre",
+      "names": [
+        "LEGOLAND Discovery Centre"
+      ],
+      "osm": "tourism=theme_park",
+      "wikidata": "Q303439"
+    },
+    {
+      "name": "Liberty Oil",
+      "names": [
+        "Liberty Oil",
+        "Liberty"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q106687078"
+    },
+    {
+      "name": "Lifeline",
+      "names": [
+        "Lifeline",
+        "Lifeline Shop"
+      ],
+      "osm": "shop=charity",
+      "wikidata": "Q6545404"
+    },
+    {
+      "name": "Lime",
+      "names": [
+        "Lime"
+      ],
+      "osm": "amenity=bicycle_rental",
+      "wikidata": "Q39086685"
+    },
+    {
+      "name": "Lincraft",
+      "names": [
+        "Lincraft"
+      ],
+      "osm": "shop=fabric",
+      "wikidata": "Q17052417"
+    },
+    {
+      "name": "Liquorland",
+      "names": [
+        "Liquorland",
+        "liquorland australia"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q2283837"
+    },
+    {
+      "name": "Liquorland Cellars",
+      "names": [
+        "Liquorland Cellars"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q137190282"
+    },
+    {
+      "name": "LITTLE SHEEP",
+      "names": [
+        "LITTLE SHEEP",
+        "xiao fei yang"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q5976467"
+    },
+    {
+      "name": "Llaollao",
+      "names": [
+        "Llaollao"
+      ],
+      "osm": "amenity=ice_cream",
+      "wikidata": "Q12163048"
+    },
+    {
+      "name": "Lollipops Playland",
+      "names": [
+        "Lollipops Playland"
+      ],
+      "osm": "leisure=playground",
+      "wikidata": "Q116825053"
+    },
+    {
+      "name": "Lord of the Fries",
+      "names": [
+        "Lord of the Fries"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q104088629"
+    },
+    {
+      "name": "Lorna Jane",
+      "names": [
+        "Lorna Jane"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q28857986"
+    },
+    {
+      "name": "Lotte Duty Free",
+      "names": [
+        "Lotte Duty Free"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q12594196"
+    },
+    {
+      "name": "Lowes",
+      "names": [
+        "Lowes"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q6693996"
+    },
+    {
+      "name": "Lululemon",
+      "names": [
+        "Lululemon"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q6702957"
+    },
+    {
+      "name": "Lumas",
+      "names": [
+        "Lumas"
+      ],
+      "osm": "shop=art",
+      "wikidata": "Q1452381"
+    },
+    {
+      "name": "lyf",
+      "names": [
+        "lyf"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q132680230"
+    },
+    {
+      "name": "M.J. Bale",
+      "names": [
+        "M.J. Bale"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q97516243"
+    },
+    {
+      "name": "Macpac",
+      "names": [
+        "Macpac"
+      ],
+      "osm": "shop=outdoor",
+      "wikidata": "Q6724943"
+    },
+    {
+      "name": "Mad Mex Fresh Mexican Grill",
+      "names": [
+        "Mad Mex Fresh Mexican Grill",
+        "mad mex fresh mexican"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q19589766"
+    },
+    {
+      "name": "Maple Bear",
+      "names": [
+        "Maple Bear"
+      ],
+      "osm": "amenity=school",
+      "wikidata": "Q10324823"
+    },
+    {
+      "name": "MarketPlace Fresh",
+      "names": [
+        "MarketPlace Fresh"
+      ],
+      "osm": "shop=greengrocer",
+      "wikidata": "Q117847717"
+    },
+    {
+      "name": "Mathnasium",
+      "names": [
+        "Mathnasium",
+        "mathnasium learning center"
+      ],
+      "osm": "amenity=prep_school",
+      "wikidata": "Q6787302"
+    },
+    {
+      "name": "Max Brenner",
+      "names": [
+        "Max Brenner"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q955687"
+    },
+    {
+      "name": "Medibank",
+      "names": [
+        "Medibank"
+      ],
+      "osm": "office=insurance",
+      "wikidata": "Q6806228"
+    },
+    {
+      "name": "Medicare Urgent Care Clinic",
+      "names": [
+        "Medicare Urgent Care Clinic"
+      ],
+      "osm": "amenity=clinic",
+      "wikidata": "Q137945385"
+    },
+    {
+      "name": "Meet Fresh",
+      "names": [
+        "Meet Fresh"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q11172707"
+    },
+    {
+      "name": "Melbourne Pathology",
+      "names": [
+        "Melbourne Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q137825552"
+    },
+    {
+      "name": "Messina",
+      "names": [
+        "Messina",
+        "gelato messina"
+      ],
+      "osm": "amenity=ice_cream",
+      "wikidata": "Q120668671"
+    },
+    {
+      "name": "Metro Petroleum",
+      "names": [
+        "Metro Petroleum",
+        "metro"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q111970125"
+    },
+    {
+      "name": "Michael Hill",
+      "names": [
+        "Michael Hill"
+      ],
+      "osm": "shop=jewelry",
+      "wikidata": "Q3308250"
+    },
+    {
+      "name": "Michel's Patisserie",
+      "names": [
+        "Michel's Patisserie"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q6836235"
+    },
+    {
+      "name": "Middy's",
+      "names": [
+        "Middy's"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q117157352"
+    },
+    {
+      "name": "Mikel",
+      "names": [
+        "Mikel"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q16952021"
+    },
+    {
+      "name": "Millers",
+      "names": [
+        "Millers"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q120644857"
+    },
+    {
+      "name": "Mimco",
+      "names": [
+        "Mimco"
+      ],
+      "osm": "shop=jewelry",
+      "wikidata": "Q106014291"
+    },
+    {
+      "name": "Minuteman Press",
+      "names": [
+        "Minuteman Press"
+      ],
+      "osm": "shop=copyshop",
+      "wikidata": "Q64866081"
+    },
+    {
+      "name": "Mitre 10",
+      "names": [
+        "Mitre 10"
+      ],
+      "osm": "shop=doityourself",
+      "wikidata": "Q6882393"
+    },
+    {
+      "name": "Mixue Ice Cream & Tea",
+      "names": [
+        "Mixue Ice Cream & Tea",
+        "Mixue"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q107406476"
+    },
+    {
+      "name": "Mr Liquor",
+      "names": [
+        "Mr Liquor"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q117822077"
+    },
+    {
+      "name": "Mrs. Fields",
+      "names": [
+        "Mrs. Fields"
+      ],
+      "osm": "shop=pastry",
+      "wikidata": "Q3866841"
+    },
+    {
+      "name": "Muffin Break",
+      "names": [
+        "Muffin Break"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q16964876"
+    },
+    {
+      "name": "Muji",
+      "names": [
+        "Muji"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q708789"
+    },
+    {
+      "name": "Mulberry",
+      "names": [
+        "Mulberry"
+      ],
+      "osm": "shop=fashion_accessories",
+      "wikidata": "Q3866987"
+    },
+    {
+      "name": "Muzz Buzz",
+      "names": [
+        "Muzz Buzz"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q6944483"
+    },
+    {
+      "name": "mycar Tyre & Auto",
+      "names": [
+        "mycar Tyre & Auto",
+        "mycar"
+      ],
+      "osm": "shop=car_repair",
+      "wikidata": "Q106224674"
+    },
+    {
+      "name": "Myer",
+      "names": [
+        "Myer"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q1110323"
+    },
+    {
+      "name": "Myungrang Hotdog",
+      "names": [
+        "Myungrang Hotdog"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q130527587"
+    },
+    {
+      "name": "Nana's Green Tea",
+      "names": [
+        "Nana's Green Tea"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q28682440"
+    },
+    {
+      "name": "Nando's",
+      "names": [
+        "Nando's"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q3472954"
+    },
+    {
+      "name": "National Tiles",
+      "names": [
+        "National Tiles"
+      ],
+      "osm": "shop=tiles",
+      "wikidata": "Q117157007"
+    },
+    {
+      "name": "Newspower",
+      "names": [
+        "Newspower"
+      ],
+      "osm": "shop=newsagent",
+      "wikidata": "Q120670137"
+    },
+    {
+      "name": "Nick Scali",
+      "names": [
+        "Nick Scali"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q17053453"
+    },
+    {
+      "name": "NightOwl",
+      "names": [
+        "NightOwl"
+      ],
+      "osm": "shop=convenience",
+      "wikidata": "Q7033183"
+    },
+    {
+      "name": "Noodle Box",
+      "names": [
+        "Noodle Box"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q7049671"
+    },
+    {
+      "name": "NOVO",
+      "names": [
+        "NOVO"
+      ],
+      "osm": "shop=shoes",
+      "wikidata": "Q120669012"
+    },
+    {
+      "name": "Nudie Jeans",
+      "names": [
+        "Nudie Jeans"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q2436187"
+    },
+    {
+      "name": "Nutrition Warehouse",
+      "names": [
+        "Nutrition Warehouse"
+      ],
+      "osm": "shop=nutrition_supplements",
+      "wikidata": "Q117747424"
+    },
+    {
+      "name": "O'Briens Café",
+      "names": [
+        "O'Briens Café",
+        "O'Briens"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q7071686"
+    },
+    {
+      "name": "Oakberry Açaí bowls",
+      "names": [
+        "Oakberry Açaí bowls"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q104870840"
+    },
+    {
+      "name": "Oaks Hotels",
+      "names": [
+        "Oaks Hotels",
+        "Oaks Hotels, Resorts & Suites"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q23073772"
+    },
+    {
+      "name": "Officeworks",
+      "names": [
+        "Officeworks"
+      ],
+      "osm": "shop=stationery",
+      "wikidata": "Q7079486"
+    },
+    {
+      "name": "OMG! Decadent Donuts",
+      "names": [
+        "OMG! Decadent Donuts",
+        "omg"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q138388838"
+    },
+    {
+      "name": "Oporto",
+      "names": [
+        "Oporto"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q4412342"
+    },
+    {
+      "name": "OPSM",
+      "names": [
+        "OPSM"
+      ],
+      "osm": "shop=optician",
+      "wikidata": "Q7072858"
+    },
+    {
+      "name": "Optical Superstore",
+      "names": [
+        "Optical Superstore"
+      ],
+      "osm": "shop=optician",
+      "wikidata": "Q126174788"
+    },
+    {
+      "name": "Optus",
+      "names": [
+        "Optus"
+      ],
+      "osm": "shop=mobile_phone",
+      "wikidata": "Q865038"
+    },
+    {
+      "name": "Orange Leaf",
+      "names": [
+        "Orange Leaf",
+        "Orange Leaf Frozen Yogurt"
+      ],
+      "osm": "amenity=ice_cream",
+      "wikidata": "Q18155467"
+    },
+    {
+      "name": "Oscar Wylee",
+      "names": [
+        "Oscar Wylee"
+      ],
+      "osm": "shop=optician",
+      "wikidata": "Q120669494"
+    },
+    {
+      "name": "OTR",
+      "names": [
+        "OTR",
+        "on the run"
+      ],
+      "osm": "shop=convenience",
+      "wikidata": "Q116394019"
+    },
+    {
+      "name": "OZ Design Furniture",
+      "names": [
+        "OZ Design Furniture"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q111081305"
+    },
+    {
+      "name": "Palace Cinemas",
+      "names": [
+        "Palace Cinemas"
+      ],
+      "osm": "amenity=cinema",
+      "wikidata": "Q7126164"
+    },
+    {
+      "name": "Patagonia",
+      "names": [
+        "Patagonia"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q1660552"
+    },
+    {
+      "name": "Petbarn",
+      "names": [
+        "Petbarn"
+      ],
+      "osm": "shop=pet",
+      "wikidata": "Q104746468"
+    },
+    {
+      "name": "Peter Alexander",
+      "names": [
+        "Peter Alexander"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q118383240"
+    },
+    {
+      "name": "Petstock",
+      "names": [
+        "Petstock"
+      ],
+      "osm": "shop=pet",
+      "wikidata": "Q106540728"
+    },
+    {
+      "name": "Pharmacy 4 Less",
+      "names": [
+        "Pharmacy 4 Less"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q63367608"
+    },
+    {
+      "name": "PharmaSave",
+      "names": [
+        "PharmaSave"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q63367906"
+    },
+    {
+      "name": "Pie Face",
+      "names": [
+        "Pie Face"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q18166370"
+    },
+    {
+      "name": "Pillow Talk",
+      "names": [
+        "Pillow Talk"
+      ],
+      "osm": "shop=household_linen",
+      "wikidata": "Q120648495"
+    },
+    {
+      "name": "Pizza Capers",
+      "names": [
+        "Pizza Capers"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q17021875"
+    },
+    {
+      "name": "Plus Fitness",
+      "names": [
+        "Plus Fitness"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q118315364"
+    },
+    {
+      "name": "Plush",
+      "names": [
+        "Plush"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q111081152"
+    },
+    {
+      "name": "Pop Mart",
+      "names": [
+        "Pop Mart"
+      ],
+      "osm": "shop=toys",
+      "wikidata": "Q97180096"
+    },
+    {
+      "name": "Portmans",
+      "names": [
+        "Portmans"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q118383252"
+    },
+    {
+      "name": "Price Attack",
+      "names": [
+        "Price Attack"
+      ],
+      "osm": "shop=hairdresser_supply",
+      "wikidata": "Q117747512"
+    },
+    {
+      "name": "Priceline Pharmacy",
+      "names": [
+        "Priceline Pharmacy",
+        "priceline"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q7242652"
+    },
+    {
+      "name": "Prouds",
+      "names": [
+        "Prouds"
+      ],
+      "osm": "shop=jewelry",
+      "wikidata": "Q18636715"
+    },
+    {
+      "name": "Provincial Home Living",
+      "names": [
+        "Provincial Home Living"
+      ],
+      "osm": "shop=furniture",
+      "wikidata": "Q111080958"
+    },
+    {
+      "name": "QBD Books",
+      "names": [
+        "QBD Books"
+      ],
+      "osm": "shop=books",
+      "wikidata": "Q7270909"
+    },
+    {
+      "name": "QML Pathology",
+      "names": [
+        "QML Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q126165557"
+    },
+    {
+      "name": "RACQ",
+      "names": [
+        "RACQ"
+      ],
+      "osm": "office=insurance",
+      "wikidata": "Q16822163"
+    },
+    {
+      "name": "Ramen Danbo",
+      "names": [
+        "Ramen Danbo"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q130221273"
+    },
+    {
+      "name": "Rapha",
+      "names": [
+        "Rapha"
+      ],
+      "osm": "shop=sports",
+      "wikidata": "Q131446199"
+    },
+    {
+      "name": "Reading Cinemas",
+      "names": [
+        "Reading Cinemas"
+      ],
+      "osm": "amenity=cinema",
+      "wikidata": "Q43898773"
+    },
+    {
+      "name": "Rebel",
+      "names": [
+        "Rebel"
+      ],
+      "osm": "shop=sports",
+      "wikidata": "Q18636397"
+    },
+    {
+      "name": "Red Rooster",
+      "names": [
+        "Red Rooster"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q376466"
+    },
+    {
+      "name": "Reddy Express",
+      "names": [
+        "Reddy Express",
+        "coles express"
+      ],
+      "osm": "shop=convenience",
+      "wikidata": "Q5144653"
+    },
+    {
+      "name": "Redspot Car Rentals",
+      "names": [
+        "Redspot Car Rentals"
+      ],
+      "osm": "amenity=car_rental",
+      "wikidata": "Q7306270"
+    },
+    {
+      "name": "Reece Actrol",
+      "names": [
+        "Reece Actrol",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Reece Bathroom Life",
+      "names": [
+        "Reece Bathroom Life",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Reece Civil",
+      "names": [
+        "Reece Civil",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Reece Fire",
+      "names": [
+        "Reece Fire",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Reece HVAC-R",
+      "names": [
+        "Reece HVAC-R",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Reece Irrigation & Pools",
+      "names": [
+        "Reece Irrigation & Pools",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Reece Onsite",
+      "names": [
+        "Reece Onsite",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Reece Pipeline Supplies",
+      "names": [
+        "Reece Pipeline Supplies",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Reece Plumbing Centre",
+      "names": [
+        "Reece Plumbing Centre",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Reece Viadux",
+      "names": [
+        "Reece Viadux",
+        "Reece"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q29025524"
+    },
+    {
+      "name": "Removery",
+      "names": [
+        "Removery",
+        "fresh start laser clinic",
+        "inkoff.me",
+        "removery tattoo removal & fading"
+      ],
+      "osm": "shop=beauty",
+      "wikidata": "Q119982405"
+    },
+    {
+      "name": "Repco",
+      "names": [
+        "Repco"
+      ],
+      "osm": "shop=car_parts",
+      "wikidata": "Q173425"
+    },
+    {
+      "name": "Resene",
+      "names": [
+        "Resene"
+      ],
+      "osm": "shop=paint",
+      "wikidata": "Q111951487"
+    },
+    {
+      "name": "Rexel",
+      "names": [
+        "Rexel"
+      ],
+      "osm": "shop=electrical",
+      "wikidata": "Q962489"
+    },
+    {
+      "name": "Rip Curl",
+      "names": [
+        "Rip Curl"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q2915254"
+    },
+    {
+      "name": "Ritchies",
+      "names": [
+        "Ritchies"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q7336696"
+    },
+    {
+      "name": "Rivers",
+      "names": [
+        "Rivers"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q106224813"
+    },
+    {
+      "name": "Rockmans",
+      "names": [
+        "Rockmans"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q120646031"
+    },
+    {
+      "name": "Rockwear",
+      "names": [
+        "Rockwear"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q113469029"
+    },
+    {
+      "name": "RocoGo",
+      "names": [
+        "RocoGo"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q123034964"
+    },
+    {
+      "name": "RocoMamas",
+      "names": [
+        "RocoMamas"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q123034964"
+    },
+    {
+      "name": "Rodd & Gunn",
+      "names": [
+        "Rodd & Gunn"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q85797658"
+    },
+    {
+      "name": "Roll'd",
+      "names": [
+        "Roll'd",
+        "roll'd vietnamese"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q113114631"
+    },
+    {
+      "name": "RSPCA",
+      "names": [
+        "RSPCA"
+      ],
+      "osm": "shop=charity",
+      "wikidata": "Q584819"
+    },
+    {
+      "name": "SAE Institute",
+      "names": [
+        "SAE Institute"
+      ],
+      "osm": "amenity=college",
+      "wikidata": "Q201438"
+    },
+    {
+      "name": "Salvos",
+      "names": [
+        "Salvos"
+      ],
+      "osm": "shop=charity",
+      "wikidata": "Q120646407"
+    },
+    {
+      "name": "Savers",
+      "names": [
+        "Savers"
+      ],
+      "osm": "shop=second_hand",
+      "wikidata": "Q7428188"
+    },
+    {
+      "name": "Schnitz",
+      "names": [
+        "Schnitz"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q48792277"
+    },
+    {
+      "name": "School of Rock",
+      "names": [
+        "School of Rock"
+      ],
+      "osm": "amenity=music_school",
+      "wikidata": "Q7756376"
+    },
+    {
+      "name": "Seed Heritage",
+      "names": [
+        "Seed Heritage"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q106014671"
+    },
+    {
+      "name": "Shapland Swim Schools",
+      "names": [
+        "Shapland Swim Schools",
+        "Shapland Swim School"
+      ],
+      "osm": "leisure=sports_centre",
+      "wikidata": "Q121333635"
+    },
+    {
+      "name": "Sharetea",
+      "names": [
+        "Sharetea"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q64827032"
+    },
+    {
+      "name": "Shaver Shop",
+      "names": [
+        "Shaver Shop"
+      ],
+      "osm": "shop=hairdresser_supply",
+      "wikidata": "Q119443589"
+    },
+    {
+      "name": "SHEIKE",
+      "names": [
+        "SHEIKE"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q117747877"
+    },
+    {
+      "name": "Shine Lawyers",
+      "names": [
+        "Shine Lawyers"
+      ],
+      "osm": "office=lawyer",
+      "wikidata": "Q17033391"
+    },
+    {
+      "name": "Shingle Inn",
+      "names": [
+        "Shingle Inn"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q7497463"
+    },
+    {
+      "name": "Shiploads",
+      "names": [
+        "Shiploads"
+      ],
+      "osm": "shop=variety_store",
+      "wikidata": "Q105883436"
+    },
+    {
+      "name": "Sinopec",
+      "names": [
+        "Sinopec"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q831445"
+    },
+    {
+      "name": "Smiggle",
+      "names": [
+        "Smiggle"
+      ],
+      "osm": "shop=stationery",
+      "wikidata": "Q7544536"
+    },
+    {
+      "name": "Snap Fitness",
+      "names": [
+        "Snap Fitness"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q7547254"
+    },
+    {
+      "name": "Solo Oil",
+      "names": [
+        "Solo Oil"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q115517074"
+    },
+    {
+      "name": "Soul Origin",
+      "names": [
+        "Soul Origin"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q110473093"
+    },
+    {
+      "name": "Soul Pattinson Chemist",
+      "names": [
+        "Soul Pattinson Chemist"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q117225301"
+    },
+    {
+      "name": "Spendless Shoes",
+      "names": [
+        "Spendless Shoes",
+        "spendless"
+      ],
+      "osm": "shop=shoes",
+      "wikidata": "Q120668938"
+    },
+    {
+      "name": "Sportscraft",
+      "names": [
+        "Sportscraft"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q7579966"
+    },
+    {
+      "name": "Sportsgirl",
+      "names": [
+        "Sportsgirl"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q7579970"
+    },
+    {
+      "name": "SportsPower",
+      "names": [
+        "SportsPower"
+      ],
+      "osm": "shop=sports",
+      "wikidata": "Q117747652"
+    },
+    {
+      "name": "Spotlight",
+      "names": [
+        "Spotlight"
+      ],
+      "osm": "shop=fabric",
+      "wikidata": "Q105960982"
+    },
+    {
+      "name": "Spudbar",
+      "names": [
+        "Spudbar"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q19589778"
+    },
+    {
+      "name": "Spur",
+      "names": [
+        "Spur",
+        "spur steak ranches"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q7581546"
+    },
+    {
+      "name": "Strandbags",
+      "names": [
+        "Strandbags"
+      ],
+      "osm": "shop=bag",
+      "wikidata": "Q111946652"
+    },
+    {
+      "name": "Strike Bowling Bar",
+      "names": [
+        "Strike Bowling Bar"
+      ],
+      "osm": "leisure=bowling_alley",
+      "wikidata": "Q7623769"
+    },
+    {
+      "name": "Suavinex",
+      "names": [
+        "Suavinex"
+      ],
+      "osm": "shop=baby_goods",
+      "wikidata": "Q122258837"
+    },
+    {
+      "name": "Sullivan Nicholaides Pathology",
+      "names": [
+        "Sullivan Nicholaides Pathology",
+        "Sullivan Nicolaides Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q137825545"
+    },
+    {
+      "name": "Supabarn",
+      "names": [
+        "Supabarn"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q7641883"
+    },
+    {
+      "name": "Supercheap Auto",
+      "names": [
+        "Supercheap Auto"
+      ],
+      "osm": "shop=car_parts",
+      "wikidata": "Q7643119"
+    },
+    {
+      "name": "Supré",
+      "names": [
+        "Supré"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q7645153"
+    },
+    {
+      "name": "Sure Hotel Collection",
+      "names": [
+        "Sure Hotel Collection"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q135246644"
+    },
+    {
+      "name": "SureStay",
+      "names": [
+        "SureStay",
+        "surestay hotels"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q135246628"
+    },
+    {
+      "name": "SureStay Collection",
+      "names": [
+        "SureStay Collection",
+        "surestay collection hotels"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q135246644"
+    },
+    {
+      "name": "Sushi Sushi",
+      "names": [
+        "Sushi Sushi"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q122915060"
+    },
+    {
+      "name": "Sussan",
+      "names": [
+        "Sussan"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q28184460"
+    },
+    {
+      "name": "Suzanne Grae",
+      "names": [
+        "Suzanne Grae"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q117747672"
+    },
+    {
+      "name": "Sydney Tools",
+      "names": [
+        "Sydney Tools"
+      ],
+      "osm": "shop=hardware",
+      "wikidata": "Q116779309"
+    },
+    {
+      "name": "T2",
+      "names": [
+        "T2"
+      ],
+      "osm": "shop=tea",
+      "wikidata": "Q48802134"
+    },
+    {
+      "name": "Taco Bell",
+      "names": [
+        "Taco Bell"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q752941"
+    },
+    {
+      "name": "Target",
+      "names": [
+        "Target"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q7685854"
+    },
+    {
+      "name": "Tarocash",
+      "names": [
+        "Tarocash"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q7686519"
+    },
+    {
+      "name": "Telstra",
+      "names": [
+        "Telstra"
+      ],
+      "osm": "shop=mobile_phone",
+      "wikidata": "Q721162"
+    },
+    {
+      "name": "TerryWhite Chemmart",
+      "names": [
+        "TerryWhite Chemmart",
+        "terrywhite",
+        "terrywhite chemist",
+        "terrywhite chemists"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q24089773"
+    },
+    {
+      "name": "The Cheesecake Shop",
+      "names": [
+        "The Cheesecake Shop"
+      ],
+      "osm": "shop=bakery",
+      "wikidata": "Q117717103"
+    },
+    {
+      "name": "The Coffee",
+      "names": [
+        "The Coffee"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q112042753"
+    },
+    {
+      "name": "The Coffee Club",
+      "names": [
+        "The Coffee Club"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q7726599"
+    },
+    {
+      "name": "The Good Guys",
+      "names": [
+        "The Good Guys"
+      ],
+      "osm": "shop=electronics",
+      "wikidata": "Q7737217"
+    },
+    {
+      "name": "The Groove Train",
+      "names": [
+        "The Groove Train"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q117710890"
+    },
+    {
+      "name": "The Grumpy Baker",
+      "names": [
+        "The Grumpy Baker"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q117772090"
+    },
+    {
+      "name": "The Reject Shop",
+      "names": [
+        "The Reject Shop"
+      ],
+      "osm": "shop=variety_store",
+      "wikidata": "Q7760092"
+    },
+    {
+      "name": "The Salvation Army",
+      "names": [
+        "The Salvation Army",
+        "salvation army",
+        "the salvation army charity shop",
+        "the salvation army family store"
+      ],
+      "osm": "shop=charity",
+      "wikidata": "Q188307"
+    },
+    {
+      "name": "The Sebel",
+      "names": [
+        "The Sebel",
+        "sebel"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q110888248"
+    },
+    {
+      "name": "The Source Bulk Foods",
+      "names": [
+        "The Source Bulk Foods"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q113771168"
+    },
+    {
+      "name": "Thirsty Camel",
+      "names": [
+        "Thirsty Camel"
+      ],
+      "osm": "shop=alcohol",
+      "wikidata": "Q113503937"
+    },
+    {
+      "name": "Ticketmaster",
+      "names": [
+        "Ticketmaster",
+        "live nation"
+      ],
+      "osm": "shop=ticket",
+      "wikidata": "Q2609162"
+    },
+    {
+      "name": "Tim Ho Wan",
+      "names": [
+        "Tim Ho Wan"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q11153709"
+    },
+    {
+      "name": "Timezone",
+      "names": [
+        "Timezone"
+      ],
+      "osm": "leisure=amusement_arcade",
+      "wikidata": "Q12521502"
+    },
+    {
+      "name": "TK Maxx",
+      "names": [
+        "TK Maxx"
+      ],
+      "osm": "shop=department_store",
+      "wikidata": "Q23823668"
+    },
+    {
+      "name": "TML Pathology",
+      "names": [
+        "TML Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q126165745"
+    },
+    {
+      "name": "Toby's Estate",
+      "names": [
+        "Toby's Estate"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q117006060"
+    },
+    {
+      "name": "Tom N Toms",
+      "names": [
+        "Tom N Toms"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q18142418"
+    },
+    {
+      "name": "Topgolf",
+      "names": [
+        "Topgolf"
+      ],
+      "osm": "leisure=sports_centre",
+      "wikidata": "Q7824379"
+    },
+    {
+      "name": "Torga Optical",
+      "names": [
+        "Torga Optical"
+      ],
+      "osm": "shop=optician",
+      "wikidata": "Q140698453"
+    },
+    {
+      "name": "Total Tools",
+      "names": [
+        "Total Tools"
+      ],
+      "osm": "shop=hardware",
+      "wikidata": "Q116779059"
+    },
+    {
+      "name": "Totally Workwear",
+      "names": [
+        "Totally Workwear"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q119247989"
+    },
+    {
+      "name": "Toyworld",
+      "names": [
+        "Toyworld"
+      ],
+      "osm": "shop=toys",
+      "wikidata": "Q95923071"
+    },
+    {
+      "name": "Tradelink",
+      "names": [
+        "Tradelink"
+      ],
+      "osm": "shop=trade",
+      "wikidata": "Q120648432"
+    },
+    {
+      "name": "Travel Money Oz",
+      "names": [
+        "Travel Money Oz"
+      ],
+      "osm": "amenity=bureau_de_change",
+      "wikidata": "Q123437458"
+    },
+    {
+      "name": "Travelodge",
+      "names": [
+        "Travelodge"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q24997583"
+    },
+    {
+      "name": "Tyreplus",
+      "names": [
+        "Tyreplus"
+      ],
+      "osm": "shop=tyres",
+      "wikidata": "Q110959120"
+    },
+    {
+      "name": "Tyrepower",
+      "names": [
+        "Tyrepower"
+      ],
+      "osm": "shop=tyres",
+      "wikidata": "Q108855867"
+    },
+    {
+      "name": "UFS",
+      "names": [
+        "UFS",
+        "ufs dispensaries"
+      ],
+      "osm": "amenity=pharmacy",
+      "wikidata": "Q63367573"
+    },
+    {
+      "name": "Ultra Tune",
+      "names": [
+        "Ultra Tune"
+      ],
+      "osm": "shop=car_repair",
+      "wikidata": "Q29025649"
+    },
+    {
+      "name": "United",
+      "names": [
+        "United",
+        "united petroleum"
+      ],
+      "osm": "amenity=fuel",
+      "wikidata": "Q28224393"
+    },
+    {
+      "name": "Universal Store",
+      "names": [
+        "Universal Store"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q96412731"
+    },
+    {
+      "name": "Vicinity Centres",
+      "names": [
+        "Vicinity Centres"
+      ],
+      "osm": "shop=mall",
+      "wikidata": "Q1054327"
+    },
+    {
+      "name": "Village Cinemas",
+      "names": [
+        "Village Cinemas",
+        "Village"
+      ],
+      "osm": "amenity=cinema",
+      "wikidata": "Q7930631"
+    },
+    {
+      "name": "Vinnies",
+      "names": [
+        "Vinnies"
+      ],
+      "osm": "shop=charity",
+      "wikidata": "Q120646672"
+    },
+    {
+      "name": "Virgin Active",
+      "names": [
+        "Virgin Active"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q4013942"
+    },
+    {
+      "name": "Vodafone",
+      "names": [
+        "Vodafone",
+        "vodafone deutschland",
+        "vodafone egypt",
+        "vodafone shop"
+      ],
+      "osm": "shop=mobile_phone",
+      "wikidata": "Q122141"
+    },
+    {
+      "name": "Wahlburgers",
+      "names": [
+        "Wahlburgers"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q17032457"
+    },
+    {
+      "name": "Waldorf Astoria",
+      "names": [
+        "Waldorf Astoria",
+        "waldorf astoria hotels & resorts"
+      ],
+      "osm": "tourism=hotel",
+      "wikidata": "Q3239392"
+    },
+    {
+      "name": "Wallace Bishop",
+      "names": [
+        "Wallace Bishop"
+      ],
+      "osm": "shop=jewelry",
+      "wikidata": "Q18636699"
+    },
+    {
+      "name": "Wallis Cinemas",
+      "names": [
+        "Wallis Cinemas",
+        "wallis cinema",
+        "wallis theatres"
+      ],
+      "osm": "amenity=cinema",
+      "wikidata": "Q7963128"
+    },
+    {
+      "name": "Warhammer",
+      "names": [
+        "Warhammer",
+        "games workshop"
+      ],
+      "osm": "shop=games",
+      "wikidata": "Q136613133"
+    },
+    {
+      "name": "Wendy's Milk Bar",
+      "names": [
+        "Wendy's Milk Bar"
+      ],
+      "osm": "amenity=ice_cream",
+      "wikidata": "Q7982571"
+    },
+    {
+      "name": "Western Diagnostic Pathology",
+      "names": [
+        "Western Diagnostic Pathology"
+      ],
+      "osm": "healthcare=sample_collection",
+      "wikidata": "Q126165699"
+    },
+    {
+      "name": "Westfield",
+      "names": [
+        "Westfield"
+      ],
+      "osm": "shop=mall",
+      "wikidata": "Q106623253"
+    },
+    {
+      "name": "WingStreet",
+      "names": [
+        "WingStreet"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q946630"
+    },
+    {
+      "name": "Witchery",
+      "names": [
+        "Witchery"
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q8027909"
+    },
+    {
+      "name": "Woolworths",
+      "names": [
+        "Woolworths"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q3249145"
+    },
+    {
+      "name": "Woolworths Metro",
+      "names": [
+        "Woolworths Metro"
+      ],
+      "osm": "shop=supermarket",
+      "wikidata": "Q111772555"
+    },
+    {
+      "name": "Woolworths MetroGo",
+      "names": [
+        "Woolworths MetroGo"
+      ],
+      "osm": "shop=convenience",
+      "wikidata": "Q111772555"
+    },
+    {
+      "name": "XiaoLongKan",
+      "names": [
+        "XiaoLongKan"
+      ],
+      "osm": "amenity=restaurant",
+      "wikidata": "Q108212427"
+    },
+    {
+      "name": "yd.",
+      "names": [
+        "yd."
+      ],
+      "osm": "shop=clothes",
+      "wikidata": "Q113469019"
+    },
+    {
+      "name": "Yo-Chi",
+      "names": [
+        "Yo-Chi"
+      ],
+      "osm": "amenity=ice_cream",
+      "wikidata": "Q138569799"
+    },
+    {
+      "name": "Yogurtland",
+      "names": [
+        "Yogurtland"
+      ],
+      "osm": "amenity=ice_cream",
+      "wikidata": "Q8054428"
+    },
+    {
+      "name": "Youth Hostels Association",
+      "names": [
+        "Youth Hostels Association",
+        "hostelling international"
+      ],
+      "osm": "tourism=hostel",
+      "wikidata": "Q8045885"
+    },
+    {
+      "name": "Zambrero",
+      "names": [
+        "Zambrero"
+      ],
+      "osm": "amenity=fast_food",
+      "wikidata": "Q18636431"
+    },
+    {
+      "name": "Zap Fitness",
+      "names": [
+        "Zap Fitness"
+      ],
+      "osm": "leisure=fitness_centre",
+      "wikidata": "Q106119874"
+    },
+    {
+      "name": "Zarraffa's Coffee",
+      "names": [
+        "Zarraffa's Coffee"
+      ],
+      "osm": "amenity=cafe",
+      "wikidata": "Q8066878"
+    },
+    {
+      "name": "Zing Pop Culture",
+      "names": [
+        "Zing Pop Culture"
+      ],
+      "osm": "shop=games",
+      "wikidata": "Q23023711"
+    },
+    {
+      "name": "Zone Bowling",
+      "names": [
+        "Zone Bowling"
+      ],
+      "osm": "leisure=bowling_alley",
+      "wikidata": "Q85817146"
+    },
+    {
+      "name": "Zurich",
+      "names": [
+        "Zurich"
+      ],
+      "osm": "office=insurance",
+      "wikidata": "Q230426"
+    }
+  ]
+}
