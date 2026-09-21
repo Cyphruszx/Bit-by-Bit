@@ -8,6 +8,7 @@
  * signed-in UI can merge. Responses never include Fiskil secrets.
  */
 
+import { logFiskilSupport } from "@/lib/fiskil/log";
 import { ledgerFromSync, processSyncDeps, publicSyncResult, runOpenBankingSyncRequest } from "@/lib/fiskil/sync";
 import { parseFeatureToggles } from "@/lib/money-flow/features";
 
@@ -17,6 +18,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const result = await runOpenBankingSyncRequest({ poll: true }, processSyncDeps());
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
+  logFiskilSupport("open_banking.route.sync", {}, { action: "poll" });
   return Response.json({
     polled: result.results.length,
     results: result.results.map(publicSyncResult),
@@ -41,6 +43,7 @@ export async function POST(request: Request) {
     processSyncDeps(),
   );
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
+  logFiskilSupport("open_banking.route.sync", {}, { action: body.poll === true ? "poll" : "manual" });
   const ledger = result.results.map(ledgerFromSync).find((row) => row);
   return Response.json({
     results: result.results.map(publicSyncResult),

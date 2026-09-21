@@ -237,6 +237,33 @@ export async function requestOpenBankingSync(input: {
   });
 }
 
+/**
+ * Account-delete / leave-product hook. Sign-out does not call this.
+ * Last bank disconnect also deletes the Fiskil end user from the revoke path.
+ */
+export async function leaveOpenBankingProduct(userId: string): Promise<
+  { ok: true; deleted: boolean; skipped?: boolean } | { ok: false; error: string; status?: number }
+> {
+  const response = await fetch("/api/open-banking/end-user", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  const body = (await readBody(response)) as Record<string, unknown>;
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: typeof body.error === "string" ? body.error : "Could not delete the Open Banking end user.",
+      status: response.status,
+    };
+  }
+  return {
+    ok: true,
+    deleted: body.deleted === true,
+    ...(body.skipped === true ? { skipped: true } : {}),
+  };
+}
+
 export async function reconnectOpenBankingSession(input: ConnectIdentity &
   ConnectUris & { featureToggles: OpenBankingToggles; connectionId: string }): Promise<StartSessionResult> {
   return postJson("/api/open-banking/connections", {

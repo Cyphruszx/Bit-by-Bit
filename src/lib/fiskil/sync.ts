@@ -20,7 +20,9 @@ import {
 import { fiskilCredentials, type FiskilCredentials, type FiskilEnv } from "./config";
 import { type BankConnection, type ConnectionStore } from "./connections";
 import { type EndUserLinkStore } from "./end-users";
+import { FiskilApiError, errorIdOf } from "./errors";
 import { type LedgerDocumentStore } from "./ledger-store";
+import { logFiskilSupport } from "./log";
 import { openBankingRuntimeStores } from "./runtime-stores";
 import { upsertOpenBankingLedger, type OpenBankingSyncReport } from "@/lib/open-banking/ledger-sync";
 import { processTokenCache } from "./token";
@@ -58,6 +60,7 @@ export type SyncFailure = {
   status: 400 | 403 | 404 | 409 | 502 | 503;
   error: string;
   reconnect?: boolean;
+  errorId?: string;
 };
 
 export function processSyncDeps(): SyncDeps {
@@ -122,6 +125,7 @@ export async function syncOpenBankingConnection(
     cache: deps.cache,
     now: deps.now,
     apiBase: deps.apiBase,
+    sleep: deps.sleep,
   };
 
   try {
@@ -134,7 +138,19 @@ export async function syncOpenBankingConnection(
       },
       banking,
     );
-    const balances = await listFiskilBalances(connection.endUserId, banking).catch(() => []);
+    const balances = await listFiskilBalances(connection.endUserId, banking).catch((err) => {
+      logFiskilSupport(
+        "open_banking.sync.balances_failed",
+        {
+          end_user_id: connection.endUserId,
+          consent_id: connection.consentId ?? connection.id,
+          session_id: connection.sessionId,
+          error_id: errorIdOf(err),
+        },
+        { action: "list_balances" },
+      );
+      return [];
+    });
 
     const ledger = await deps.ledgers.get(connection.userId);
     const { ledger: next, report } = upsertOpenBankingLedger(ledger, {
@@ -157,6 +173,12 @@ export async function syncOpenBankingConnection(
     };
     await deps.connections.put(updated);
 
+    logFiskilSupport("open_banking.sync.ok", {
+      end_user_id: connection.endUserId,
+      consent_id: connection.consentId ?? connection.id,
+      session_id: connection.sessionId,
+    }, { action: input.reason });
+
     return {
       ok: true,
       reason: input.reason,
@@ -168,6 +190,17 @@ export async function syncOpenBankingConnection(
       ledger: next,
     };
   } catch (err) {
+    const errorId = errorIdOf(err);
+    logFiskilSupport("open_banking.sync.failed", {
+      end_user_id: connection.endUserId,
+      consent_id: connection.consentId ?? connection.id,
+      session_id: connection.sessionId,
+      error_id: errorId,
+    }, {
+      status: err instanceof FiskilApiError || err instanceof FiskilAuthError ? err.status : 502,
+      action: input.reason,
+      retryable: err instanceof FiskilApiError ? err.retryable : false,
+    });
     if (err instanceof FiskilAuthError) {
       await stopSync(connection, err.kind, deps.connections);
       return {
@@ -175,9 +208,23 @@ export async function syncOpenBankingConnection(
         status: 502,
         error: err.kind === "consent" ? "Bank consent needs reconnect." : "Fiskil token failed. Reconnect the bank.",
         reconnect: true,
+        ...(errorId ? { errorId } : {}),
       };
     }
-    return { ok: false, status: 502, error: "Open Banking sync failed." };
+    if (err instanceof FiskilApiError && err.errorName === "pagination_incomplete") {
+      return {
+        ok: false,
+        status: 502,
+        error: "Open Banking sync failed: transaction history was truncated.",
+        ...(errorId ? { errorId } : {}),
+      };
+    }
+    return {
+      ok: false,
+      status: 502,
+      error: "Open Banking sync failed.",
+      ...(errorId ? { errorId } : {}),
+    };
   }
 }
 
@@ -187,11 +234,7 @@ export async function scheduleFirstOpenBankingSync(
 ): Promise<SyncSuccess | SyncFailure | undefined> {
   const connection = await deps.connections.getById(connectionId);
   if (!connection || connection.firstSyncCompletedAt) return undefined;
-  try {
-    return await syncOpenBankingConnection({ connection, reason: "first_connect" }, deps);
-  } catch {
-    return undefined;
-  }
+  return syncOpenBankingConnection({ connection, reason: "first_connect" }, deps);
 }
 
 export async function pollDueOpenBankingConnections(
@@ -213,11 +256,22 @@ export async function handleOpenBankingWebhookEvent(
   if (event.event === "consent.revoked" || event.event === "banking.transactions.sync.failed") {
     const connection = await findConnection(event, deps);
     if (connection) await stopSync(connection, "consent", deps.connections);
+    logFiskilSupport("open_banking.webhook.stop", {
+      end_user_id: event.endUserId ?? connection?.endUserId,
+      consent_id: event.consentId ?? connection?.consentId ?? connection?.id,
+      session_id: connection?.sessionId,
+    }, { action: event.event });
     return { ok: true, skipped: true };
   }
 
   const connection = await findConnection(event, deps);
-  if (!connection) return { ok: false, status: 404, error: "Unknown bank connection for webhook." };
+  if (!connection) {
+    logFiskilSupport("open_banking.webhook.unknown", {
+      end_user_id: event.endUserId,
+      consent_id: event.consentId,
+    }, { status: 404 });
+    return { ok: false, status: 404, error: "Unknown bank connection for webhook." };
+  }
   const reason: SyncReason = connection.firstSyncCompletedAt ? "webhook" : "first_connect";
   return syncOpenBankingConnection({ connection, reason }, deps);
 }
@@ -267,6 +321,7 @@ export function publicSyncResult(
       ok: false,
       ...(result.reconnect ? { reconnect: true } : {}),
       error: result.error,
+      ...(result.errorId ? { errorId: result.errorId } : {}),
     };
   }
   return {

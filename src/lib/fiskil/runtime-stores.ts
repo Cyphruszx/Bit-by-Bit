@@ -214,6 +214,10 @@ export function supabaseEndUserLinkStore(client: SupabaseClient): EndUserLinkSto
       });
       if (error) throw new Error(`Could not persist Open Banking end-user link: ${error.message}`);
     },
+    async deleteByUserId(userId) {
+      const { error } = await client.from(OPEN_BANKING_END_USERS_TABLE).delete().eq("user_id", userId);
+      if (error) throw new Error(`Could not delete Open Banking end-user link: ${error.message}`);
+    },
   };
 }
 

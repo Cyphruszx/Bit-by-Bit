@@ -6,6 +6,8 @@
  */
 
 import { FISKIL_API_BASE, type FiskilCredentials } from "./config";
+import { fiskilErrorFromResponse, withFiskilRetry } from "./errors";
+import { logFiskilSupport } from "./log";
 import { getFiskilAppToken, type GetFiskilAppTokenDeps, type TokenCache } from "./token";
 
 export const FISKIL_AUTH_SESSION_URL = `${FISKIL_API_BASE}/auth/session`;
@@ -29,6 +31,7 @@ export type CreateFiskilAuthSessionDeps = {
   cache?: TokenCache;
   now?: () => number;
   apiBase?: string;
+  sleep?: (ms: number) => Promise<void>;
 };
 
 export async function createFiskilAuthSession(
@@ -45,25 +48,32 @@ export async function createFiskilAuthSession(
   const token = await appToken(deps);
   const fetchImpl = deps.fetchImpl ?? fetch;
   const url = `${deps.apiBase ?? FISKIL_API_BASE}/auth/session`;
-  const response = await fetchImpl(url, {
-    method: "POST",
-    headers: {
-      Authorization: `${token.tokenType} ${token.accessToken}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      end_user_id: endUserId,
-      redirect_uri: redirectUri,
-      cancel_uri: cancelUri,
-    }),
-  });
+  return withFiskilRetry(async () => {
+    const response = await fetchImpl(url, {
+      method: "POST",
+      headers: {
+        Authorization: `${token.tokenType} ${token.accessToken}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        end_user_id: endUserId,
+        redirect_uri: redirectUri,
+        cancel_uri: cancelUri,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Fiskil auth session create failed (${response.status}).`);
-  }
+    if (!response.ok) {
+      const raw = await peekJson(response);
+      logFiskilSupport("open_banking.auth_session.failed", { end_user_id: endUserId, ...pickErrorId(raw) }, {
+        status: response.status,
+        action: "create",
+      });
+      throw fiskilErrorFromResponse(response.status, raw, "Fiskil auth session create");
+    }
 
-  return parseAuthSessionResponse(await readJson(response));
+    return parseAuthSessionResponse(await readJson(response));
+  }, { sleep: deps.sleep });
 }
 
 export function parseAuthSessionResponse(raw: unknown): FiskilAuthSession {
@@ -97,6 +107,24 @@ async function readJson(response: Response): Promise<unknown> {
   } catch {
     throw new Error("Fiskil auth session response was not JSON.");
   }
+}
+
+async function peekJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return undefined;
+  }
+}
+
+function pickErrorId(raw: unknown): { error_id?: string } {
+  if (!raw || typeof raw !== "object") return {};
+  const row = raw as Record<string, unknown>;
+  const id =
+    (typeof row.error_id === "string" && row.error_id.trim()) ||
+    (typeof row.id === "string" && row.id.trim()) ||
+    "";
+  return id ? { error_id: id } : {};
 }
 
 function asNonEmpty(value: unknown): string | undefined {

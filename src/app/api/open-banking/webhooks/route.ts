@@ -5,6 +5,7 @@
  * same sync upsert as first-connect / poll. Secrets stay on the server.
  */
 
+import { logFiskilSupport } from "@/lib/fiskil/log";
 import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
 import { handleOpenBankingWebhookEvent, processSyncDeps } from "@/lib/fiskil/sync";
 import { processTokenCache } from "@/lib/fiskil/token";
@@ -45,6 +46,10 @@ export async function POST(request: Request) {
   }
 
   const event = received.event;
+  logFiskilSupport("open_banking.route.webhook", {
+    end_user_id: event.endUserId,
+    consent_id: event.consentId,
+  }, { action: event.event });
   if (webhookTriggersSync(event.event) || webhookStopsSync(event.event)) {
     const result = await handleOpenBankingWebhookEvent(event, syncDeps());
     if (!result.ok && result.status !== 404) {

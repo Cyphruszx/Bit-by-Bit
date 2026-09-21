@@ -11,6 +11,7 @@ import {
   publicStartSession,
   startOpenBankingLinkSession,
 } from "@/lib/fiskil/connections";
+import { logFiskilSupport } from "@/lib/fiskil/log";
 import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
 import { processTokenCache } from "@/lib/fiskil/token";
 
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     return Response.json(publicConnectFailure(result), { status: result.status });
   }
 
+  logFiskilSupport("open_banking.route.auth_session", { session_id: result.sessionId });
   return Response.json(publicStartSession(result));
 }
 
