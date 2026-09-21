@@ -63,6 +63,28 @@ describe("institution detection", () => {
     assert.equal(detectInstitution({ filename: "up-2025-07-to-2026-06.txt" }), "Up");
   });
 
+  it("recognises an Up CSV by the columns Up's export produces", () => {
+    assert.equal(
+      detectInstitution({
+        headers: [
+          "Date",
+          "Time",
+          "UTC Date Time",
+          "Amount (AUD)",
+          "Total (AUD)",
+          "Account",
+          "Category",
+          "Parent Category",
+          "Tags",
+          "Transaction Type",
+          "Description",
+        ],
+        filename: "transactions.csv",
+      }),
+      "Up",
+    );
+  });
+
   it("statement wording beats a filename that says otherwise", () => {
     assert.equal(detectInstitution({ text: "Zap card **1234", filename: "anz-export.txt" }), "Up");
   });
