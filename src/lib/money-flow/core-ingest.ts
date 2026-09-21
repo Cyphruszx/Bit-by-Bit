@@ -1,9 +1,16 @@
 /**
  * Spec 2 Core ingest gates.
  *
- * CSV + digital PDF + OCR. 5 CSV / 20 OCR pages per Australia/Sydney week.
+ * CSV + digital PDF + OCR. Spec 2 weekly caps are 5 CSV / 20 OCR pages per
+ * Australia/Sydney week. Those caps are off for unrestricted testing:
+ * tryChargeCsv / tryChargeOcr still record usage but never refuse.
  * Text-extract PDF uses a CSV Confirm slot. OCR pages debit only when OCR runs
  * (photos at intake; scanned PDF pages after interpret). CSV slot only on Confirm.
+ *
+ * Re-enable weekly caps later by setting NEXT_PUBLIC_INGEST_QUOTAS_DISABLED=false
+ * (the upload studio charges in the browser, so it must be NEXT_PUBLIC_) or by
+ * flipping INGEST_QUOTAS_DISABLED_DEFAULT to false. Soft file-size guidance is
+ * separate from these weekly blocks.
  */
 
 import { knownInstitutions } from "@/lib/money-flow/institution";
@@ -22,12 +29,11 @@ export const CSV_WEEKLY_LIMIT = 5;
 export const OCR_PAGE_WEEKLY_LIMIT = 20;
 export const CORE_FILES_PER_ATTEMPT = 1;
 
-export const LAUNCH_BANK_PRESETS = knownInstitutions();
-
-const DEVICE_KEY = "bitbybit.device-id";
-const QUOTA_KEY = "bitbybit.quota-v1";
-
-const CORE_CHANNELS = new Set(["csv", "ocr"]);
+/**
+ * Default for unset env. true = testing, charges always succeed.
+ * Flip to false (or set NEXT_PUBLIC_INGEST_QUOTAS_DISABLED=false) to restore caps.
+ */
+export const INGEST_QUOTAS_DISABLED_DEFAULT = true;
 
 export type IngestChannel = "csv" | "ocr";
 
@@ -36,6 +42,40 @@ export type QuotaUsage = {
   csv: number;
   ocrPages: number;
 };
+
+function bundledQuotaEnv(): Record<string, string | undefined> {
+  return {
+    // Direct static reads so Next.js inlines the public flag in the client bundle.
+    NEXT_PUBLIC_INGEST_QUOTAS_DISABLED: process.env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED,
+    INGEST_QUOTAS_DISABLED: process.env.INGEST_QUOTAS_DISABLED,
+  };
+}
+
+/** Weekly CSV/OCR caps are off unless env (or the default) says otherwise. */
+export function ingestQuotasDisabled(
+  env: Record<string, string | undefined> = bundledQuotaEnv(),
+): boolean {
+  const raw = env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED ?? env.INGEST_QUOTAS_DISABLED;
+  if (raw === undefined || raw.trim() === "") return INGEST_QUOTAS_DISABLED_DEFAULT;
+  const value = raw.trim().toLowerCase();
+  if (value === "false" || value === "0" || value === "off" || value === "no") return false;
+  if (value === "true" || value === "1" || value === "on" || value === "yes") return true;
+  return INGEST_QUOTAS_DISABLED_DEFAULT;
+}
+
+export function quotaStatusLabel(usage: QuotaUsage): string {
+  if (ingestQuotasDisabled()) return "Testing — quotas off";
+  const csvLeft = Math.max(0, CSV_WEEKLY_LIMIT - usage.csv);
+  const ocrLeft = Math.max(0, OCR_PAGE_WEEKLY_LIMIT - usage.ocrPages);
+  return `${csvLeft} CSV and ${ocrLeft} OCR pages left this AU week`;
+}
+
+export const LAUNCH_BANK_PRESETS = knownInstitutions();
+
+const DEVICE_KEY = "bitbybit.device-id";
+const QUOTA_KEY = "bitbybit.quota-v1";
+
+const CORE_CHANNELS = new Set(["csv", "ocr"]);
 
 export type QuotaActor = {
   userId?: string | null;
@@ -178,7 +218,7 @@ export function tryChargeCsv(
   at: Date = new Date(),
 ): { ok: true; usage: QuotaUsage } | { ok: false; usage: QuotaUsage } {
   const current = peekQuota(store, subject, at);
-  if (!canChargeCsv(current)) return { ok: false, usage: current };
+  if (!ingestQuotasDisabled() && !canChargeCsv(current)) return { ok: false, usage: current };
   const usage = { ...current, csv: current.csv + 1 };
   store.write(subject, usage);
   return { ok: true, usage };
@@ -193,7 +233,7 @@ export function tryChargeOcr(
   const charged = Math.max(0, pages);
   const current = peekQuota(store, subject, at);
   if (charged === 0) return { ok: true, usage: current };
-  if (!canChargeOcr(current, charged)) return { ok: false, usage: current };
+  if (!ingestQuotasDisabled() && !canChargeOcr(current, charged)) return { ok: false, usage: current };
   const usage = { ...current, ocrPages: current.ocrPages + charged };
   store.write(subject, usage);
   return { ok: true, usage };

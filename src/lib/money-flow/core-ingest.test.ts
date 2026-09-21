@@ -17,7 +17,10 @@ import {
   CSV_WEEKLY_LIMIT,
   detectedBankLabel,
   draftChannel,
+  emptyQuota,
+  INGEST_QUOTAS_DISABLED_DEFAULT,
   ingestChannel,
+  ingestQuotasDisabled,
   intakeOcrPages,
   isLaunchPreset,
   LAUNCH_BANK_PRESETS,
@@ -28,6 +31,7 @@ import {
   ocrPagesToChargeAfterInterpret,
   peekQuota,
   persistUploadStatus,
+  quotaStatusLabel,
   quotaSubject,
   tryChargeCsv,
   tryChargeOcr,
@@ -40,6 +44,20 @@ import { mappedPreviewRows } from "./tabular";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction } from "./types";
 
 process.env.OPENAI_API_KEY = "";
+
+function withQuotasEnabled<T>(run: () => T): T {
+  const previousPublic = process.env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED;
+  const previous = process.env.INGEST_QUOTAS_DISABLED;
+  process.env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED = "false";
+  try {
+    return run();
+  } finally {
+    if (previousPublic === undefined) delete process.env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED;
+    else process.env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED = previousPublic;
+    if (previous === undefined) delete process.env.INGEST_QUOTAS_DISABLED;
+    else process.env.INGEST_QUOTAS_DISABLED = previous;
+  }
+}
 
 function file(filename: string, mime: string, contents: string) {
   return { filename, mime, bytes: new TextEncoder().encode(contents) };
@@ -231,16 +249,88 @@ describe("Spec 2 quotas", () => {
     assert.equal(peekQuota(store, user, at).csv, 1);
   });
 
-  it("stops a sixth CSV and a 21st OCR page in the same AU week", () => {
+  it("defaults weekly caps off so testing is unrestricted", () => {
+    assert.equal(INGEST_QUOTAS_DISABLED_DEFAULT, true);
+    assert.equal(ingestQuotasDisabled({}), true);
+    assert.equal(ingestQuotasDisabled({ INGEST_QUOTAS_DISABLED: "true" }), true);
+    assert.equal(ingestQuotasDisabled({ NEXT_PUBLIC_INGEST_QUOTAS_DISABLED: "true" }), true);
+    assert.equal(ingestQuotasDisabled({ NEXT_PUBLIC_INGEST_QUOTAS_DISABLED: "false" }), false);
+    assert.equal(ingestQuotasDisabled({ INGEST_QUOTAS_DISABLED: "false" }), false);
+    assert.equal(
+      ingestQuotasDisabled({
+        NEXT_PUBLIC_INGEST_QUOTAS_DISABLED: "true",
+        INGEST_QUOTAS_DISABLED: "false",
+      }),
+      true,
+    );
+    assert.equal(quotaStatusLabel(emptyQuota("2026-09-14")), "Testing — quotas off");
+    const source = readFileSync(path.join(process.cwd(), "src/lib/money-flow/core-ingest.ts"), "utf8");
+    assert.match(source, /process\.env\.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED/);
+  });
+
+  it("lets a sixth CSV and a 21st OCR page through while quotas are disabled", () => {
     const store = memoryQuotaStore();
-    const subject = quotaSubject({ deviceId: "limit" });
+    const subject = quotaSubject({ deviceId: "free" });
     const at = new Date("2026-09-14T04:00:00.000Z");
     for (let i = 0; i < CSV_WEEKLY_LIMIT; i += 1) {
       assert.equal(tryChargeCsv(store, subject, at).ok, true);
     }
-    assert.equal(tryChargeCsv(store, subject, at).ok, false);
+    const extraCsv = tryChargeCsv(store, subject, at);
+    assert.equal(extraCsv.ok, true);
+    assert.equal(extraCsv.usage.csv, CSV_WEEKLY_LIMIT + 1);
     assert.equal(tryChargeOcr(store, subject, OCR_PAGE_WEEKLY_LIMIT, at).ok, true);
-    assert.equal(tryChargeOcr(store, subject, 1, at).ok, false);
+    const extraOcr = tryChargeOcr(store, subject, 1, at);
+    assert.equal(extraOcr.ok, true);
+    assert.equal(extraOcr.usage.ocrPages, OCR_PAGE_WEEKLY_LIMIT + 1);
+  });
+
+  it("lets extra text-extract PDF slots and scanned PDF OCR pages through while quotas are disabled", () => {
+    const store = memoryQuotaStore();
+    const subject = quotaSubject({ deviceId: "pdf-free" });
+    const at = new Date("2026-09-14T04:00:00.000Z");
+    for (let i = 0; i < CSV_WEEKLY_LIMIT; i += 1) {
+      assert.equal(tryChargeCsv(store, subject, at).ok, true);
+    }
+    const textPdf = createDraft(
+      interpretation([txn({ id: "pdf-text", institution: "NAB", accountId: "NAB · 1" })], {
+        filename: "statement.pdf",
+        fileType: "pdf",
+        kind: "pdf",
+      }),
+    );
+    assert.equal(textPdf.channel, "csv");
+    const extraPdfCsv = tryChargeCsv(store, subject, at);
+    assert.equal(extraPdfCsv.ok, true);
+    assert.equal(extraPdfCsv.usage.csv, CSV_WEEKLY_LIMIT + 1);
+
+    const scanned = createDraft(
+      interpretation([txn({ id: "pdf-scan", institution: "NAB", accountId: "NAB · 1" })], {
+        filename: "scan.pdf",
+        fileType: "pdf",
+        kind: "pdf",
+        ocrPages: 3,
+      }),
+    );
+    const extraPages = ocrPagesToChargeAfterInterpret(scanned.ocrPages, 0);
+    assert.equal(tryChargeOcr(store, subject, OCR_PAGE_WEEKLY_LIMIT, at).ok, true);
+    const extraPdfOcr = tryChargeOcr(store, subject, extraPages, at);
+    assert.equal(extraPdfOcr.ok, true);
+    assert.equal(extraPdfOcr.usage.ocrPages, OCR_PAGE_WEEKLY_LIMIT + extraPages);
+  });
+
+  it("stops a sixth CSV and a 21st OCR page when weekly caps are re-enabled", () => {
+    withQuotasEnabled(() => {
+      const store = memoryQuotaStore();
+      const subject = quotaSubject({ deviceId: "limit" });
+      const at = new Date("2026-09-14T04:00:00.000Z");
+      for (let i = 0; i < CSV_WEEKLY_LIMIT; i += 1) {
+        assert.equal(tryChargeCsv(store, subject, at).ok, true);
+      }
+      assert.equal(tryChargeCsv(store, subject, at).ok, false);
+      assert.equal(tryChargeOcr(store, subject, OCR_PAGE_WEEKLY_LIMIT, at).ok, true);
+      assert.equal(tryChargeOcr(store, subject, 1, at).ok, false);
+      assert.match(quotaStatusLabel(peekQuota(store, subject, at)), /left this AU week/);
+    });
   });
 
   it("does not re-consume quota when Review Queue resolves", () => {

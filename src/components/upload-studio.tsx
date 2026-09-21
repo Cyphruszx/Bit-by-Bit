@@ -15,13 +15,12 @@ import {
   confirmDraftIssues,
   confirmPreviewRows,
   createDraft,
-  CSV_WEEKLY_LIMIT,
   detectedBankLabel,
   guestDeviceId,
   localQuotaStore,
-  OCR_PAGE_WEEKLY_LIMIT,
   ocrPagesToChargeAfterInterpret,
   peekQuota,
+  quotaStatusLabel,
   quotaSubject,
   tryChargeCsv,
   tryChargeOcr,
@@ -31,7 +30,7 @@ import {
   confirmChargeCopy,
   ingestChannelLabel,
   ocrQuotaError,
-  UPLOAD_STUDIO_BODY,
+  uploadStudioBody,
   UPLOAD_STUDIO_HEADING,
 } from "@/lib/money-flow/ingest-copy";
 import { formatAud, formatSignedAud } from "@/lib/format";
@@ -82,9 +81,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
 
   function refreshQuota() {
     const usage = peekQuota(localQuotaStore(), quotaSubject(actor()));
-    setQuotaLabel(
-      `${CSV_WEEKLY_LIMIT - usage.csv} CSV and ${OCR_PAGE_WEEKLY_LIMIT - usage.ocrPages} OCR pages left this AU week`,
-    );
+    setQuotaLabel(quotaStatusLabel(usage));
   }
 
   function interpret(list: File[]) {
@@ -182,7 +179,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Core feature</p>
         <h2 className="mt-2 text-2xl font-bold">{UPLOAD_STUDIO_HEADING}</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted">
-          {UPLOAD_STUDIO_BODY}
+          {uploadStudioBody()}
           {aiReady
             ? " AI vision can read photos and suggest tags when a merchant is still unlabelled."
             : " Add OPENAI_API_KEY to .env.local to let AI read receipt photos; until then, photos use on-device OCR."}

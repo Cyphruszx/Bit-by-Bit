@@ -13,8 +13,8 @@ import {
   INTERPRET_EMPTY_ERROR,
   NO_MOVEMENT_ERROR,
   ocrQuotaError,
-  UPLOAD_PAGE_INTRO,
-  UPLOAD_STUDIO_BODY,
+  uploadPageIntro,
+  uploadStudioBody,
   UPLOAD_STUDIO_HEADING,
 } from "./ingest-copy";
 import { interpretDocuments } from "./interpret";
@@ -117,19 +117,38 @@ describe("PDF accept and copy", () => {
   });
 
   it("updates upload copy and keeps Excel/OFX/QIF unavailable", () => {
+    const intro = uploadPageIntro();
+    const body = uploadStudioBody();
     assert.equal(UPLOAD_STUDIO_HEADING, "Drop a CSV, PDF, or photo");
-    assert.match(UPLOAD_STUDIO_BODY, /digital PDF/i);
-    assert.match(UPLOAD_PAGE_INTRO, /digital PDF/i);
-    assert.doesNotMatch(`${UPLOAD_STUDIO_BODY} ${UPLOAD_PAGE_INTRO}`, /not a Core path/i);
-    assert.match(UPLOAD_STUDIO_BODY, /Excel, OFX, and QIF are unavailable/);
-    assert.match(UPLOAD_PAGE_INTRO, /Excel, OFX, and QIF are unavailable/);
+    assert.match(body, /digital PDF/i);
+    assert.match(intro, /digital PDF/i);
+    assert.doesNotMatch(`${body} ${intro}`, /not a Core path/i);
+    assert.match(body, /Excel, OFX, and QIF are unavailable/);
+    assert.match(intro, /Excel, OFX, and QIF are unavailable/);
+    assert.match(intro, /Testing — weekly quotas are off/);
+    assert.match(intro, /5MB/);
+    assert.match(body, /10MB/);
     assert.match(INTERPRET_EMPTY_ERROR, /PDF/);
     assert.match(NO_MOVEMENT_ERROR, /digital PDF/);
     assert.equal(ingestChannelLabel("pdf", "csv"), "PDF · text");
     assert.equal(ingestChannelLabel("pdf", "ocr"), "PDF · OCR");
-    assert.match(confirmChargeCopy("pdf", "csv"), /CSV slot/i);
+    assert.match(confirmChargeCopy("pdf", "csv"), /nothing is imported/);
     assert.match(confirmChargeCopy("pdf", "ocr"), /scanned PDF/i);
     assert.match(ocrQuotaError(3), /3 OCR pages/);
+  });
+
+  it("restores weekly-cap copy when ingest quotas are re-enabled", () => {
+    const previousPublic = process.env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED;
+    process.env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED = "false";
+    try {
+      assert.match(uploadPageIntro(), /CSV slot/i);
+      assert.match(uploadStudioBody(), /this week's/);
+      assert.match(confirmChargeCopy("pdf", "csv"), /CSV slot/i);
+      assert.match(confirmChargeCopy("pdf", "ocr"), /scanned PDF/i);
+    } finally {
+      if (previousPublic === undefined) delete process.env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED;
+      else process.env.NEXT_PUBLIC_INGEST_QUOTAS_DISABLED = previousPublic;
+    }
   });
 });
 
