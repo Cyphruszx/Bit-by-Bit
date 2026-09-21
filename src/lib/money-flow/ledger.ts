@@ -23,6 +23,7 @@ import { isCategoryKey, migrateStoredCategory } from "@/lib/money-flow/taxonomy"
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import { hasSource } from "@/lib/money-flow/source";
 import { persistUploadStatus } from "@/lib/money-flow/core-ingest";
+import { mostRecentStatedBalances } from "@/lib/money-flow/statement-balance";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 import {
   acceptEnableOffer,
@@ -280,6 +281,7 @@ export function appendToLedger(
       version: LEDGER_VERSION,
       entries: sortEntries(entries),
       imports: [...ledger.imports, ...imports],
+      ...namedAccountMeta(applyStatedBalances(ledger.accountMeta, result, mergedInto, ledger.entries)),
     },
     report: {
       imports,
@@ -469,6 +471,7 @@ export function mergeAccounts(ledger: Ledger, sourceId: string, survivorId: stri
       entries: sortEntries(collapsed),
       ...(review.length > 0 ? { review } : {}),
       ...poolFields(remappedPools),
+      ...namedAccountMeta(remapMergedAccountMeta(ledger.accountMeta, source, survivor)),
     },
   };
 }
@@ -791,6 +794,51 @@ export function recordEnableOfferDismiss(ledger: Ledger, now = new Date().toISOS
 /** Only carried when there is something to carry, so an empty ledger stays empty. */
 function named(map: Record<string, string>, key: "institutions" | "accounts" | "payers" | "mergedInto") {
   return Object.keys(map).length > 0 ? { [key]: map } : {};
+}
+
+function namedAccountMeta(meta: Record<string, AccountMeta>): { accountMeta: Record<string, AccountMeta> } | {} {
+  return Object.keys(meta).length > 0 ? { accountMeta: meta } : {};
+}
+
+function applyStatedBalances(
+  held: Record<string, AccountMeta> | undefined,
+  result: { files: FileInterpretation[]; transactions: InterpretedTransaction[] },
+  mergedInto: Record<string, string>,
+  existing: InterpretedTransaction[] = [],
+): Record<string, AccountMeta> {
+  const next: Record<string, AccountMeta> = { ...held };
+  const fromRows = mostRecentStatedBalances([...existing, ...result.transactions], mergedInto);
+  for (const [id, amount] of Object.entries(fromRows)) {
+    next[id] = { ...next[id], clearedBalance: amount };
+  }
+  for (const file of result.files) {
+    if (file.statedBalance == null) continue;
+    const ids = new Set(
+      result.transactions
+        .filter((txn) => txn.sourceFile === file.filename)
+        .map((txn) => canonicalAccountId(txn.accountId?.trim() || txn.accountKey?.trim() || "", mergedInto))
+        .filter(Boolean),
+    );
+    for (const id of ids) {
+      if (fromRows[id] != null) continue;
+      next[id] = { ...next[id], clearedBalance: file.statedBalance };
+    }
+  }
+  return next;
+}
+
+function remapMergedAccountMeta(
+  held: Record<string, AccountMeta> | undefined,
+  source: string,
+  survivor: string,
+): Record<string, AccountMeta> {
+  const next: Record<string, AccountMeta> = { ...held };
+  const from = next[source];
+  if (from) {
+    next[survivor] = { ...from, ...next[survivor] };
+    delete next[source];
+  }
+  return next;
 }
 
 function mergedAccountMeta(

@@ -25,6 +25,7 @@ export type ParsedDocument = {
   transactions: InterpretedTransaction[];
   notes: string[];
   ocrPages?: number;
+  statedBalance?: number;
 };
 
 export type ParseDocumentOptions = {
@@ -61,8 +62,13 @@ export async function parseDocument(
     const fromTables = tableRows.map((rows) => interpretTable(rows, filename));
     const tableTransactions = fromTables.flatMap((result) => result.transactions);
     if (tableTransactions.length > 0) {
+      const statedBalance = fromTables.map((result) => result.statedBalance).find((value) => value != null);
       return stamped(
-        { transactions: tableTransactions, notes: fromTables.flatMap((result) => result.notes) },
+        {
+          transactions: tableTransactions,
+          notes: fromTables.flatMap((result) => result.notes),
+          ...(statedBalance != null ? { statedBalance } : {}),
+        },
         { text: html, headers: fromTables.flatMap((result) => result.headers), filename },
       );
     }
@@ -96,7 +102,8 @@ export async function parseDocument(
     const transactions = sheets.flatMap((sheet) => sheet.transactions);
     const sheetNotes = sheets.flatMap((sheet) => sheet.notes);
     if (workbook.SheetNames.length > 1) sheetNotes.unshift(`Read ${workbook.SheetNames.length} sheets`);
-    return { transactions, notes: sheetNotes };
+    const statedBalance = sheets.map((sheet) => sheet.statedBalance).find((value) => value != null);
+    return { transactions, notes: sheetNotes, ...(statedBalance != null ? { statedBalance } : {}) };
   }
   if (kind === "pdf") {
     return readPdfDocument(filename, bytes, options);
@@ -190,15 +197,16 @@ async function readPdfDocument(
 
 /** Names the bank once per document, from whatever that document happened to reveal. */
 function stamped(
-  result: { transactions: InterpretedTransaction[]; notes: string[] },
+  result: { transactions: InterpretedTransaction[]; notes: string[]; statedBalance?: number },
   signals: InstitutionSignals,
-): { transactions: InterpretedTransaction[]; notes: string[] } {
+): ParsedDocument {
   // The letterhead names the account for every movement that did not name its own,
   // which is how a PDF statement and a CSV export of the same account become one.
   const documentRef = signals.text ? accountRefFromText(signals.text) : {};
   return {
     transactions: identifyAccounts(result.transactions, detectInstitution(signals), documentRef),
     notes: result.notes,
+    ...(result.statedBalance != null ? { statedBalance: result.statedBalance } : {}),
   };
 }
 

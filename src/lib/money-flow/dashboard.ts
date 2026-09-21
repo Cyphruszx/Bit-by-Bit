@@ -13,6 +13,7 @@ import { monthKey } from "@/lib/money-flow/period";
 import { livePools, membersOf, type PoolBook } from "@/lib/money-flow/pools";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { countedMovements, isEarnings, isRefundCredit, isSpending, tileAmount } from "@/lib/money-flow/summary";
+import { derivedMovementBalance } from "@/lib/money-flow/statement-balance";
 import { topChartCategories } from "@/lib/money-flow/tag-charts";
 import { categoryOf } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
@@ -103,11 +104,9 @@ export type BankInstitutionTile = {
 };
 
 /**
- * Prefer a stored CLEARED balance (ledger `accountMeta.clearedBalance`,
- * Spec 11 `current_cleared_balance`). Otherwise use the account's counted
- * net — the same figure Bank Accounts card rows already show. Missing both
- * is null — never a $0 skeleton. PENDING is not a stored cleared balance
- * and is already excluded from counted net (Spec 12).
+ * Prefer a stored statement / ledger balance (`accountMeta.clearedBalance`).
+ * Otherwise derive credits − debits from movements. Missing both is null —
+ * never a $0 skeleton. Differs from Spec 10 Net by construction.
  */
 export function accountDisplayAmount(
   accountId: string,
@@ -121,9 +120,9 @@ export function accountDisplayAmount(
 }
 
 /**
- * Spec 10 strip Account balance: Σ latest/current balances in scope, using
- * the same source as Bank Accounts card rows. Not period money-in − money-out,
- * and not parked Net Money(P) = Income − Spending + Refund credits.
+ * Total / account balance across Bank Accounts card rows: stated CSV
+ * closing/running balance when stored, else derived movement balance.
+ * Not Spec 10 Net.
  */
 export function totalAccountBalance(tiles: BankInstitutionTile[]): number | null {
   let sum = 0;
@@ -179,7 +178,7 @@ export function bankInstitutionTiles(
           name: account
             ? institutionAccountName(account.label, institution)
             : institutionAccountName(accountLabel(id), institution),
-          amount: accountDisplayAmount(id, account?.flow.net ?? null, meta, mergedInto),
+          amount: accountDisplayAmount(id, derivedMovementBalance(account?.transactions ?? []), meta, mergedInto),
         });
       }
     }
@@ -207,7 +206,7 @@ function lineFromAccount(
   return {
     id: account.id,
     name: institutionAccountName(account.label, institution),
-    amount: accountDisplayAmount(account.id, account.flow.net, meta, mergedInto),
+    amount: accountDisplayAmount(account.id, derivedMovementBalance(account.transactions), meta, mergedInto),
   };
 }
 

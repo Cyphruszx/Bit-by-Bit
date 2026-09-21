@@ -200,7 +200,7 @@ describe("dashboard widgets", () => {
     );
   });
 
-  it("sums Account balance from the same amounts Bank Accounts cards show", () => {
+  it("sums Total balance from the same amounts Bank Accounts cards show", () => {
     const rows = [
       txn("1", "2026-03-01", 3000, { accountId: "NAB · Everyday", institution: "NAB", type: "earned", categoryKey: "salary" }),
       txn("2", "2026-03-02", -120, { accountId: "NAB · Everyday", institution: "NAB", type: "spent" }),
@@ -228,7 +228,7 @@ describe("dashboard widgets", () => {
     assert.notEqual(totalAccountBalance(tiles), flow.cashNet, "not period money-in − money-out");
   });
 
-  it("keeps PENDING out of Account balance when falling back to counted net", () => {
+  it("keeps PENDING out of Total balance when falling back to derived movements", () => {
     const rows = [
       txn("cleared", "2026-09-19", 1000, {
         accountId: "NAB · Everyday",
@@ -250,8 +250,32 @@ describe("dashboard widgets", () => {
     assert.equal(summarizeMoneyFlow(rows).spending, 0);
   });
 
-  it("returns no Account balance when every card is missing a figure", () => {
+  it("returns no Total balance when every card is missing a figure", () => {
     assert.equal(totalAccountBalance([{ institution: "NAB", accounts: [{ id: "NAB · Everyday", name: "Everyday", amount: null }] }]), null);
+  });
+
+  it("lets derived Total balance differ from Spec 10 Net when a credit is not earnings", () => {
+    const rows = [
+      txn("pay", "2026-03-06", 3000, {
+        accountId: "NAB · Everyday",
+        institution: "NAB",
+        type: "earned",
+        categoryKey: "salary",
+      }),
+      txn("loan", "2026-03-07", 25000, {
+        accountId: "NAB · Everyday",
+        institution: "NAB",
+        type: "borrowed",
+        categoryKey: "uncategorised",
+        merchant: "Lender",
+      }),
+      txn("shop", "2026-03-08", -40, { accountId: "NAB · Everyday", institution: "NAB", type: "spent" }),
+    ];
+    const tiles = bankInstitutionTiles(accountsByInstitution(rows));
+    const flow = summarizeMoneyFlow(rows);
+    assert.equal(flow.net, 2960);
+    assert.equal(totalAccountBalance(tiles), 27960);
+    assert.notEqual(totalAccountBalance(tiles), flow.net);
   });
 
   it("uses raw cashIn/cashOut for Money in and Money out, not Income/Spending", () => {

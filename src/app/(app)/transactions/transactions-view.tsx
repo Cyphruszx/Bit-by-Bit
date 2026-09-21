@@ -70,23 +70,22 @@ export function TransactionsView() {
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight">Transactions</h1>
       <p className="mt-1 max-w-2xl text-sm text-muted">
-        Money in and out from your uploaded documents. Charts group by category, so nothing is
-        counted twice and money you moved, borrowed or paid back stays out of the totals.
+        Money in and out are the raw credits and debits in this period. Charts group by category.
       </p>
       <ScopeBar groups={groups} scope={scope} onScope={setScope} />
       <p className="mt-3 text-sm text-muted">{describeScope(scope)}</p>
       <section className="mt-4 grid gap-3 sm:grid-cols-3">
         <SummaryCard
           label="Money in"
-          value={formatAud(scopedFlow.income)}
-          detail="Income, not counting money from your own accounts"
+          value={formatAud(scopedFlow.cashIn)}
+          detail="Credits in this period"
           positive
           compact
         />
         <SummaryCard
           label="Money out"
-          value={formatAud(scopedFlow.spending)}
-          detail="What you actually spent"
+          value={formatAud(scopedFlow.cashOut)}
+          detail="Debits in this period"
           compact
         />
         <SummaryCard
