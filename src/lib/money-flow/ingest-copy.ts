@@ -1,6 +1,5 @@
 import type { IngestChannel } from "@/lib/money-flow/core-ingest";
 import { OCR_PAGE_WEEKLY_LIMIT } from "@/lib/money-flow/core-ingest";
-import { PDF_SOFT_MAX_PAGES } from "@/lib/money-flow/pdf";
 
 export const INTERPRET_EMPTY_ERROR = "Choose a CSV, PDF, or photo to interpret.";
 
@@ -9,7 +8,7 @@ export const UPLOAD_PAGE_INTRO =
 
 export const UPLOAD_STUDIO_HEADING = "Drop a CSV, PDF, or photo";
 
-export const UPLOAD_STUDIO_BODY = `Core ingest is CSV, digital PDF, and OCR photos — one file at a time. Excel, OFX, and QIF are unavailable. PDFs under about 10MB (about ${PDF_SOFT_MAX_PAGES} pages) are text-extracted when the text is usable; scanned pages use OCR and count toward this week's ${OCR_PAGE_WEEKLY_LIMIT} OCR pages.`;
+export const UPLOAD_STUDIO_BODY = `Core ingest is CSV, digital PDF, and OCR photos — one file at a time. Excel, OFX, and QIF are unavailable. PDFs under about 10MB (about ${OCR_PAGE_WEEKLY_LIMIT} pages) are text-extracted when the text is usable; scanned pages use OCR and count toward this week's ${OCR_PAGE_WEEKLY_LIMIT} OCR pages.`;
 
 export const UPLOAD_ACCOUNTS_DETAIL = "CSV, PDF, and OCR photos";
 

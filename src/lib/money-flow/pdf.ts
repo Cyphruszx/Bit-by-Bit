@@ -33,8 +33,7 @@ export function pdfOverSoftSize(byteLength: number): boolean {
 export async function extractPdfText(bytes: Uint8Array): Promise<ExtractedPdfText> {
   const { extractText } = await import("unpdf");
   const extracted = await extractText(bytes.slice(), { mergePages: true });
-  const text = typeof extracted.text === "string" ? extracted.text : extracted.text.join("\n");
-  return { text, pageCount: Math.max(1, extracted.totalPages || 1) };
+  return { text: extracted.text, pageCount: Math.max(1, extracted.totalPages || 1) };
 }
 
 export async function rasterizePdfPages(bytes: Uint8Array, pageCount: number): Promise<Uint8Array[]> {
