@@ -236,7 +236,11 @@ async function fetchAllPages(
       const raw = await peekJson(response);
       logFiskilSupport(
         "open_banking.banking.failed",
-        pickFiskilSupportIds({ ...query, ...raw, ...parseFiskilErrorBody(raw) }),
+        pickFiskilSupportIds({
+          ...query,
+          ...(raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}),
+          ...parseFiskilErrorBody(raw),
+        }),
         { status: response.status, page, action: path, retryable: isRetryableBankingStatus(response.status, raw) },
       );
       throw bankingError(response.status, raw);
