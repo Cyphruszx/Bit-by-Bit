@@ -13,10 +13,11 @@ import { monthKey } from "@/lib/money-flow/period";
 import { livePools, membersOf, type PoolBook } from "@/lib/money-flow/pools";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { countedMovements, isEarnings, isRefundCredit, isSpending, tileAmount } from "@/lib/money-flow/summary";
+import { derivedMovementBalance } from "@/lib/money-flow/statement-balance";
 import { topChartCategories } from "@/lib/money-flow/tag-charts";
 import { categoryOf } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
-import type { AccountTotals, InstitutionAccounts } from "@/lib/money-flow/accounts";
+import { accountsByInstitution, type AccountTotals, type InstitutionAccounts } from "@/lib/money-flow/accounts";
 
 export type DashboardPoint = {
   key: string;
@@ -103,8 +104,9 @@ export type BankInstitutionTile = {
 };
 
 /**
- * Prefer a stored cleared balance. Otherwise use the account's counted net
- * (same method as Total balance). Missing both is null — never a $0 skeleton.
+ * Prefer a stored statement / ledger balance (`accountMeta.clearedBalance`).
+ * Otherwise derive credits − debits from movements. Missing both is null —
+ * never a $0 skeleton. Differs from Spec 10 Net by construction.
  */
 export function accountDisplayAmount(
   accountId: string,
@@ -115,6 +117,46 @@ export function accountDisplayAmount(
   const held = clearedBalanceOf(accountId, meta, mergedInto);
   if (!held.missing) return held.amount;
   return movementNet;
+}
+
+/**
+ * Total / account balance across Bank Accounts card rows: stated CSV
+ * closing/running balance when stored, else derived movement balance.
+ * Not Spec 10 Net.
+ */
+export function totalAccountBalance(tiles: BankInstitutionTile[]): number | null {
+  let sum = 0;
+  let any = false;
+  for (const tile of tiles) {
+    for (const account of tile.accounts) {
+      if (account.amount == null) continue;
+      sum = roundMoney(sum + account.amount);
+      any = true;
+    }
+  }
+  return any ? sum : null;
+}
+
+/**
+ * Transactions-page Account balance (and dashboard Total balance): stated CSV
+ * Balance when stored, else derived credits − debits. Not Spec 10 Net.
+ */
+export function accountBalanceOf(
+  transactions: InterpretedTransaction[],
+  options: {
+    meta?: Record<string, AccountMeta>;
+    mergedInto?: Record<string, string>;
+    registry?: AccountRegistry;
+    book?: PoolBook;
+  } = {},
+): number | null {
+  return totalAccountBalance(
+    bankInstitutionTiles(accountsByInstitution(transactions, options.registry), {
+      meta: options.meta,
+      mergedInto: options.mergedInto,
+      book: options.book,
+    }),
+  );
 }
 
 /**
@@ -158,7 +200,7 @@ export function bankInstitutionTiles(
           name: account
             ? institutionAccountName(account.label, institution)
             : institutionAccountName(accountLabel(id), institution),
-          amount: accountDisplayAmount(id, account?.flow.net ?? null, meta, mergedInto),
+          amount: accountDisplayAmount(id, derivedMovementBalance(account?.transactions ?? []), meta, mergedInto),
         });
       }
     }
@@ -186,7 +228,7 @@ function lineFromAccount(
   return {
     id: account.id,
     name: institutionAccountName(account.label, institution),
-    amount: accountDisplayAmount(account.id, account.flow.net, meta, mergedInto),
+    amount: accountDisplayAmount(account.id, derivedMovementBalance(account.transactions), meta, mergedInto),
   };
 }
 

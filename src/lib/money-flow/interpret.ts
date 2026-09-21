@@ -79,6 +79,7 @@ export async function interpretDocuments(
         transactionCount: parsed.transactions.length,
         notes: parsed.notes,
         ...(pages ? { ocrPages: pages } : {}),
+        ...(parsed.statedBalance != null ? { statedBalance: parsed.statedBalance } : {}),
       });
     } catch (error) {
       interpretations.push({

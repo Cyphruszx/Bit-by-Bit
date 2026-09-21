@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { accountsByInstitution } from "./accounts";
 import {
+  accountBalanceOf,
   accountDisplayAmount,
   bankInstitutionTiles,
   budgetRowsFromPrior,
@@ -12,7 +13,9 @@ import {
   spendDonutSlices,
   spendFillToken,
   stackedBarPercents,
+  totalAccountBalance,
 } from "./dashboard";
+import { summarizeMoneyFlow } from "./summary";
 import type { InterpretedTransaction } from "./types";
 
 function txn(
@@ -196,5 +199,106 @@ describe("dashboard widgets", () => {
       (nab?.accounts[0]?.amount ?? 0) + (nab?.accounts[1]?.amount ?? 0),
       nab?.accounts[0]?.amount,
     );
+  });
+
+  it("sums Total balance from the same amounts Bank Accounts cards show", () => {
+    const rows = [
+      txn("1", "2026-03-01", 3000, { accountId: "NAB · Everyday", institution: "NAB", type: "earned", categoryKey: "salary" }),
+      txn("2", "2026-03-02", -120, { accountId: "NAB · Everyday", institution: "NAB", type: "spent" }),
+      txn("3", "2026-03-03", 80, {
+        accountId: "NAB · Everyday",
+        institution: "NAB",
+        type: "returned",
+        refundPair: "2~3",
+        merchant: "Kmart",
+      }),
+      txn("4", "2026-03-01", 12400, { accountId: "NAB · Savings", institution: "NAB", type: "earned", categoryKey: "salary" }),
+    ];
+    rows[1] = { ...rows[1], refundPair: "2~3" };
+    const groups = accountsByInstitution(rows);
+    const tiles = bankInstitutionTiles(groups, {
+      meta: {
+        "NAB · Everyday": { clearedBalance: 4280.12 },
+        "NAB · Savings": { clearedBalance: 12400 },
+      },
+    });
+    const flow = summarizeMoneyFlow(rows);
+
+    assert.equal(totalAccountBalance(tiles), 16680.12);
+    assert.equal(accountBalanceOf(rows, {
+      meta: {
+        "NAB · Everyday": { clearedBalance: 4280.12 },
+        "NAB · Savings": { clearedBalance: 12400 },
+      },
+    }), 16680.12);
+    assert.notEqual(totalAccountBalance(tiles), flow.net, "not parked Net Money(P)");
+    assert.notEqual(totalAccountBalance(tiles), flow.cashNet, "not period money-in − money-out");
+  });
+
+  it("keeps PENDING out of Total balance when falling back to derived movements", () => {
+    const rows = [
+      txn("cleared", "2026-09-19", 1000, {
+        accountId: "NAB · Everyday",
+        institution: "NAB",
+        type: "earned",
+        categoryKey: "salary",
+        status: "CLEARED",
+      }),
+      txn("pending", "2026-09-19", -80, {
+        accountId: "NAB · Everyday",
+        institution: "NAB",
+        type: "spent",
+        status: "PENDING",
+      }),
+    ];
+    const tiles = bankInstitutionTiles(accountsByInstitution(rows));
+    assert.equal(totalAccountBalance(tiles), 1000);
+    assert.equal(summarizeMoneyFlow(rows).cashOut, 80, "raw Money out still sees the pending debit");
+    assert.equal(summarizeMoneyFlow(rows).spending, 0);
+  });
+
+  it("returns no Total balance when every card is missing a figure", () => {
+    assert.equal(totalAccountBalance([{ institution: "NAB", accounts: [{ id: "NAB · Everyday", name: "Everyday", amount: null }] }]), null);
+  });
+
+  it("lets derived Total balance differ from Spec 10 Net when a credit is not earnings", () => {
+    const rows = [
+      txn("pay", "2026-03-06", 3000, {
+        accountId: "NAB · Everyday",
+        institution: "NAB",
+        type: "earned",
+        categoryKey: "salary",
+      }),
+      txn("loan", "2026-03-07", 25000, {
+        accountId: "NAB · Everyday",
+        institution: "NAB",
+        type: "borrowed",
+        categoryKey: "uncategorised",
+        merchant: "Lender",
+      }),
+      txn("shop", "2026-03-08", -40, { accountId: "NAB · Everyday", institution: "NAB", type: "spent" }),
+    ];
+    const tiles = bankInstitutionTiles(accountsByInstitution(rows));
+    const flow = summarizeMoneyFlow(rows);
+    assert.equal(flow.net, 2960);
+    assert.equal(totalAccountBalance(tiles), 27960);
+    assert.notEqual(totalAccountBalance(tiles), flow.net);
+  });
+
+  it("uses raw cashIn/cashOut for Money in and Money out, not Income/Spending", () => {
+    const rows = [
+      txn("pay", "2026-03-06", 3000, { type: "earned", categoryKey: "salary" }),
+      txn("loan", "2026-03-07", 25000, { type: "borrowed", categoryKey: "uncategorised", merchant: "Lender" }),
+      txn("shop", "2026-03-08", -40, { type: "spent" }),
+      txn("move-out", "2026-03-09", -400, { type: "moved", transferPair: "pair", accountId: "Up · Spending" }),
+      txn("move-in", "2026-03-09", 400, { type: "moved", transferPair: "pair", accountId: "Up · Save!!" }),
+    ];
+    const flow = summarizeMoneyFlow(rows);
+    assert.equal(flow.income, 3000);
+    assert.equal(flow.spending, 40);
+    assert.equal(flow.cashIn, 28400, "direction only: salary + loan + transfer in");
+    assert.equal(flow.cashOut, 440, "direction only: shop + transfer out");
+    assert.notEqual(flow.cashIn, flow.income);
+    assert.notEqual(flow.cashOut, flow.spending);
   });
 });

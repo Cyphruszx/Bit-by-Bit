@@ -25,6 +25,7 @@ const TYPE_HEADERS = ["type", "transaction type", "dr/cr", "debit/credit"];
 const MERCHANT_HEADERS = ["merchant name", "merchant", "payee"];
 const CATEGORY_HEADERS = ["category", "nab category", "bank category"];
 const ACCOUNT_HEADERS = ["account number", "account no", "account", "acct", "bsb account number", "card number"];
+const BALANCE_HEADERS = ["closing balance", "running balance", "account balance", "balance"];
 
 const MONEY_CELL = /^[-+(]?\s*\$?\s*\d[\d,]*(\.\d{1,2})?\s*\)?-?$/;
 
@@ -103,7 +104,7 @@ export function rowsFromCsv(text: string): string[][] {
 export function interpretTable(
   rows: Array<Array<string | number | null>>,
   sourceFile: string,
-): { transactions: InterpretedTransaction[]; notes: string[]; headers: string[] } {
+): { transactions: InterpretedTransaction[]; notes: string[]; headers: string[]; statedBalance?: number } {
   if (rows.length === 0) return { transactions: [], notes: [], headers: [] };
   const headerIndex = rows.findIndex((row) => row.some((cell) => typeof cell === "string" && looksLikeHeader(String(cell))));
   const start = headerIndex >= 0 ? headerIndex : 0;
@@ -121,9 +122,11 @@ export function interpretTable(
   const merchantIdx = findColumn(headers, MERCHANT_HEADERS);
   const categoryIdx = findColumn(headers, CATEGORY_HEADERS);
   const accountIdx = findColumn(headers, ACCOUNT_HEADERS);
-  const claimed = [dateIdx, amountIdx, debitIdx, creditIdx, typeIdx, merchantIdx, categoryIdx, accountIdx];
+  const balanceIdx = findColumn(headers, BALANCE_HEADERS);
+  const claimed = [dateIdx, amountIdx, debitIdx, creditIdx, typeIdx, merchantIdx, categoryIdx, accountIdx, balanceIdx];
 
   const results: InterpretedTransaction[] = [];
+  let statedBalance: number | undefined;
   body.forEach((row, index) => {
     const cells = row.map((cell) => (cell == null ? "" : String(cell)));
     if (cells.every((cell) => !cell.trim())) return;
@@ -151,10 +154,11 @@ export function interpretTable(
       directionKnown = parsed < 0 || direction !== 0;
     }
     if (amount == null) {
-      amount = lastAmountCell(cells);
+      amount = lastAmountCell(cells, balanceIdx);
     }
     if (amount == null || !dateIso || !description) return;
     if (isSummaryRow(description) && Math.abs(amount) > 0 && cells.length <= 3) {
+      if (/closing/i.test(description)) statedBalance = amount;
       return;
     }
 
@@ -176,7 +180,7 @@ export function interpretTable(
     );
   });
 
-  return { transactions: results, notes: tableInterpretationNotes(headers), headers };
+  return { transactions: results, notes: tableInterpretationNotes(headers), headers, statedBalance };
 }
 
 export function transactionsFromTable(
@@ -244,7 +248,7 @@ function descriptionFrom(headers: string[], cells: string[], claimed: number[], 
 
 function looksLikeHeader(cell: string): boolean {
   const value = norm(cell);
-  return [...DATE_HEADERS, ...DESC_HEADERS, ...AMOUNT_HEADERS, ...DEBIT_HEADERS, ...CREDIT_HEADERS, ...TYPE_HEADERS, ...CATEGORY_HEADERS].some(
+  return [...DATE_HEADERS, ...DESC_HEADERS, ...AMOUNT_HEADERS, ...DEBIT_HEADERS, ...CREDIT_HEADERS, ...TYPE_HEADERS, ...CATEGORY_HEADERS, ...BALANCE_HEADERS].some(
     (header) => value === header || value.includes(header),
   );
 }
@@ -260,8 +264,9 @@ function longestTextCell(cells: string[], skip: number): string {
     .sort((a, b) => b.length - a.length)[0] ?? cells.join(" ");
 }
 
-function lastAmountCell(cells: string[]): number | null {
+function lastAmountCell(cells: string[], skip = -1): number | null {
   for (let i = cells.length - 1; i >= 0; i -= 1) {
+    if (i === skip) continue;
     if (!MONEY_CELL.test(cells[i].trim())) continue;
     const amount = parseAmount(cells[i]);
     if (amount != null) return amount;

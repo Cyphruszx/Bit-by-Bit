@@ -171,6 +171,8 @@ export type FileInterpretation = {
   notes: string[];
   /** Spec 2: OCR page count charged at intake. Absent on CSV. */
   ocrPages?: number;
+  /** Closing-balance summary row when the file printed one without a Balance column. */
+  statedBalance?: number;
 };
 
 export type CategorySpend = {

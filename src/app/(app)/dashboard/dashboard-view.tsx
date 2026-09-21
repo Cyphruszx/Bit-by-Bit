@@ -17,7 +17,7 @@ import {
   bankInstitutionTiles,
   budgetRowsFromPrior,
   monthlyBalanceSeries,
-  payRunCount,
+  totalAccountBalance,
 } from "@/lib/money-flow/dashboard";
 import {
   APP_TIME_ZONE,
@@ -27,7 +27,6 @@ import {
   monthsFromDates,
   previousPeriod,
   shiftMonth,
-  summarizePeriod,
 } from "@/lib/money-flow/period";
 import { poolBookOf } from "@/lib/money-flow/pools";
 import { potsInTotal } from "@/lib/money-flow/savings";
@@ -45,7 +44,6 @@ export function DashboardView() {
     institutionOverrides,
     payers,
     period,
-    transactions,
     mergedInto,
   } = useMoneyFlow();
   const { pots } = useSavingsPots();
@@ -78,10 +76,8 @@ export function DashboardView() {
   );
   const budgets = budgetRowsFromPrior(flow.categories, priorCategories);
   const daysLeft = period.kind === "month" ? daysLeftInMonth(period.month, todayIso()) : null;
-  const pays = payRunCount(transactions);
-  const allFlow = useMemo(() => summarizePeriod(allTransactions, { kind: "all" }), [allTransactions]);
   const setAside = included.reduce((sum, pot) => sum + pot.saved, 0) || flow.actualSavings;
-  const spendShare = flow.income > 0 ? Math.round((flow.spending / flow.income) * 100) : 0;
+  const totalBalance = useMemo(() => totalAccountBalance(tiles), [tiles]);
 
   if (!hasUploads) {
     return (
@@ -108,19 +104,19 @@ export function DashboardView() {
         <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryCard
             label="Total balance"
-            value={formatAud(allFlow.net)}
+            value={totalBalance == null ? "—" : formatAud(totalBalance)}
             detail={`Across ${formatCount(accounts.length)} account${accounts.length === 1 ? "" : "s"}`}
           />
           <SummaryCard
             label="Money in"
-            value={formatSignedAud(flow.income)}
-            detail={pays > 0 ? `${formatCount(pays)} pay run${pays === 1 ? "" : "s"} this period` : "Income, not counting money from your own accounts"}
+            value={formatAud(flow.cashIn)}
+            detail={flow.periodLabel}
             positive
           />
           <SummaryCard
             label="Money out"
-            value={`−${formatAud(flow.spending)}`}
-            detail={flow.income > 0 ? `${spendShare}% of money in` : "What you actually spent"}
+            value={`−${formatAud(flow.cashOut)}`}
+            detail={`${formatCount(flow.transactionCount)} movements`}
           />
           <SummaryCard
             label="Set aside"

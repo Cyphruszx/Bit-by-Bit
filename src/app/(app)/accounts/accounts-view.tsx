@@ -12,6 +12,8 @@ import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
 import { mergeSuggestions } from "@/lib/money-flow/account-identity";
 import { accountsByInstitution, suggestNameForKey, type AccountTotals } from "@/lib/money-flow/accounts";
+import { accountDisplayAmount } from "@/lib/money-flow/dashboard";
+import { derivedMovementBalance } from "@/lib/money-flow/statement-balance";
 import {
   institutionForStatement,
   knownInstitutions,
@@ -33,6 +35,7 @@ export function AccountsView() {
     setAccountName,
     mergeAccount,
     mergedInto,
+    accountMeta,
     accountPools,
     accountPoolMembers,
     featureOn,
@@ -69,6 +72,9 @@ export function AccountsView() {
   };
 
   const accountFor = (key: string) => accounts.find((account) => account.keys.includes(key));
+
+  const balanceOf = (account: AccountTotals) =>
+    accountDisplayAmount(account.id, derivedMovementBalance(account.transactions), accountMeta, mergedInto);
 
   if (!hasUploads) {
     return (
@@ -175,6 +181,7 @@ export function AccountsView() {
                       key={account.id}
                       account={account}
                       name={nameOf(account)}
+                      balance={balanceOf(account)}
                       siblings={accounts.filter((other) => other.id !== account.id)}
                       poolNames={poolsForAccount(poolBook, account.id).map((pool) => pool.name)}
                       onRename={(name) => rename(account, name)}
@@ -198,6 +205,7 @@ export function AccountsView() {
                   key={account.id}
                   account={account}
                   name={nameOf(account)}
+                  balance={balanceOf(account)}
                   siblings={group.accounts.filter((other) => other.id !== account.id)}
                   poolNames={poolsOn ? poolsForAccount(poolBook, account.id).map((pool) => pool.name) : []}
                   onRename={(name) => rename(account, name)}
@@ -309,6 +317,7 @@ function poolSections(
 function AccountCard({
   account,
   name,
+  balance,
   siblings,
   poolNames,
   onRename,
@@ -316,6 +325,7 @@ function AccountCard({
 }: {
   account: AccountTotals;
   name: string;
+  balance: number | null;
   siblings: AccountTotals[];
   poolNames: string[];
   onRename: (name: string) => void;
@@ -343,9 +353,9 @@ function AccountCard({
         />
       </div>
 
-      <p className="mt-4 text-2xl font-bold">{formatAud(account.flow.cashNet)}</p>
+      <p className="mt-4 text-2xl font-bold">{balance == null ? "—" : formatAud(balance)}</p>
       <p className="mt-1 text-sm text-muted">
-        {formatAud(account.flow.cashIn)} in · {formatAud(account.flow.cashOut)} out
+        Balance · {formatAud(account.flow.cashIn)} in · {formatAud(account.flow.cashOut)} out
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
