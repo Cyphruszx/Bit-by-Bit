@@ -1,17 +1,19 @@
 /**
- * Spec 7: Core never auto-resolves money-trust.
+ * Spec 7: Core never auto-resolves money-trust — except Spec 3/7 unique
+ * same-institution pairs, which resolve silently (no OPEN item).
  *
- * `matchTransfers` / `matchRefunds` still detect candidates. Writing `transferPair` /
- * `refundPair` and `type: moved` / `returned` is ledger truth — that is Spec 7 RESOLVE,
- * not ingest. OPEN candidates are held out of Income / Spending / Refund credits / Net
- * until that write.
+ * Cross-institution / contested / orphan / unknown-institution stays OPEN.
+ * Refunds still need Review Queue confirm. Spec 12.5 keeps CLEARED Open Banking
+ * same-institution pairs through `forgetAutoPairs`.
  */
 
-import { institutionOf, UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
+import { outranks } from "@/lib/money-flow/classify";
+import { institutionOf, UNKNOWN_INSTITUTION, type InstitutionOverrides } from "@/lib/money-flow/institution";
+import { isTransferKind, isUserOverridden } from "@/lib/money-flow/movement-kind";
 import { matchRefunds, type RefundOptions } from "@/lib/money-flow/refunds";
 import { typeForCategory, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import { isCleared } from "@/lib/money-flow/tile";
-import { matchTransfers, type MatchOptions } from "@/lib/money-flow/transfers";
+import { matchTransfers, type MatchOptions, type TransferPair } from "@/lib/money-flow/transfers";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /**
@@ -50,7 +52,10 @@ export function pendingPairInsight(
 ): string | undefined {
   const transfers = matchTransfers(transactions, options);
   const refunds = matchRefunds(transactions, options);
-  const n = transfers.pairs.length;
+  const openPairs = transfers.pairs.filter(
+    (pair) => !isSilentSameInstitutionUniquePair(pair, options.institutions),
+  );
+  const n = openPairs.length;
   const m = refunds.pairs.length;
   const contested = transfers.contested.length;
   if (n + m + contested === 0) return undefined;
@@ -59,6 +64,58 @@ export function pendingPairInsight(
   if (m) bits.push(`${m} likely refund${m === 1 ? "" : "s"}`);
   if (contested) bits.push(`${contested} contested transfer${contested === 1 ? "" : "s"}`);
   return `Detected ${bits.join(", ")}. Held out of Income, Spending, Refund credits and Net until confirmed (Review Queue, Spec 7).`;
+}
+
+/**
+ * Spec 3/7: unique same-institution pairs with a known bank resolve silently.
+ * Unknown ≠ Unknown. Contested / cross-institution / one-sided stay for Review.
+ */
+export function applySilentSameInstitutionUniquePairs(
+  transactions: InterpretedTransaction[],
+  options: MatchOptions = {},
+): InterpretedTransaction[] {
+  const overrides = options.institutions ?? {};
+  const match = matchTransfers(transactions, options);
+  const pairOf = new Map<string, string>();
+  for (const pair of match.pairs) {
+    if (!isSilentSameInstitutionUniquePair(pair, overrides)) continue;
+    const token = `${pair.debit.id}~${pair.credit.id}`;
+    pairOf.set(pair.debit.id, token);
+    pairOf.set(pair.credit.id, token);
+  }
+  if (pairOf.size === 0) return transactions;
+
+  return transactions.map((txn) => {
+    const token = pairOf.get(txn.id);
+    if (!token || isUserOverridden(txn)) return txn;
+    if (txn.transferPair === token && isTransferKind(txn.type)) return txn;
+    return {
+      ...txn,
+      transferPair: token,
+      type: "TRANSFER" as const,
+      ...(outranks("paired", txn.decidedBy) ? { decidedBy: "paired" as const } : {}),
+    };
+  });
+}
+
+/** Known bank on both legs, and the same bank. Unknown never equals Unknown. */
+export function isKnownSameInstitution(
+  left: InterpretedTransaction,
+  right: InterpretedTransaction,
+  overrides: InstitutionOverrides = {},
+): boolean {
+  const a = institutionOf(left, overrides);
+  const b = institutionOf(right, overrides);
+  if (a === UNKNOWN_INSTITUTION || b === UNKNOWN_INSTITUTION) return false;
+  return a === b;
+}
+
+/** Spec 3/7 unique pair: matcher already refused contested; both legs known same bank. */
+export function isSilentSameInstitutionUniquePair(
+  pair: TransferPair,
+  overrides: InstitutionOverrides = {},
+): boolean {
+  return pair.sameInstitution && isKnownSameInstitution(pair.debit, pair.credit, overrides);
 }
 
 /**
@@ -89,10 +146,7 @@ export function isSilentSameInstitutionPair(
 ): boolean {
   if (!isCleared(left) || !isCleared(right)) return false;
   if (left.ingestSource !== "OPEN_BANKING" && right.ingestSource !== "OPEN_BANKING") return false;
-  const a = institutionOf(left, overrides);
-  const b = institutionOf(right, overrides);
-  if (a === UNKNOWN_INSTITUTION || b === UNKNOWN_INSTITUTION) return false;
-  return a === b;
+  return isKnownSameInstitution(left, right, overrides);
 }
 
 function otherTransferLeg(

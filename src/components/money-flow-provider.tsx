@@ -15,9 +15,11 @@ import {
   persistTaxonomy,
   recordCorrection,
   recordReview,
+  rememberReviewUndo,
   removeStatement as dropStatement,
   recordPayerMerge,
   recordVerdict,
+  undoLastReviewAction,
   recordTaxonomy,
   replaceTransactions,
   visibleTransactions,
@@ -33,18 +35,31 @@ import {
 import { applyBook, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
-import { forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
+import { applySilentSameInstitutionUniquePairs, forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
 import {
   buildReviewQueue,
   canDismiss,
   confirmRefundPair,
   confirmTransferPair,
+  declineReviewSuggestion,
+  deferReviewItem,
   dismissReviewItem as closeParseItem,
   openReviewCount,
   resolveReviewItem,
+  undeferReviewItem,
   type ReviewItem,
 } from "@/lib/money-flow/review-queue";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
+import {
+  fileAsLoanDrawdown,
+  reviewItemIsCredit,
+  reviewMovementOf,
+  unpairedAsTransferReason,
+  unpairedKeepReason,
+  unpairedLoanReason,
+} from "@/lib/money-flow/review-page";
+import { captureReviewUndo, lastReviewUndo, type ReviewUndoAction } from "@/lib/money-flow/review-undo";
+import { ruleKeyFor } from "@/lib/money-flow/rules";
 import { categorizeMerchant, removeTag, renameTag, sameMerchant, tagMerchant, withCategory, withTags } from "@/lib/money-flow/tags";
 import {
   applyVerdicts,
@@ -135,10 +150,20 @@ type MoneyFlowState = {
   /** Spec 7 Review Queue. Badge is the OPEN count. */
   review: ReviewItem[];
   openReviewCount: number;
-  confirmReviewTransfer: (item: ReviewItem) => void;
-  confirmReviewRefund: (item: ReviewItem) => void;
-  declineReviewItem: (item: ReviewItem) => void;
+  confirmReviewTransfer: (item: ReviewItem, creditId?: string) => void;
+  confirmReviewAsTransfer: (item: ReviewItem, similar?: ReviewItem[]) => void;
+  confirmReviewAsLoan: (item: ReviewItem, similar?: ReviewItem[]) => void;
+  confirmReviewRefund: (item: ReviewItem, debitId?: string) => void;
+  markReviewIncome: (item: ReviewItem) => void;
+  keepReviewAsMoney: (item: ReviewItem, similar?: ReviewItem[]) => void;
+  assignReviewCategory: (item: ReviewItem, merchant: string, categoryKey: string) => void;
+  keepReviewFiling: (item: ReviewItem) => void;
+  declineReviewItem: (item: ReviewItem, partnerId?: string) => void;
   dismissReviewItem: (item: ReviewItem) => void;
+  skipReviewItem: (item: ReviewItem) => void;
+  undeferReviewItem: (item: ReviewItem) => void;
+  lastReviewUndo?: ReviewUndoAction;
+  undoReviewAction: () => void;
   clearInterpretation: () => void;
   /** What one movement was for. A person choosing settles it against every later re-read. */
   setTransactionCategory: (id: string, categoryKey: string) => void;
@@ -204,7 +229,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const categoryBook = resolveBook(held.ledger.taxonomy);
     applyBook(categoryBook);
     const classified = forgetAutoPairs(classify(stored, { rules: held.ledger.rules ?? {} }));
-    const allTransactions = applyVerdicts(classified, held.ledger.verdicts ?? {}, registry);
+    const judged = applyVerdicts(classified, held.ledger.verdicts ?? {}, registry);
+    const allTransactions = applySilentSameInstitutionUniquePairs(judged, matching);
     const review = buildReviewQueue(allTransactions, {
       ...matching,
       imports: held.ledger.imports,
@@ -238,9 +264,19 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       review,
       openReviewCount: openReviewCount(review),
       confirmReviewTransfer,
+      confirmReviewAsTransfer,
+      confirmReviewAsLoan,
       confirmReviewRefund,
+      markReviewIncome,
+      keepReviewAsMoney,
+      assignReviewCategory,
+      keepReviewFiling,
       declineReviewItem,
       dismissReviewItem,
+      skipReviewItem,
+      undeferReviewItem: restoreReviewItem,
+      lastReviewUndo: lastReviewUndo(held.ledger.reviewUndo),
+      undoReviewAction,
       importDocuments,
       removeStatement,
       clearInterpretation: clearLedger,
@@ -545,46 +581,277 @@ function mergePayers(from: string, into: string | null) {
   commit(recordPayerMerge(snapshot.ledger, from, into));
 }
 
-function confirmReviewTransfer(item: ReviewItem) {
-  if (item.reason !== "UNPAIRED_TRANSFER" || !item.debitId || !item.creditId) return;
-  editWith(
-    (ledger) => recordReview(ledger, resolveReviewItem(item)),
-    (rows) => confirmTransferPair(rows, item.debitId!, item.creditId!),
+function confirmReviewTransfer(item: ReviewItem, creditId?: string) {
+  const debitId = item.debitId;
+  const partnerId = creditId ?? item.creditId;
+  if (item.reason !== "UNPAIRED_TRANSFER" || !debitId || !partnerId) return;
+  withReviewUndoEdit(
+    "Confirm transfer",
+    [item],
+    [debitId, partnerId],
+    [],
+    [],
+    (ledger) => recordReview(ledger, resolveReviewItem({ ...item, creditId: partnerId })),
+    (rows) => confirmTransferPair(rows, debitId, partnerId),
   );
 }
 
-function confirmReviewRefund(item: ReviewItem) {
-  if (!item.creditId || !item.debitId) return;
+function confirmReviewRefund(item: ReviewItem, debitId?: string) {
   if (item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") return;
-  editWith(
-    (ledger) => recordReview(ledger, resolveReviewItem(item)),
-    (rows) => confirmRefundPair(rows, item.debitId!, item.creditId!),
+  const refundId = item.creditId;
+  if (!refundId) return;
+  const paymentId = debitId ?? item.debitId;
+  if (paymentId) {
+    withReviewUndoEdit(
+      "Confirm refund",
+      [item],
+      [paymentId, refundId],
+      [],
+      [],
+      (ledger) => recordReview(ledger, resolveReviewItem({ ...item, debitId: paymentId })),
+      (rows) => confirmRefundPair(rows, paymentId, refundId),
+    );
+    return;
+  }
+  const credit = ledgerTransactions(snapshot.ledger).find((row) => row.id === refundId);
+  if (!credit) return;
+  settleReviewWithVerdict(item, credit, "money-back", "Confirm refund");
+}
+
+function markReviewIncome(item: ReviewItem) {
+  if (item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") return;
+  const credit = reviewMovement(item.creditId);
+  if (!credit) return;
+  settleReviewWithVerdict(item, credit, "earned", "Mark as income");
+}
+
+function confirmReviewAsTransfer(item: ReviewItem, similar?: ReviewItem[]) {
+  if (item.reason !== "UNPAIRED_TRANSFER") return;
+  settleUnpairedBatch(item, similar, "transfer");
+}
+
+function confirmReviewAsLoan(item: ReviewItem, similar?: ReviewItem[]) {
+  if (item.reason !== "UNPAIRED_TRANSFER" && item.reason !== "UNREVIEWED_KIND") return;
+  const stored = ledgerTransactions(snapshot.ledger);
+  const byId = new Map(stored.map((txn) => [txn.id, txn]));
+  const targets = (similar && similar.length > 0 ? similar : [item]).filter((row) =>
+    reviewItemIsCredit(row, byId),
+  );
+  if (targets.length === 0) return;
+  const ids = [
+    ...new Set(
+      targets.flatMap((row) => {
+        if (row.reason === "UNREVIEWED_KIND") return row.movementIds;
+        const txn = reviewMovementOf(row, byId);
+        return txn ? [txn.id] : row.movementIds;
+      }),
+    ),
+  ];
+  const settings = reviewRegistry();
+  const at = new Date().toISOString();
+  const verdictKeys: string[] = [];
+  const ruleKeys: string[] = [];
+  for (const target of targets) {
+    const txn = reviewMovementOf(target, byId);
+    if (!txn || txn.amount <= 0) continue;
+    verdictKeys.push(oneKey(txn, settings));
+    ruleKeys.push(ruleKeyFor(txn));
+  }
+  withReviewUndoEdit(
+    targets.length > 1 ? "Confirm as loan (similar)" : "Confirm as loan",
+    targets,
+    ids,
+    verdictKeys,
+    ruleKeys,
+    (ledger) => {
+      let next = ledger;
+      const rows = ledgerTransactions(next);
+      const rowById = new Map(rows.map((txn) => [txn.id, txn]));
+      for (const target of targets) {
+        const txn = reviewMovementOf(target, rowById);
+        if (!txn || txn.amount <= 0) continue;
+        next = recordVerdict(next, oneKey(txn, settings), verdictFor(unpairedLoanReason(), at));
+        next = recordCorrection(next, txn, "debt-payments", at);
+        next = recordReview(next, resolveReviewItem(target));
+      }
+      return next;
+    },
+    (rows) => rows.map((txn) => (ids.includes(txn.id) ? fileAsLoanDrawdown(txn) : txn)),
   );
 }
 
-function declineReviewItem(item: ReviewItem) {
-  if (item.reason === "INGEST_PARSE") return;
-  const settings = {
+function keepReviewAsMoney(item: ReviewItem, similar?: ReviewItem[]) {
+  if (item.reason !== "UNPAIRED_TRANSFER") return;
+  settleUnpairedBatch(item, similar, "money");
+}
+
+function assignReviewCategory(item: ReviewItem, merchant: string, categoryKey: string) {
+  if (item.reason !== "UNREVIEWED_KIND") return;
+  const stored = ledgerTransactions(snapshot.ledger);
+  const row = stored.find((txn) => sameMerchant(txn.merchant, merchant));
+  const ids = stored.filter((txn) => sameMerchant(txn.merchant, merchant)).map((txn) => txn.id);
+  withReviewUndoEdit(
+    "Assign category",
+    [item],
+    ids,
+    [],
+    row ? [ruleKeyFor(row)] : [],
+    (ledger) => {
+      const remembered = row ? recordCorrection(ledger, row, categoryKey, new Date().toISOString()) : ledger;
+      return recordReview(remembered, resolveReviewItem(item));
+    },
+    (rows) => categorizeMerchant(rows, merchant, categoryKey),
+  );
+}
+
+function keepReviewFiling(item: ReviewItem) {
+  withReviewUndo("Keep this filing", [item], [], [], [], (ledger) =>
+    recordReview(ledger, resolveReviewItem(item)),
+  );
+}
+
+function declineReviewItem(item: ReviewItem, partnerId?: string) {
+  const suggestionId =
+    partnerId ??
+    (item.reason === "UNPAIRED_TRANSFER" ? item.creditId : item.debitId);
+  if (!suggestionId) return;
+  if (item.reason !== "UNPAIRED_TRANSFER" && item.reason !== "PARTIAL_REFUND" && item.reason !== "FULL_REFUND_AMBIGUOUS") {
+    return;
+  }
+  commit(recordReview(snapshot.ledger, declineReviewSuggestion(item, suggestionId)));
+}
+
+function reviewMovement(id: string | undefined) {
+  if (!id) return undefined;
+  return ledgerTransactions(snapshot.ledger).find((row) => row.id === id);
+}
+
+function settleReviewWithVerdict(
+  item: ReviewItem,
+  txn: InterpretedTransaction,
+  reason: VerdictReason,
+  label: string,
+) {
+  settleItemsWithVerdicts([{ item, txn, reason }], label);
+}
+
+function settleUnpairedBatch(item: ReviewItem, similar: ReviewItem[] | undefined, kind: "transfer" | "money") {
+  const seed = reviewMovement(item.debitId ?? item.creditId ?? item.movementIds[0]);
+  if (!seed) return;
+  const seedReason = kind === "transfer" ? unpairedAsTransferReason(seed.amount) : unpairedKeepReason(seed.amount);
+  const stored = ledgerTransactions(snapshot.ledger);
+  const byId = new Map(stored.map((txn) => [txn.id, txn]));
+  const targets = similar && similar.length > 0 ? similar : [item];
+  const planned = targets.flatMap((target) => {
+    const txn = reviewMovementOf(target, byId);
+    if (!txn) return [];
+    const reason = kind === "transfer" ? unpairedAsTransferReason(txn.amount) : seedReason;
+    return [{ item: target, txn, reason }];
+  });
+  if (planned.length === 0) return;
+  const batch = planned.length > 1 ? " (similar)" : "";
+  const label =
+    kind === "transfer"
+      ? `Confirm as transfer${batch}`
+      : `${seed.amount > 0 ? "Keep as income" : "Keep as spending"}${batch}`;
+  settleItemsWithVerdicts(planned, label);
+}
+
+function settleItemsWithVerdicts(
+  planned: { item: ReviewItem; txn: InterpretedTransaction; reason: VerdictReason }[],
+  label: string,
+) {
+  const settings = reviewRegistry();
+  const at = new Date().toISOString();
+  withReviewUndo(
+    label,
+    planned.map((row) => row.item),
+    planned.map((row) => row.txn.id),
+    planned.map((row) => oneKey(row.txn, settings)),
+    [],
+    (ledger) => {
+      let next = ledger;
+      for (const row of planned) {
+        next = recordVerdict(next, oneKey(row.txn, settings), verdictFor(row.reason, at));
+        next = recordReview(next, resolveReviewItem(row.item));
+      }
+      return next;
+    },
+  );
+}
+
+function reviewRegistry() {
+  return {
     institutions: snapshot.ledger.institutions ?? {},
     names: snapshot.ledger.accounts ?? {},
     payers: snapshot.ledger.payers ?? {},
     mergedInto: snapshot.ledger.mergedInto,
   };
-  const held = { ...(snapshot.ledger.verdicts ?? {}) };
-  const now = new Date().toISOString();
-  const stored = ledgerTransactions(snapshot.ledger);
-  for (const id of item.movementIds) {
-    const txn = stored.find((row) => row.id === id);
-    if (!txn) continue;
-    const reason = txn.amount > 0 ? "earned" : "spent";
-    held[oneKey(txn, settings)] = verdictFor(reason, now);
-  }
-  commit(recordReview({ ...snapshot.ledger, verdicts: held }, resolveReviewItem(item)));
 }
 
 function dismissReviewItem(item: ReviewItem) {
   if (!canDismiss(item.reason)) return;
-  commit(recordReview(snapshot.ledger, closeParseItem(item)));
+  withReviewUndo("Dismiss parse", [item], [], [], [], (ledger) =>
+    recordReview(ledger, closeParseItem(item)),
+  );
+}
+
+function undoReviewAction() {
+  if (!lastReviewUndo(snapshot.ledger.reviewUndo)) return;
+  commit(undoLastReviewAction(snapshot.ledger));
+}
+
+function withReviewUndo(
+  label: string,
+  items: ReviewItem[],
+  movementIds: string[],
+  verdictKeys: string[],
+  ruleKeys: string[],
+  apply: (ledger: Ledger) => Ledger,
+) {
+  const action = captureReviewUndo({
+    review: snapshot.ledger.review,
+    verdicts: snapshot.ledger.verdicts,
+    transactions: ledgerTransactions(snapshot.ledger),
+    label,
+    items,
+    movementIds,
+    verdictKeys,
+    ruleKeys,
+  });
+  commit(rememberReviewUndo(apply(snapshot.ledger), action));
+}
+
+function withReviewUndoEdit(
+  label: string,
+  items: ReviewItem[],
+  movementIds: string[],
+  verdictKeys: string[],
+  ruleKeys: string[],
+  remember: (ledger: Ledger) => Ledger,
+  change: (rows: InterpretedTransaction[]) => InterpretedTransaction[],
+) {
+  const action = captureReviewUndo({
+    review: snapshot.ledger.review,
+    verdicts: snapshot.ledger.verdicts,
+    transactions: ledgerTransactions(snapshot.ledger),
+    label,
+    items,
+    movementIds,
+    verdictKeys,
+    ruleKeys,
+  });
+  editWith((ledger) => rememberReviewUndo(remember(ledger), action), change);
+}
+
+function skipReviewItem(item: ReviewItem) {
+  if (item.state !== "OPEN") return;
+  commit(recordReview(snapshot.ledger, deferReviewItem(item)));
+}
+
+function restoreReviewItem(item: ReviewItem) {
+  if (item.state !== "OPEN") return;
+  commit(recordReview(snapshot.ledger, undeferReviewItem(item)));
 }
 
 function setMerchantTags(merchant: string, tags: string[]) {

@@ -6,7 +6,6 @@ import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
 import { EmptyLedger } from "@/components/empty-ledger";
 import { LearnedList } from "@/components/learned-list";
-import { ReviewQueue } from "@/components/review-queue";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { ScopeBar } from "@/components/scope-bar";
 import { SettledMoney, UnsettledMoney } from "@/components/unsettled-money";
@@ -123,7 +122,6 @@ export function TransactionsView() {
           compact
         />
       </div>
-      <ReviewQueue />
       <UnsettledMoney transactions={scoped} />
       <SettledMoney transactions={scoped} />
       <LearnedList />
