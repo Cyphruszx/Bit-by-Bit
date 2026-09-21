@@ -36,6 +36,10 @@ const PROFILES: Profile[] = [
     label: "Up",
     statement: /up is a brand of bendigo|zap card \*\*/i,
     name: /\bup(?:bank)?\b/i,
+    headers: [
+      ["utc date time", "transaction type"],
+      ["total aud", "parent category", "transaction type"],
+    ],
   },
   {
     label: "NAB",

@@ -56,8 +56,8 @@ describe("Core ingest silent-pairs unique same-institution transfers (Spec 3/7)"
     assert.equal(flow.transfers, 400);
     assert.equal(flow.income, 0);
     assert.equal(flow.spending, 0);
-    assert.equal(flow.cashIn, 400);
-    assert.equal(flow.cashOut, 400);
+    assert.equal(flow.cashIn, 0, "classified same-institution pair is omitted from Money in");
+    assert.equal(flow.cashOut, 0, "classified same-institution pair is omitted from Money out");
     assert.ok(!flow.insights.some((line) => /likely transfer/i.test(line)));
   });
 

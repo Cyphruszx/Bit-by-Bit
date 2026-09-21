@@ -364,8 +364,8 @@ describe("accumulating the NAB statements", () => {
     const before = summarizeMoneyFlow(ledgerTransactions(once.ledger));
 
     assert.equal(once.report.added, 437);
-    assert.equal(before.cashIn, 204214.49);
-    assert.equal(before.cashOut, 203665.05);
+    assert.equal(before.cashIn, 162371.67);
+    assert.equal(before.cashOut, 161822.23);
     assert.equal(before.cashNet, 549.44);
 
     const again = await readSamples(["nab-medicare.csv", "nab-rent.csv"]);
@@ -391,9 +391,9 @@ describe("accumulating the NAB statements", () => {
 
     assert.equal(full.report.added, 378);
     assert.equal(full.report.duplicates, 59);
-    assert.equal(flow.cashIn, 204214.49);
-    assert.equal(flow.cashOut, 203665.05);
-    assert.equal(flow.cashNet, 549.44);
+    assert.equal(flow.cashIn, 195429.49);
+    assert.equal(flow.cashOut, 170607.23);
+    assert.equal(flow.cashNet, 24822.26);
   });
 
   it("holds statements from two banks side by side", async () => {

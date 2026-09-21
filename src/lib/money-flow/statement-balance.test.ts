@@ -113,7 +113,7 @@ describe("NAB sample stated balances", () => {
     const everydayBalance = accountBalanceOf(everyday, { meta: ledger.accountMeta });
     const everydayFlow = summarizeMoneyFlow(everyday);
     assert.equal(everydayBalance, 4913.07);
-    assert.equal(everydayFlow.cashNet, 3669.02);
+    assert.equal(everydayFlow.cashNet, 27941.84);
     assert.notEqual(everydayBalance, everydayFlow.net);
     assert.notEqual(everydayBalance, everydayFlow.cashNet);
   });

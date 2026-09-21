@@ -1,4 +1,5 @@
 import { canonicalAccountId } from "@/lib/money-flow/account-identity";
+import { excludingInternalTransfers } from "@/lib/money-flow/internal-transfers";
 import { parseAmount, roundMoney } from "@/lib/money-flow/parse-values";
 import { sourceValue } from "@/lib/money-flow/source";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
@@ -76,11 +77,13 @@ export function pickMostRecentStatedBalance(
 
 /**
  * When the file never printed a balance, derive one from signed movements
- * (credits − debits). PENDING rows stay out. Differs from Spec 10 Net.
+ * (credits − debits). PENDING rows stay out. Classified internal transfers
+ * use the same filter as Money in / Money out. Differs from Spec 10 Net.
  */
 export function derivedMovementBalance(transactions: InterpretedTransaction[]): number | null {
-  const rows = transactions.filter((txn) => (txn.status ?? "CLEARED") !== "PENDING");
-  if (rows.length === 0) return null;
+  const countable = transactions.filter((txn) => (txn.status ?? "CLEARED") !== "PENDING");
+  if (countable.length === 0) return null;
+  const rows = excludingInternalTransfers(countable);
   return roundMoney(rows.reduce((sum, txn) => sum + txn.amount, 0));
 }
 

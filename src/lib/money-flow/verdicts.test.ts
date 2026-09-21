@@ -113,7 +113,7 @@ describe("settling what the statements cannot say", () => {
     const flow = summarizeMoneyFlow(applyVerdicts(rows, { [oneKey(offset)]: verdictFor("not-mine", AT) }));
 
     assert.equal(flow.spending, 40);
-    assert.equal(flow.cashOut, 5040);
+    assert.equal(flow.cashOut, 40, "classified own-account move is omitted from Money out");
   });
 });
 

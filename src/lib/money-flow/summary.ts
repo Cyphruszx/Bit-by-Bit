@@ -9,6 +9,7 @@ import { categoryOf } from "@/lib/money-flow/tags";
 import { countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
 import { moneyTrustHoldIds } from "@/lib/money-flow/review-queue";
 import { isActualSavings, isCleared, tileAmount } from "@/lib/money-flow/tile";
+import { excludingInternalTransfers } from "@/lib/money-flow/internal-transfers";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
@@ -60,8 +61,10 @@ export type FlowOverTimePoint = {
  *
  * Tiles are Σ `base_amount` of CLEARED counted rows. Missing `status`/`baseAmount`
  * on a stored row means CLEARED / `amount` (interim for ledgers written before
- * those fields). Cash in/out still sum statement `amount` by sign only — the
- * dashboard Money in / Money out tiles use these, not Income / Spending.
+ * those fields). Cash in/out still sum statement `amount` by sign only —
+ * Transactions Money in / Money out use these, not Income / Spending, and omit
+ * classified internal transfers (TRANSFER kind, paired legs, bank Transfer type).
+ * Dashboard Income / Spending / Net stay on countedMovements.
  */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const counted = countedMovements(transactions);
@@ -71,11 +74,12 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const spending = roundMoney(
     counted.filter(isSpending).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
+  const cashRows = excludingInternalTransfers(transactions);
   const cashIn = roundMoney(
-    transactions.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
+    cashRows.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
   );
   const cashOut = roundMoney(
-    transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
+    cashRows.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + Math.abs(txn.amount), 0),
   );
   // One side of each transfer pair: the money that moved, not the two rows for it.
   // Household cancellation — not Spec 10 Actual Savings.
