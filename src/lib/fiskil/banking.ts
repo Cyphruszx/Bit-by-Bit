@@ -6,20 +6,26 @@
  */
 
 import { FISKIL_API_BASE, type FiskilCredentials } from "./config";
+import { FiskilApiError, fiskilErrorFromResponse, parseFiskilErrorBody, withFiskilRetry } from "./errors";
+import { logFiskilSupport, pickFiskilSupportIds } from "./log";
 import { getFiskilAppToken, type TokenCache } from "./token";
 
 export const FIRST_SYNC_DAYS = 90;
 export const POLL_INTERVAL_MS = 4 * 60 * 60 * 1000;
+export const BANKING_PAGE_SIZE = 1000;
+export const MAX_BANKING_PAGES = 100;
 
 export class FiskilAuthError extends Error {
   readonly kind: "consent" | "token";
   readonly status: number;
+  readonly errorId?: string;
 
-  constructor(kind: "consent" | "token", status: number, message: string) {
+  constructor(kind: "consent" | "token", status: number, message: string, errorId?: string) {
     super(message);
     this.name = "FiskilAuthError";
     this.kind = kind;
     this.status = status;
+    if (errorId) this.errorId = errorId;
   }
 }
 
@@ -65,6 +71,12 @@ export type BankingFetchDeps = {
   cache?: TokenCache;
   now?: () => number;
   apiBase?: string;
+  sleep?: (ms: number) => Promise<void>;
+};
+
+export type NextBankingPage = {
+  after?: string;
+  href?: string;
 };
 
 export type ListTransactionsInput = {
@@ -208,25 +220,42 @@ async function fetchAllPages(
   const fetchImpl = deps.fetchImpl ?? fetch;
   const collected: unknown[] = [];
   let after: string | undefined;
-  for (let page = 0; page < 50; page += 1) {
-    const url = new URL(`${deps.apiBase ?? FISKIL_API_BASE}/${path}`);
-    for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
-    url.searchParams.set("page[size]", "1000");
-    if (after) url.searchParams.set("page[after]", after);
-    const response = await fetchImpl(url.toString(), {
-      method: "GET",
-      headers: {
-        Authorization: `${token.tokenType} ${token.accessToken}`,
-        Accept: "application/json",
-      },
-    });
-    if (!response.ok) throw bankingError(response.status);
-    const body = await readJson(response);
+  let href: string | undefined;
+  const apiBase = deps.apiBase ?? FISKIL_API_BASE;
+  for (let page = 0; page < MAX_BANKING_PAGES; page += 1) {
+    const url = href ? resolveBankingHref(href, apiBase) : bankingPageUrl(path, query, after, apiBase);
+    const body = await withFiskilRetry(async () => {
+      const response = await fetchImpl(url, {
+        method: "GET",
+        headers: {
+          Authorization: `${token.tokenType} ${token.accessToken}`,
+          Accept: "application/json",
+        },
+      });
+      if (response.ok) return readJson(response);
+      const raw = await peekJson(response);
+      logFiskilSupport(
+        "open_banking.banking.failed",
+        pickFiskilSupportIds({ ...query, ...raw, ...parseFiskilErrorBody(raw) }),
+        { status: response.status, page, action: path, retryable: isRetryableBankingStatus(response.status, raw) },
+      );
+      throw bankingError(response.status, raw);
+    }, { sleep: deps.sleep });
     collected.push(...pick(body));
-    after = nextPageAfter(body);
-    if (!after) break;
+    const next = nextBankingPage(body);
+    if (!next) return collected;
+    after = next.after;
+    href = next.after ? undefined : next.href;
+    if (!after && !href) return collected;
   }
-  return collected;
+  throw new FiskilApiError("Fiskil banking pagination was incomplete.", {
+    status: 502,
+    temporary: false,
+    timeout: false,
+    fault: false,
+    retryable: false,
+    errorName: "pagination_incomplete",
+  });
 }
 
 async function appToken(deps: BankingFetchDeps) {
@@ -243,24 +272,78 @@ async function appToken(deps: BankingFetchDeps) {
   }
 }
 
-function bankingError(status: number): Error {
+function bankingError(status: number, raw: unknown): Error {
+  const parsed = parseFiskilErrorBody(raw);
   if (status === 401 || status === 403) {
-    return new FiskilAuthError("consent", status, `Fiskil banking request was refused (${status}).`);
+    return new FiskilAuthError(
+      "consent",
+      status,
+      `Fiskil banking request was refused (${status}).`,
+      parsed.errorId,
+    );
   }
-  return new Error(`Fiskil banking request failed (${status}).`);
+  return fiskilErrorFromResponse(status, raw, "Fiskil banking request");
 }
 
-function nextPageAfter(body: unknown): string | undefined {
+function isRetryableBankingStatus(status: number, raw: unknown): boolean {
+  return fiskilErrorFromResponse(status, raw, "Fiskil banking request").retryable;
+}
+
+export function nextPageAfter(body: unknown): string | undefined {
+  return nextBankingPage(body)?.after;
+}
+
+export function nextBankingPage(body: unknown): NextBankingPage | undefined {
   const row = asRecord(body);
   const links = nested(row.links);
-  const next = asId(links.next) ?? asId(links.after);
-  if (!next) return undefined;
-  try {
-    const url = new URL(next, "https://api.fiskil.com");
-    return url.searchParams.get("page[after]") ?? url.searchParams.get("after") ?? undefined;
-  } catch {
-    return next;
+  const meta = nested(row.meta);
+  const page = nested(row.page);
+  const metaPage = nested(meta.page);
+  const linkCandidates = [links.next, links.after, nested(links.next).href, nested(links.after).href];
+  for (const candidate of linkCandidates) {
+    const parsed = pageFromLink(candidate);
+    if (parsed) return parsed;
   }
+  const after = asId(page.after) ?? asId(meta.after) ?? asId(metaPage.after) ?? asId(row.after);
+  if (after) return { after };
+  const hasMore = row.has_more === true || row.hasMore === true || meta.has_more === true;
+  if (hasMore) {
+    const cursor = asId(row.cursor) ?? asId(meta.cursor) ?? asId(page.cursor);
+    if (cursor) return { after: cursor };
+  }
+  return undefined;
+}
+
+function pageFromLink(value: unknown): NextBankingPage | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const raw = value.trim();
+  try {
+    const url = new URL(raw, "https://api.fiskil.com");
+    const after =
+      url.searchParams.get("page[after]") ?? url.searchParams.get("after") ?? url.searchParams.get("cursor");
+    if (after) return { after };
+    if (raw.includes("://") || raw.startsWith("/") || raw.startsWith("?")) return { href: raw };
+  } catch {
+    return { after: raw };
+  }
+  return { after: raw };
+}
+
+function bankingPageUrl(
+  path: string,
+  query: Record<string, string>,
+  after: string | undefined,
+  apiBase: string,
+): string {
+  const url = new URL(`${apiBase}/${path}`);
+  for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
+  url.searchParams.set("page[size]", String(BANKING_PAGE_SIZE));
+  if (after) url.searchParams.set("page[after]", after);
+  return url.toString();
+}
+
+function resolveBankingHref(href: string, apiBase: string): string {
+  return new URL(href, `${apiBase}/`).toString();
 }
 
 function asArray(body: unknown, key: string): unknown[] {
@@ -345,5 +428,13 @@ async function readJson(response: Response): Promise<unknown> {
     return await response.json();
   } catch {
     throw new Error("Fiskil banking response was not JSON.");
+  }
+}
+
+async function peekJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return undefined;
   }
 }

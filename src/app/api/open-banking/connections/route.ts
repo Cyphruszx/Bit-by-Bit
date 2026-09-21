@@ -20,6 +20,7 @@ import {
   reconnectOpenBankingConnection,
   revokeOpenBankingConnection,
 } from "@/lib/fiskil/connections";
+import { logFiskilSupport } from "@/lib/fiskil/log";
 import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
 import { ledgerFromSync, publicSyncResult, scheduleFirstOpenBankingSync } from "@/lib/fiskil/sync";
 import { processTokenCache } from "@/lib/fiskil/token";
@@ -58,10 +59,14 @@ export async function POST(request: Request) {
   if (action === "revoke") {
     const result = await revokeOpenBankingConnection(parseRevokeBody(raw), deps());
     if (!result.ok) return Response.json(publicConnectFailure(result), { status: result.status });
+    logFiskilSupport("open_banking.route.connections", { consent_id: result.connection.id }, {
+      action: result.endUserDeleted ? "last_bank_disconnect" : "revoke",
+    });
     return Response.json({
       connection: result.connection,
       connectionCount: result.connectionCount,
       remaining: result.remaining,
+      ...(result.endUserDeleted ? { endUserDeleted: true } : {}),
     });
   }
 
@@ -73,6 +78,7 @@ export async function POST(request: Request) {
 
   const result = await completeOpenBankingConnection(parseCompleteBody(raw), deps());
   if (!result.ok) return Response.json(publicConnectFailure(result), { status: result.status });
+  logFiskilSupport("open_banking.route.connections", { consent_id: result.connection.id }, { action: "complete" });
   const sync = await scheduleFirstOpenBankingSync(result.connection.id);
   const ledger = ledgerFromSync(sync);
   return Response.json({

@@ -8,10 +8,16 @@
  * Live GET /end-users?email= returns 400 { name: "end_user_not_found" } when
  * nobody is there — that is "no match", not a hard failure. Auth and 5xx
  * still fail the lookup.
+ *
+ * Leave-product: DELETE /end-users/{id} on account-delete or last bank
+ * disconnect. Sign-out does not delete the Fiskil end user.
  */
 
 import { hasOpenBankingBundle, parseFeatureToggles, type FeatureToggles } from "@/lib/money-flow/features";
+import type { BankConnection, ConnectionStore } from "./connections";
 import { FISKIL_API_BASE, fiskilCredentials, type FiskilCredentials, type FiskilEnv } from "./config";
+import { errorIdOf, fiskilErrorFromResponse, withFiskilRetry } from "./errors";
+import { logFiskilSupport } from "./log";
 import { getFiskilAppToken, type GetFiskilAppTokenDeps, type TokenCache } from "./token";
 
 export type FiskilEndUserLink = {
@@ -25,6 +31,7 @@ export type EndUserLinkStore = {
   getByUserId(userId: string): Promise<Omit<FiskilEndUserLink, "created"> | undefined>;
   getByEndUserId(endUserId: string): Promise<Omit<FiskilEndUserLink, "created"> | undefined>;
   put(link: Omit<FiskilEndUserLink, "created">): Promise<void>;
+  deleteByUserId(userId: string): Promise<void>;
 };
 
 export function memoryEndUserLinkStore(): EndUserLinkStore {
@@ -43,6 +50,12 @@ export function memoryEndUserLinkStore(): EndUserLinkStore {
       const stored = { userId: link.userId, endUserId: link.endUserId, email: link.email };
       byUser.set(link.userId, stored);
       byEndUser.set(link.endUserId, stored);
+    },
+    async deleteByUserId(userId) {
+      const held = byUser.get(userId);
+      if (!held) return;
+      byUser.delete(userId);
+      byEndUser.delete(held.endUserId);
     },
   };
 }
@@ -66,6 +79,7 @@ export type EnsureFiskilEndUserDeps = {
   cache?: TokenCache;
   now?: () => number;
   apiBase?: string;
+  sleep?: (ms: number) => Promise<void>;
 };
 
 export async function ensureFiskilEndUser(
@@ -131,8 +145,12 @@ export async function provisionOpenBankingEndUser(
 
   try {
     const link = await ensureFiskilEndUser({ userId, email, name: input.name }, { ...deps, credentials });
+    logFiskilSupport("open_banking.end_user.provisioned", { end_user_id: link.endUserId }, {
+      action: link.created ? "created" : "linked",
+    });
     return { ok: true, link };
-  } catch {
+  } catch (err) {
+    logFiskilSupport("open_banking.end_user.provision_failed", { error_id: errorIdOf(err) }, { status: 502 });
     return { ok: false, status: 502, error: "Fiskil could not create or link the end user." };
   }
 }
@@ -145,6 +163,132 @@ export function parseProvisionBody(raw: unknown): ProvisionOpenBankingEndUserInp
     ...(typeof body.name === "string" ? { name: body.name } : {}),
     featureToggles: parseFeatureToggles(body.featureToggles),
   };
+}
+
+export function parseLeaveBody(raw: unknown): { userId: string } {
+  const body = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return { userId: typeof body.userId === "string" ? body.userId : "" };
+}
+
+export type LeaveOpenBankingReason = "account_delete" | "last_bank_disconnect";
+
+export type LeaveOpenBankingDeps = Omit<EnsureFiskilEndUserDeps, "credentials" | "store"> & {
+  env?: FiskilEnv;
+  credentials?: FiskilCredentials | null;
+  endUsers: EndUserLinkStore;
+  connections?: ConnectionStore;
+};
+
+export type LeaveOpenBankingSuccess = {
+  ok: true;
+  deleted: boolean;
+  skipped?: boolean;
+  alreadyGone?: boolean;
+  endUserId?: string;
+};
+
+export type LeaveOpenBankingFailure = {
+  ok: false;
+  status: 400 | 502 | 503;
+  error: string;
+  errorId?: string;
+  endUserId?: string;
+};
+
+/**
+ * Delete the linked Fiskil end user when the BitbyBit person leaves the product.
+ *
+ * Triggers: DELETE /api/open-banking/end-user (account-delete hook) and last
+ * bank disconnect. Sign-out is not leave-product and does not call this.
+ */
+export async function leaveOpenBankingProduct(
+  input: { userId: string; reason: LeaveOpenBankingReason },
+  deps: LeaveOpenBankingDeps,
+): Promise<LeaveOpenBankingSuccess | LeaveOpenBankingFailure> {
+  const userId = input.userId.trim();
+  if (!userId) return { ok: false, status: 400, error: "userId is required." };
+
+  const link = await deps.endUsers.getByUserId(userId);
+  if (!link) {
+    logFiskilSupport("open_banking.end_user.leave_skipped", {}, { action: input.reason });
+    return { ok: true, deleted: false, skipped: true };
+  }
+
+  if (input.reason === "account_delete" && deps.connections) {
+    await revokeRemainingConnections(userId, deps.connections, deps.now);
+  }
+
+  const credentials = deps.credentials === undefined ? fiskilCredentials(deps.env) : deps.credentials;
+  if (!credentials) {
+    logFiskilSupport("open_banking.end_user.leave_failed", { end_user_id: link.endUserId }, {
+      status: 503,
+      action: input.reason,
+    });
+    return { ok: false, status: 503, error: "Fiskil is not configured on this server.", endUserId: link.endUserId };
+  }
+
+  try {
+    const deleted = await deleteFiskilEndUser(link.endUserId, { ...deps, credentials, store: deps.endUsers });
+    await deps.endUsers.deleteByUserId(userId);
+    logFiskilSupport("open_banking.end_user.deleted", { end_user_id: link.endUserId }, { action: input.reason });
+    return {
+      ok: true,
+      deleted: true,
+      endUserId: link.endUserId,
+      ...(deleted.alreadyGone ? { alreadyGone: true } : {}),
+    };
+  } catch (err) {
+    const errorId = errorIdOf(err);
+    logFiskilSupport("open_banking.end_user.delete_failed", { end_user_id: link.endUserId, error_id: errorId }, {
+      status: 502,
+      action: input.reason,
+    });
+    return {
+      ok: false,
+      status: 502,
+      error: "Fiskil could not delete the end user.",
+      endUserId: link.endUserId,
+      ...(errorId ? { errorId } : {}),
+    };
+  }
+}
+
+export async function deleteFiskilEndUser(
+  endUserId: string,
+  deps: EnsureFiskilEndUserDeps,
+): Promise<{ alreadyGone: boolean }> {
+  const id = endUserId.trim();
+  if (!id) throw new Error("end_user_id is required to delete a Fiskil end user.");
+
+  const token = await appToken(deps);
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  return withFiskilRetry(async () => {
+    const response = await fetchImpl(`${deps.apiBase ?? FISKIL_API_BASE}/end-users/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: fiskilHeaders(token),
+    });
+    if (response.status === 204 || response.ok) return { alreadyGone: false };
+    const raw = await peekJson(response);
+    if (isFiskilEndUserNotFound(response.status, raw)) return { alreadyGone: true };
+    throw fiskilErrorFromResponse(response.status, raw, "Fiskil end-user delete");
+  }, { sleep: deps.sleep });
+}
+
+export function hasLiveBankConnection(connections: readonly BankConnection[]): boolean {
+  return connections.some((row) => row.status === "active" || row.status === "needs_reconnect");
+}
+
+async function revokeRemainingConnections(
+  userId: string,
+  store: ConnectionStore,
+  now?: () => number,
+): Promise<void> {
+  const at = new Date(now ? now() : Date.now()).toISOString();
+  const rows = await store.listByUserId(userId);
+  for (const row of rows) {
+    if (row.status === "revoked") continue;
+    await store.put({ ...row, status: "revoked", revokedAt: at, syncStoppedReason: undefined });
+  }
 }
 
 async function appToken(deps: EnsureFiskilEndUserDeps) {
@@ -174,16 +318,18 @@ async function listEndUsersForEmail(
   const fetchImpl = deps.fetchImpl ?? fetch;
   const url = new URL(`${deps.apiBase ?? FISKIL_API_BASE}/end-users`);
   if (options.filterByEmail) url.searchParams.set("email", email);
-  const response = await fetchImpl(url.toString(), {
-    method: "GET",
-    headers: fiskilHeaders(token),
-  });
-  if (response.ok) {
-    return endUserIdFromList(await readJson(response), email);
-  }
-  const raw = await peekJson(response);
-  if (isFiskilEndUserNotFound(response.status, raw)) return undefined;
-  throw new Error(`Fiskil end-user lookup failed (${response.status}).`);
+  return withFiskilRetry(async () => {
+    const response = await fetchImpl(url.toString(), {
+      method: "GET",
+      headers: fiskilHeaders(token),
+    });
+    if (response.ok) {
+      return endUserIdFromList(await readJson(response), email);
+    }
+    const raw = await peekJson(response);
+    if (isFiskilEndUserNotFound(response.status, raw)) return undefined;
+    throw fiskilErrorFromResponse(response.status, raw, "Fiskil end-user lookup");
+  }, { sleep: deps.sleep });
 }
 
 async function createEndUser(
@@ -195,33 +341,35 @@ async function createEndUser(
   const payload: Record<string, string> = { email: body.email };
   if (body.name) payload.name = body.name;
 
-  const response = await fetchImpl(`${deps.apiBase ?? FISKIL_API_BASE}/end-users`, {
-    method: "POST",
-    headers: { ...fiskilHeaders(token), "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  return withFiskilRetry(async () => {
+    const response = await fetchImpl(`${deps.apiBase ?? FISKIL_API_BASE}/end-users`, {
+      method: "POST",
+      headers: { ...fiskilHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-  if (response.ok) {
-    const endUserId = endUserIdFromCreate(await readJson(response));
-    if (!endUserId) throw new Error("Fiskil create end-user response did not include an id.");
-    return { endUserId, created: true };
-  }
-
-  const raw = await peekJson(response);
-  const fromBody = endUserIdFromCreateError(raw);
-  if (fromBody) return { endUserId: fromBody, created: false };
-
-  if (response.status === 400) {
-    const existing = await findEndUserIdByEmail(body.email, token, deps);
-    if (existing) return { endUserId: existing, created: false };
-
-    if (isFiskilEndUserAlreadyExists(raw)) {
-      const listed = await listEndUsersForEmail(body.email, token, deps, { filterByEmail: false });
-      if (listed) return { endUserId: listed, created: false };
+    if (response.ok) {
+      const endUserId = endUserIdFromCreate(await readJson(response));
+      if (!endUserId) throw new Error("Fiskil create end-user response did not include an id.");
+      return { endUserId, created: true };
     }
-  }
 
-  throw new Error(`Fiskil create end-user failed (${response.status}).`);
+    const raw = await peekJson(response);
+    const fromBody = endUserIdFromCreateError(raw);
+    if (fromBody) return { endUserId: fromBody, created: false };
+
+    if (response.status === 400) {
+      const existing = await findEndUserIdByEmail(body.email, token, deps);
+      if (existing) return { endUserId: existing, created: false };
+
+      if (isFiskilEndUserAlreadyExists(raw)) {
+        const listed = await listEndUsersForEmail(body.email, token, deps, { filterByEmail: false });
+        if (listed) return { endUserId: listed, created: false };
+      }
+    }
+
+    throw fiskilErrorFromResponse(response.status, raw, "Fiskil create end-user");
+  }, { sleep: deps.sleep });
 }
 
 export function endUserIdFromCreate(raw: unknown): string | undefined {

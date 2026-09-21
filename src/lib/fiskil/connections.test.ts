@@ -49,6 +49,9 @@ function mockFiskil(sessionId = "sess_1"): { fetchImpl: typeof fetch; calls: Moc
     if (url === FISKIL_AUTH_SESSION_URL && method === "POST") {
       return jsonResponse({ session_id: sessionId, auth_url: "https://auth.fiskil.com/x", id: "row" });
     }
+    if (url.startsWith(`${FISKIL_API_BASE}/end-users/`) && method === "DELETE") {
+      return new Response(null, { status: 204 });
+    }
     throw new Error(`unexpected ${method} ${url}`);
   };
   return { fetchImpl, calls };
@@ -65,6 +68,7 @@ function connectDeps(sessionId = "sess_1") {
       sessions: memoryAuthSessionStore(),
       cache: memoryTokenCache(),
       fetchImpl: mocked.fetchImpl,
+      sleep: async () => {},
     },
   };
 }
@@ -219,6 +223,42 @@ describe("Open Banking connection complete / stubs", () => {
       deps,
     );
     assert.equal(started.ok, true);
+  });
+
+  it("deletes the Fiskil end user when the last live bank is disconnected", async () => {
+    const { deps, calls } = connectDeps("sess_last");
+    await deps.endUsers.put({ userId: "user-last", endUserId: "eu_new", email: "sam@example.com" });
+    await seedConnections(deps.connections, "user-last", 1);
+    const revoked = await revokeOpenBankingConnection(
+      { userId: "user-last", connectionId: "consent_0", featureToggles: { OPEN_BANKING: true } },
+      deps,
+    );
+    assert.equal(revoked.ok, true);
+    if (!revoked.ok) return;
+    assert.equal(revoked.endUserDeleted, true);
+    assert.equal(await deps.endUsers.getByUserId("user-last"), undefined);
+    assert.equal(
+      calls.some((call) => call.method === "DELETE" && call.url === `${FISKIL_API_BASE}/end-users/eu_new`),
+      true,
+    );
+  });
+
+  it("keeps the Fiskil end user while another live bank remains", async () => {
+    const { deps, calls } = connectDeps("sess_keep");
+    await deps.endUsers.put({ userId: "user-1", endUserId: "eu_new", email: "sam@example.com" });
+    await seedConnections(deps.connections, "user-1", 2);
+    const revoked = await revokeOpenBankingConnection(
+      { userId: "user-1", connectionId: "consent_0", featureToggles: { OPEN_BANKING: true } },
+      deps,
+    );
+    assert.equal(revoked.ok, true);
+    if (!revoked.ok) return;
+    assert.equal(revoked.endUserDeleted, undefined);
+    assert.equal((await deps.endUsers.getByUserId("user-1"))?.endUserId, "eu_new");
+    assert.equal(
+      calls.some((call) => call.method === "DELETE"),
+      false,
+    );
   });
 
   it("reconnect stub mints a new session without adding a 6th link", async () => {

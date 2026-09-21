@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { FISKIL_API_BASE, FISKIL_TOKEN_URL, type FiskilCredentials } from "./config";
 import {
+  deleteFiskilEndUser,
   ensureFiskilEndUser,
   endUserIdFromCreate,
   endUserIdFromCreateError,
   endUserIdFromList,
   isFiskilEndUserAlreadyExists,
   isFiskilEndUserNotFound,
+  leaveOpenBankingProduct,
   memoryEndUserLinkStore,
   parseProvisionBody,
   provisionOpenBankingEndUser,
@@ -29,6 +31,7 @@ function mockFiskil(handlers: {
   token?: () => Response;
   list?: (email: string) => Response;
   create?: (body: Record<string, string>) => Response;
+  remove?: (id: string) => Response;
 }): { fetchImpl: typeof fetch; calls: MockCall[] } {
   const calls: MockCall[] = [];
   const fetchImpl: typeof fetch = async (input, init) => {
@@ -48,6 +51,10 @@ function mockFiskil(handlers: {
     if (url === `${FISKIL_API_BASE}/end-users` && method === "POST") {
       return (handlers.create ?? (() => jsonResponse({ end_user_id: "eu_new" })))(body ?? {});
     }
+    if (url.startsWith(`${FISKIL_API_BASE}/end-users/`) && method === "DELETE") {
+      const id = url.slice(`${FISKIL_API_BASE}/end-users/`.length);
+      return (handlers.remove ?? (() => new Response(null, { status: 204 })))(id);
+    }
     throw new Error(`unexpected fetch ${method} ${url}`);
   };
   return { fetchImpl, calls };
@@ -62,6 +69,7 @@ function deps(handlers: Parameters<typeof mockFiskil>[0] = {}) {
       store: memoryEndUserLinkStore(),
       cache: memoryTokenCache(),
       fetchImpl: mocked.fetchImpl,
+      sleep: async () => {},
     },
   };
 }
@@ -239,6 +247,79 @@ describe("Fiskil end-user create/link 1:1 with user_id", () => {
     assert.equal(isFiskilEndUserNotFound(404, { name: "end_user_not_found" }), true);
     assert.equal(isFiskilEndUserNotFound(401, { name: "unauthorized" }), false);
     assert.equal(isFiskilEndUserAlreadyExists({ name: "end_user_already_exists" }), true);
+  });
+});
+
+describe("Fiskil end-user delete / leave product", () => {
+  it("DELETEs the Fiskil end user and treats 404 as already gone", async () => {
+    const { ensure, calls } = deps({
+      remove: (id) => {
+        assert.equal(id, "eu_gone");
+        return jsonResponse({ name: "end_user_not_found" }, 404);
+      },
+    });
+    const result = await deleteFiskilEndUser("eu_gone", ensure);
+    assert.equal(result.alreadyGone, true);
+    assert.equal(
+      calls.some((call) => call.method === "DELETE" && call.url === `${FISKIL_API_BASE}/end-users/eu_gone`),
+      true,
+    );
+    assert.ok(calls.filter((call) => call.url.includes("/end-users/")).every((call) => call.authorization === "Bearer tok_app"));
+  });
+
+  it("account-delete removes the mapping after a successful remote delete", async () => {
+    const { ensure, calls } = deps({
+      remove: () => new Response(null, { status: 204 }),
+    });
+    await ensure.store.put({ userId: "user-1", endUserId: "eu_leave", email: "sam@example.com" });
+    const left = await leaveOpenBankingProduct(
+      { userId: "user-1", reason: "account_delete" },
+      { ...ensure, endUsers: ensure.store, credentials: CREDENTIALS },
+    );
+    assert.equal(left.ok, true);
+    if (!left.ok) return;
+    assert.equal(left.deleted, true);
+    assert.equal(left.endUserId, "eu_leave");
+    assert.equal(await ensure.store.getByUserId("user-1"), undefined);
+    assert.equal(
+      calls.some((call) => call.method === "DELETE" && call.url === `${FISKIL_API_BASE}/end-users/eu_leave`),
+      true,
+    );
+    assert.equal(
+      calls.every((call) => !JSON.stringify(call.body ?? {}).includes("super-secret-value") || call.url === FISKIL_TOKEN_URL),
+      true,
+    );
+  });
+
+  it("skips delete when there is no linked end user", async () => {
+    const { ensure, calls } = deps();
+    const left = await leaveOpenBankingProduct(
+      { userId: "user-missing", reason: "account_delete" },
+      { ...ensure, endUsers: ensure.store, credentials: CREDENTIALS },
+    );
+    assert.equal(left.ok, true);
+    if (!left.ok) return;
+    assert.equal(left.skipped, true);
+    assert.equal(
+      calls.some((call) => call.method === "DELETE"),
+      false,
+    );
+  });
+
+  it("surfaces error_id when Fiskil delete fails", async () => {
+    const { ensure } = deps({
+      remove: () => jsonResponse({ id: "err_del", name: "internal_error" }, 500),
+    });
+    await ensure.store.put({ userId: "user-1", endUserId: "eu_fail", email: "sam@example.com" });
+    const left = await leaveOpenBankingProduct(
+      { userId: "user-1", reason: "last_bank_disconnect" },
+      { ...ensure, endUsers: ensure.store, credentials: CREDENTIALS },
+    );
+    assert.equal(left.ok, false);
+    if (left.ok) return;
+    assert.equal(left.status, 502);
+    assert.equal(left.errorId, "err_del");
+    assert.equal((await ensure.store.getByUserId("user-1"))?.endUserId, "eu_fail");
   });
 });
 

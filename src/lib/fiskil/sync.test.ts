@@ -28,6 +28,7 @@ function mockBanking(options?: {
   accounts?: unknown[];
   transactions?: unknown[];
   failStatus?: number;
+  failBody?: unknown;
   tokenFail?: boolean;
 }): { fetchImpl: typeof fetch; calls: MockCall[] } {
   const calls: MockCall[] = [];
@@ -40,7 +41,7 @@ function mockBanking(options?: {
       return jsonResponse({ token: "tok_app", expires_in: 900 });
     }
     if (options?.failStatus && url.includes("/banking/")) {
-      return jsonResponse({ message: "no" }, options.failStatus);
+      return jsonResponse(options.failBody ?? { message: "no" }, options.failStatus);
     }
     if (url.includes("/banking/accounts")) {
       return jsonResponse({ accounts: options?.accounts ?? [] });
@@ -85,6 +86,7 @@ async function deps(mocked: ReturnType<typeof mockBanking>, seed?: BankConnectio
       cache: memoryTokenCache(),
       fetchImpl: mocked.fetchImpl,
       now: () => Date.parse("2026-09-19T12:00:00.000Z"),
+      sleep: async () => {},
     },
   };
 }
@@ -218,6 +220,22 @@ describe("consent and token failure", () => {
     );
   });
 
+  it("does not swallow institution failures and keeps error_id for support", async () => {
+    const failed = mockBanking({
+      failStatus: 503,
+      failBody: { id: "err_inst", name: "upstream_unavailable", temporary: true },
+    });
+    const wired = await deps(failed, connection());
+    const result = await syncOpenBankingConnection({ connection: connection(), reason: "first_connect" }, wired.deps);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.status, 502);
+    assert.equal(result.errorId, "err_inst");
+    assert.equal(result.error, "Open Banking sync failed.");
+    const ledger = await wired.deps.ledgers.get("user-1");
+    assert.deepEqual(ledger.entries, EMPTY_LEDGER.entries);
+  });
+
   it("token failure also stops sync and skips later polls", async () => {
     const failed = mockBanking({ tokenFail: true });
     const wired = await deps(failed, connection());
@@ -314,6 +332,7 @@ describe("durable ledger path the UI would see", () => {
         cache: memoryTokenCache(),
         fetchImpl: mocked.fetchImpl,
         now: () => Date.parse("2026-09-19T12:00:00.000Z"),
+        sleep: async () => {},
       },
     );
     assert.equal(result.ok, true);

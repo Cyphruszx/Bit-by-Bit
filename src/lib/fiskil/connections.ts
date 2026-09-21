@@ -4,6 +4,7 @@
  * Session ids stay on the server. The 5-connection cap is enforced before
  * Fiskil mints a new session. Reconnect / revoke are stubs: they update our
  * store and can mint a new session, but they do not call Fiskil revoke yet.
+ * Revoking the last live bank deletes the Fiskil end user (leave-product).
  */
 
 import {
@@ -16,7 +17,14 @@ import {
 import { hasOpenBankingBundle, parseFeatureToggles, type FeatureToggles } from "@/lib/money-flow/features";
 import { createFiskilAuthSession, type FiskilAuthSession } from "./auth-session";
 import { fiskilCredentials, type FiskilCredentials, type FiskilEnv } from "./config";
-import { ensureFiskilEndUser, type EndUserLinkStore } from "./end-users";
+import {
+  ensureFiskilEndUser,
+  hasLiveBankConnection,
+  leaveOpenBankingProduct,
+  type EndUserLinkStore,
+} from "./end-users";
+import { errorIdOf } from "./errors";
+import { logFiskilSupport } from "./log";
 import type { TokenCache } from "./token";
 
 export type BankConnectionStatus = "active" | "revoked" | "needs_reconnect";
@@ -166,6 +174,7 @@ export type ConnectDeps = {
   cache?: TokenCache;
   now?: () => number;
   apiBase?: string;
+  sleep?: (ms: number) => Promise<void>;
 };
 
 export async function startOpenBankingLinkSession(
@@ -191,6 +200,7 @@ export async function startOpenBankingLinkSession(
         cache: deps.cache,
         now: deps.now,
         apiBase: deps.apiBase,
+        sleep: deps.sleep,
       },
     );
     const created = await createFiskilAuthSession(
@@ -201,6 +211,7 @@ export async function startOpenBankingLinkSession(
         cache: deps.cache,
         now: deps.now,
         apiBase: deps.apiBase,
+        sleep: deps.sleep,
       },
     );
     await storeSession(deps.sessions, created, {
@@ -210,13 +221,18 @@ export async function startOpenBankingLinkSession(
       cancelUri,
       now,
     });
+    logFiskilSupport("open_banking.auth_session.started", {
+      end_user_id: link.endUserId,
+      session_id: created.sessionId,
+    });
     return {
       ok: true,
       sessionId: created.sessionId,
       connectionCount: count,
       remaining: remainingConnections(count),
     };
-  } catch {
+  } catch (err) {
+    logFiskilSupport("open_banking.auth_session.failed", { error_id: errorIdOf(err) }, { status: 502 });
     return { ok: false, status: 502, error: "Fiskil could not start the bank connection." };
   }
 }
@@ -233,6 +249,7 @@ export type CompleteConnectionSuccess = {
   connection: PublicBankConnection;
   connectionCount: number;
   remaining: number;
+  endUserDeleted?: boolean;
 };
 
 export async function completeOpenBankingConnection(
@@ -268,6 +285,11 @@ export async function completeOpenBankingConnection(
     };
     await deps.connections.put(next);
     const count = activeConnectionCount(await deps.connections.listByUserId(userId));
+    logFiskilSupport("open_banking.connection.completed", {
+      end_user_id: session.endUserId,
+      consent_id: consentId,
+      session_id: sessionId,
+    });
     return {
       ok: true,
       connection: toPublicConnection(next),
@@ -293,6 +315,11 @@ export async function completeOpenBankingConnection(
   };
   await deps.connections.put(connection);
   const nextCount = count + 1;
+  logFiskilSupport("open_banking.connection.completed", {
+    end_user_id: session.endUserId,
+    consent_id: consentId,
+    session_id: sessionId,
+  });
   return {
     ok: true,
     connection: toPublicConnection(connection),
@@ -348,12 +375,45 @@ export async function revokeOpenBankingConnection(
   const now = isoNow(deps.now);
   const next: BankConnection = { ...found.connection, status: "revoked", revokedAt: now };
   await deps.connections.put(next);
-  const count = activeConnectionCount(await deps.connections.listByUserId(found.connection.userId));
+  const remainingRows = await deps.connections.listByUserId(found.connection.userId);
+  const count = activeConnectionCount(remainingRows);
+  const leftover = remainingRows.filter((row) => row.id !== next.id);
+  let endUserDeleted = false;
+  if (!hasLiveBankConnection([next, ...leftover])) {
+    const left = await leaveOpenBankingProduct(
+      { userId: found.connection.userId, reason: "last_bank_disconnect" },
+      {
+        env: deps.env,
+        credentials: deps.credentials,
+        endUsers: deps.endUsers,
+        connections: deps.connections,
+        fetchImpl: deps.fetchImpl,
+        cache: deps.cache,
+        now: deps.now,
+        apiBase: deps.apiBase,
+        sleep: deps.sleep,
+      },
+    );
+    endUserDeleted = left.ok && left.deleted === true;
+    if (!left.ok) {
+      logFiskilSupport(
+        "open_banking.end_user.delete_failed",
+        { end_user_id: found.connection.endUserId, error_id: left.errorId },
+        { status: left.status, action: "last_bank_disconnect" },
+      );
+    }
+  }
+  logFiskilSupport("open_banking.connection.revoked", {
+    end_user_id: found.connection.endUserId,
+    consent_id: found.connection.consentId ?? found.connection.id,
+    session_id: found.connection.sessionId,
+  }, { action: endUserDeleted ? "last_bank_disconnect" : "revoke" });
   return {
     ok: true,
     connection: toPublicConnection(next),
     connectionCount: count,
     remaining: remainingConnections(count),
+    ...(endUserDeleted ? { endUserDeleted: true } : {}),
   };
 }
 
@@ -384,6 +444,7 @@ export async function reconnectOpenBankingConnection(
         cache: deps.cache,
         now: deps.now,
         apiBase: deps.apiBase,
+        sleep: deps.sleep,
       },
     );
     await storeSession(deps.sessions, created, {
@@ -397,13 +458,23 @@ export async function reconnectOpenBankingConnection(
     const next: BankConnection = { ...found.connection, status: "needs_reconnect", sessionId: created.sessionId };
     await deps.connections.put(next);
     const count = activeConnectionCount(await deps.connections.listByUserId(prepared.userId));
+    logFiskilSupport("open_banking.auth_session.reconnect", {
+      end_user_id: found.connection.endUserId,
+      consent_id: found.connection.consentId ?? found.connection.id,
+      session_id: created.sessionId,
+    });
     return {
       ok: true,
       sessionId: created.sessionId,
       connectionCount: count,
       remaining: remainingConnections(count),
     };
-  } catch {
+  } catch (err) {
+    logFiskilSupport("open_banking.auth_session.failed", {
+      end_user_id: found.connection.endUserId,
+      consent_id: found.connection.consentId ?? found.connection.id,
+      error_id: errorIdOf(err),
+    }, { status: 502, action: "reconnect" });
     return { ok: false, status: 502, error: "Fiskil could not restart the bank connection." };
   }
 }
