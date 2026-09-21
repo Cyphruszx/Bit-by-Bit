@@ -15,12 +15,12 @@ import {
   confirmDraftIssues,
   confirmPreviewRows,
   createDraft,
-  CSV_WEEKLY_LIMIT,
   detectedBankLabel,
   guestDeviceId,
+  ingestQuotasDisabled,
   localQuotaStore,
-  OCR_PAGE_WEEKLY_LIMIT,
   peekQuota,
+  quotaStatusLabel,
   quotaSubject,
   tryChargeCsv,
   tryChargeOcr,
@@ -74,9 +74,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
 
   function refreshQuota() {
     const usage = peekQuota(localQuotaStore(), quotaSubject(actor()));
-    setQuotaLabel(
-      `${CSV_WEEKLY_LIMIT - usage.csv} CSV and ${OCR_PAGE_WEEKLY_LIMIT - usage.ocrPages} OCR pages left this AU week`,
-    );
+    setQuotaLabel(quotaStatusLabel(usage));
   }
 
   function interpret(list: File[]) {
@@ -165,7 +163,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
         <h2 className="mt-2 text-2xl font-bold">Drop a CSV or a photo</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted">
           Core ingest is CSV and OCR only — one file at a time. Excel, OFX, and QIF are unavailable. Photograph a
-          statement page for OCR; digital PDF is not a Core path
+          statement page for OCR; digital PDF is not a Core path. Keep CSV around 5MB and photos around 10MB
           {aiReady
             ? ". AI vision can read photos and suggest tags when a merchant is still unlabelled."
             : ". Add OPENAI_API_KEY to .env.local to let AI read receipt photos; until then, photos use on-device OCR."}
@@ -371,9 +369,13 @@ function ConfirmMapper({
     <section className="card p-6">
       <h2 className="text-lg font-bold">Confirm & import</h2>
       <p className="mt-1 text-sm text-muted">
-        {draft.channel === "csv"
-          ? "A CSV slot is used only when you confirm. Discard now and nothing is charged."
-          : "OCR pages were charged when this photo was read. Confirm writes the rows."}
+        {ingestQuotasDisabled()
+          ? draft.channel === "csv"
+            ? "Confirm writes the mapped rows. Discard now and nothing is imported."
+            : "Confirm writes the rows from this photo."
+          : draft.channel === "csv"
+            ? "A CSV slot is used only when you confirm. Discard now and nothing is charged."
+            : "OCR pages were charged when this photo was read. Confirm writes the rows."}
       </p>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div>

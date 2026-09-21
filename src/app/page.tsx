@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { siteDescription, siteName } from "@/lib/brand";
 import {
   CSV_WEEKLY_LIMIT,
+  ingestQuotasDisabled,
   LAUNCH_BANK_PRESETS,
   OCR_PAGE_WEEKLY_LIMIT,
 } from "@/lib/money-flow/core-ingest";
@@ -14,7 +15,9 @@ import { canSignIn } from "@/lib/supabase/config";
 const features = [
   [
     "CSV and photos",
-    `Bank CSV maps onto a template, you Confirm the preview, and photos go through OCR. ${CSV_WEEKLY_LIMIT} CSVs and ${OCR_PAGE_WEEKLY_LIMIT} OCR pages each Australian week.`,
+    ingestQuotasDisabled()
+      ? "Bank CSV maps onto a template, you Confirm the preview, and photos go through OCR. Testing — weekly quotas are off."
+      : `Bank CSV maps onto a template, you Confirm the preview, and photos go through OCR. ${CSV_WEEKLY_LIMIT} CSVs and ${OCR_PAGE_WEEKLY_LIMIT} OCR pages each Australian week.`,
   ],
   [
     "Connect a bank",
@@ -83,8 +86,16 @@ export default function Home() {
         <div className="card-highlight p-7">
           <p className="text-sm text-on-dark-muted">What BitbyBit reads</p>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-on-dark-muted">
-            <li>Bank CSV — template mapping, then Confirm ({CSV_WEEKLY_LIMIT} per AU week)</li>
-            <li>Photos of receipts and printed pages ({OCR_PAGE_WEEKLY_LIMIT} OCR pages per AU week)</li>
+            <li>
+              Bank CSV — template mapping, then Confirm
+              {ingestQuotasDisabled() ? " (testing — quotas off)" : ` (${CSV_WEEKLY_LIMIT} per AU week)`}
+            </li>
+            <li>
+              Photos of receipts and printed pages
+              {ingestQuotasDisabled()
+                ? " (testing — quotas off)"
+                : ` (${OCR_PAGE_WEEKLY_LIMIT} OCR pages per AU week)`}
+            </li>
             <li>Open Banking via Fiskil when you sign in (sandbox institutions for now)</li>
             <li>CSV presets: {LAUNCH_BANK_PRESETS.join(", ")}</li>
           </ul>
