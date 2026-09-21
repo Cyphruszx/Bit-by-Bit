@@ -109,4 +109,70 @@ describe("Up Transfer type cash tiles", () => {
     assert.equal(flow.cashIn, 400);
     assert.equal(flow.cashOut, 440);
   });
+
+  it("includes blank or missing Up Transaction Type in Money in/out", () => {
+    const rows = [
+      txn({ id: "pay", amount: 15409.86, type: "earned", categoryKey: "salary" }),
+      txn({
+        id: "blank-type",
+        amount: -50,
+        type: "spent",
+        bank: { type: "   " },
+        source: { headers: ["Transaction Type"], values: [""] },
+      }),
+      txn({
+        id: "no-type",
+        amount: -25,
+        type: "spent",
+        source: { headers: ["Amount"], values: ["-25.00"] },
+      }),
+      txn({
+        id: "to-saver",
+        amount: -500,
+        type: "TRANSFER",
+        bank: { type: "Transfer" },
+      }),
+    ];
+
+    assert.equal(isUpTransferType(rows[0]!), false);
+    assert.equal(isUpTransferType(rows[1]!), false);
+    assert.equal(isUpTransferType(rows[2]!), false);
+    assert.equal(isUpTransferType(rows[3]!), true);
+
+    const flow = summarizeMoneyFlow(rows);
+    assert.equal(flow.cashIn, 15409.86);
+    assert.equal(flow.cashOut, 75, "blank and missing types stay in; Transfer is omitted");
+    assert.equal(derivedMovementBalance(rows), 15409.86 - 75);
+  });
+
+  it("does not apply Transfer exclusion to non-Up banks", () => {
+    const rows = [
+      txn({
+        id: "nab-out",
+        amount: -400,
+        institution: "NAB",
+        accountId: "NAB · 100200300",
+        bank: { type: "Transfer" },
+      }),
+      txn({
+        id: "nab-in",
+        amount: 400,
+        institution: "NAB",
+        accountId: "NAB · 100200300",
+        bank: { type: "Transfer" },
+      }),
+      txn({
+        id: "cafe",
+        amount: -40,
+        institution: "NAB",
+        accountId: "NAB · 100200300",
+        bank: { type: "EFTPOS DEBIT" },
+      }),
+    ];
+
+    assert.equal(rows.filter(isUpTransferType).length, 0);
+    const flow = summarizeMoneyFlow(rows);
+    assert.equal(flow.cashIn, 400);
+    assert.equal(flow.cashOut, 440);
+  });
 });

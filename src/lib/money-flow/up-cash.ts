@@ -23,12 +23,15 @@ export function upBankTransactionType(txn: InterpretedTransaction): string {
 
 /**
  * Up CSV / Up-shaped ingest: Transaction Type is exactly "Transfer"
- * (Spending ↔ savers). Not NAB `TRANSFER DEBIT`, not Payment / BPAY /
- * Direct Debit / Purchase, not a payee-name guess.
+ * (Spending ↔ savers), case-insensitive. Blank or missing type is included.
+ * Not NAB `TRANSFER DEBIT`, not Payment / BPAY / Direct Debit / Purchase.
+ * Other banks are never filtered here.
  */
 export function isUpTransferType(txn: InterpretedTransaction): boolean {
   if (!isUpMovement(txn)) return false;
-  return upBankTransactionType(txn).toLowerCase() === "transfer";
+  const type = upBankTransactionType(txn);
+  if (!type) return false;
+  return type.toLowerCase() === "transfer";
 }
 
 export function excludingUpTransfers(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
