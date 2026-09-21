@@ -66,10 +66,12 @@ describe("stated statement balances", () => {
   it("derives credits minus debits when no stated balance exists, excluding PENDING", () => {
     const rows = [
       txn({ id: "in", amount: 100, dateIso: "2026-06-01", type: "earned", categoryKey: "salary" }),
+      txn({ id: "loan", amount: 250, dateIso: "2026-06-01", type: "borrowed", categoryKey: "uncategorised" }),
       txn({ id: "out", amount: -40, dateIso: "2026-06-02" }),
       txn({ id: "pending", amount: -80, dateIso: "2026-06-03", status: "PENDING" }),
     ];
-    assert.equal(derivedMovementBalance(rows), 60);
+    assert.equal(derivedMovementBalance(rows), 310);
+    assert.equal(summarizeMoneyFlow(rows).net, 60);
     assert.notEqual(derivedMovementBalance(rows), summarizeMoneyFlow(rows).net);
   });
 });
