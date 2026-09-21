@@ -796,7 +796,7 @@ function named(map: Record<string, string>, key: "institutions" | "accounts" | "
   return Object.keys(map).length > 0 ? { [key]: map } : {};
 }
 
-function namedAccountMeta(meta: Record<string, AccountMeta>): { accountMeta: Record<string, AccountMeta> } | {} {
+function namedAccountMeta(meta: Record<string, AccountMeta>) {
   return Object.keys(meta).length > 0 ? { accountMeta: meta } : {};
 }
 
