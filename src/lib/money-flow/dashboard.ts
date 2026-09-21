@@ -103,8 +103,11 @@ export type BankInstitutionTile = {
 };
 
 /**
- * Prefer a stored cleared balance. Otherwise use the account's counted net
- * (same method as Total balance). Missing both is null — never a $0 skeleton.
+ * Prefer a stored CLEARED balance (ledger `accountMeta.clearedBalance`,
+ * Spec 11 `current_cleared_balance`). Otherwise use the account's counted
+ * net — the same figure Bank Accounts card rows already show. Missing both
+ * is null — never a $0 skeleton. PENDING is not a stored cleared balance
+ * and is already excluded from counted net (Spec 12).
  */
 export function accountDisplayAmount(
   accountId: string,
@@ -115,6 +118,24 @@ export function accountDisplayAmount(
   const held = clearedBalanceOf(accountId, meta, mergedInto);
   if (!held.missing) return held.amount;
   return movementNet;
+}
+
+/**
+ * Spec 10 strip Account balance: Σ latest/current balances in scope, using
+ * the same source as Bank Accounts card rows. Not period money-in − money-out,
+ * and not parked Net Money(P) = Income − Spending + Refund credits.
+ */
+export function totalAccountBalance(tiles: BankInstitutionTile[]): number | null {
+  let sum = 0;
+  let any = false;
+  for (const tile of tiles) {
+    for (const account of tile.accounts) {
+      if (account.amount == null) continue;
+      sum = roundMoney(sum + account.amount);
+      any = true;
+    }
+  }
+  return any ? sum : null;
 }
 
 /**

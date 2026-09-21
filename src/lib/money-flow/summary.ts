@@ -60,7 +60,8 @@ export type FlowOverTimePoint = {
  *
  * Tiles are Σ `base_amount` of CLEARED counted rows. Missing `status`/`baseAmount`
  * on a stored row means CLEARED / `amount` (interim for ledgers written before
- * those fields). Cash in/out still sum statement `amount` so they tie to the file.
+ * those fields). Cash in/out still sum statement `amount` by sign only — the
+ * dashboard Money in / Money out tiles use these, not Income / Spending.
  */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const counted = countedMovements(transactions);

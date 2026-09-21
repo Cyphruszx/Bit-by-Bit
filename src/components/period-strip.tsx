@@ -1,22 +1,27 @@
-import { formatAud, formatSignedAud } from "@/lib/format";
+import { formatAud } from "@/lib/format";
 
+/**
+ * Spec 10 dashboard strip. Income and Spending stay interpretive.
+ * The third tile is Account balance (Σ current account balances), not
+ * parked Net Money(P) = Income − Spending + Refund credits.
+ */
 export function PeriodStrip({
   income,
   spending,
-  net,
+  accountBalance,
 }: {
   income: number;
   spending: number;
-  net: number;
+  accountBalance: number | null;
 }) {
   return (
     <article className="card flex flex-col gap-4 p-4 sm:flex-row">
       <PeriodCell label="Income" value={formatAud(income)} tone="positive" />
       <PeriodCell label="Spending" value={formatAud(spending)} tone="ink" />
       <PeriodCell
-        label="Net"
-        value={formatSignedAud(net)}
-        tone={net > 0 ? "positive" : "ink"}
+        label="Account balance"
+        value={accountBalance == null ? "—" : formatAud(accountBalance)}
+        tone={accountBalance != null && accountBalance > 0 ? "positive" : "ink"}
       />
     </article>
   );
