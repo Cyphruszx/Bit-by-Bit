@@ -4,9 +4,12 @@ import { accountBalanceOf } from "./dashboard";
 import { detectInstitution } from "./institution";
 import { interpretDocuments } from "./interpret";
 import { parseDocument } from "./parsers";
+import { sourceFromPairs } from "./source";
 import { summarizeMoneyFlow } from "./summary";
 import { derivedMovementBalance } from "./statement-balance";
+import { upgradeTransaction } from "./upgrade";
 import {
+  classifyKnownInternalTransfer,
   classifyKnownInternalTransfers,
   isBankTransferType,
   isInternalTransfer,
@@ -165,6 +168,15 @@ describe("Up CSV Transfer type cash tiles", () => {
     assert.equal(flow.cashIn, 15409.86);
     assert.equal(flow.cashOut, 75, "blank and missing types stay in; Transfer is omitted");
     assert.equal(derivedMovementBalance(rows), 15409.86 - 75);
+
+    const unknownAsTransfer = txn({
+      id: "unknown-now-transfer",
+      amount: -50,
+      type: "TRANSFER",
+      bank: { type: "   " },
+    });
+    assert.equal(isInternalTransfer(unknownAsTransfer), true);
+    assert.equal(summarizeMoneyFlow([unknownAsTransfer]).cashOut, 0);
   });
 
   it("does not treat NAB TRANSFER DEBIT as classified until pairing writes TRANSFER", async () => {
@@ -321,5 +333,88 @@ describe("Up OFX pocket DEBIT/CREDIT", () => {
     assert.equal(csvFlow.cashOut, ofxFlow.cashOut);
     assert.equal(csvFlow.cashIn, 2000);
     assert.equal(csvFlow.cashOut, 75);
+    assert.equal(csvFlow.income, ofxFlow.income, "Dashboard Income is unchanged across formats");
+    assert.equal(csvFlow.spending, ofxFlow.spending, "Dashboard Spending is unchanged across formats");
+    assert.equal(csvFlow.net, ofxFlow.net, "Dashboard Net is unchanged across formats");
+  });
+
+  it("does not denylist pocket names in the tile layer until they are TRANSFER", () => {
+    const pocket = txn({
+      id: "unclassified-pocket",
+      amount: -500,
+      type: "spent",
+      merchant: "CashFlow",
+      bank: { type: "DEBIT" },
+      source: sourceFromPairs([
+        ["Name", "CashFlow"],
+        ["Type", "DEBIT"],
+      ]),
+    });
+
+    assert.equal(isUpOfxPocketTransfer(pocket), true, "seed list matches at classify time");
+    assert.equal(isInternalTransfer(pocket), false, "payee seed list is not a tile denylist");
+    assert.equal(summarizeMoneyFlow([pocket]).cashOut, 500);
+
+    const classified = classifyKnownInternalTransfer(pocket);
+    assert.equal(classified.type, "TRANSFER");
+    assert.equal(isInternalTransfer(classified), true);
+    assert.equal(summarizeMoneyFlow([classified]).cashOut, 0);
+  });
+
+  it("does not stamp a non-Up OFX NAME=CashFlow as TRANSFER", async () => {
+    const ofx = `OFXHEADER:100
+<OFX><SIGNONMSGSRSV1><SONRS><FI><ORG>NAB
+</FI></SONRS></SIGNONMSGSRSV1><BANKMSGSRSV1><STMTTRNRS><STMTRS>
+<BANKACCTFROM><BANKID>082001<ACCTID>100200300</BANKACCTFROM>
+<BANKTRANLIST>
+${stmttrn("DEBIT", "20260603000000", "-500.00", "CashFlow")}
+${stmttrn("DEBIT", "20260602000000", "-40.00", "Cafe")}
+</BANKTRANLIST>
+<LEDGERBAL><BALAMT>60.00
+<DTASOF>20260605000000
+</LEDGERBAL>
+</STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+
+    const parsed = await parseDocument("nab-export.ofx", "application/x-ofx", new TextEncoder().encode(ofx));
+    assert.ok(parsed.transactions.every((row) => row.institution === "NAB"));
+    const pocket = parsed.transactions.find((row) => /cashflow/i.test(row.merchant));
+    assert.ok(pocket);
+    assert.equal(isUpOfxPocketTransfer(pocket!), false);
+    assert.notEqual(pocket!.type, "TRANSFER");
+    assert.equal(isInternalTransfer(pocket!), false);
+    assert.equal(summarizeMoneyFlow(parsed.transactions).cashOut, 540);
+  });
+});
+
+describe("upgrade classifies stored internals", () => {
+  it("stamps stored Up CSV Transfer as TRANSFER so tiles do not need a type denylist", () => {
+    const stored = txn({
+      id: "stored-transfer",
+      amount: -500,
+      type: "spent",
+      bank: { type: "Transfer" },
+      source: sourceFromPairs([["Transaction Type", "Transfer"]]),
+    });
+    assert.equal(isInternalTransfer(stored), false);
+    const upgraded = upgradeTransaction(stored);
+    assert.equal(upgraded.type, "TRANSFER");
+    assert.equal(isInternalTransfer(upgraded), true);
+  });
+
+  it("stamps stored Up OFX pocket DEBIT/CREDIT as TRANSFER", () => {
+    const stored = txn({
+      id: "stored-ofx-pocket",
+      amount: -90,
+      type: "spent",
+      merchant: "Emergency Fund",
+      bank: { type: "DEBIT" },
+      source: sourceFromPairs([
+        ["Name", "Emergency Fund"],
+        ["Type", "DEBIT"],
+      ]),
+    });
+    const upgraded = upgradeTransaction(stored);
+    assert.equal(upgraded.type, "TRANSFER");
+    assert.equal(isInternalTransfer(upgraded), true);
   });
 });

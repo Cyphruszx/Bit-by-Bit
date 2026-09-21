@@ -1,15 +1,16 @@
 /**
  * Internal transfers for Transactions Money in / Money out.
  *
- * Tiles filter on classification, not a payee-name-only hack:
- *   - Spec 3 TRANSFER kind (including stored `moved`)
+ * Tiles filter on classification, not a payee denylist:
+ *   - Spec 3 TRANSFER kind (including stored `moved`) — every TRANSFER
  *   - a proved `transferPair`
- *   - bank Transaction Type that is itself Transfer / XFER (Up CSV; OFX XFER)
  *
- * Up OFX has no Transfer type — TRNTYPE is DEBIT/CREDIT and the counterparty is
- * the pocket name (CashFlow, Essentials, …). Ingest maps those to TRANSFER so
- * OFX matches Up CSV. NAB `TRANSFER DEBIT` is not this: it stays in cash until
- * pairing / Review classifies it.
+ * Classify paths (ingest + ledger upgrade) stamp TRANSFER:
+ *   - bank Transaction Type Transfer / XFER (Up CSV; OFX XFER)
+ *   - Up OFX DEBIT/CREDIT whose NAME is a known pocket (CashFlow, …)
+ *
+ * NAB `TRANSFER DEBIT` is not this: it stays in cash until pairing / Review
+ * writes TRANSFER. Blank / unknown type stays in unless classified TRANSFER.
  */
 
 import { isProtectedAuthority, isTransferKind } from "@/lib/money-flow/movement-kind";
@@ -74,13 +75,11 @@ export function isUpOfxPocketName(name: string): boolean {
 /**
  * Classified internal transfer: omit from Money in / Money out and from the
  * credits−debits Account balance fallback. Income / Spending / Net use
- * countedMovements and are unchanged.
+ * countedMovements and are unchanged. Pocket names are not consulted here —
+ * they become TRANSFER at ingest / upgrade, then this filter sees the kind.
  */
 export function isInternalTransfer(txn: InterpretedTransaction): boolean {
-  if (txn.transferPair) return true;
-  if (isTransferKind(txn.type)) return true;
-  if (isBankTransferType(txn)) return true;
-  return false;
+  return isTransferKind(txn.type) || Boolean(txn.transferPair);
 }
 
 export function excludingInternalTransfers(

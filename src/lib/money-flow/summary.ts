@@ -63,7 +63,8 @@ export type FlowOverTimePoint = {
  * on a stored row means CLEARED / `amount` (interim for ledgers written before
  * those fields). Cash in/out still sum statement `amount` by sign only —
  * Transactions Money in / Money out use these, not Income / Spending, and omit
- * classified internal transfers (TRANSFER kind, paired legs, bank Transfer type).
+ * every TRANSFER kind (and proved pairs). Bank Transfer type and Up OFX pocket
+ * names are classify paths that stamp TRANSFER; they are not a tile denylist.
  * Dashboard Income / Spending / Net stay on countedMovements.
  */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
