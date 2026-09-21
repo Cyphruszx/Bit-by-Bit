@@ -17,6 +17,7 @@ import {
   knownInstitutions,
   UNKNOWN_INSTITUTION,
 } from "@/lib/money-flow/institution";
+import { UPLOAD_ACCOUNTS_DETAIL } from "@/lib/money-flow/ingest-copy";
 import { livePools, poolBookOf, poolsForAccount, type PoolBook } from "@/lib/money-flow/pools";
 
 export function AccountsView() {
@@ -112,7 +113,7 @@ export function AccountsView() {
         <SummaryCard
           label="Documents interpreted"
           value={String(files.filter((file) => file.processingStatus === "completed").length)}
-          detail="CSV and OCR photos"
+          detail={UPLOAD_ACCOUNTS_DETAIL}
         />
       </section>
 

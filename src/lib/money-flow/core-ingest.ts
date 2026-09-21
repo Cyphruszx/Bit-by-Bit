@@ -1,10 +1,11 @@
 /**
  * Spec 2 Core ingest gates.
  *
- * CSV + OCR only. Spec 2 weekly caps are 5 CSV / 20 OCR pages per
+ * CSV + digital PDF + OCR. Spec 2 weekly caps are 5 CSV / 20 OCR pages per
  * Australia/Sydney week. Those caps are off for unrestricted testing:
  * tryChargeCsv / tryChargeOcr still record usage but never refuse.
- * OCR pages debit at intake (failures included). CSV slot only on Confirm.
+ * Text-extract PDF uses a CSV Confirm slot. OCR pages debit only when OCR runs
+ * (photos at intake; scanned PDF pages after interpret). CSV slot only on Confirm.
  *
  * Re-enable weekly caps later by setting NEXT_PUBLIC_INGEST_QUOTAS_DISABLED=false
  * (the upload studio charges in the browser, so it must be NEXT_PUBLIC_) or by
@@ -107,22 +108,34 @@ const WEEKDAY = new Intl.DateTimeFormat("en-US", { timeZone: APP_TIME_ZONE, week
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 export function ingestChannel(kind: FileKind | undefined): IngestChannel | undefined {
-  if (kind === "csv" || kind === "text") return "csv";
+  if (kind === "csv" || kind === "text" || kind === "pdf") return "csv";
   if (kind === "image") return "ocr";
   return undefined;
 }
 
+export function draftChannel(kind: FileKind | undefined, ocrPages: number): IngestChannel {
+  if (ocrPages > 0) return "ocr";
+  return ingestChannel(kind) ?? "csv";
+}
+
 export function coreIngestUnavailable(kind: FileKind): string | undefined {
   if (CORE_CHANNELS.has(ingestChannel(kind) ?? "")) return undefined;
-  if (kind === "pdf") {
-    return "Core reads photos with OCR. Digital PDF is unavailable — photograph each page.";
-  }
-  return "Core accepts CSV and photos (OCR) only. Excel, OFX, and QIF are unavailable.";
+  return "Core accepts CSV, digital PDF, and photos (OCR) only. Excel, OFX, and QIF are unavailable.";
 }
 
 export function ocrPagesFor(kind: FileKind | undefined, pageCount?: number): number {
+  if (kind === "pdf") return pageCount && pageCount > 0 ? pageCount : 0;
   if (ingestChannel(kind) !== "ocr") return 0;
   return pageCount && pageCount > 0 ? pageCount : 1;
+}
+
+/** Photos charge 1 OCR page before interpret. PDF waits until the path is known. */
+export function intakeOcrPages(kind: FileKind | undefined): number {
+  return kind === "image" ? 1 : 0;
+}
+
+export function ocrPagesToChargeAfterInterpret(ocrPages: number, alreadyCharged: number): number {
+  return Math.max(0, ocrPages - alreadyCharged);
 }
 
 export function isLaunchPreset(label: string | undefined): boolean {
@@ -231,7 +244,8 @@ export function createDraft(
   hashes?: Record<string, string>,
 ): IngestDraft {
   const kind = result.files[0]?.kind;
-  const channel = ingestChannel(kind) ?? "csv";
+  const ocrPages = result.files.reduce((sum, file) => sum + ocrPagesFor(file.kind, file.ocrPages), 0);
+  const channel = draftChannel(kind, ocrPages);
   const ids = unique(result.transactions.map((txn) => txn.accountId?.trim()).filter(Boolean) as string[]);
   const detected = result.transactions.find((txn) => txn.institution?.trim())?.institution?.trim();
   const single = ids.length <= 1;
@@ -239,7 +253,7 @@ export function createDraft(
     result,
     hashes,
     channel,
-    ocrPages: result.files.reduce((sum, file) => sum + ocrPagesFor(file.kind, file.ocrPages), 0),
+    ocrPages,
     institution: isLaunchPreset(detected) ? (detected ?? "") : "",
     detectedInstitution: detected,
     sections: ids.map((accountId) => ({ accountId, assignedTo: single ? accountId : "" })),

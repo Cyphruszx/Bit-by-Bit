@@ -1,8 +1,9 @@
 import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFlowAi } from "@/lib/money-flow/ai";
-import { forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
+import { applySilentSameInstitutionUniquePairs, forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
 import { coreIngestUnavailable, ocrPagesFor } from "@/lib/money-flow/core-ingest";
 import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
-import { parseDocument } from "@/lib/money-flow/parsers";
+import { NO_MOVEMENT_ERROR } from "@/lib/money-flow/ingest-copy";
+import { parseDocument, type ParseDocumentOptions } from "@/lib/money-flow/parsers";
 import { summarizeMoneyFlow, uniqueTransactions } from "@/lib/money-flow/summary";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -11,6 +12,7 @@ export const MAX_FILE_BYTES = 12 * 1024 * 1024;
 
 export type InterpretOptions = {
   ai?: MoneyFlowAi | null;
+  pdf?: ParseDocumentOptions["pdf"];
 };
 
 export async function interpretDocuments(
@@ -67,18 +69,16 @@ export async function interpretDocuments(
     }
 
     try {
-      const parsed = await parseDocument(filename, file.mime, file.bytes, { ai });
+      const parsed = await parseDocument(filename, file.mime, file.bytes, { ai, pdf: options.pdf });
       transactions.push(...parsed.transactions);
+      const pages = ocrPagesFor(kind, parsed.ocrPages);
       interpretations.push({
         ...base,
         processingStatus: parsed.transactions.length > 0 ? "completed" : "failed",
-        processingError:
-          parsed.transactions.length > 0
-            ? undefined
-            : "No money movement found. Try a bank CSV or a clearer photo.",
+        processingError: parsed.transactions.length > 0 ? undefined : NO_MOVEMENT_ERROR,
         transactionCount: parsed.transactions.length,
         notes: parsed.notes,
-        ...(ocrPagesFor(kind) ? { ocrPages: ocrPagesFor(kind) } : {}),
+        ...(pages ? { ocrPages: pages } : {}),
       });
     } catch (error) {
       interpretations.push({
@@ -112,9 +112,11 @@ export async function interpretDocuments(
     }
   }
 
-  // Spec 7: Core never auto-resolves money-trust. Detect candidates for the insight;
-  // do not write transferPair / refundPair or rewrite type to moved / returned.
+  // Spec 7: Core never auto-resolves money-trust, except Spec 3/7 unique
+  // same-institution pairs (no OPEN item). Refunds and cross-institution
+  // / contested / orphan / unknown-institution stay for Review.
   merged = forgetAutoPairs(merged);
+  merged = applySilentSameInstitutionUniquePairs(merged);
 
   const flow = summarizeMoneyFlow(merged);
   const pending = pendingPairInsight(merged);

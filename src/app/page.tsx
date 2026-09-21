@@ -14,14 +14,14 @@ import { canSignIn } from "@/lib/supabase/config";
 
 const features = [
   [
-    "CSV and photos",
+    "CSV, PDF, and photos",
     ingestQuotasDisabled()
-      ? "Bank CSV maps onto a template, you Confirm the preview, and photos go through OCR. Testing — weekly quotas are off."
-      : `Bank CSV maps onto a template, you Confirm the preview, and photos go through OCR. ${CSV_WEEKLY_LIMIT} CSVs and ${OCR_PAGE_WEEKLY_LIMIT} OCR pages each Australian week.`,
+      ? "Bank CSV and digital PDF map onto a template, you Confirm the preview, and scanned pages go through OCR. Testing — weekly quotas are off."
+      : `Bank CSV and digital PDF map onto a template, you Confirm the preview, and scanned pages go through OCR. ${CSV_WEEKLY_LIMIT} CSVs and ${OCR_PAGE_WEEKLY_LIMIT} OCR pages each Australian week.`,
   ],
   [
     "Connect a bank",
-    "Signed-in Open Banking through Fiskil. Sandbox institutions for now — real banks when Fiskil unlocks the team. CSV and photos still work as a guest.",
+    "Signed-in Open Banking through Fiskil. Sandbox institutions for now — real banks when Fiskil unlocks the team. CSV, PDF, and photos still work as a guest.",
   ],
   [
     "Dashboard and ledger",
@@ -89,6 +89,10 @@ export default function Home() {
             <li>
               Bank CSV — template mapping, then Confirm
               {ingestQuotasDisabled() ? " (testing — quotas off)" : ` (${CSV_WEEKLY_LIMIT} per AU week)`}
+            </li>
+            <li>
+              Digital PDF — text extract, or OCR when scanned
+              {ingestQuotasDisabled() ? " (testing — quotas off)" : ` (${CSV_WEEKLY_LIMIT} CSV slots / ${OCR_PAGE_WEEKLY_LIMIT} OCR pages per AU week)`}
             </li>
             <li>
               Photos of receipts and printed pages

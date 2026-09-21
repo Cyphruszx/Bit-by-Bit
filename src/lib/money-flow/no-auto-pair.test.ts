@@ -1,9 +1,7 @@
 /**
- * Slice 2: Core never auto-resolves money-trust (Spec 7).
- *
- * matchTransfers / matchRefunds may detect candidates. interpretDocuments and the
- * live ledger path must not write transferPair / refundPair or rewrite type to
- * moved / returned. Slice 1 calc still honours pairs when they are set (user / RQ).
+ * Spec 7 money-trust: Core does not auto-resolve refunds or cross-institution
+ * / contested / unknown-institution transfers. Spec 3/7 unique same-institution
+ * pairs resolve silently at ingest.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -32,8 +30,8 @@ function txn(
   };
 }
 
-describe("Core ingest does not auto-write transfer pairs", () => {
-  it("detects a two-account transfer without writing pairs or counting them as Income", async () => {
+describe("Core ingest silent-pairs unique same-institution transfers (Spec 3/7)", () => {
+  it("writes a unique NAB pair and does not leave it OPEN", async () => {
     const csv = (account: string, rows: string) =>
       `Date,Amount,Account Number,,Transaction Type,Transaction Details,Balance,Category,Merchant Name,Processed On\n${rows.replaceAll("ACCOUNT", account)}`;
     const everyday = csv(
@@ -50,21 +48,36 @@ describe("Core ingest does not auto-write transfer pairs", () => {
     ]);
 
     assert.equal(result.transactions.length, 2);
-    assert.ok(result.transactions.every((row) => !row.transferPair));
-    assert.ok(result.transactions.every((row) => row.type !== "moved" && row.type !== "TRANSFER"));
-    assert.ok(result.transactions.every((row) => row.decidedBy !== "paired"));
-
-    const detected = matchTransfers(result.transactions);
-    assert.equal(detected.pairs.length, 1, "the matcher still sees the candidate");
+    assert.ok(result.transactions.every((row) => row.institution === "NAB"));
+    assert.ok(result.transactions.every((row) => row.transferPair));
+    assert.ok(result.transactions.every((row) => row.type === "TRANSFER"));
 
     const flow = result.flow;
-    assert.equal(flow.transfers, 0);
-    assert.equal(flow.actualSavings, 0);
-    assert.equal(flow.income, 0, "OPEN unpaired transfer is held out of Income");
-    assert.equal(flow.spending, 0, "OPEN unpaired transfer is held out of Spending");
+    assert.equal(flow.transfers, 400);
+    assert.equal(flow.income, 0);
+    assert.equal(flow.spending, 0);
     assert.equal(flow.cashIn, 400);
     assert.equal(flow.cashOut, 400);
-    assert.ok(flow.insights.some((line) => /likely transfer/i.test(line)));
+    assert.ok(!flow.insights.some((line) => /likely transfer/i.test(line)));
+  });
+
+  it("leaves a cross-institution unique pair OPEN", async () => {
+    const nab = `Date,Amount,Account Number,,Transaction Type,Transaction Details,Balance,Category,Merchant Name,Processed On
+12 Aug 26,-400.00,100200300,TRANSFER DEBIT,Transfer To Up,100.00,Internal transfers,Transfer To Up,12 Aug 26`;
+    const up = `Date,Description,Amount
+12 Aug 26,Osko Payment Received,400.00`;
+    const result = await interpretDocuments([
+      { filename: "nab.csv", mime: "text/csv", bytes: new TextEncoder().encode(nab) },
+      { filename: "up-everyday.csv", mime: "text/csv", bytes: new TextEncoder().encode(up) },
+    ]);
+    assert.ok(result.transactions.some((row) => row.institution === "NAB"));
+    assert.ok(result.transactions.some((row) => row.institution === "Up"));
+    assert.ok(result.transactions.every((row) => !row.transferPair));
+    const detected = matchTransfers(result.transactions);
+    assert.equal(detected.pairs.length, 1);
+    assert.equal(detected.pairs[0]?.sameInstitution, false);
+    assert.equal(result.flow.transfers, 0);
+    assert.ok(result.flow.insights.some((line) => /likely transfer/i.test(line)));
   });
 });
 

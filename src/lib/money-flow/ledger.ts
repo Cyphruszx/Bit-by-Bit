@@ -12,6 +12,13 @@ import { persistStoredTransaction, upgradeTransactions, type StoredTransaction }
 import { forget, learn, type LearnedRule, type Rules } from "@/lib/money-flow/rules";
 import { parseCategoryBook, type CategoryBook } from "@/lib/money-flow/category-book";
 import { mergedReview, parseReviewItems, type ReviewItem } from "@/lib/money-flow/review-queue";
+import {
+  applyReviewUndoParts,
+  lastReviewUndo,
+  parseReviewUndo,
+  pushReviewUndo,
+  type ReviewUndoAction,
+} from "@/lib/money-flow/review-undo";
 import { isCategoryKey, migrateStoredCategory } from "@/lib/money-flow/taxonomy";
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import { hasSource } from "@/lib/money-flow/source";
@@ -122,6 +129,8 @@ export type Ledger = {
    * rebuilt from the current movements each read, so they are not stored here.
    */
   review?: ReviewItem[];
+  /** Last 1–5 Review resolves, so Undo can restore OPEN / prior kind after reload. */
+  reviewUndo?: ReviewUndoAction[];
   /**
    * Spec 11 Soft pools / Pools. Named groups + undoable membership. Display
    * only — pool writes never touch `mergedInto` or fingerprints.
@@ -581,11 +590,46 @@ export function recordTaxonomy(ledger: Ledger, book: CategoryBook | null): Ledge
   return { ...ledger, taxonomy: book };
 }
 
-/** Records a closed Review Queue item (RESOLVED or DISMISSED). OPEN is rebuilt. */
+/** Records a closed Review Queue item, an OPEN decline, or a deferred Skip. */
 export function recordReview(ledger: Ledger, item: ReviewItem): Ledger {
-  if (item.state === "OPEN") return ledger;
   const held = (ledger.review ?? []).filter((row) => row.id !== item.id);
+  if (item.state !== "OPEN") {
+    return { ...ledger, review: [...held, item] };
+  }
+  const keepOpen =
+    (item.declinedCreditIds?.length ?? 0) > 0 ||
+    (item.declinedDebitIds?.length ?? 0) > 0 ||
+    Boolean(item.deferredAt);
+  if (!keepOpen) return { ...ledger, review: held };
   return { ...ledger, review: [...held, item] };
+}
+
+export function rememberReviewUndo(ledger: Ledger, action: ReviewUndoAction): Ledger {
+  return { ...ledger, reviewUndo: pushReviewUndo(ledger.reviewUndo, action) };
+}
+
+export function undoLastReviewAction(ledger: Ledger): Ledger {
+  const action = lastReviewUndo(ledger.reviewUndo);
+  if (!action) return ledger;
+  const nextStack = (ledger.reviewUndo ?? []).slice(0, -1);
+  const restored = applyReviewUndoParts(action, {
+    review: ledger.review,
+    verdicts: ledger.verdicts,
+    rules: ledger.rules,
+    transactions: ledgerTransactions(ledger),
+  });
+  const next: Ledger = {
+    ...replaceTransactions(ledger, restored.transactions),
+    ...(restored.review ? { review: restored.review } : {}),
+    ...(restored.verdicts ? { verdicts: restored.verdicts } : {}),
+    ...(restored.rules ? { rules: restored.rules } : {}),
+    ...(nextStack.length > 0 ? { reviewUndo: nextStack } : {}),
+  };
+  if (!restored.review) delete next.review;
+  if (!restored.verdicts) delete next.verdicts;
+  if (!restored.rules) delete next.rules;
+  if (nextStack.length === 0) delete next.reviewUndo;
+  return next;
 }
 
 /**
@@ -646,6 +690,7 @@ export function mergeLedgers(mine: Ledger, theirs: Ledger): Ledger {
     ...mergedRules(mine.rules, theirs.rules),
     ...pickedTaxonomy(mine.taxonomy, theirs.taxonomy),
     ...pickedReview(mine.review, theirs.review),
+    ...pickedReviewUndo(mine.reviewUndo, theirs.reviewUndo),
     ...pickedPools(mine, theirs, { ...theirs.mergedInto, ...mine.mergedInto }),
     ...pickedFeatures(mine, theirs),
   };
@@ -664,6 +709,13 @@ function pickedTaxonomy(mine: CategoryBook | undefined, theirs: CategoryBook | u
 function pickedReview(mine: ReviewItem[] | undefined, theirs: ReviewItem[] | undefined) {
   const held = mergedReview(mine, theirs);
   return held.length > 0 ? { review: held } : {};
+}
+
+function pickedReviewUndo(mine: ReviewUndoAction[] | undefined, theirs: ReviewUndoAction[] | undefined) {
+  const mineLast = lastReviewUndo(mine)?.at ?? "";
+  const theirsLast = lastReviewUndo(theirs)?.at ?? "";
+  const held = mineLast >= theirsLast ? mine : theirs;
+  return held && held.length > 0 ? { reviewUndo: held } : {};
 }
 
 function pickedPools(mine: Ledger, theirs: Ledger, mergedInto: Record<string, string>) {
@@ -865,6 +917,7 @@ export function parseLedger(value: unknown): Ledger | null {
   const taxonomy = parseCategoryBook(raw.taxonomy);
   const extraKeys = taxonomy?.categories.map((category) => category.key) ?? [];
   const review = parseReviewItems(raw.review);
+  const reviewUndo = parseReviewUndo(raw.reviewUndo);
   return {
     version: LEDGER_VERSION,
     entries: sortEntries(entries),
@@ -880,6 +933,7 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(raw.rules && typeof raw.rules === "object" ? { rules: rulesOnly(raw.rules, extraKeys) } : {}),
     ...(taxonomy ? { taxonomy } : {}),
     ...(review.length > 0 ? { review } : {}),
+    ...(reviewUndo.length > 0 ? { reviewUndo } : {}),
     ...parsedPools(raw),
     ...parsedFeatures(raw),
   };

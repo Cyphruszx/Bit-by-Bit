@@ -283,9 +283,12 @@ LTransfer
     assert.equal(detectFileKind("statement.pdf", "application/pdf", pdf), "pdf");
     const parsed = await parseDocument("statement.pdf", "application/pdf", pdf);
     assert.ok(parsed.transactions.length >= 1, JSON.stringify(parsed, null, 2));
-    const gated = await interpretDocuments([file("statement.pdf", "application/pdf", pdf)]);
-    assert.equal(gated.transactions.length, 0);
-    assert.match(gated.files[0]?.processingError ?? "", /OCR|unavailable/i);
+    assert.equal(parsed.ocrPages ?? 0, 0);
+    const interpreted = await interpretDocuments([file("statement.pdf", "application/pdf", pdf)]);
+    assert.ok(interpreted.transactions.length >= 1);
+    assert.equal(interpreted.files[0]?.kind, "pdf");
+    assert.equal(interpreted.files[0]?.ocrPages, undefined);
+    assert.ok(interpreted.files[0]?.notes.some((note) => /text extract/i.test(note)));
   });
 
   it("sniffs file kinds from names and bytes", () => {
@@ -493,23 +496,24 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.equal(received?.merchant, "JORDAN LEE");
   });
 
-  it("reconciles the year sample without silently pairing internals or refunds", async () => {
+  it("reconciles the year sample with silent same-institution pairs (Spec 3/7)", async () => {
     const result = await readUpSample();
-    // The statement heads itself "Money In +$70,574.39 Money Out $71,631.34" excluding
-    // saver transfers. Spec 7: Core does not auto-write those pairs, but OPEN holds them
-    // out of Income/Spending. Unlinked refunds stay out of Income and are not Refund
-    // credits until confirmed. Cash net still ties to the file.
+    // public/samples/up-2025-07-to-2026-06.txt heads itself "Money In +$70,574.39
+    // Money Out $71,631.34" excluding saver transfers. Unique Up pairs resolve
+    // silently: Income/Spending stay those figures, Transfers $14,446.60,
+    // Actual Savings $5,800.40. Unlinked refunds stay out of Income.
     assert.equal(result.flow.income, 70120.77);
     assert.equal(result.flow.spending, 71631.34);
     assert.equal(result.flow.refunds, 0);
-    assert.equal(result.flow.transfers, 0);
-    assert.equal(result.flow.actualSavings, 0);
+    assert.equal(result.flow.transfers, 14446.6);
+    assert.equal(result.flow.actualSavings, 5800.4);
     assert.equal(result.flow.net, roundMoney(result.flow.income - result.flow.spending + result.flow.refunds));
     assert.equal(result.flow.net, -1510.57);
-    assert.ok(result.transactions.every((txn) => !txn.transferPair && !txn.refundPair));
+    assert.equal(result.transactions.filter((txn) => txn.transferPair).length, 84);
+    assert.ok(result.transactions.every((txn) => !txn.refundPair));
   });
 
-  it("detects Up saver transfers but does not mark them moved on ingest", async () => {
+  it("silently pairs unique Up saver transfers on ingest", async () => {
     const result = await readUpSample();
     assert.equal(result.transactions.filter((txn) => txn.type === "moved").length, 0);
     const detected = matchTransfers(result.transactions);
@@ -518,7 +522,8 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
       detected.pairs.reduce((sum, pair) => sum + Math.abs(pair.debit.amount), 0),
     );
     assert.equal(intoSavers, 14446.6);
-    assert.ok(result.flow.insights.some((line) => /likely transfer/i.test(line)));
+    assert.ok(result.transactions.filter((txn) => txn.transferPair).length >= 84);
+    assert.ok(!result.flow.insights.some((line) => /likely transfer/i.test(line)));
   });
 
   it("runs the server action against the year sample", async () => {
@@ -1286,18 +1291,20 @@ describe("what each scope reports", () => {
     const rows = await ledger();
     const flow = summarizeMoneyFlow(rows);
 
-    // Spec 7: Core does not auto-write pairs. OPEN holds likely transfers out of
-    // Income/Spending. Unlinked refund-shaped credits are not Income. Cash still
-    // counts both legs. Net = Income − Spending + Refund credits (0).
-    assert.ok(rows.every((txn) => !txn.transferPair && !txn.refundPair && txn.decidedBy !== "paired"));
+    // Spec 3/7 silent same-institution pairs cancel in the household view.
+    // Income/Spending/Net/Cash are unchanged from the OPEN-hold figures; Transfers
+    // and Actual Savings now include the silent Up/NAB pairs. Refunds stay unlinked.
+    // public/samples: nab-medicare.csv, nab-rent.csv, up-2025-07-to-2026-06.txt
+    assert.ok(rows.some((txn) => txn.transferPair && txn.decidedBy === "paired"));
+    assert.ok(rows.every((txn) => !txn.refundPair));
     assert.equal(flow.income, 145096.99);
     assert.equal(flow.spending, 89913.17);
     assert.equal(flow.refunds, 0);
     assert.equal(flow.net, 55183.82);
     assert.equal(flow.net, roundMoney(flow.income - flow.spending + flow.refunds));
     assert.equal(flow.cashNet, -507.51);
-    assert.equal(flow.transfers, 0);
-    assert.equal(flow.actualSavings, 0);
+    assert.equal(flow.transfers, 56289.42);
+    assert.equal(flow.actualSavings, 5800.4);
   });
 
   it("reports each bank's own figures, which tie to its statements", async () => {
@@ -1305,7 +1312,8 @@ describe("what each scope reports", () => {
     const nab = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "NAB" }));
     const up = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "Up" }));
 
-    // SocietyOne still is not earnings. OPEN holds likely transfers out of each bank's tiles.
+    // SocietyOne still is not earnings. Same-institution pairs cancel inside each bank.
+    // Up Actual Savings $5,800.40 is CLEARED TRANSFER IN to Save!!.
     assert.equal(nab.income, 129800.67);
     assert.equal(nab.spending, 25351.83);
     assert.equal(nab.refunds, 0);
@@ -1314,7 +1322,7 @@ describe("what each scope reports", () => {
     assert.equal(up.spending, 71631.34);
     assert.equal(up.refunds, 0);
     assert.equal(up.cashNet, -1056.95);
-    assert.equal(up.actualSavings, 0);
+    assert.equal(up.actualSavings, 5800.4);
   });
 
   it("reports one account on the numbers its own statement prints", async () => {
@@ -1324,9 +1332,10 @@ describe("what each scope reports", () => {
     );
 
     // The statement's own money-in figure is $164,344.90 and the account's cash still ties
-    // to it exactly. Income is lower because $25,000 was borrowed and OPEN holds transfers.
-    assert.equal(everyday.income, 122989.9);
-    assert.equal(everyday.spending, 25351.22);
+    // to it exactly. $25,000 borrowed stays out of Income. Same-institution pair legs
+    // still count here because the other account is not in this scope.
+    assert.equal(everyday.income, 131774.9);
+    assert.equal(everyday.spending, 58409.04);
     assert.equal(everyday.refunds, 0);
     assert.equal(everyday.cashNet, 3669.02);
   });
@@ -1337,10 +1346,10 @@ describe("what each scope reports", () => {
     const nab = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "NAB" }));
     const up = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "Up" }));
 
-    // Core still does not write pairs. Household OPEN-holds both legs of likely
-    // inter-bank matches, so its tiles are not the sum of the banks'. Cash still is.
-    assert.ok(rows.every((txn) => !txn.transferPair));
-    assert.equal(household.transfers, 0);
+    // Same-institution pairs are written. Cross-institution matches stay OPEN, so
+    // household Income is not the sum of the banks'. Cash still is.
+    assert.ok(rows.some((txn) => txn.transferPair));
+    assert.ok(matchTransfers(rows).pairs.some((pair) => !pair.sameInstitution && !pair.debit.transferPair));
     assert.equal(roundMoney(nab.cashNet + up.cashNet), household.cashNet);
     assert.notEqual(roundMoney(nab.income + up.income), household.income);
   });
