@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { accountsByInstitution } from "./accounts";
 import {
+  accountBalanceOf,
   accountDisplayAmount,
   bankInstitutionTiles,
   budgetRowsFromPrior,
@@ -224,6 +225,12 @@ describe("dashboard widgets", () => {
     const flow = summarizeMoneyFlow(rows);
 
     assert.equal(totalAccountBalance(tiles), 16680.12);
+    assert.equal(accountBalanceOf(rows, {
+      meta: {
+        "NAB · Everyday": { clearedBalance: 4280.12 },
+        "NAB · Savings": { clearedBalance: 12400 },
+      },
+    }), 16680.12);
     assert.notEqual(totalAccountBalance(tiles), flow.net, "not parked Net Money(P)");
     assert.notEqual(totalAccountBalance(tiles), flow.cashNet, "not period money-in − money-out");
   });

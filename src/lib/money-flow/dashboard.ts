@@ -17,7 +17,7 @@ import { derivedMovementBalance } from "@/lib/money-flow/statement-balance";
 import { topChartCategories } from "@/lib/money-flow/tag-charts";
 import { categoryOf } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
-import type { AccountTotals, InstitutionAccounts } from "@/lib/money-flow/accounts";
+import { accountsByInstitution, type AccountTotals, type InstitutionAccounts } from "@/lib/money-flow/accounts";
 
 export type DashboardPoint = {
   key: string;
@@ -135,6 +135,28 @@ export function totalAccountBalance(tiles: BankInstitutionTile[]): number | null
     }
   }
   return any ? sum : null;
+}
+
+/**
+ * Transactions-page Account balance (and dashboard Total balance): stated CSV
+ * Balance when stored, else derived credits − debits. Not Spec 10 Net.
+ */
+export function accountBalanceOf(
+  transactions: InterpretedTransaction[],
+  options: {
+    meta?: Record<string, AccountMeta>;
+    mergedInto?: Record<string, string>;
+    registry?: AccountRegistry;
+    book?: PoolBook;
+  } = {},
+): number | null {
+  return totalAccountBalance(
+    bankInstitutionTiles(accountsByInstitution(transactions, options.registry), {
+      meta: options.meta,
+      mergedInto: options.mergedInto,
+      book: options.book,
+    }),
+  );
 }
 
 /**

@@ -12,6 +12,7 @@ import { SettledMoney, UnsettledMoney } from "@/components/unsettled-money";
 import { setScope, useScope } from "@/components/scope-store";
 import { formatAud } from "@/lib/format";
 import { accountsByInstitution } from "@/lib/money-flow/accounts";
+import { accountBalanceOf } from "@/lib/money-flow/dashboard";
 import { describeScope, filterByScope } from "@/lib/money-flow/scope";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import { allTags, tagsOf } from "@/lib/money-flow/tags";
@@ -26,6 +27,7 @@ export function TransactionsView() {
     institutionOverrides,
     payers,
     mergedInto,
+    accountMeta,
     removeTagEverywhere,
     renameTagEverywhere,
     transactions,
@@ -52,6 +54,14 @@ export function TransactionsView() {
     next.periodLabel = flow.periodLabel;
     return next;
   }, [flow, scope.kind, scoped]);
+  const scopedHoldings = useMemo(
+    () => filterByScope(allTransactions, scope, registry),
+    [allTransactions, registry, scope],
+  );
+  const accountBalance = useMemo(
+    () => accountBalanceOf(scopedHoldings, { meta: accountMeta, mergedInto, registry }),
+    [accountMeta, mergedInto, registry, scopedHoldings],
+  );
 
   if (!hasUploads) {
     return (
@@ -70,7 +80,8 @@ export function TransactionsView() {
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight">Transactions</h1>
       <p className="mt-1 max-w-2xl text-sm text-muted">
-        Money in and out are the raw credits and debits in this period. Charts group by category.
+        Money in and out are the raw credits and debits in this period. Account balance is the
+        statement figure, not Net. Charts group by category.
       </p>
       <ScopeBar groups={groups} scope={scope} onScope={setScope} />
       <p className="mt-3 text-sm text-muted">{describeScope(scope)}</p>
@@ -89,14 +100,10 @@ export function TransactionsView() {
           compact
         />
         <SummaryCard
-          label="Net"
-          value={formatAud(scopedFlow.net)}
-          detail={
-            scopedFlow.refunds > 0
-              ? `Income − Spending + ${formatAud(scopedFlow.refunds)} refund credits`
-              : `${scopedFlow.transactionCount} movements`
-          }
-          positive={scopedFlow.net >= 0}
+          label="Account balance"
+          value={accountBalance == null ? "—" : formatAud(accountBalance)}
+          detail="CSV Balance, else credits − debits"
+          positive={accountBalance != null && accountBalance > 0}
           compact
         />
       </section>

@@ -5,6 +5,8 @@ import { describe, it } from "node:test";
 import { interpretDocuments } from "./interpret";
 import { appendToLedger, EMPTY_LEDGER } from "./ledger";
 import { summarizeMoneyFlow } from "./summary";
+import { accountBalanceOf } from "./dashboard";
+import { filterByScope } from "./scope";
 import {
   derivedMovementBalance,
   mostRecentStatedBalances,
@@ -101,5 +103,18 @@ describe("NAB sample stated balances", () => {
     assert.equal(ledger.accountMeta?.["NAB · 100200300"]?.clearedBalance, 4913.07);
     assert.equal(ledger.accountMeta?.["NAB · 400500600"]?.clearedBalance, 0.49);
     assert.notEqual(4913.07 + 0.49, result.flow.net);
+
+    const tile = accountBalanceOf(result.transactions, { meta: ledger.accountMeta });
+    assert.equal(tile, 4913.56, "Transactions Account balance sums stated CSV balances");
+    assert.notEqual(tile, result.flow.net);
+    assert.notEqual(tile, result.flow.cashNet);
+
+    const everyday = filterByScope(result.transactions, { kind: "account", accountId: "NAB · 100200300" });
+    const everydayBalance = accountBalanceOf(everyday, { meta: ledger.accountMeta });
+    const everydayFlow = summarizeMoneyFlow(everyday);
+    assert.equal(everydayBalance, 4913.07);
+    assert.equal(everydayFlow.cashNet, 3669.02);
+    assert.notEqual(everydayBalance, everydayFlow.net);
+    assert.notEqual(everydayBalance, everydayFlow.cashNet);
   });
 });
