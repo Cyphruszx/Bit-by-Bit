@@ -14,6 +14,7 @@ export type RawMovement = {
   typeHint?: string;
   merchant?: string;
   bankCategory?: string;
+  mcc?: string;
   accountKey?: string;
   accountId?: string;
   source?: SourceRow;
@@ -70,9 +71,10 @@ export function readMovement(
   rawAmount: number,
   directionKnown: boolean,
   bankCategory?: string,
+  mcc?: string,
 ): Reading {
   const amount = directionKnown ? rawAmount : Math.abs(rawAmount) * directionFromWords(text);
-  const fromRules = categorize(text, amount);
+  const fromRules = categorize(text, amount, { mcc });
   const fromBank = fromRules ? null : categoryFromBankLabel(bankCategory, amount);
   // A rule says `food.groceries` because that is the legible way to write a rule. It means
   // a category and a tag, and this is where the two come apart.
@@ -87,13 +89,15 @@ export function readMovement(
 }
 
 export function interpretMovement(raw: RawMovement): InterpretedTransaction {
+  const mcc = raw.mcc?.trim();
   const bank: BankWords = {
     ...(raw.bankCategory?.trim() ? { category: raw.bankCategory.trim() } : {}),
     ...(raw.typeHint?.trim() ? { type: raw.typeHint.trim() } : {}),
     ...(raw.merchant?.trim() ? { merchant: raw.merchant.trim() } : {}),
+    ...(mcc ? { mcc } : {}),
   };
   const text = [bank.merchant, raw.description, bank.type, bank.category].filter(Boolean).join(" ");
-  const read = readMovement(text, raw.amount, raw.directionKnown, bank.category);
+  const read = readMovement(text, raw.amount, raw.directionKnown, bank.category, mcc);
 
   const accountKey = raw.accountKey?.trim();
   const accountId = raw.accountId?.trim();

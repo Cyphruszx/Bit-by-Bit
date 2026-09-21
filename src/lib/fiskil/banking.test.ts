@@ -53,4 +53,18 @@ describe("Fiskil banking mapping", () => {
     const from = firstSyncFrom(Date.parse("2026-09-19T00:00:00.000Z"));
     assert.equal(from.startsWith("2026-06-21"), true);
   });
+
+  it("keeps an MCC already on the transaction payload", () => {
+    const txn = parseTransaction({
+      id: "tx_mcc",
+      account_id: "acc_1",
+      amount: -18.5,
+      description: "Unknown counter",
+      status: "POSTED",
+      posted: "2026-09-19T03:00:00.000Z",
+      merchant: { name: "Corner Shop", merchant_category_code: "5411" },
+    });
+    assert.equal(txn?.mcc, "5411");
+    assert.equal(txn?.merchant, "Corner Shop");
+  });
 });

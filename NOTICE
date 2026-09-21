@@ -1,0 +1,27 @@
+BitbyBit third-party notices
+============================
+
+This product vendors two public datasets for merchant seeding. Neither
+copyright holder endorses BitbyBit.
+
+MCC codes
+---------
+`src/lib/merchants/data/mcc-codes.json` is derived from greggles/mcc-codes
+(https://github.com/greggles/mcc-codes), dedicated to the public domain under
+the Unlicense.
+
+Name Suggestion Index (AU brands)
+---------------------------------
+`src/lib/merchants/data/nsi-au-brands.json` is a filtered extract of
+name-suggestion-index (https://github.com/osmlab/name-suggestion-index),
+limited to brand items whose locationSet includes `au`.
+
+Copyright 2026, name-suggestion-index contributors
+
+Licensed under the BSD 3-Clause License. The full terms are in
+`licenses/name-suggestion-index-BSD-3.txt`.
+
+Redistributions of this extract retain the copyright notice, the list of
+conditions, and the disclaimer. Neither the name of the copyright holder nor
+the names of its contributors may be used to endorse or promote products
+derived from this software without specific prior written permission.

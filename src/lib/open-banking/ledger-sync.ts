@@ -108,6 +108,7 @@ export function mapFiskilTransaction(
     description: txn.description,
     ...(txn.merchant ? { merchant: txn.merchant } : {}),
     ...(txn.category ? { bankCategory: txn.category } : {}),
+    ...(txn.mcc ? { mcc: txn.mcc } : {}),
     accountKey: account.accountId,
     accountId: account.accountId,
     sourceFile,
