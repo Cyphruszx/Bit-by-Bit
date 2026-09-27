@@ -17,7 +17,7 @@ import {
 } from "@/lib/money-flow/pdf";
 import { readBankSource } from "@/lib/money-flow/bank-filter";
 import { sourceFromPairs } from "@/lib/money-flow/source";
-import { interpretTable, rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
+import { interpretTable, rowsFromCsv } from "@/lib/money-flow/tabular";
 import { printedOpeningBalance, transactionsFromText } from "@/lib/money-flow/text-lines";
 import type { InterpretedTransaction, StatedAccountBalance } from "@/lib/money-flow/types";
 import { looksLikeUpStatement, type UpPrintedBalance } from "@/lib/money-flow/up-statement";
@@ -351,10 +351,6 @@ async function ocrImageText(bytes: Uint8Array): Promise<string> {
   const Tesseract = await import("tesseract.js");
   const recognized = await Tesseract.recognize(Buffer.from(bytes), "eng");
   return recognized.data.text;
-}
-
-function transactionsFromExtractedText(text: string, filename: string): InterpretedTransaction[] {
-  return extractedDocument(text, filename, []).transactions;
 }
 
 function notesForText(text: string): string[] {

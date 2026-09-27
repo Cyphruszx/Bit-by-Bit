@@ -1338,9 +1338,11 @@ describe("what each scope reports", () => {
     );
 
     // The statement's own money-in figure is $164,344.90. Money in/out omit classified
-    // internals; $25,000 borrowed stays out of Income. Income / Spending unchanged.
-    assert.equal(everyday.income, 131774.9);
-    assert.equal(everyday.spending, 58409.04);
+    // internals; $25,000 borrowed stays out of Income. F7 drops a one-legged TRANSFER
+    // from this account's Income and Spending (the other leg is on another account):
+    // Income $131,774.90 → $122,989.90, Spending $58,409.04 → $25,351.22.
+    assert.equal(everyday.income, 122989.9);
+    assert.equal(everyday.spending, 25351.22);
     assert.equal(everyday.refunds, 0);
     assert.equal(everyday.cashNet, 27941.84);
   });

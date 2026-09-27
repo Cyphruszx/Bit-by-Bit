@@ -130,8 +130,11 @@ describe("F3 zero amounts", () => {
 
 describe("F4 file index and Up closing", () => {
   it("reads the index after -up- and -ofx- and keeps the lowest index on the latest date", () => {
-    assert.equal(fileIndexOf(txn({ id: "up.txt-up-0-2026-06-30--12", dateIso: "2026-06-30", sourceFile: "up.txt" })), 0);
-    assert.equal(fileIndexOf(txn({ id: "up.txt-ofx-2", dateIso: "2026-06-30", sourceFile: "up.txt" })), 2);
+    assert.equal(
+      fileIndexOf(txn({ id: "up.txt-up-0-2026-06-30--12", dateIso: "2026-06-30", amount: -12, sourceFile: "up.txt" })),
+      0,
+    );
+    assert.equal(fileIndexOf(txn({ id: "up.txt-ofx-2", dateIso: "2026-06-30", amount: 1, sourceFile: "up.txt" })), 2);
     const rows = [
       txn({
         id: "up.txt-up-3-2026-06-30--5.59",
@@ -203,7 +206,8 @@ describe("F4 file index and Up closing", () => {
     const flow = summarizeMoneyFlow(spending);
     assert.equal(flow.cashIn, 70564.53);
     assert.equal(flow.cashOut, 71631.34);
-    console.log("UP_SPENDING_INCOME", flow.income);
+    // Was $77,757.11 while one-legged transfer credits still counted as Income.
+    assert.equal(flow.income, 70110.91);
   });
 });
 
@@ -289,15 +293,33 @@ ${dated}</LEDGERBAL>
   }
 
   async function read(filename: string, body: string) {
-    return interpretDocuments([
-      { filename, mime: "application/x-ofx", bytes: Buffer.from(body) },
-    ]);
+    const parsed = await parseDocument(filename, "application/x-ofx", new TextEncoder().encode(body));
+    return {
+      files: [
+        {
+          filename,
+          fileType: "other" as const,
+          kind: "ofx" as const,
+          uploadStatus: "uploaded" as const,
+          processingStatus: "completed" as const,
+          transactionCount: parsed.transactions.length,
+          notes: parsed.notes,
+          ...(parsed.statedBalance != null ? { statedBalance: parsed.statedBalance } : {}),
+          ...(parsed.balanceSource ? { balanceSource: parsed.balanceSource } : {}),
+          ...(parsed.balanceAsOf ? { balanceAsOf: parsed.balanceAsOf } : {}),
+        },
+      ],
+      transactions: parsed.transactions,
+    };
   }
 
   it("keeps the later DTASOF even when the other file has the later transaction", async () => {
     const laterTxn = await read("early-snapshot.ofx", ofx("early-snapshot.ofx", "20260601000000", "100.00", "20260610"));
     const laterSnap = await read("later-snapshot.ofx", ofx("later-snapshot.ofx", "20260620000000", "250.00", "20260602"));
     const undated = await read("undated.ofx", ofx("undated.ofx", null, "1.00", "20260603"));
+    assert.ok(laterTxn.transactions.length > 0);
+    assert.equal(laterTxn.files[0]?.statedBalance, 100);
+    assert.equal(laterSnap.files[0]?.balanceAsOf, "2026-06-20");
 
     let ledger = appendToLedger(EMPTY_LEDGER, laterTxn, { importedAt: "2026-06-11T00:00:00.000Z" }).ledger;
     ledger = appendToLedger(ledger, laterSnap, { importedAt: "2026-06-21T00:00:00.000Z" }).ledger;

@@ -131,8 +131,10 @@ describe("Up CSV Transfer type cash tiles", () => {
     const flow = summarizeMoneyFlow(result.transactions);
     assert.equal(flow.cashIn, 2000, "Salary only — Transfer credit omitted");
     assert.equal(flow.cashOut, 75, "Purchase + Direct Debit + Payment — Transfer debit omitted");
-    assert.equal(derivedMovementBalance(result.transactions), flow.cashIn - flow.cashOut);
-    assert.equal(accountBalanceOf(result.transactions), flow.cashNet);
+    // The unsigned +500 Transfer is stored as −500, so both legs are outflows.
+    // The estimate includes them. It is not the transfer-excluded cash net.
+    assert.equal(derivedMovementBalance(result.transactions), 925);
+    assert.equal(accountBalanceOf(result.transactions), null);
   });
 
   it("includes blank or missing Up Transaction Type in Money in/out", () => {

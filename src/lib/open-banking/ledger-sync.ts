@@ -12,7 +12,7 @@ import { roundMoney } from "@/lib/money-flow/parse-values";
 import { canReplaceBalance, effectiveBalanceSource } from "@/lib/money-flow/statement-balance";
 import { isSilentSameInstitutionPair } from "@/lib/money-flow/auto-pairs";
 import { interpretMovement } from "@/lib/money-flow/interpret-row";
-import { detectInstitution, institutionOf, UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
+import { detectInstitution, UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
 import {
   fingerprintOf,
   ledgerTransactions,
