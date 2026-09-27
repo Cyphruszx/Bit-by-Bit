@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { describeScope, EVERYTHING, filterByScope, parseScope, scopeLabel } from "./scope";
+import {
+  defaultTransactionScope,
+  describeScope,
+  EVERYTHING,
+  filterByScope,
+  parseScope,
+  scopeLabel,
+  transactionBankLabels,
+} from "./scope";
 import type { InterpretedTransaction } from "./types";
 
 let made = 0;
@@ -30,9 +38,20 @@ const rows = [
 ];
 
 describe("choosing what to look at", () => {
-  it("shows everything by default", () => {
+  it("can still summarise every account when a caller passes the internal all-scope", () => {
     assert.equal(filterByScope(rows, EVERYTHING).length, 3);
     assert.equal(scopeLabel(EVERYTHING), "Everything");
+  });
+
+  it("opens on the first bank and does not offer Everything", () => {
+    const groups = [
+      { institution: "Up" },
+      { institution: "NAB" },
+    ];
+    assert.deepEqual(transactionBankLabels(groups), ["Up", "NAB"]);
+    assert.equal(transactionBankLabels(groups).includes("Everything"), false);
+    assert.deepEqual(defaultTransactionScope(["Up", "NAB"]), { kind: "institution", institution: "Up" });
+    assert.deepEqual(defaultTransactionScope([]), EVERYTHING);
   });
 
   it("narrows to one bank, keeping every account inside it", () => {
@@ -56,9 +75,10 @@ describe("choosing what to look at", () => {
     assert.equal(scopeLabel({ kind: "account", accountId: "NAB · 100200300" }), "NAB · ···300");
   });
 
-  it("says why a bank's own figures are not the household's", () => {
-    assert.match(describeScope({ kind: "institution", institution: "NAB" }), /still counts as leaving/);
-    assert.match(describeScope(EVERYTHING), /counted once/);
+  it("says a bank's money in and out leave out internal transfers", () => {
+    assert.match(describeScope({ kind: "institution", institution: "NAB" }), /internal transfers/);
+    assert.doesNotMatch(describeScope({ kind: "institution", institution: "NAB" }), /still counts as leaving/);
+    assert.match(describeScope({ kind: "account", accountId: "NAB · 100200300" }), /internal transfers/);
   });
 });
 
@@ -76,15 +96,25 @@ describe("remembering what to look at", () => {
     });
   });
 
-  it("falls back to everything when what it named has gone", () => {
+  it("falls back to the first bank when what it named has gone", () => {
     // The statement that account came from was removed.
-    assert.deepEqual(parseScope({ kind: "account", accountId: "NAB · 999" }, known), EVERYTHING);
-    assert.deepEqual(parseScope({ kind: "institution", institution: "ANZ" }, known), EVERYTHING);
+    assert.deepEqual(parseScope({ kind: "account", accountId: "NAB · 999" }, known), {
+      kind: "institution",
+      institution: "NAB",
+    });
+    assert.deepEqual(parseScope({ kind: "institution", institution: "ANZ" }, known), {
+      kind: "institution",
+      institution: "NAB",
+    });
+    assert.deepEqual(parseScope({ kind: "all" }, known), { kind: "institution", institution: "NAB" });
   });
 
   it("survives whatever an older version of the app stored", () => {
-    assert.deepEqual(parseScope({ kind: "file", sourceFile: "nab.csv" }, known), EVERYTHING);
-    assert.deepEqual(parseScope(null, known), EVERYTHING);
-    assert.deepEqual(parseScope("nonsense", known), EVERYTHING);
+    assert.deepEqual(parseScope({ kind: "file", sourceFile: "nab.csv" }, known), {
+      kind: "institution",
+      institution: "NAB",
+    });
+    assert.deepEqual(parseScope(null, known), { kind: "institution", institution: "NAB" });
+    assert.deepEqual(parseScope("nonsense", known), { kind: "institution", institution: "NAB" });
   });
 });

@@ -4,8 +4,9 @@ import { useSyncExternalStore } from "react";
 import { EVERYTHING, parseScope, type LedgerScope } from "@/lib/money-flow/scope";
 
 /**
- * What the reader is looking at, held in one place so the dashboard and the transactions
- * list always agree, and which banks they have folded away.
+ * What the reader is looking at, held in one place so the transactions list
+ * remembers the bank, and which banks they have folded away.
+ * A stored "everything" scope opens on the first bank instead.
  */
 const SCOPE_KEY = "bitbybit.scope-v1";
 

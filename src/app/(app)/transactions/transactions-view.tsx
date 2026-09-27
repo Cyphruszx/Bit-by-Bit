@@ -38,7 +38,10 @@ export function TransactionsView() {
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
     [accountNames, institutionOverrides, payers, mergedInto],
   );
-  const groups = useMemo(() => accountsByInstitution(transactions, registry), [registry, transactions]);
+  const groups = useMemo(
+    () => accountsByInstitution(allTransactions, registry),
+    [allTransactions, registry],
+  );
   const known = useMemo(
     () => ({
       institutions: groups.map((group) => group.institution),
