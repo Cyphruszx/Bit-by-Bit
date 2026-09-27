@@ -17,7 +17,7 @@ import {
   bankInstitutionTiles,
   budgetRowsFromPrior,
   monthlyBalanceSeries,
-  totalAccountBalance,
+  presentAccountTiles,
 } from "@/lib/money-flow/dashboard";
 import {
   APP_TIME_ZONE,
@@ -77,7 +77,7 @@ export function DashboardView() {
   const budgets = budgetRowsFromPrior(flow.categories, priorCategories);
   const daysLeft = period.kind === "month" ? daysLeftInMonth(period.month, todayIso()) : null;
   const setAside = included.reduce((sum, pot) => sum + pot.saved, 0) || flow.actualSavings;
-  const totalBalance = useMemo(() => totalAccountBalance(tiles), [tiles]);
+  const totalBalance = useMemo(() => presentAccountTiles(tiles), [tiles]);
 
   if (!hasUploads) {
     return (
@@ -104,8 +104,18 @@ export function DashboardView() {
         <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryCard
             label="Total balance"
-            value={totalBalance == null ? "—" : formatAud(totalBalance)}
-            detail={`Across ${formatCount(accounts.length)} account${accounts.length === 1 ? "" : "s"}`}
+            value={totalBalance.amount == null ? (totalBalance.label ?? "—") : formatAud(totalBalance.amount)}
+            detail={
+              totalBalance.amount == null
+                ? (totalBalance.prompt ?? `Across ${formatCount(accounts.length)} account${accounts.length === 1 ? "" : "s"}`)
+                : [
+                    totalBalance.label,
+                    totalBalance.warning,
+                    `Across ${formatCount(accounts.length)} account${accounts.length === 1 ? "" : "s"}`,
+                  ]
+                    .filter(Boolean)
+                    .join(". ")
+            }
           />
           <SummaryCard
             label="Money in"

@@ -25,12 +25,47 @@ const SAVER_HEADER = /Opening Balance:.*Closing Balance:\s*\$[\d,.]+\s*(.*)$/i;
 /** Up's own name for the transaction account the savers transfer to and from. */
 const SPENDING_ACCOUNT = "Spending";
 
+/**
+ * Only Up's own banner or Zap card. "Osko payment received" is wording other
+ * banks print too; it must not send those files to this reader.
+ */
 export function looksLikeUpStatement(text: string): boolean {
-  return (
-    /up is a brand of bendigo/i.test(text) ||
-    /zap card \*\*/i.test(text) ||
-    /osko payment received/i.test(text)
-  );
+  return /up is a brand of bendigo/i.test(text) || /zap card \*\*/i.test(text);
+}
+
+export type UpPrintedBalance = {
+  accountName: string;
+  opening: number | null;
+  closing: number | null;
+  source: "header" | "section";
+};
+
+/** Printed opening and closing for Spending (header) and each saver (section). */
+export function upPrintedBalances(text: string): UpPrintedBalance[] {
+  const results: UpPrintedBalance[] = [];
+  const open = text.match(/Opening Balance\s+\$(\d{1,3}(?:,\d{3})*\.\d{2})/i);
+  const close = text.match(/Closing Balance\s+\$(\d{1,3}(?:,\d{3})*\.\d{2})/i);
+  if (open || close) {
+    results.push({
+      accountName: SPENDING_ACCOUNT,
+      opening: open ? parseAmount(`$${open[1]}`) : null,
+      closing: close ? parseAmount(`$${close[1]}`) : null,
+      source: "header",
+    });
+  }
+  const saver =
+    /Opening Balance:\s*\$(\d{1,3}(?:,\d{3})*\.\d{2}).*?Closing Balance:\s*\$(\d{1,3}(?:,\d{3})*\.\d{2})\s*(.+)$/gim;
+  for (const match of text.matchAll(saver)) {
+    const accountName = match[3].replace(/\s+/g, " ").trim();
+    if (!accountName) continue;
+    results.push({
+      accountName,
+      opening: parseAmount(`$${match[1]}`),
+      closing: parseAmount(`$${match[2]}`),
+      source: "section",
+    });
+  }
+  return results;
 }
 
 export function movementsFromUpStatement(text: string, sourceFile: string): RawMovement[] {

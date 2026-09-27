@@ -12,7 +12,7 @@ import { SettledMoney, UnsettledMoney } from "@/components/unsettled-money";
 import { setScope, useScope } from "@/components/scope-store";
 import { formatAud } from "@/lib/format";
 import { accountsByInstitution } from "@/lib/money-flow/accounts";
-import { accountBalanceOf } from "@/lib/money-flow/dashboard";
+import { presentAccountBalance } from "@/lib/money-flow/dashboard";
 import { describeScope, filterByScope } from "@/lib/money-flow/scope";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import { allTags, tagsOf } from "@/lib/money-flow/tags";
@@ -59,7 +59,7 @@ export function TransactionsView() {
     [allTransactions, registry, scope],
   );
   const accountBalance = useMemo(
-    () => accountBalanceOf(scopedHoldings, { meta: accountMeta, mergedInto, registry }),
+    () => presentAccountBalance(scopedHoldings, { meta: accountMeta, mergedInto, registry }),
     [accountMeta, mergedInto, registry, scopedHoldings],
   );
 
@@ -102,9 +102,13 @@ export function TransactionsView() {
         />
         <SummaryCard
           label="Account balance"
-          value={accountBalance == null ? "—" : formatAud(accountBalance)}
-          detail="CSV Balance / OFX LEDGERBAL, else credits − debits"
-          positive={accountBalance != null && accountBalance > 0}
+          value={accountBalance.amount == null ? (accountBalance.label ?? "—") : formatAud(accountBalance.amount)}
+          detail={
+            accountBalance.warning
+              ? `${accountBalance.label ?? "Estimated from movements"}. ${accountBalance.warning}`
+              : (accountBalance.label ?? accountBalance.prompt ?? "Statement balance")
+          }
+          positive={accountBalance.amount != null && accountBalance.amount > 0}
           compact
         />
       </section>

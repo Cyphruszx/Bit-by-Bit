@@ -5,6 +5,8 @@
  * Docs: https://docs.fiskil.com/ — prefer posted datetime, else execution.
  */
 
+import { calendarDate } from "@/lib/money-flow/period";
+import type { CdrType, NppExtendedData } from "@/lib/money-flow/types";
 import { FISKIL_API_BASE, type FiskilCredentials } from "./config";
 import { FiskilApiError, fiskilErrorFromResponse, parseFiskilErrorBody, withFiskilRetry } from "./errors";
 import { logFiskilSupport, pickFiskilSupportIds } from "./log";
@@ -44,6 +46,9 @@ export type FiskilBankingAccount = {
   currency?: string;
 };
 
+/** A direction the payload itself named. A positive number with no word is unsigned. */
+export type FiskilExplicitSign = "in" | "out";
+
 export type FiskilBankingTransaction = {
   id: string;
   accountId: string;
@@ -57,6 +62,17 @@ export type FiskilBankingTransaction = {
   category?: string;
   /** Four-digit MCC when the payload already carried one. */
   mcc?: string;
+  /** CDR `type` when it is one of the eight. DEBIT/CREDIT stay on the old word-sign path. */
+  cdrType?: CdrType;
+  reference?: string;
+  merchantName?: string;
+  merchantCategoryCode?: string;
+  billerCode?: string;
+  billerName?: string;
+  crn?: string;
+  extendedData?: NppExtendedData;
+  /** Set when a minus, plus, or debit/credit word named the direction. */
+  explicitSign?: FiskilExplicitSign;
 };
 
 export type FiskilBankingBalance = {
@@ -171,8 +187,8 @@ export function parseTransaction(raw: unknown): FiskilBankingTransaction | undef
   const id = asId(row.id) ?? asId(row.transaction_id) ?? asId(row.fiskil_id);
   const accountId = asId(row.account_id) ?? asId(row.fiskil_account_id);
   if (!id || !accountId) return undefined;
-  const amount = signedAmount(row);
-  if (amount === undefined) return undefined;
+  const read = amountReading(row);
+  if (!read) return undefined;
   const postedAt = datetimeOf(row, ["posted", "posted_at", "posting_date_time", "posted_datetime"]);
   const executionAt = datetimeOf(row, ["execution", "execution_at", "execution_date_time", "execution_datetime"]);
   const dateIso = civilDate(postedAt ?? executionAt);
@@ -180,20 +196,34 @@ export function parseTransaction(raw: unknown): FiskilBankingTransaction | undef
   const description =
     asId(row.description) ?? asId(row.reference) ?? asId(nested(row.merchant).name) ?? "Bank transaction";
   const mcc = mccOf(row);
+  const merchantName = asId(nested(row.merchant).name) ?? asId(row.merchant_name) ?? asId(row.merchantName);
+  const reference = asId(row.reference);
+  const cdrType = cdrTypeOf(row);
+  const extendedData = extendedDataOf(row);
+  const billerCode = asId(row.biller_code) ?? asId(row.billerCode);
+  const billerName = asId(row.biller_name) ?? asId(row.billerName);
+  const crn = asId(row.crn);
   return {
     id,
     accountId,
-    amount,
+    amount: read.amount,
     description,
     status: isPendingBankStatus(asId(row.status)) ? "PENDING" : "POSTED",
     dateIso,
     ...(postedAt ? { postedAt } : {}),
     ...(executionAt ? { executionAt } : {}),
-    ...(asId(nested(row.merchant).name) ? { merchant: asId(nested(row.merchant).name) } : {}),
+    ...(merchantName ? { merchant: merchantName, merchantName } : {}),
     ...(asId(row.category) ?? asId(nested(row.category).name)
       ? { category: asId(row.category) ?? asId(nested(row.category).name) }
       : {}),
-    ...(mcc ? { mcc } : {}),
+    ...(mcc ? { mcc, merchantCategoryCode: mcc } : {}),
+    ...(cdrType ? { cdrType } : {}),
+    ...(reference ? { reference } : {}),
+    ...(billerCode ? { billerCode } : {}),
+    ...(billerName ? { billerName } : {}),
+    ...(crn ? { crn } : {}),
+    ...(extendedData ? { extendedData } : {}),
+    ...(read.explicitSign ? { explicitSign: read.explicitSign } : {}),
   };
 }
 
@@ -358,13 +388,87 @@ function asArray(body: unknown, key: string): unknown[] {
   return [];
 }
 
-function signedAmount(row: Record<string, unknown>): number | undefined {
-  const raw = moneyOf(row.amount ?? nested(row.amount).amount);
+const CDR_TYPES = new Set<CdrType>([
+  "DIRECT_DEBIT",
+  "FEE",
+  "INTEREST_CHARGED",
+  "INTEREST_PAID",
+  "OTHER",
+  "PAYMENT",
+  "TRANSFER_INCOMING",
+  "TRANSFER_OUTGOING",
+]);
+
+/**
+ * Legacy word sign only. `DIRECT_DEBIT` is not `DEBIT`. CDR type sign is applied
+ * later, once, in `mapFiskilTransaction`, so this function does not flip it.
+ */
+function amountReading(
+  row: Record<string, unknown>,
+): { amount: number; explicitSign?: FiskilExplicitSign } | undefined {
+  const rawValue = row.amount ?? nested(row.amount).amount;
+  const raw = moneyOf(rawValue);
   if (raw === undefined) return undefined;
-  const type = (asId(row.type) ?? asId(row.credit_debit) ?? asId(row.direction) ?? "").toUpperCase();
-  if (type === "DEBIT" || type === "OUTFLOW") return -Math.abs(raw);
-  if (type === "CREDIT" || type === "INFLOW") return Math.abs(raw);
-  return raw;
+  const word = wordSign(row);
+  const marker = markerOf(row.amount);
+  const explicitSign = word ?? marker;
+  let amount = raw;
+  if (word === "out") amount = -Math.abs(raw);
+  else if (word === "in") amount = Math.abs(raw);
+  return { amount, ...(explicitSign ? { explicitSign } : {}) };
+}
+
+function wordSign(row: Record<string, unknown>): FiskilExplicitSign | undefined {
+  const creditDebit = (asId(row.credit_debit) ?? asId(row.direction) ?? "").toUpperCase();
+  const fromWord = signWord(creditDebit);
+  if (fromWord) return fromWord;
+  return signWord((asId(row.type) ?? "").toUpperCase());
+}
+
+function signWord(value: string): FiskilExplicitSign | undefined {
+  if (value === "DEBIT" || value === "OUTFLOW") return "out";
+  if (value === "CREDIT" || value === "INFLOW") return "in";
+  return undefined;
+}
+
+function markerOf(value: unknown): FiskilExplicitSign | undefined {
+  if (typeof value === "number") return value < 0 ? "out" : undefined;
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (/^[−-]/.test(text) || /^\(.*\)$/.test(text)) return "out";
+    if (text.startsWith("+")) return "in";
+    return undefined;
+  }
+  if (value && typeof value === "object" && "amount" in value) {
+    return markerOf((value as { amount?: unknown }).amount);
+  }
+  return undefined;
+}
+
+function cdrTypeOf(row: Record<string, unknown>): CdrType | undefined {
+  const type = (asId(row.type) ?? "").toUpperCase();
+  return CDR_TYPES.has(type as CdrType) ? (type as CdrType) : undefined;
+}
+
+function extendedDataOf(row: Record<string, unknown>): NppExtendedData | undefined {
+  const snake = nested(row.extended_data);
+  const camel = nested(row.extendedData);
+  const source = Object.keys(snake).length > 0 ? snake : camel;
+  if (Object.keys(source).length === 0) return undefined;
+  const npp = nested(source.npp ?? source.npp_payload);
+  const bag = Object.keys(npp).length > 0 ? { ...source, ...npp } : source;
+  const data: NppExtendedData = {};
+  const payer = asId(bag.payer) ?? asId(bag.payer_name);
+  const payee = asId(bag.payee) ?? asId(bag.payee_name);
+  const endToEndId = asId(bag.end_to_end_id) ?? asId(bag.endToEndId);
+  const purpose = asId(bag.purpose);
+  const service = asId(bag.service);
+  if (payer) data.payer = payer;
+  if (payee) data.payee = payee;
+  if (endToEndId) data.endToEndId = endToEndId;
+  if (purpose) data.purpose = purpose;
+  if (service) data.service = service;
+  return Object.keys(data).length > 0 ? data : undefined;
 }
 
 function datetimeOf(row: Record<string, unknown>, keys: string[]): string | undefined {
@@ -377,8 +481,8 @@ function datetimeOf(row: Record<string, unknown>, keys: string[]): string | unde
 
 function civilDate(value: string | undefined): string | undefined {
   if (!value) return undefined;
-  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
-  return match?.[1];
+  const day = calendarDate(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : undefined;
 }
 
 function moneyOf(value: unknown): number | undefined {

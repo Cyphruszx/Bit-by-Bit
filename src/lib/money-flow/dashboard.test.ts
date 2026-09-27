@@ -15,6 +15,7 @@ import {
   stackedBarPercents,
   totalAccountBalance,
 } from "./dashboard";
+import { accountBalanceView } from "./statement-balance";
 import { summarizeMoneyFlow } from "./summary";
 import type { InterpretedTransaction } from "./types";
 
@@ -147,11 +148,12 @@ describe("dashboard widgets", () => {
 
   it("prefers a stored cleared balance and does not invent a $0 skeleton", () => {
     assert.equal(
-      accountDisplayAmount("NAB · Everyday", 100, { "NAB · Everyday": { clearedBalance: 4280.12 } }),
+      accountDisplayAmount("NAB · Everyday", { "NAB · Everyday": { clearedBalance: 4280.12 } }),
       4280.12,
     );
-    assert.equal(accountDisplayAmount("NAB · Everyday", 100, {}), 100);
-    assert.equal(accountDisplayAmount("NAB · Everyday", null, {}), null);
+    assert.equal(accountDisplayAmount("NAB · Everyday", {}), null);
+    assert.equal(accountBalanceView("NAB · Everyday", [], {}).amount, null);
+    assert.equal(accountBalanceView("NAB · Everyday", [], {}).label, "No opening balance");
   });
 
   it("keeps 1–3 real account rows per bank and does not merge soft-pool balances", () => {
@@ -251,8 +253,11 @@ describe("dashboard widgets", () => {
         status: "PENDING",
       }),
     ];
-    const tiles = bankInstitutionTiles(accountsByInstitution(rows));
+    const tiles = bankInstitutionTiles(accountsByInstitution(rows), {
+      meta: { "NAB · Everyday": { openingBalance: 0 } },
+    });
     assert.equal(totalAccountBalance(tiles), 1000);
+    assert.equal(tiles[0]?.accounts[0]?.balanceLabel, "Estimated from movements");
     assert.equal(summarizeMoneyFlow(rows).cashOut, 80, "raw Money out still sees the pending debit");
     assert.equal(summarizeMoneyFlow(rows).spending, 0);
   });
@@ -278,10 +283,13 @@ describe("dashboard widgets", () => {
       }),
       txn("shop", "2026-03-08", -40, { accountId: "NAB · Everyday", institution: "NAB", type: "spent" }),
     ];
-    const tiles = bankInstitutionTiles(accountsByInstitution(rows));
+    const tiles = bankInstitutionTiles(accountsByInstitution(rows), {
+      meta: { "NAB · Everyday": { openingBalance: 0 } },
+    });
     const flow = summarizeMoneyFlow(rows);
     assert.equal(flow.net, 2960);
     assert.equal(totalAccountBalance(tiles), 27960);
+    assert.equal(tiles[0]?.accounts[0]?.balanceLabel, "Estimated from movements");
     assert.notEqual(totalAccountBalance(tiles), flow.net);
   });
 

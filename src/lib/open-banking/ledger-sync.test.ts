@@ -7,7 +7,9 @@ import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import { isCleared } from "@/lib/money-flow/tile";
 import { parseAccount, parseTransaction, type FiskilBankingAccount, type FiskilBankingTransaction } from "@/lib/fiskil/banking";
 import { SANDBOX_ACCOUNT, SANDBOX_TRANSACTION } from "@/lib/fiskil/sandbox-shapes";
+import { buildReviewQueue } from "@/lib/money-flow/review-queue";
 import {
+  applyCdrSign,
   applySilentSameInstitutionPairs,
   mapFiskilTransaction,
   openBankingSourceFile,
@@ -268,5 +270,176 @@ describe("Open Banking mapping", () => {
     );
     assert.equal(mapped.sourceFile, openBankingSourceFile("consent_1", "acc_1"));
     assert.equal(mapped.status, "CLEARED");
+    assert.equal(mapped.amount, -1);
+    assert.equal(mapped.ingestReview, undefined);
+  });
+});
+
+const MAPPED_ACCOUNT = {
+  externalId: "acc_1",
+  accountId: "NAB · 100200300",
+  institution: "NAB",
+  label: "Everyday",
+};
+
+function mappedFrom(raw: Record<string, unknown>) {
+  const parsed = parseTransaction({
+    posted: "2026-09-01T00:00:00.000Z",
+    description: "Bank transaction",
+    status: "POSTED",
+    ...raw,
+  });
+  assert.ok(parsed);
+  return mapFiskilTransaction(parsed, MAPPED_ACCOUNT, "consent_1");
+}
+
+describe("Fiskil CDR sign and fields", () => {
+  it("signs the eight CDR types when the amount has no sign", () => {
+    const table: Array<[string, number, number]> = [
+      ["DIRECT_DEBIT", 99, -99],
+      ["FEE", 3.55, -3.55],
+      ["INTEREST_CHARGED", 1.2, -1.2],
+      ["PAYMENT", 40, -40],
+      ["TRANSFER_OUTGOING", 500, -500],
+      ["INTEREST_PAID", 9.86, 9.86],
+      ["TRANSFER_INCOMING", 200, 200],
+    ];
+    for (const [type, amount, expected] of table) {
+      const row = mappedFrom({ id: type, account_id: "acc_1", amount, type, description: type });
+      assert.equal(row.amount, expected, type);
+      assert.equal(row.cdrType, type);
+      assert.equal(row.ingestReview, undefined, type);
+    }
+    const other = mappedFrom({ id: "OTHER", account_id: "acc_1", amount: 15, type: "OTHER", description: "OTHER" });
+    assert.equal(other.amount, 15);
+    assert.equal(other.ingestReview, "unsigned");
+    assert.equal(
+      buildReviewQueue([other]).some((item) => item.id === "INGEST_PARSE:ob:OTHER" && /No trusted sign/.test(item.label)),
+      true,
+    );
+    assert.equal(applyCdrSign(15, "OTHER", "in").ingestReview, undefined);
+  });
+
+  it("keeps a signed amount that disagrees with the type and opens Review", () => {
+    const row = mappedFrom({
+      id: "disagree",
+      account_id: "acc_1",
+      amount: -5,
+      type: "INTEREST_PAID",
+      description: "Interest",
+    });
+    assert.equal(row.amount, -5);
+    assert.equal(row.cdrType, "INTEREST_PAID");
+    assert.equal(row.ingestReview, "sign_disagrees");
+    assert.equal(summarizeMoneyFlow([row]).income, 0);
+    const review = buildReviewQueue([row]);
+    assert.equal(review.some((item) => item.id === "INGEST_PARSE:ob:disagree" && item.reason === "INGEST_PARSE"), true);
+    assert.equal(review.find((item) => item.id === "INGEST_PARSE:ob:disagree")?.label.includes("disagrees"), true);
+  });
+
+  it("stores an unsigned direct debit as money out, not income", () => {
+    const row = mappedFrom({
+      id: "dd",
+      account_id: "acc_1",
+      amount: 99,
+      type: "DIRECT_DEBIT",
+      description: "Gym",
+    });
+    assert.equal(row.amount, -99);
+    assert.equal(row.cdrType, "DIRECT_DEBIT");
+    assert.equal(summarizeMoneyFlow([row]).income, 0);
+    const outgoing = mappedFrom({
+      id: "xfer",
+      account_id: "acc_1",
+      amount: 500,
+      type: "TRANSFER_OUTGOING",
+      description: "To landlord",
+    });
+    assert.equal(outgoing.amount, -500);
+    assert.equal(outgoing.cdrType, "TRANSFER_OUTGOING");
+  });
+
+  it("copies CDR fields and leaves the description as the fingerprint input", () => {
+    const row = mappedFrom({
+      id: "bp",
+      account_id: "acc_1",
+      amount: 40,
+      type: "PAYMENT",
+      description: "Council rates",
+      reference: "rates-2026",
+      merchant_name: "City Council",
+      merchant_category_code: "9311",
+      biller_code: "123456",
+      biller_name: "Council",
+      crn: "9988",
+      extended_data: {
+        payer: "Lee",
+        payee: "Council",
+        end_to_end_id: "e2e-1",
+        purpose: "rates",
+        service: "npp",
+      },
+    });
+    assert.equal(row.description, "Council rates");
+    assert.equal(row.reference, "rates-2026");
+    assert.equal(row.merchantName, "City Council");
+    assert.equal(row.merchantCategoryCode, "9311");
+    assert.equal(row.billerCode, "123456");
+    assert.equal(row.billerName, "Council");
+    assert.equal(row.crn, "9988");
+    assert.deepEqual(row.extendedData, {
+      payer: "Lee",
+      payee: "Council",
+      endToEndId: "e2e-1",
+      purpose: "rates",
+      service: "npp",
+    });
+    assert.equal(row.amount, -40);
+  });
+
+  it("does not let a Fiskil balance replace a stronger stored source", () => {
+    const header = upsertOpenBankingLedger(
+      {
+        ...EMPTY_LEDGER,
+        accountMeta: {
+          "NAB · 100200300": { externalId: "acc_1", clearedBalance: 10, balanceSource: "header" },
+        },
+      },
+      {
+        consentId: "consent_1",
+        accounts: [account({ id: "acc_1" })],
+        transactions: [],
+        balances: [{ accountId: "acc_1", available: 99, current: 80 }],
+        importedAt: "2026-09-19T12:00:00.000Z",
+      },
+    );
+    assert.equal(header.ledger.accountMeta?.["NAB · 100200300"]?.clearedBalance, 10);
+    assert.equal(header.ledger.accountMeta?.["NAB · 100200300"]?.balanceSource, "header");
+
+    const legacy = upsertOpenBankingLedger(
+      {
+        ...EMPTY_LEDGER,
+        accountMeta: { "NAB · 100200300": { externalId: "acc_1", clearedBalance: 10 } },
+      },
+      {
+        consentId: "consent_1",
+        accounts: [account({ id: "acc_1" })],
+        transactions: [],
+        balances: [{ accountId: "acc_1", available: 99 }],
+        importedAt: "2026-09-19T12:00:00.000Z",
+      },
+    );
+    assert.equal(legacy.ledger.accountMeta?.["NAB · 100200300"]?.clearedBalance, 10);
+    assert.equal(legacy.ledger.accountMeta?.["NAB · 100200300"]?.balanceSource, undefined);
+
+    const fresh = upsertOpenBankingLedger(EMPTY_LEDGER, {
+      consentId: "consent_1",
+      accounts: [account({ id: "acc_1" })],
+      transactions: [],
+      balances: [{ accountId: "acc_1", current: 80, available: 99 }],
+      importedAt: "2026-09-19T12:00:00.000Z",
+    });
+    assert.equal(fresh.ledger.accountMeta?.["NAB · 100200300"]?.clearedBalance, 99);
+    assert.equal(fresh.ledger.accountMeta?.["NAB · 100200300"]?.balanceSource, "fiskil");
   });
 });

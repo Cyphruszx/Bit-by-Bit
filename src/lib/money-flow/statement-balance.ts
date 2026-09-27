@@ -1,8 +1,18 @@
-import { canonicalAccountId } from "@/lib/money-flow/account-identity";
-import { excludingInternalTransfers } from "@/lib/money-flow/internal-transfers";
+import {
+  accountKindOf,
+  canonicalAccountId,
+  type AccountMeta,
+  type BalanceSource,
+} from "@/lib/money-flow/account-identity";
 import { parseAmount, roundMoney } from "@/lib/money-flow/parse-values";
 import { sourceValue } from "@/lib/money-flow/source";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
+
+export const ESTIMATED_BALANCE_LABEL = "Estimated from movements";
+export const NO_OPENING_BALANCE_LABEL = "No opening balance";
+export const NO_OPENING_BALANCE_PROMPT = "Upload a statement that prints one, or enter it.";
+export const NEGATIVE_ESTIMATE_WARNING =
+  "This estimate is negative. It is not the balance the bank printed.";
 
 type BalanceSourceRow = Pick<InterpretedTransaction, "id" | "dateIso" | "sourceFile"> &
   Partial<Pick<InterpretedTransaction, "accountId" | "accountKey" | "source">>;
@@ -76,15 +86,95 @@ export function pickMostRecentStatedBalance(
 }
 
 /**
- * When the file never printed a balance, derive one from signed movements
- * (credits − debits). PENDING rows stay out. Classified internal transfers
- * use the same filter as Money in / Money out. Differs from Spec 10 Net.
+ * Signed movement net for one account's estimate: every cleared row, including
+ * transfer legs. PENDING stays out. Household Money in / Money out still exclude
+ * transfers; this figure does not. Without a printed opening it is not a balance.
  */
 export function derivedMovementBalance(transactions: InterpretedTransaction[]): number | null {
   const countable = transactions.filter((txn) => (txn.status ?? "CLEARED") !== "PENDING");
   if (countable.length === 0) return null;
-  const rows = excludingInternalTransfers(countable);
-  return roundMoney(rows.reduce((sum, txn) => sum + txn.amount, 0));
+  return roundMoney(countable.reduce((sum, txn) => sum + txn.amount, 0));
+}
+
+const BALANCE_RANK: Record<BalanceSource, number> = {
+  fiskil: 1,
+  running: 2,
+  ofx_ledger: 3,
+  header: 4,
+  section: 4,
+};
+
+/** A stored balance with no source is treated as a running cell, not an estimate. */
+export function effectiveBalanceSource(meta: AccountMeta | undefined): BalanceSource | undefined {
+  if (meta?.balanceSource) return meta.balanceSource;
+  if (typeof meta?.clearedBalance === "number" && Number.isFinite(meta.clearedBalance)) return "running";
+  return undefined;
+}
+
+export function canReplaceBalance(
+  existing: BalanceSource | undefined,
+  incoming: BalanceSource,
+): boolean {
+  return BALANCE_RANK[incoming] >= (existing ? BALANCE_RANK[existing] : 0);
+}
+
+export type AccountBalanceView = {
+  amount: number | null;
+  source: BalanceSource | "estimated" | "missing_opening";
+  label?: string;
+  prompt?: string;
+  warning?: string;
+};
+
+/**
+ * Stated balance wins. Otherwise opening + every signed movement, labelled
+ * estimated. With no opening, the figure is hidden.
+ */
+export function accountBalanceView(
+  accountId: string,
+  transactions: InterpretedTransaction[],
+  meta: Record<string, AccountMeta> = {},
+  mergedInto: Record<string, string> = {},
+): AccountBalanceView {
+  const id = canonicalAccountId(accountId, mergedInto);
+  const stored = meta[id]?.clearedBalance ?? meta[accountId]?.clearedBalance;
+  if (typeof stored === "number" && Number.isFinite(stored)) {
+    return {
+      amount: stored,
+      source: meta[id]?.balanceSource ?? meta[accountId]?.balanceSource ?? "running",
+    };
+  }
+  const fromRows = mostRecentStatedBalances(transactions, mergedInto)[id];
+  if (fromRows != null) {
+    return { amount: fromRows, source: "running" };
+  }
+  const opening = meta[id]?.openingBalance ?? meta[accountId]?.openingBalance;
+  if (opening == null) {
+    return {
+      amount: null,
+      source: "missing_opening",
+      label: NO_OPENING_BALANCE_LABEL,
+      prompt: NO_OPENING_BALANCE_PROMPT,
+    };
+  }
+  const net = derivedMovementBalance(transactions) ?? 0;
+  return estimatedView(roundMoney(opening + net), id, meta);
+}
+
+function estimatedView(
+  amount: number,
+  accountId: string,
+  meta: Record<string, AccountMeta>,
+): AccountBalanceView {
+  const kind = accountKindOf(accountId, meta);
+  const warning =
+    amount < 0 && (kind === "SAVINGS" || kind === "CHECKING") ? NEGATIVE_ESTIMATE_WARNING : undefined;
+  return {
+    amount,
+    source: "estimated",
+    label: ESTIMATED_BALANCE_LABEL,
+    ...(warning ? { warning } : {}),
+  };
 }
 
 function accountIdForBalance(txn: BalanceSourceRow, mergedInto: Record<string, string>): string {
@@ -93,8 +183,17 @@ function accountIdForBalance(txn: BalanceSourceRow, mergedInto: Record<string, s
   return canonicalAccountId(`Unknown source · ${txn.sourceFile}`, mergedInto);
 }
 
-/** Row order in the original file, encoded as `{sourceFile}-{index}-…` by the readers. */
-function fileIndexOf(txn: BalanceSourceRow): number {
+/**
+ * Row order in the original file.
+ * CSV ids are `{sourceFile}-{index}-…`. Up and OFX insert `-up-` / `-ofx-`
+ * before the index.
+ */
+export function fileIndexOf(txn: BalanceSourceRow): number {
+  const marked = txn.id.match(/-(?:up|ofx)-(\d+)(?:-|$)/);
+  if (marked) {
+    const n = Number(marked[1]);
+    return Number.isInteger(n) && n >= 0 ? n : Number.MAX_SAFE_INTEGER;
+  }
   const prefix = `${txn.sourceFile}-`;
   if (!txn.id.startsWith(prefix)) return Number.MAX_SAFE_INTEGER;
   const n = Number(txn.id.slice(prefix.length).split("-")[0]);

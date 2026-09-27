@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { accountBalanceOf } from "./dashboard";
+import { appendToLedger, EMPTY_LEDGER } from "./ledger";
 import { detectInstitution } from "./institution";
 import { interpretDocuments } from "./interpret";
 import { parseDocument } from "./parsers";
 import { sourceFromPairs } from "./source";
 import { summarizeMoneyFlow } from "./summary";
-import { derivedMovementBalance } from "./statement-balance";
+import { derivedMovementBalance, statedBalanceFromSource } from "./statement-balance";
 import { upgradeTransaction } from "./upgrade";
 import {
   classifyKnownInternalTransfer,
@@ -99,9 +100,8 @@ describe("Up CSV Transfer type cash tiles", () => {
     assert.equal(flow.income, 2000, "Dashboard Income is unchanged");
     assert.equal(flow.spending, 75, "Dashboard Spending is unchanged");
     assert.equal(derivedMovementBalance(rows), 2175);
-    assert.equal(accountBalanceOf(rows), 2175);
-    assert.equal(accountBalanceOf(rows), flow.cashIn - flow.cashOut);
-    assert.notEqual(accountBalanceOf(rows), flow.net);
+    assert.equal(accountBalanceOf(rows), null);
+    assert.notEqual(derivedMovementBalance(rows), flow.net);
   });
 
   it("omits Transaction Type Transfer from an Up-shaped CSV ingest", async () => {
@@ -167,7 +167,7 @@ describe("Up CSV Transfer type cash tiles", () => {
     const flow = summarizeMoneyFlow(rows);
     assert.equal(flow.cashIn, 15409.86);
     assert.equal(flow.cashOut, 75, "blank and missing types stay in; Transfer is omitted");
-    assert.equal(derivedMovementBalance(rows), 15409.86 - 75);
+    assert.equal(derivedMovementBalance(rows), 15409.86 - 75 - 500);
 
     const unknownAsTransfer = txn({
       id: "unknown-now-transfer",
@@ -287,9 +287,34 @@ describe("Up OFX pocket DEBIT/CREDIT", () => {
     const flow = summarizeMoneyFlow(parsed.transactions);
     assert.equal(flow.cashIn, 2000, "Salary only — pocket credits omitted");
     assert.equal(flow.cashOut, 75, "Cafe + Netflix + BetaShare — pocket debits omitted");
-    assert.equal(accountBalanceOf(parsed.transactions), 340.4, "LEDGERBAL BALAMT preferred");
-    assert.notEqual(accountBalanceOf(parsed.transactions), flow.cashNet);
-    assert.notEqual(accountBalanceOf(parsed.transactions), flow.net);
+    assert.ok(parsed.transactions.every((row) => statedBalanceFromSource(row) == null));
+    const stored = appendToLedger(
+      EMPTY_LEDGER,
+      {
+        files: [
+          {
+            filename: "up-export.ofx",
+            fileType: "other",
+            kind: "ofx",
+            uploadStatus: "uploaded",
+            processingStatus: "completed",
+            transactionCount: parsed.transactions.length,
+            notes: parsed.notes,
+            statedBalance: parsed.statedBalance,
+            balanceSource: parsed.balanceSource,
+            balanceAsOf: parsed.balanceAsOf,
+          },
+        ],
+        transactions: parsed.transactions,
+      },
+      { importedAt: "2026-06-05T00:00:00.000Z" },
+    );
+    const meta = stored.ledger.accountMeta?.["Up · 123456789"];
+    assert.equal(meta?.clearedBalance, 340.4, "LEDGERBAL stored once on the account");
+    assert.equal(meta?.balanceSource, "ofx_ledger");
+    assert.equal(accountBalanceOf(parsed.transactions, { meta: stored.ledger.accountMeta }), 340.4);
+    assert.notEqual(accountBalanceOf(parsed.transactions, { meta: stored.ledger.accountMeta }), flow.cashNet);
+    assert.notEqual(accountBalanceOf(parsed.transactions, { meta: stored.ledger.accountMeta }), flow.net);
   });
 
   it("matches Up CSV Transfer exclude on the same movements", async () => {

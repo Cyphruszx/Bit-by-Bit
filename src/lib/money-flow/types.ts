@@ -13,8 +13,29 @@ export type FileKind =
   | "text"
   | "unknown";
 
+import type { BalanceSource } from "@/lib/money-flow/account-identity";
 import type { TransactionType } from "@/lib/money-flow/taxonomy";
 import type { Verdict } from "@/lib/money-flow/verdicts";
+
+/** CDR BankingTransaction.type. Null means recognition was not sure. */
+export type CdrType =
+  | "DIRECT_DEBIT"
+  | "FEE"
+  | "INTEREST_CHARGED"
+  | "INTEREST_PAID"
+  | "OTHER"
+  | "PAYMENT"
+  | "TRANSFER_INCOMING"
+  | "TRANSFER_OUTGOING";
+
+/** NPP/Osko payload copied from Fiskil. Only fields the feed actually sent. */
+export type NppExtendedData = {
+  payer?: string;
+  payee?: string;
+  endToEndId?: string;
+  purpose?: string;
+  service?: string;
+};
 
 export type { TransactionType };
 
@@ -151,6 +172,21 @@ export type InterpretedTransaction = {
   verdict?: Verdict;
   /** Raw statement wording, kept because it identifies a movement more reliably than the tidied merchant. */
   description?: string;
+  /** Fiskil CDR `type`. Kept beside `type` (movement kind). 12R.1. */
+  cdrType?: CdrType;
+  /** Payer-supplied reference. Not a copy of the description. */
+  reference?: string;
+  merchantName?: string;
+  merchantCategoryCode?: string;
+  billerCode?: string;
+  billerName?: string;
+  crn?: string;
+  extendedData?: NppExtendedData;
+  /**
+   * 12R.2: the amount sign is missing or disagrees with the CDR type, so the
+   * row is not a silent import.
+   */
+  ingestReview?: "unsigned" | "sign_disagrees";
   /**
    * Anything else the person wants to find this by. Freeform, as many as they like, and
    * never part of a total — a tag that moved a figure would be a second category wearing
@@ -173,6 +209,21 @@ export type FileInterpretation = {
   ocrPages?: number;
   /** Closing-balance summary row when the file printed one without a Balance column. */
   statedBalance?: number;
+  /** Where `statedBalance` came from when it is a single figure for the file. */
+  balanceSource?: Extract<BalanceSource, "header" | "ofx_ledger">;
+  /** OFX ledger snapshot date (`DTASOF`), civil `YYYY-MM-DD`. */
+  balanceAsOf?: string;
+  /** Printed opening for a one-account text statement. */
+  openingBalance?: number;
+  /** Per-account printed closings (Up header and saver sections). */
+  statedAccounts?: StatedAccountBalance[];
+};
+
+export type StatedAccountBalance = {
+  accountId: string;
+  amount: number;
+  source: Extract<BalanceSource, "header" | "section">;
+  opening?: number;
 };
 
 export type CategorySpend = {

@@ -1,6 +1,6 @@
 import { tidyMerchant } from "@/lib/money-flow/categorize";
 import { readMovement } from "@/lib/money-flow/interpret-row";
-import { formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { formatDisplayDate, isNoticeLine, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import { sourceFromPairs } from "@/lib/money-flow/source";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -48,7 +48,7 @@ export function transactionsFromText(text: string, sourceFile: string): Interpre
     // is what says which way the first movement went.
     opening ??= balanceIn(line, OPENING_BALANCE);
     closing ??= balanceIn(line, CLOSING_BALANCE);
-    if (NOT_A_MOVEMENT.test(line)) return;
+    if (NOT_A_MOVEMENT.test(line) || isNoticeLine(line)) return;
 
     const dateMatch = line.match(DATE_PATTERN);
     if (dateMatch) {
@@ -239,6 +239,17 @@ function printed(amount: number): string {
 /** What moved, which is whichever figure is not the balance. */
 function magnitude(row: Row): number {
   return Math.abs(row.amounts[row.amounts.length - 2]);
+}
+
+/** The first printed opening balance in a loose statement, including zero. */
+export function printedOpeningBalance(text: string): number | null {
+  const line = text
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((entry) => entry.replace(/\s+/g, " ").trim())
+    .find((entry) => OPENING_BALANCE.test(entry));
+  if (!line) return null;
+  return balanceIn(line, OPENING_BALANCE);
 }
 
 function balanceIn(line: string, pattern: RegExp): number | null {

@@ -40,8 +40,12 @@ export function decodeText(bytes: Uint8Array): string {
   return new TextDecoder("utf-8").decode(bytes).replace(/^\uFEFF/, "");
 }
 
+/**
+ * A printed zero is a real amount. Callers drop a zero row only when the line
+ * is a notice (`isNoticeLine`), not because the figure is zero.
+ */
 export function parseAmount(raw: string | number | null | undefined): number | null {
-  if (typeof raw === "number" && Number.isFinite(raw) && raw !== 0) return roundMoney(raw);
+  if (typeof raw === "number") return Number.isFinite(raw) ? roundMoney(raw) : null;
   if (raw == null) return null;
   let text = String(raw).trim();
   if (!text || text === "-" || text === "—") return null;
@@ -79,9 +83,15 @@ export function parseAmount(raw: string | number | null | undefined): number | n
   }
 
   const value = Number(text);
-  if (!Number.isFinite(value) || value === 0) return null;
+  if (!Number.isFinite(value)) return null;
+  if (value === 0) return 0;
   const signed = negative ? -Math.abs(value) : cr ? Math.abs(value) : value;
   return roundMoney(signed);
+}
+
+/** A statement line that announces a rate or a limit, not a movement. */
+export function isNoticeLine(text: string): boolean {
+  return /\b(interest rate|standard variable rate|amounts up to|amounts above)\b/i.test(text);
 }
 
 export function parseDate(raw: string | number | Date | null | undefined): string | null {

@@ -134,9 +134,9 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
 
 /**
  * The movements a total should count, which is everything except a transfer whose two
- * legs are both in front of us. One leg on its own still counts: seen from inside NAB
- * alone, money sent to Up did leave, and the NAB card has to tie to NAB's statement.
- * Only a view holding both accounts can see that the money never left the household.
+ * legs are both in front of us. A one-legged TRANSFER stays in this set. Income and
+ * Spending then leave it out via the type flags (F7). Money in / Money out use a
+ * separate exclude and already drop either leg.
  */
 export function countedMovements(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
   // Spec 10 tiles are CLEARED-only. Missing status is CLEARED (legacy rows).

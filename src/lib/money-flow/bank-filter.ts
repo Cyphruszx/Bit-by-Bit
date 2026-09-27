@@ -2,7 +2,12 @@ import { interpretMovement, type RawMovement } from "@/lib/money-flow/interpret-
 import { looksLikeNabExport, movementsFromNabTable } from "@/lib/money-flow/nab-statement";
 import { tableInterpretationNotes } from "@/lib/money-flow/statement-category";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
-import { looksLikeUpStatement, movementsFromUpStatement } from "@/lib/money-flow/up-statement";
+import {
+  looksLikeUpStatement,
+  movementsFromUpStatement,
+  upPrintedBalances,
+  type UpPrintedBalance,
+} from "@/lib/money-flow/up-statement";
 
 export type BankFilterInput = {
   sourceFile: string;
@@ -17,14 +22,17 @@ export type BankFilterInput = {
  */
 export function readBankSource(
   input: BankFilterInput,
-): { transactions: InterpretedTransaction[]; notes: string[] } | null {
+): { transactions: InterpretedTransaction[]; notes: string[]; printedAccounts?: UpPrintedBalance[] } | null {
   if (input.headers && looksLikeNabExport(input.headers)) {
     return interpreted(movementsFromNabTable(input.headers, input.rows ?? [], input.sourceFile), tableInterpretationNotes(input.headers));
   }
   if (input.text && looksLikeUpStatement(input.text)) {
-    return interpreted(movementsFromUpStatement(input.text, input.sourceFile), [
-      "Read as an Up / Bendigo bank statement.",
-    ]);
+    return {
+      ...interpreted(movementsFromUpStatement(input.text, input.sourceFile), [
+        "Read as an Up / Bendigo bank statement.",
+      ]),
+      printedAccounts: upPrintedBalances(input.text),
+    };
   }
   return null;
 }

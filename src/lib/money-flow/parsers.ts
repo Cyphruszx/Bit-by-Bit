@@ -6,7 +6,7 @@ import { accountRefFromText } from "@/lib/money-flow/account-identity";
 import { identifyAccounts } from "@/lib/money-flow/accounts";
 import { detectInstitution, type InstitutionSignals } from "@/lib/money-flow/institution";
 import { classifyKnownInternalTransfers } from "@/lib/money-flow/internal-transfers";
-import { decodeText, formatDisplayDate, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { decodeText, formatDisplayDate, isNoticeLine, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import {
   extractPdfText,
   pdfOverSoftSize,
@@ -18,15 +18,19 @@ import {
 import { readBankSource } from "@/lib/money-flow/bank-filter";
 import { sourceFromPairs } from "@/lib/money-flow/source";
 import { interpretTable, rowsFromCsv, transactionsFromTable } from "@/lib/money-flow/tabular";
-import { transactionsFromText } from "@/lib/money-flow/text-lines";
-import type { InterpretedTransaction } from "@/lib/money-flow/types";
-import { looksLikeUpStatement } from "@/lib/money-flow/up-statement";
+import { printedOpeningBalance, transactionsFromText } from "@/lib/money-flow/text-lines";
+import type { InterpretedTransaction, StatedAccountBalance } from "@/lib/money-flow/types";
+import { looksLikeUpStatement, type UpPrintedBalance } from "@/lib/money-flow/up-statement";
 
 export type ParsedDocument = {
   transactions: InterpretedTransaction[];
   notes: string[];
   ocrPages?: number;
   statedBalance?: number;
+  balanceSource?: "header" | "ofx_ledger";
+  balanceAsOf?: string;
+  openingBalance?: number;
+  statedAccounts?: StatedAccountBalance[];
 };
 
 export type ParseDocumentOptions = {
@@ -55,11 +59,17 @@ export async function parseDocument(
     const ledgerBal = ofxLedgerBalance(text);
     return stamped(
       {
-        transactions: parseOfx(text, filename, ledgerBal),
+        transactions: parseOfx(text, filename),
         notes,
-        ...(ledgerBal != null ? { statedBalance: ledgerBal } : {}),
+        ...(ledgerBal
+          ? {
+              statedBalance: ledgerBal.amount,
+              balanceSource: "ofx_ledger" as const,
+              ...(ledgerBal.asOf ? { balanceAsOf: ledgerBal.asOf } : {}),
+            }
+          : {}),
       },
-      { org: ofxOrg(text), filename },
+      { org: ofxOrg(text), text, filename },
     );
   }
   if (kind === "qif") {
@@ -76,22 +86,16 @@ export async function parseDocument(
         {
           transactions: tableTransactions,
           notes: fromTables.flatMap((result) => result.notes),
-          ...(statedBalance != null ? { statedBalance } : {}),
+          ...(statedBalance != null ? { statedBalance, balanceSource: "header" as const } : {}),
         },
         { text: html, headers: fromTables.flatMap((result) => result.headers), filename },
       );
     }
-    return stamped(
-      { transactions: transactionsFromExtractedText(stripTags(html), filename), notes: notesForText(html) },
-      { text: html, filename },
-    );
+    return stamped(extractedDocument(stripTags(html), filename, notesForText(html)), { text: html, filename });
   }
   if (kind === "text") {
     const text = decodeText(bytes);
-    return stamped(
-      { transactions: transactionsFromExtractedText(text, filename), notes: notesForText(text) },
-      { text, filename },
-    );
+    return stamped(extractedDocument(text, filename, notesForText(text)), { text, filename });
   }
   if (kind === "xlsx") {
     const XLSX = await import("xlsx");
@@ -112,7 +116,11 @@ export async function parseDocument(
     const sheetNotes = sheets.flatMap((sheet) => sheet.notes);
     if (workbook.SheetNames.length > 1) sheetNotes.unshift(`Read ${workbook.SheetNames.length} sheets`);
     const statedBalance = sheets.map((sheet) => sheet.statedBalance).find((value) => value != null);
-    return { transactions, notes: sheetNotes, ...(statedBalance != null ? { statedBalance } : {}) };
+    return {
+      transactions,
+      notes: sheetNotes,
+      ...(statedBalance != null ? { statedBalance, balanceSource: "header" as const } : {}),
+    };
   }
   if (kind === "pdf") {
     return readPdfDocument(filename, bytes, options);
@@ -120,20 +128,17 @@ export async function parseDocument(
   if (kind === "docx") {
     const mammoth = await import("mammoth");
     const result = await mammoth.extractRawText({ buffer: Buffer.from(bytes) });
-    return stamped(
-      { transactions: transactionsFromExtractedText(result.value, filename), notes: notesForText(result.value) },
-      { text: result.value, filename },
-    );
+    return stamped(extractedDocument(result.value, filename, notesForText(result.value)), {
+      text: result.value,
+      filename,
+    });
   }
   if (kind === "image") {
     return stamped(await readImageDocument(filename, mime, bytes, options.ai), { filename });
   }
 
   const fallback = decodeText(bytes);
-  return stamped(
-    { transactions: transactionsFromExtractedText(fallback, filename), notes: notesForText(fallback) },
-    { text: fallback, filename },
-  );
+  return stamped(extractedDocument(fallback, filename, notesForText(fallback)), { text: fallback, filename });
 }
 
 async function readPdfDocument(
@@ -161,10 +166,7 @@ async function readPdfDocument(
   if (pdfTextUsable(text)) {
     return {
       ...stamped(
-        {
-          transactions: transactionsFromExtractedText(text, filename),
-          notes: [...notes, ...notesForText(text), "Read as a digital PDF (text extract)."],
-        },
+        extractedDocument(text, filename, [...notes, ...notesForText(text), "Read as a digital PDF (text extract)."]),
         { text, filename },
       ),
       ocrPages: 0,
@@ -206,18 +208,91 @@ async function readPdfDocument(
 
 /** Names the bank once per document, from whatever that document happened to reveal. */
 function stamped(
-  result: { transactions: InterpretedTransaction[]; notes: string[]; statedBalance?: number },
+  result: {
+    transactions: InterpretedTransaction[];
+    notes: string[];
+    statedBalance?: number;
+    balanceSource?: "header" | "ofx_ledger";
+    balanceAsOf?: string;
+    openingBalance?: number;
+    printedAccounts?: UpPrintedBalance[];
+  },
   signals: InstitutionSignals,
 ): ParsedDocument {
   // The letterhead names the account for every movement that did not name its own,
   // which is how a PDF statement and a CSV export of the same account become one.
   const documentRef = signals.text ? accountRefFromText(signals.text) : {};
+  const transactions = classifyKnownInternalTransfers(
+    identifyAccounts(result.transactions, detectInstitution(signals), documentRef),
+  );
+  const statedAccounts = statedAccountsFrom(transactions, result.printedAccounts);
   return {
-    transactions: classifyKnownInternalTransfers(
-      identifyAccounts(result.transactions, detectInstitution(signals), documentRef),
-    ),
+    transactions,
     notes: result.notes,
     ...(result.statedBalance != null ? { statedBalance: result.statedBalance } : {}),
+    ...(result.balanceSource ? { balanceSource: result.balanceSource } : {}),
+    ...(result.balanceAsOf ? { balanceAsOf: result.balanceAsOf } : {}),
+    ...(result.openingBalance != null ? { openingBalance: result.openingBalance } : {}),
+    ...(statedAccounts.length > 0 ? { statedAccounts } : {}),
+  };
+}
+
+function statedAccountsFrom(
+  transactions: InterpretedTransaction[],
+  printed: UpPrintedBalance[] | undefined,
+): StatedAccountBalance[] {
+  if (!printed || printed.length === 0) return [];
+  const stated: StatedAccountBalance[] = [];
+  for (const row of printed) {
+    if (row.closing == null) continue;
+    const accountId = transactions.find((txn) => namesAccount(txn.accountId, row.accountName))?.accountId;
+    if (!accountId) continue;
+    stated.push({
+      accountId,
+      amount: row.closing,
+      source: row.source,
+      ...(row.opening != null ? { opening: row.opening } : {}),
+    });
+  }
+  return stated;
+}
+
+function namesAccount(accountId: string | undefined, accountName: string): boolean {
+  if (!accountId) return false;
+  return accountId === accountName || accountId.endsWith(` · ${accountName}`);
+}
+
+function extractedDocument(
+  text: string,
+  filename: string,
+  notes: string[],
+): {
+  transactions: InterpretedTransaction[];
+  notes: string[];
+  printedAccounts?: UpPrintedBalance[];
+  openingBalance?: number;
+  statedBalance?: number;
+  balanceSource?: "header";
+} {
+  const known = readBankSource({ sourceFile: filename, text });
+  if (known) {
+    return {
+      transactions: known.transactions,
+      notes,
+      ...(known.printedAccounts ? { printedAccounts: known.printedAccounts } : {}),
+    };
+  }
+  const asTable = interpretTable(rowsFromCsv(text), filename);
+  const asLines = transactionsFromText(text, filename);
+  const useTable = asTable.transactions.length >= asLines.length;
+  const opening = printedOpeningBalance(text);
+  return {
+    transactions: useTable ? asTable.transactions : asLines,
+    notes,
+    ...(opening != null ? { openingBalance: opening } : {}),
+    ...(useTable && asTable.statedBalance != null
+      ? { statedBalance: asTable.statedBalance, balanceSource: "header" as const }
+      : {}),
   };
 }
 
@@ -259,9 +334,10 @@ export async function readImageDocument(
       return { transactions: [], notes: [...notes, "OCR did not find readable text on this image."] };
     }
     notes.push("Read with on-device OCR. Check a couple of amounts before you rely on them.");
+    const extracted = extractedDocument(text, filename, notes);
     return {
-      transactions: transactionsFromExtractedText(text, filename).map((txn) => ({ ...txn, extractedBy: "ocr" as const })),
-      notes,
+      ...extracted,
+      transactions: extracted.transactions.map((txn) => ({ ...txn, extractedBy: "ocr" as const })),
     };
   } catch (error) {
     return {
@@ -278,11 +354,7 @@ async function ocrImageText(bytes: Uint8Array): Promise<string> {
 }
 
 function transactionsFromExtractedText(text: string, filename: string): InterpretedTransaction[] {
-  const known = readBankSource({ sourceFile: filename, text });
-  if (known) return known.transactions;
-  const asTable = transactionsFromTable(rowsFromCsv(text), filename);
-  const asLines = transactionsFromText(text, filename);
-  return asTable.length >= asLines.length ? asTable : asLines;
+  return extractedDocument(text, filename, []).transactions;
 }
 
 function notesForText(text: string): string[] {
@@ -316,24 +388,23 @@ function flattenJsonRecords(value: unknown): Array<Record<string, string | numbe
   return [];
 }
 
-function parseOfx(text: string, sourceFile: string, ledgerBal?: number | null): InterpretedTransaction[] {
+function parseOfx(text: string, sourceFile: string): InterpretedTransaction[] {
   const blocks = text.split(/<STMTTRN>/i).slice(1);
-  const balanceCell = ledgerBal != null ? String(ledgerBal) : "";
   return blocks.flatMap((block, index) => {
     const amount = parseAmount(ofxField(block, "TRNAMT"));
     const posted = ofxField(block, "DTPOSTED");
     const dateIso = parseDate(posted) ?? parseDate(posted.slice(0, 8));
     const name = ofxField(block, "NAME") || ofxField(block, "MEMO") || ofxField(block, "PAYEE");
     if (amount == null || !dateIso || !name) return [];
+    if (amount === 0 && isNoticeLine(`${name} ${ofxField(block, "MEMO")}`)) return [];
     const kind = ofxField(block, "TRNTYPE");
     const read = readMovement(`${name} ${kind}`, amount, true);
     return [
       {
         id: `${sourceFile}-ofx-${index}`,
         merchant: tidyMerchant(name),
-        // The file's own fields for this movement. Only what the transaction block holds:
-        // the account and routing numbers live in the header above it, and a record of the
-        // money that moved has no need of them.
+        // The file's own fields for this movement. LEDGERBAL stays on the file,
+        // not copied onto every row.
         ...(kind.trim() ? { bank: { type: kind.trim() } } : {}),
         source: sourceFromPairs([
           ["Type", kind],
@@ -342,7 +413,6 @@ function parseOfx(text: string, sourceFile: string, ledgerBal?: number | null): 
           ["Name", ofxField(block, "NAME")],
           ["Memo", ofxField(block, "MEMO")],
           ["Reference", ofxField(block, "FITID")],
-          ...(balanceCell ? ([["Balance", balanceCell]] as Array<[string, string]>) : []),
         ]),
         categoryKey: read.categoryKey,
         ...(read.tag ? { tags: [read.tag] } : {}),
@@ -358,11 +428,15 @@ function parseOfx(text: string, sourceFile: string, ledgerBal?: number | null): 
   });
 }
 
-/** Statement LEDGERBAL BALAMT, not AVAILBAL. Preferred for Account balance when present. */
-function ofxLedgerBalance(text: string): number | null {
+/** Statement LEDGERBAL BALAMT, not AVAILBAL. Stored once per file, including zero. */
+function ofxLedgerBalance(text: string): { amount: number; asOf?: string } | null {
   const match = text.match(/<LEDGERBAL>[\s\S]*?<BALAMT>\s*([^<\n]+)/i);
   if (!match) return null;
-  return parseAmount(match[1].trim());
+  const amount = parseAmount(match[1].trim());
+  if (amount == null) return null;
+  const asOfRaw = text.match(/<LEDGERBAL>[\s\S]*?<DTASOF>\s*([^<\n]+)/i)?.[1]?.trim();
+  const asOf = asOfRaw ? (parseDate(asOfRaw) ?? parseDate(asOfRaw.slice(0, 8)) ?? undefined) : undefined;
+  return { amount, ...(asOf ? { asOf } : {}) };
 }
 
 function ofxField(block: string, tag: string): string {
