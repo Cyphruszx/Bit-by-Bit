@@ -23,7 +23,11 @@ import { isCategoryKey, migrateStoredCategory } from "@/lib/money-flow/taxonomy"
 import { verdictFor, type Verdict, type Verdicts } from "@/lib/money-flow/verdicts";
 import { hasSource } from "@/lib/money-flow/source";
 import { persistUploadStatus } from "@/lib/money-flow/core-ingest";
-import { mostRecentStatedBalances } from "@/lib/money-flow/statement-balance";
+import {
+  canReplaceBalance,
+  effectiveBalanceSource,
+  mostRecentStatedBalances,
+} from "@/lib/money-flow/statement-balance";
 import type { FileInterpretation, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 import {
   acceptEnableOffer,
@@ -807,24 +811,70 @@ function applyStatedBalances(
   existing: LedgerEntry[] = [],
 ): Record<string, AccountMeta> {
   const next: Record<string, AccountMeta> = { ...held };
-  const fromRows = mostRecentStatedBalances([...existing, ...result.transactions], mergedInto);
+  const rows = [...existing, ...result.transactions];
+  const fromRows = mostRecentStatedBalances(rows, mergedInto);
+
+  const write = (
+    id: string,
+    amount: number,
+    source: NonNullable<AccountMeta["balanceSource"]>,
+    extra: Partial<AccountMeta> = {},
+  ) => {
+    if (!id) return;
+    const current = effectiveBalanceSource(next[id]);
+    if (source === "ofx_ledger" && current === "ofx_ledger") {
+      const heldAsOf = next[id]?.balanceAsOf;
+      const incomingAsOf = extra.balanceAsOf;
+      if (heldAsOf && incomingAsOf && incomingAsOf < heldAsOf) return;
+      if (heldAsOf && !incomingAsOf) return;
+    } else if (!canReplaceBalance(current, source)) {
+      return;
+    }
+    next[id] = { ...next[id], ...extra, clearedBalance: amount, balanceSource: source };
+  };
+
   for (const [id, amount] of Object.entries(fromRows)) {
-    next[id] = { ...next[id], clearedBalance: amount };
+    write(id, amount, "running");
   }
+
   for (const file of result.files) {
+    const ids = accountIdsInFile(result.transactions, file.filename, mergedInto);
+    if (file.openingBalance != null) {
+      for (const id of ids) {
+        if (next[id]?.openingBalance == null) {
+          next[id] = { ...next[id], openingBalance: file.openingBalance };
+        }
+      }
+    }
     if (file.statedBalance == null) continue;
-    const ids = new Set(
-      result.transactions
-        .filter((txn) => txn.sourceFile === file.filename)
-        .map((txn) => canonicalAccountId(txn.accountId?.trim() || txn.accountKey?.trim() || "", mergedInto))
-        .filter(Boolean),
-    );
+    const source = file.balanceSource ?? "header";
     for (const id of ids) {
-      if (fromRows[id] != null) continue;
-      next[id] = { ...next[id], clearedBalance: file.statedBalance };
+      write(id, file.statedBalance, source, file.balanceAsOf ? { balanceAsOf: file.balanceAsOf } : {});
+    }
+  }
+
+  for (const file of result.files) {
+    for (const stated of file.statedAccounts ?? []) {
+      const id = canonicalAccountId(stated.accountId, mergedInto);
+      write(id, stated.amount, stated.source, stated.opening != null ? { openingBalance: stated.opening } : {});
     }
   }
   return next;
+}
+
+function accountIdsInFile(
+  transactions: InterpretedTransaction[],
+  filename: string,
+  mergedInto: Record<string, string>,
+): string[] {
+  return [
+    ...new Set(
+      transactions
+        .filter((txn) => txn.sourceFile === filename)
+        .map((txn) => canonicalAccountId(txn.accountId?.trim() || txn.accountKey?.trim() || "", mergedInto))
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function remapMergedAccountMeta(
@@ -1104,6 +1154,16 @@ function namesOnly(raw: Record<string, unknown>): InstitutionOverrides {
   );
 }
 
+function isBalanceSource(value: unknown): value is NonNullable<AccountMeta["balanceSource"]> {
+  return (
+    value === "header" ||
+    value === "section" ||
+    value === "ofx_ledger" ||
+    value === "running" ||
+    value === "fiskil"
+  );
+}
+
 function accountMetaOnly(raw: Record<string, unknown>): Record<string, AccountMeta> {
   const kinds = new Set(["CHECKING", "SAVINGS", "CREDIT", "LOAN", "MORTGAGE"]);
   const held: Record<string, AccountMeta> = {};
@@ -1116,10 +1176,25 @@ function accountMetaOnly(raw: Record<string, unknown>): Record<string, AccountMe
     if (typeof stored.clearedBalance === "number" && Number.isFinite(stored.clearedBalance)) {
       next.clearedBalance = stored.clearedBalance;
     }
+    if (isBalanceSource(stored.balanceSource)) next.balanceSource = stored.balanceSource;
+    if (typeof stored.balanceAsOf === "string" && /^\d{4}-\d{2}-\d{2}$/.test(stored.balanceAsOf)) {
+      next.balanceAsOf = stored.balanceAsOf;
+    }
+    if (typeof stored.openingBalance === "number" && Number.isFinite(stored.openingBalance)) {
+      next.openingBalance = stored.openingBalance;
+    }
     if (typeof stored.externalId === "string" && stored.externalId.trim()) {
       next.externalId = stored.externalId.trim();
     }
-    if (next.currency || next.kind || next.clearedBalance != null || next.externalId) held[key] = next;
+    if (
+      next.currency ||
+      next.kind ||
+      next.clearedBalance != null ||
+      next.openingBalance != null ||
+      next.externalId
+    ) {
+      held[key] = next;
+    }
   }
   return held;
 }

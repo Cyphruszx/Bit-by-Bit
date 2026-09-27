@@ -8,9 +8,11 @@
  */
 
 import { accountKeyFrom, inferAccountKind, type AccountKind, type AccountMeta } from "@/lib/money-flow/account-identity";
+import { roundMoney } from "@/lib/money-flow/parse-values";
+import { canReplaceBalance, effectiveBalanceSource } from "@/lib/money-flow/statement-balance";
 import { isSilentSameInstitutionPair } from "@/lib/money-flow/auto-pairs";
 import { interpretMovement } from "@/lib/money-flow/interpret-row";
-import { detectInstitution, institutionOf, UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
+import { detectInstitution, UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
 import {
   fingerprintOf,
   ledgerTransactions,
@@ -22,7 +24,7 @@ import {
 import { isUserOverridden } from "@/lib/money-flow/movement-kind";
 import { buildReviewQueue, type ReviewItem } from "@/lib/money-flow/review-queue";
 import { matchTransfers } from "@/lib/money-flow/transfers";
-import type { FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
+import type { CdrType, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 import type { FiskilBankingAccount, FiskilBankingBalance, FiskilBankingTransaction } from "@/lib/fiskil/banking";
 
 export const OPEN_BANKING_INGEST = "OPEN_BANKING" as const;
@@ -94,16 +96,46 @@ export function mapFiskilAccount(
   };
 }
 
+const CDR_OUT = new Set<CdrType>(["DIRECT_DEBIT", "FEE", "INTEREST_CHARGED", "PAYMENT", "TRANSFER_OUTGOING"]);
+const CDR_IN = new Set<CdrType>(["INTEREST_PAID", "TRANSFER_INCOMING"]);
+
+/**
+ * 12R.2. Sign from the CDR type only when the amount did not already name a
+ * direction. A signed amount that disagrees is kept and marked for Review.
+ * `OTHER` with no explicit sign is Review. No `cdrType` leaves the amount alone.
+ */
+export function applyCdrSign(
+  amount: number,
+  cdrType: CdrType | undefined,
+  explicitSign: FiskilBankingTransaction["explicitSign"],
+): { amount: number; ingestReview?: InterpretedTransaction["ingestReview"] } {
+  if (!cdrType) return { amount };
+  if (cdrType === "OTHER") {
+    return explicitSign ? { amount } : { amount, ingestReview: "unsigned" };
+  }
+  const expected = CDR_IN.has(cdrType) ? "in" : CDR_OUT.has(cdrType) ? "out" : undefined;
+  if (!expected) return { amount };
+  if (explicitSign && explicitSign !== expected) {
+    return { amount, ingestReview: "sign_disagrees" };
+  }
+  if (!explicitSign) {
+    const signed = expected === "out" ? -Math.abs(amount) : Math.abs(amount);
+    return { amount: roundMoney(signed) };
+  }
+  return { amount };
+}
+
 export function mapFiskilTransaction(
   txn: FiskilBankingTransaction,
   account: OpenBankingAccountUpsert,
   consentId: string,
 ): InterpretedTransaction {
   const sourceFile = openBankingSourceFile(consentId, txn.accountId);
+  const signed = applyCdrSign(txn.amount, txn.cdrType, txn.explicitSign);
   const read = interpretMovement({
     id: `ob:${txn.id}`,
     dateIso: txn.dateIso,
-    amount: txn.amount,
+    amount: signed.amount,
     directionKnown: true,
     description: txn.description,
     ...(txn.merchant ? { merchant: txn.merchant } : {}),
@@ -123,6 +155,21 @@ export function mapFiskilTransaction(
     accountId: account.accountId,
     accountKey: account.accountId,
     baseAmount: read.amount,
+    ...cdrFields(txn),
+    ...(signed.ingestReview ? { ingestReview: signed.ingestReview } : {}),
+  };
+}
+
+function cdrFields(txn: FiskilBankingTransaction): Partial<InterpretedTransaction> {
+  return {
+    ...(txn.cdrType ? { cdrType: txn.cdrType } : {}),
+    ...(txn.reference ? { reference: txn.reference } : {}),
+    ...(txn.merchantName ? { merchantName: txn.merchantName } : {}),
+    ...(txn.merchantCategoryCode ? { merchantCategoryCode: txn.merchantCategoryCode } : {}),
+    ...(txn.billerCode ? { billerCode: txn.billerCode } : {}),
+    ...(txn.billerName ? { billerName: txn.billerName } : {}),
+    ...(txn.crn ? { crn: txn.crn } : {}),
+    ...(txn.extendedData ? { extendedData: txn.extendedData } : {}),
   };
 }
 
@@ -291,12 +338,17 @@ function applyAccountUpserts(
     names[account.accountId] = account.label;
     const balance = balances.get(account.externalId);
     const cleared = balance?.available ?? balance?.current ?? account.clearedBalance;
+    const existing = meta[account.accountId];
+    const fiskilBalance =
+      typeof cleared === "number" &&
+      Number.isFinite(cleared) &&
+      canReplaceBalance(effectiveBalanceSource(existing), "fiskil");
     meta[account.accountId] = {
-      ...meta[account.accountId],
+      ...existing,
       externalId: account.externalId,
       ...(account.kind ? { kind: account.kind } : {}),
       ...(account.currency ? { currency: account.currency } : {}),
-      ...(typeof cleared === "number" && Number.isFinite(cleared) ? { clearedBalance: cleared } : {}),
+      ...(fiskilBalance ? { clearedBalance: cleared, balanceSource: "fiskil" as const } : {}),
     };
     if (account.institution !== UNKNOWN_INSTITUTION) {
       institutions[openBankingSourceFile(consentId, account.externalId)] = account.institution;
@@ -354,6 +406,7 @@ function updateExistingInPlace(held: LedgerEntry, incoming: InterpretedTransacti
   }
   if (incoming.ingestSource) held.ingestSource = incoming.ingestSource;
   if (incoming.externalId) held.externalId = incoming.externalId;
+  copyMissingCdrFields(held, incoming);
   return before === held.status ? "kept" : "updated";
 }
 
@@ -379,6 +432,21 @@ function applyIncomingWithoutOverride(held: LedgerEntry, incoming: InterpretedTr
   if (isUserOverridden(held)) return;
   if (incoming.ingestSource && !held.ingestSource) held.ingestSource = incoming.ingestSource;
   if (incoming.institution && !held.institution) held.institution = incoming.institution;
+  copyMissingCdrFields(held, incoming);
+}
+
+function copyMissingCdrFields(held: LedgerEntry, incoming: InterpretedTransaction): void {
+  if (incoming.cdrType && !held.cdrType) held.cdrType = incoming.cdrType;
+  if (incoming.reference && !held.reference) held.reference = incoming.reference;
+  if (incoming.merchantName && !held.merchantName) held.merchantName = incoming.merchantName;
+  if (incoming.merchantCategoryCode && !held.merchantCategoryCode) {
+    held.merchantCategoryCode = incoming.merchantCategoryCode;
+  }
+  if (incoming.billerCode && !held.billerCode) held.billerCode = incoming.billerCode;
+  if (incoming.billerName && !held.billerName) held.billerName = incoming.billerName;
+  if (incoming.crn && !held.crn) held.crn = incoming.crn;
+  if (incoming.extendedData && !held.extendedData) held.extendedData = incoming.extendedData;
+  if (incoming.ingestReview && !held.ingestReview) held.ingestReview = incoming.ingestReview;
 }
 
 function mergeDuplicateHolds(stored: ReviewItem[] | undefined, extra: ReviewItem[]): ReviewItem[] {

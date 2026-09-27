@@ -13,7 +13,14 @@ import { monthKey } from "@/lib/money-flow/period";
 import { livePools, membersOf, type PoolBook } from "@/lib/money-flow/pools";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { countedMovements, isEarnings, isRefundCredit, isSpending, tileAmount } from "@/lib/money-flow/summary";
-import { derivedMovementBalance, mostRecentStatedBalances } from "@/lib/money-flow/statement-balance";
+import {
+  accountBalanceView,
+  ESTIMATED_BALANCE_LABEL,
+  NEGATIVE_ESTIMATE_WARNING,
+  NO_OPENING_BALANCE_LABEL,
+  NO_OPENING_BALANCE_PROMPT,
+  type AccountBalanceView,
+} from "@/lib/money-flow/statement-balance";
 import { topChartCategories } from "@/lib/money-flow/tag-charts";
 import { categoryOf } from "@/lib/money-flow/tags";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
@@ -96,6 +103,17 @@ export type BankAccountLine = {
   id: string;
   name: string;
   amount: number | null;
+  balanceSource?: AccountBalanceView["source"];
+  balanceLabel?: string;
+  balancePrompt?: string;
+  balanceWarning?: string;
+};
+
+export type BalanceReadout = {
+  amount: number | null;
+  label?: string;
+  prompt?: string;
+  warning?: string;
 };
 
 export type BankInstitutionTile = {
@@ -104,42 +122,61 @@ export type BankInstitutionTile = {
 };
 
 /**
- * Prefer a stored statement / ledger balance (`accountMeta.clearedBalance`).
- * Otherwise derive credits − debits from movements. Missing both is null —
- * never a $0 skeleton. Differs from Spec 10 Net by construction.
+ * A stored statement balance. Without one this is null: a movement sum is not
+ * shown unless `accountBalanceView` has an opening and can label it estimated.
  */
 export function accountDisplayAmount(
   accountId: string,
-  movementNet: number | null,
   meta: Record<string, AccountMeta> = {},
   mergedInto: Record<string, string> = {},
 ): number | null {
   const held = clearedBalanceOf(accountId, meta, mergedInto);
-  if (!held.missing) return held.amount;
-  return movementNet;
+  return held.missing ? null : held.amount;
 }
 
 /**
- * Total / account balance across Bank Accounts card rows: stated CSV
- * closing/running balance when stored, else derived movement balance.
- * Not Spec 10 Net.
+ * Sum of the figures the Bank Accounts card shows. Accounts with no figure
+ * are left out. Not Spec 10 Net.
  */
 export function totalAccountBalance(tiles: BankInstitutionTile[]): number | null {
+  return presentAccountTiles(tiles).amount;
+}
+
+/**
+ * Household total of the card figures. Any estimated amount labels the total.
+ * When every account lacks a figure, the total is "No opening balance".
+ */
+export function presentAccountTiles(tiles: BankInstitutionTile[]): BalanceReadout {
   let sum = 0;
   let any = false;
+  let estimated = false;
+  let warning = false;
   for (const tile of tiles) {
     for (const account of tile.accounts) {
       if (account.amount == null) continue;
       sum = roundMoney(sum + account.amount);
       any = true;
+      if (account.balanceSource === "estimated") estimated = true;
+      if (account.balanceWarning) warning = true;
     }
   }
-  return any ? sum : null;
+  if (!any) {
+    return {
+      amount: null,
+      label: NO_OPENING_BALANCE_LABEL,
+      prompt: NO_OPENING_BALANCE_PROMPT,
+    };
+  }
+  return {
+    amount: sum,
+    ...(estimated ? { label: ESTIMATED_BALANCE_LABEL } : {}),
+    ...(warning ? { warning: NEGATIVE_ESTIMATE_WARNING } : {}),
+  };
 }
 
 /**
- * Transactions-page Account balance (and dashboard Total balance): stated CSV
- * Balance when stored, else derived credits − debits. Not Spec 10 Net.
+ * Transactions-page Account balance: stated balance when one is stored or
+ * printed, otherwise an opening plus every signed movement. Not Spec 10 Net.
  */
 export function accountBalanceOf(
   transactions: InterpretedTransaction[],
@@ -150,7 +187,19 @@ export function accountBalanceOf(
     book?: PoolBook;
   } = {},
 ): number | null {
-  return totalAccountBalance(
+  return presentAccountBalance(transactions, options).amount;
+}
+
+export function presentAccountBalance(
+  transactions: InterpretedTransaction[],
+  options: {
+    meta?: Record<string, AccountMeta>;
+    mergedInto?: Record<string, string>;
+    registry?: AccountRegistry;
+    book?: PoolBook;
+  } = {},
+): BalanceReadout {
+  return presentAccountTiles(
     bankInstitutionTiles(accountsByInstitution(transactions, options.registry), {
       meta: options.meta,
       mergedInto: options.mergedInto,
@@ -195,18 +244,16 @@ export function bankInstitutionTiles(
         const existing = groups.find((group) => group.accounts.some((account) => account.id === id));
         const account = existing?.accounts.find((row) => row.id === id);
         const institution = existing?.institution ?? institutionFromAccountId(id);
-        add(institution, {
-          id,
-          name: account
-            ? institutionAccountName(account.label, institution)
-            : institutionAccountName(accountLabel(id), institution),
-          amount: accountDisplayAmount(
+        add(
+          institution,
+          lineFromView(
             id,
-            statedOrDerivedBalance(account?.transactions ?? [], id, mergedInto),
-            meta,
-            mergedInto,
+            account
+              ? institutionAccountName(account.label, institution)
+              : institutionAccountName(accountLabel(id), institution),
+            accountBalanceView(id, account?.transactions ?? [], meta, mergedInto),
           ),
-        });
+        );
       }
     }
   }
@@ -230,27 +277,23 @@ function lineFromAccount(
   meta: Record<string, AccountMeta>,
   mergedInto: Record<string, string>,
 ): BankAccountLine {
-  return {
-    id: account.id,
-    name: institutionAccountName(account.label, institution),
-    amount: accountDisplayAmount(
-      account.id,
-      statedOrDerivedBalance(account.transactions, account.id, mergedInto),
-      meta,
-      mergedInto,
-    ),
-  };
+  return lineFromView(
+    account.id,
+    institutionAccountName(account.label, institution),
+    accountBalanceView(account.id, account.transactions, meta, mergedInto),
+  );
 }
 
-/** CSV Balance / OFX LEDGERBAL on the rows, else credits − debits after transfer exclude. */
-function statedOrDerivedBalance(
-  transactions: InterpretedTransaction[],
-  accountId: string,
-  mergedInto: Record<string, string>,
-): number | null {
-  const stated = mostRecentStatedBalances(transactions, mergedInto)[canonicalAccountId(accountId, mergedInto)];
-  if (stated != null) return stated;
-  return derivedMovementBalance(transactions);
+function lineFromView(id: string, name: string, view: AccountBalanceView): BankAccountLine {
+  return {
+    id,
+    name,
+    amount: view.amount,
+    balanceSource: view.source,
+    ...(view.label ? { balanceLabel: view.label } : {}),
+    ...(view.prompt ? { balancePrompt: view.prompt } : {}),
+    ...(view.warning ? { balanceWarning: view.warning } : {}),
+  };
 }
 
 function institutionFromAccountId(id: string): string {

@@ -73,10 +73,11 @@ export function isUpOfxPocketName(name: string): boolean {
 }
 
 /**
- * Classified internal transfer: omit from Money in / Money out and from the
- * credits−debits Account balance fallback. Income / Spending / Net use
- * countedMovements and are unchanged. Pocket names are not consulted here —
- * they become TRANSFER at ingest / upgrade, then this filter sees the kind.
+ * Classified internal transfer: omit from Money in / Money out. An estimated
+ * account balance sums every signed movement, including these legs. Income /
+ * Spending leave TRANSFER out via the type flags. Pocket names are not
+ * consulted here — they become TRANSFER at ingest / upgrade, then this filter
+ * sees the kind.
  */
 export function isInternalTransfer(txn: InterpretedTransaction): boolean {
   return isTransferKind(txn.type) || Boolean(txn.transferPair);

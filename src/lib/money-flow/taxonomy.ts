@@ -53,8 +53,9 @@ type TypeMeaning = {
  * in the sample statements. Both legs move cash and neither changes what is owned, so both
  * sit outside income and spending while staying in the raw cash figures.
  *
- * `moved` still counts here and is cancelled in summary.ts only when both legs are in view:
- * seen from inside Up alone, money that arrived from NAB did arrive. `returned` does not
+ * `moved` is Spec 10.4: a TRANSFER is never Income or Spending, including a one-legged
+ * row whose other leg is on another account or in another month. Money in / Money out
+ * still use their own exclude. `returned` does not
  * count as income (Spec 10): a linked refund is Refund credits in Net, never Income, and
  * the original spend stays in Spending (month-freeze). Unlinked refund-shaped credits are
  * kept out of Income in summary.ts until they are linked or filed as earnings.
@@ -63,7 +64,7 @@ const TYPES: Record<MovementKind, TypeMeaning> = {
   INCOME: { label: "Income", side: "in", income: true, spending: false },
   REFUND: { label: "Refund", side: "in", income: false, spending: false },
   DEBT_PRINCIPAL: { label: "Debt principal", side: "both", income: false, spending: false },
-  TRANSFER: { label: "Between your own accounts", side: "both", income: true, spending: true },
+  TRANSFER: { label: "Between your own accounts", side: "both", income: false, spending: false },
   SPENDING: { label: "Spending", side: "out", income: false, spending: true },
   DEBT_COST: { label: "Debt cost", side: "out", income: false, spending: true },
   INVESTMENT: { label: "Investment", side: "out", income: false, spending: false },

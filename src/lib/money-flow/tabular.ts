@@ -1,6 +1,6 @@
 import { readBankSource } from "@/lib/money-flow/bank-filter";
 import { interpretMovement } from "@/lib/money-flow/interpret-row";
-import { parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { isNoticeLine, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import { sourceFromCells } from "@/lib/money-flow/source";
 import { tableInterpretationNotes } from "@/lib/money-flow/statement-category";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
@@ -157,7 +157,8 @@ export function interpretTable(
       amount = lastAmountCell(cells, balanceIdx);
     }
     if (amount == null || !dateIso || !description) return;
-    if (isSummaryRow(description) && Math.abs(amount) > 0 && cells.length <= 3) {
+    if (amount === 0 && isNoticeLine(description)) return;
+    if (isSummaryRow(description) && cells.length <= 3) {
       if (/closing/i.test(description)) statedBalance = amount;
       return;
     }

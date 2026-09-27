@@ -12,8 +12,7 @@ import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
 import { mergeSuggestions } from "@/lib/money-flow/account-identity";
 import { accountsByInstitution, suggestNameForKey, type AccountTotals } from "@/lib/money-flow/accounts";
-import { accountDisplayAmount } from "@/lib/money-flow/dashboard";
-import { derivedMovementBalance } from "@/lib/money-flow/statement-balance";
+import { accountBalanceView, type AccountBalanceView } from "@/lib/money-flow/statement-balance";
 import {
   institutionForStatement,
   knownInstitutions,
@@ -74,7 +73,7 @@ export function AccountsView() {
   const accountFor = (key: string) => accounts.find((account) => account.keys.includes(key));
 
   const balanceOf = (account: AccountTotals) =>
-    accountDisplayAmount(account.id, derivedMovementBalance(account.transactions), accountMeta, mergedInto);
+    accountBalanceView(account.id, account.transactions, accountMeta, mergedInto);
 
   if (!hasUploads) {
     return (
@@ -325,7 +324,7 @@ function AccountCard({
 }: {
   account: AccountTotals;
   name: string;
-  balance: number | null;
+  balance: AccountBalanceView;
   siblings: AccountTotals[];
   poolNames: string[];
   onRename: (name: string) => void;
@@ -353,7 +352,12 @@ function AccountCard({
         />
       </div>
 
-      <p className="mt-4 text-2xl font-bold">{balance == null ? "—" : formatAud(balance)}</p>
+      <p className="mt-4 text-2xl font-bold">
+        {balance.amount == null ? (balance.label ?? "—") : formatAud(balance.amount)}
+      </p>
+      {balance.amount != null && balance.label ? <p className="mt-1 text-sm text-muted">{balance.label}</p> : null}
+      {balance.prompt ? <p className="mt-1 text-sm text-muted">{balance.prompt}</p> : null}
+      {balance.warning ? <p className="mt-1 text-sm text-negative">{balance.warning}</p> : null}
       <p className="mt-1 text-sm text-muted">
         Balance · {formatAud(account.flow.cashIn)} in · {formatAud(account.flow.cashOut)} out
       </p>

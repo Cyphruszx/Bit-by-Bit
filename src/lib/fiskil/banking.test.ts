@@ -260,4 +260,45 @@ describe("Fiskil banking mapping", () => {
     assert.equal(txn?.mcc, "5411");
     assert.equal(txn?.merchant, "Corner Shop");
   });
+
+  it("keeps a civil date in Australia/Sydney, including the day a UTC instant crosses midnight", () => {
+    const nextDay = parseTransaction({
+      id: "tx_next",
+      account_id: "acc_1",
+      amount: -1,
+      description: "After midnight",
+      posted: "2026-09-30T14:00:00.000Z",
+    });
+    const sameDay = parseTransaction({
+      id: "tx_same",
+      account_id: "acc_1",
+      amount: -1,
+      description: "Before midnight",
+      posted: "2026-09-30T13:59:59.000Z",
+    });
+    const civil = parseTransaction({
+      id: "tx_civil",
+      account_id: "acc_1",
+      amount: -1,
+      description: "Printed day",
+      posted: "2026-09-30",
+    });
+    assert.equal(nextDay?.dateIso, "2026-10-01");
+    assert.equal(sameDay?.dateIso, "2026-09-30");
+    assert.equal(civil?.dateIso, "2026-09-30");
+  });
+
+  it("does not treat DIRECT_DEBIT as the DEBIT word", () => {
+    const txn = parseTransaction({
+      id: "tx_dd",
+      account_id: "acc_1",
+      amount: 99,
+      type: "DIRECT_DEBIT",
+      description: "Gym",
+      posted: "2026-09-01T00:00:00.000Z",
+    });
+    assert.equal(txn?.amount, 99);
+    assert.equal(txn?.cdrType, "DIRECT_DEBIT");
+    assert.equal(txn?.explicitSign, undefined);
+  });
 });

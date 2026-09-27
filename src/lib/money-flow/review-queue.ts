@@ -253,6 +253,9 @@ function detectReviewItems(
   for (const item of ingestParseItems(options)) {
     if (!closed.has(item.id)) items.push(withStoredOpenHints(item, options.stored));
   }
+  for (const item of ingestSignItems(transactions)) {
+    if (!closed.has(item.id)) items.push(withStoredOpenHints(item, options.stored));
+  }
   for (const item of unreviewedKindItems(transactions, claimed)) push(item);
   for (const item of aiLowConfidenceItems(transactions, claimed)) push(item);
 
@@ -511,6 +514,24 @@ export function refundPaymentsFor(
       amount: debit.amount,
       dateIso: debit.dateIso,
     }));
+}
+
+function ingestSignItems(transactions: InterpretedTransaction[]): ReviewItem[] {
+  const items: ReviewItem[] = [];
+  for (const txn of transactions) {
+    if (!txn.ingestReview) continue;
+    items.push({
+      id: `INGEST_PARSE:${txn.id}`,
+      reason: "INGEST_PARSE",
+      state: "OPEN",
+      movementIds: [txn.id],
+      label:
+        txn.ingestReview === "sign_disagrees"
+          ? `Signed amount disagrees with the bank type (${txn.merchant})`
+          : `No trusted sign (${txn.merchant})`,
+    });
+  }
+  return items;
 }
 
 function ingestParseItems(options: ReviewQueueOptions): ReviewItem[] {

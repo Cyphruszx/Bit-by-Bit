@@ -53,6 +53,11 @@ export function normalizeMask(raw: string): string | undefined {
  */
 export function accountRefFromText(text: string): AccountRef {
   const header = text.slice(0, HEADER_WINDOW);
+  const ofxAccount = header.match(/<ACCTID>\s*(\d{5,16})/i);
+  if (ofxAccount) {
+    const number = normalizeAccountNumber(ofxAccount[1]);
+    if (number) return { number };
+  }
   const bsbs = new Set<string>();
   for (const match of header.matchAll(BSB_LINE)) {
     const digits = match[1].replace(/\D/g, "");
@@ -150,6 +155,12 @@ export type AccountRegistry = {
 
 export type AccountKind = "CHECKING" | "SAVINGS" | "CREDIT" | "LOAN" | "MORTGAGE";
 
+/**
+ * Where a stored balance came from. Printed closing beats OFX ledger, which
+ * beats a running-balance cell, which beats Fiskil. Estimated is not stored.
+ */
+export type BalanceSource = "header" | "section" | "ofx_ledger" | "running" | "fiskil";
+
 export type AccountMeta = {
   currency?: string;
   kind?: AccountKind;
@@ -159,6 +170,12 @@ export type AccountMeta = {
    * soft hint — never invent Σ(CLEARED movements).
    */
   clearedBalance?: number;
+  /** Which rule stored `clearedBalance`. Absent on rows written before Slice 1. */
+  balanceSource?: BalanceSource;
+  /** OFX `DTASOF` civil date, so a later snapshot wins over an older file. */
+  balanceAsOf?: string;
+  /** Printed opening. The estimate is this plus every signed movement. */
+  openingBalance?: number;
   /** Fiskil account id. Spec 12 upserts the same BitbyBit account on this. */
   externalId?: string;
 };

@@ -80,6 +80,10 @@ export async function interpretDocuments(
         notes: parsed.notes,
         ...(pages ? { ocrPages: pages } : {}),
         ...(parsed.statedBalance != null ? { statedBalance: parsed.statedBalance } : {}),
+        ...(parsed.balanceSource ? { balanceSource: parsed.balanceSource } : {}),
+        ...(parsed.balanceAsOf ? { balanceAsOf: parsed.balanceAsOf } : {}),
+        ...(parsed.openingBalance != null ? { openingBalance: parsed.openingBalance } : {}),
+        ...(parsed.statedAccounts ? { statedAccounts: parsed.statedAccounts } : {}),
       });
     } catch (error) {
       interpretations.push({

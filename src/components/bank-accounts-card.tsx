@@ -34,9 +34,20 @@ function InstitutionTile({ tile }: { tile: BankInstitutionTile }) {
             className={`flex items-center justify-between gap-2 ${index > 0 ? "border-t border-line pt-2" : ""}`}
           >
             <p className="min-w-0 truncate text-[13px] font-medium text-muted">{account.name}</p>
-            <p className="shrink-0 text-right text-sm font-bold tabular-nums">
-              {account.amount == null ? "—" : formatAud(account.amount)}
-            </p>
+            <div className="shrink-0 text-right">
+              <p className="text-sm font-bold tabular-nums">
+                {account.amount == null ? (account.balanceLabel ?? "—") : formatAud(account.amount)}
+              </p>
+              {account.amount != null && account.balanceLabel ? (
+                <p className="text-[11px] text-muted">{account.balanceLabel}</p>
+              ) : null}
+              {account.balancePrompt ? (
+                <p className="max-w-[14rem] text-[11px] text-muted">{account.balancePrompt}</p>
+              ) : null}
+              {account.balanceWarning ? (
+                <p className="max-w-[14rem] text-[11px] text-negative">{account.balanceWarning}</p>
+              ) : null}
+            </div>
           </div>
         ))}
       </div>

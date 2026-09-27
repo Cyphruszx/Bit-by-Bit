@@ -1,5 +1,5 @@
 import type { RawMovement } from "@/lib/money-flow/interpret-row";
-import { parseAmount, parseDate } from "@/lib/money-flow/parse-values";
+import { isNoticeLine, parseAmount, parseDate } from "@/lib/money-flow/parse-values";
 import { normalizeHeader, sourceFromCells } from "@/lib/money-flow/source";
 
 /**
@@ -43,6 +43,7 @@ export function movementsFromNabTable(
     const amount = parseAmount(amountIdx >= 0 ? cells[amountIdx] : "");
     const description = detailsIdx >= 0 ? cells[detailsIdx]?.trim() ?? "" : "";
     if (!dateIso || amount == null || !description) return;
+    if (amount === 0 && isNoticeLine(description)) return;
 
     movements.push({
       dateIso,
