@@ -96,6 +96,29 @@ async function shownLedger(files: Array<{ filename: string; mime: string }>) {
 }
 
 describe("Draft A period tiles", () => {
+  it("counts refund credits in Money in and still omits internal transfers", () => {
+    const rows = [
+      txn("pay", "2026-06-01", 2000, { type: "INCOME", categoryKey: "salary" }),
+      txn("shop", "2026-06-02", -40, { type: "SPENDING" }),
+      txn("kind", "2026-06-03", 25, { type: "REFUND", categoryKey: "tax-refund", merchant: "ATO" }),
+      txn("linked", "2026-06-04", 15, {
+        type: "REFUND",
+        categoryKey: "tax-refund",
+        refundPair: "refund-1",
+        merchant: "Kmart",
+      }),
+      txn("out", "2026-06-05", -500, { type: "TRANSFER", transferPair: "pair", accountId: "Up · Spending" }),
+      txn("inn", "2026-06-05", 500, { type: "TRANSFER", transferPair: "pair", accountId: "Up · Save!!" }),
+    ];
+    const flow = summarizeMoneyFlow(rows);
+    // Salary $2,000 plus both refund credits. The transfer credit stays out.
+    assert.equal(flow.cashIn, 2040);
+    assert.equal(flow.cashOut, 40);
+    assert.equal(flow.cashNet, 2000);
+    assert.equal(flow.income, 2000);
+    assert.equal(flow.refunds, 15);
+  });
+
   it("uses transfer-excluded Money in minus Money out, not Spec 10 Net", () => {
     const rows = [
       txn("pay", "2026-03-06", 2000, { type: "earned", categoryKey: "salary" }),
