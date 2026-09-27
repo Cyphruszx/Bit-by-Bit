@@ -166,6 +166,63 @@ describe("Draft A period tiles", () => {
   });
 });
 
+describe("Spec 10F partial total balance", () => {
+  const stated = txn("stated", "2026-06-01", 10, {
+    accountId: "NAB · Everyday",
+    institution: "NAB",
+    type: "INCOME",
+    categoryKey: "salary",
+  });
+  const estimated = txn("estimated", "2026-06-02", 20, {
+    accountId: "NAB · Saver",
+    institution: "NAB",
+    type: "INCOME",
+    categoryKey: "salary",
+  });
+  const hidden = (id: string, accountId: string) =>
+    txn(id, "2026-06-03", 5, { accountId, institution: "NAB", type: "INCOME", categoryKey: "salary" });
+  const meta: Record<string, AccountMeta> = {
+    "NAB · Everyday": { clearedBalance: 100, balanceSource: "header" },
+    "NAB · Saver": { openingBalance: 0 },
+  };
+  const readout = (rows: InterpretedTransaction[]) =>
+    presentAccountTiles(bankInstitutionTiles(accountsByInstitution(rows), { meta }));
+
+  it("sums only known balances and notes 0, 1, and 2 excluded accounts", () => {
+    const none = readout([stated, estimated]);
+    assert.equal(none.amount, 120);
+    assert.equal(none.label, ESTIMATED_BALANCE_LABEL);
+    assert.equal(none.excludedNote, undefined);
+
+    const one = readout([stated, hidden("hidden", "NAB · Hidden")]);
+    assert.equal(one.amount, 100);
+    assert.equal(one.label, undefined);
+    assert.equal(one.excludedNote, "Excludes 1 account without an opening balance (partial).");
+
+    const two = readout([
+      stated,
+      hidden("hidden-a", "NAB · Hidden"),
+      hidden("hidden-b", "NAB · Other"),
+    ]);
+    assert.equal(two.amount, 100);
+    assert.equal(two.excludedNote, "Excludes 2 accounts without an opening balance (partial).");
+  });
+
+  it("notes one excluded account on a bank total and keeps the Estimated label", () => {
+    const tiles = bankInstitutionTiles(accountsByInstitution([stated, estimated, hidden("hidden", "NAB · Hidden")]), {
+      meta,
+    });
+    const total = bankTileTotal(tiles[0]!);
+    assert.equal(total?.amount, 120);
+    assert.equal(total?.label, ESTIMATED_BALANCE_LABEL);
+    assert.equal(total?.excludedNote, "Excludes 1 account without an opening balance (partial).");
+
+    const html = renderToStaticMarkup(createElement(BankAccountsCard, { tiles }));
+    assert.match(html, /Estimated from movements/);
+    assert.match(html, /Excludes 1 account without an opening balance \(partial\)\./);
+  });
+});
+
 describe("Draft A estimated balances", () => {
   it("labels Up Investing −$1,433.14 as a fallback and hides a figure with no opening", () => {
     const rows = [

@@ -126,7 +126,12 @@ export function DashboardView() {
             detail={
               totalBalance.amount == null
                 ? (totalBalance.prompt ?? accountCount)
-                : [asOf ? asOfHint(asOf) : null, totalBalance.label, totalBalance.warning, accountCount]
+                : [
+                    [asOf ? asOfHint(asOf) : null, totalBalance.label, totalBalance.warning, accountCount]
+                      .filter(Boolean)
+                      .join(". "),
+                    totalBalance.excludedNote,
+                  ]
                     .filter(Boolean)
                     .join(". ")
             }

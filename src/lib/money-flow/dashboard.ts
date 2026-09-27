@@ -114,6 +114,8 @@ export type BalanceReadout = {
   label?: string;
   prompt?: string;
   warning?: string;
+  /** Set when the sum leaves out accounts that have no opening balance. */
+  excludedNote?: string;
 };
 
 export type BankInstitutionTile = {
@@ -143,17 +145,25 @@ export function totalAccountBalance(tiles: BankInstitutionTile[]): number | null
 }
 
 /**
- * Household total of the card figures. Any estimated amount labels the total.
- * When every account lacks a figure, the total is "No opening balance".
+ * Household total of the card figures. Stated, statement, OFX, Fiskil, and
+ * estimated balances (opening plus movements) are included. An account hidden
+ * for lack of an opening balance is left out. Any estimated amount still
+ * labels the total. When one or more are left out of a sum that still has a
+ * figure, `excludedNote` says so. When every account lacks a figure, the
+ * total is "No opening balance".
  */
 export function presentAccountTiles(tiles: BankInstitutionTile[]): BalanceReadout {
   let sum = 0;
   let any = false;
   let estimated = false;
   let warning = false;
+  let excluded = 0;
   for (const tile of tiles) {
     for (const account of tile.accounts) {
-      if (account.amount == null) continue;
+      if (account.amount == null) {
+        if (account.balanceSource === "missing_opening") excluded += 1;
+        continue;
+      }
       sum = roundMoney(sum + account.amount);
       any = true;
       if (account.balanceSource === "estimated") estimated = true;
@@ -167,11 +177,20 @@ export function presentAccountTiles(tiles: BankInstitutionTile[]): BalanceReadou
       prompt: NO_OPENING_BALANCE_PROMPT,
     };
   }
+  const excludedNote = excludedOpeningBalanceNote(excluded);
   return {
     amount: sum,
     ...(estimated ? { label: ESTIMATED_BALANCE_LABEL } : {}),
     ...(warning ? { warning: NEGATIVE_ESTIMATE_WARNING } : {}),
+    ...(excludedNote ? { excludedNote } : {}),
   };
+}
+
+/** Spec 10F. Only when the total is partial: at least one account was left out. */
+export function excludedOpeningBalanceNote(count: number): string | undefined {
+  if (count < 1) return undefined;
+  const noun = count === 1 ? "account" : "accounts";
+  return `Excludes ${count} ${noun} without an opening balance (partial).`;
 }
 
 /**
