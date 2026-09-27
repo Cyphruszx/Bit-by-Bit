@@ -3,11 +3,10 @@ import { institutionOf } from "@/lib/money-flow/institution";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /**
- * What the reader is looking at: everything they hold, one bank, or one account.
+ * What the reader is looking at: one bank, or one account inside it.
  *
- * Scoping is not filtering. The totals change meaning with the scope, because a transfer
- * only cancels when both its legs are inside the scope — so choosing NAB does not subset
- * the household's figures, it produces NAB's own, which tie to NAB's statements.
+ * Transactions has no Everything option. Money in and money out on a bank
+ * already omit classified internal transfers, including a one-legged TRANSFER.
  */
 export type LedgerScope =
   | { kind: "all" }
@@ -15,6 +14,22 @@ export type LedgerScope =
   | { kind: "account"; accountId: string };
 
 export const EVERYTHING: LedgerScope = { kind: "all" };
+
+/**
+ * Transactions opens on the first bank in dashboard card order.
+ * `institutions` must already be that order: movement count descending, then name.
+ * An empty ledger keeps the internal all-scope; the bar is not shown then.
+ */
+export function defaultTransactionScope(institutions: readonly string[]): LedgerScope {
+  const first = institutions[0];
+  if (!first) return EVERYTHING;
+  return { kind: "institution", institution: first };
+}
+
+/** Bank chips on Transactions, in the order given. Everything is not one of them. */
+export function transactionBankLabels(groups: ReadonlyArray<{ institution: string }>): string[] {
+  return groups.map((group) => group.institution);
+}
 
 export function filterByScope(
   transactions: InterpretedTransaction[],
@@ -36,15 +51,13 @@ export function scopeLabel(scope: LedgerScope): string {
   return accountLabel(scope.accountId);
 }
 
-/** Said under the totals, because a bank's own figures being larger looks wrong otherwise. */
+/** Said under the totals, so a bank's own money in and out are not read as the household's. */
 export function describeScope(scope: LedgerScope): string {
   if (scope.kind === "all") {
-    return "Every account you have uploaded, with money moved between them counted once.";
+    return "Every account you have uploaded. Money in and out leave out internal transfers.";
   }
   const name = scopeLabel(scope);
-  return `${name} on its own. Money sent to your other accounts still counts as leaving here, so these figures tie to ${
-    scope.kind === "institution" ? "the statements" : "the statement"
-  } ${name} sent you.`;
+  return `${name} on its own. Money in and out leave out internal transfers.`;
 }
 
 /**
@@ -55,7 +68,8 @@ export function parseScope(
   value: unknown,
   known: { institutions: string[]; accounts: string[] },
 ): LedgerScope {
-  if (!value || typeof value !== "object") return EVERYTHING;
+  const fallback = defaultTransactionScope(known.institutions);
+  if (!value || typeof value !== "object") return fallback;
   const record = value as Record<string, unknown>;
   if (
     record.kind === "institution" &&
@@ -71,5 +85,5 @@ export function parseScope(
   ) {
     return { kind: "account", accountId: record.accountId };
   }
-  return EVERYTHING;
+  return fallback;
 }

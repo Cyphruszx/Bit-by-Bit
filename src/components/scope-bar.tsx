@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { InstitutionAccounts } from "@/lib/money-flow/accounts";
-import { EVERYTHING, type LedgerScope } from "@/lib/money-flow/scope";
+import { transactionBankLabels, type LedgerScope } from "@/lib/money-flow/scope";
 
 /**
  * Banks on the first row, and the accounts inside the chosen bank on the second. Eleven
@@ -18,7 +18,7 @@ export function ScopeBar({
   scope: LedgerScope;
   onScope: (scope: LedgerScope) => void;
 }) {
-  const institutions = groups.map((group) => group.institution);
+  const institutions = transactionBankLabels(groups);
   // One account is not a choice, so the bar stays out of the way until there are two.
   if (institutions.length === 0) return null;
   if (institutions.length === 1 && groups[0].accounts.length < 2) return null;
@@ -34,9 +34,6 @@ export function ScopeBar({
   return (
     <div className="mt-5 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-          <Chip active={scope.kind === "all"} onClick={() => onScope(EVERYTHING)}>
-            Everything
-          </Chip>
           {institutions.map((institution) => (
             <Chip
               key={institution}

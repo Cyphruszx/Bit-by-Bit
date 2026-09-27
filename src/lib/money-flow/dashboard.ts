@@ -11,7 +11,7 @@ import { needsReview } from "@/lib/money-flow/classify";
 import { UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
 import { monthKey } from "@/lib/money-flow/period";
 import { livePools, membersOf, type PoolBook } from "@/lib/money-flow/pools";
-import { roundMoney } from "@/lib/money-flow/parse-values";
+import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { countedMovements, isEarnings, isRefundCredit, isSpending, tileAmount } from "@/lib/money-flow/summary";
 import {
   accountBalanceView,
@@ -114,6 +114,8 @@ export type BalanceReadout = {
   label?: string;
   prompt?: string;
   warning?: string;
+  /** Set when the sum leaves out accounts that have no opening balance. */
+  excludedNote?: string;
 };
 
 export type BankInstitutionTile = {
@@ -143,17 +145,25 @@ export function totalAccountBalance(tiles: BankInstitutionTile[]): number | null
 }
 
 /**
- * Household total of the card figures. Any estimated amount labels the total.
- * When every account lacks a figure, the total is "No opening balance".
+ * Household total of the card figures. Stated, statement, OFX, Fiskil, and
+ * estimated balances (opening plus movements) are included. An account hidden
+ * for lack of an opening balance is left out. Any estimated amount still
+ * labels the total. When one or more are left out of a sum that still has a
+ * figure, `excludedNote` says so. When every account lacks a figure, the
+ * total is "No opening balance".
  */
 export function presentAccountTiles(tiles: BankInstitutionTile[]): BalanceReadout {
   let sum = 0;
   let any = false;
   let estimated = false;
   let warning = false;
+  let excluded = 0;
   for (const tile of tiles) {
     for (const account of tile.accounts) {
-      if (account.amount == null) continue;
+      if (account.amount == null) {
+        if (account.balanceSource === "missing_opening") excluded += 1;
+        continue;
+      }
       sum = roundMoney(sum + account.amount);
       any = true;
       if (account.balanceSource === "estimated") estimated = true;
@@ -167,11 +177,68 @@ export function presentAccountTiles(tiles: BankInstitutionTile[]): BalanceReadou
       prompt: NO_OPENING_BALANCE_PROMPT,
     };
   }
+  const excludedNote = excludedOpeningBalanceNote(excluded);
   return {
     amount: sum,
     ...(estimated ? { label: ESTIMATED_BALANCE_LABEL } : {}),
     ...(warning ? { warning: NEGATIVE_ESTIMATE_WARNING } : {}),
+    ...(excludedNote ? { excludedNote } : {}),
   };
+}
+
+/** Spec 10F. Only when the total is partial: at least one account was left out. */
+export function excludedOpeningBalanceNote(count: number): string | undefined {
+  if (count < 1) return undefined;
+  const noun = count === 1 ? "account" : "accounts";
+  return `Excludes ${count} ${noun} without an opening balance (partial).`;
+}
+
+/**
+ * Bank card total. Only banks with two or more accounts show one. Any
+ * estimated account labels the total; a bank whose accounts all lack a
+ * figure is "No opening balance".
+ */
+export function bankTileTotal(tile: BankInstitutionTile): BalanceReadout | null {
+  if (tile.accounts.length < 2) return null;
+  return presentAccountTiles([tile]);
+}
+
+/**
+ * Latest civil date among accounts that contribute a figure.
+ * Pass the full ledger: a period filter does not belong here.
+ * A stored `balanceAsOf` counts, and so does each included movement.
+ */
+export function snapshotAsOfDate(
+  transactions: InterpretedTransaction[],
+  tiles: BankInstitutionTile[],
+  meta: Record<string, AccountMeta> = {},
+  mergedInto: Record<string, string> = {},
+): string | null {
+  const included = new Set<string>();
+  for (const tile of tiles) {
+    for (const account of tile.accounts) {
+      if (account.amount != null) included.add(account.id);
+    }
+  }
+  if (included.size === 0) return null;
+  let latest: string | null = null;
+  const consider = (value: string | undefined) => {
+    const day = value?.slice(0, 10);
+    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+    if (!latest || day > latest) latest = day;
+  };
+  for (const id of included) consider(meta[id]?.balanceAsOf);
+  for (const txn of transactions) {
+    const id = canonicalAccountId(txn.accountId?.trim() || txn.accountKey?.trim() || "", mergedInto);
+    if (!included.has(id)) continue;
+    consider(txn.dateIso);
+  }
+  return latest;
+}
+
+/** Hint under Total balance. The date is the snapshot, not the period chip. */
+export function asOfHint(iso: string): string {
+  return `as of ${formatDisplayDate(iso)} ${iso.slice(0, 4)}`;
 }
 
 /**

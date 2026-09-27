@@ -7,17 +7,18 @@ import { EmptyLedger } from "@/components/empty-ledger";
 import { FeatureEnableOffer, OptionalFeaturesPanel } from "@/components/feature-enable-offer";
 import { LineChart } from "@/components/line-chart";
 import { useMoneyFlow } from "@/components/money-flow-provider";
-import { PeriodStrip } from "@/components/period-strip";
 import { useSavingsPots } from "@/components/savings-store";
 import { SavingsRings } from "@/components/savings-rings";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud, formatCount, formatSignedAud } from "@/lib/format";
 import { accountsByInstitution, accountsFrom } from "@/lib/money-flow/accounts";
 import {
+  asOfHint,
   bankInstitutionTiles,
   budgetRowsFromPrior,
   monthlyBalanceSeries,
   presentAccountTiles,
+  snapshotAsOfDate,
 } from "@/lib/money-flow/dashboard";
 import {
   APP_TIME_ZONE,
@@ -76,8 +77,12 @@ export function DashboardView() {
   );
   const budgets = budgetRowsFromPrior(flow.categories, priorCategories);
   const daysLeft = period.kind === "month" ? daysLeftInMonth(period.month, todayIso()) : null;
-  const setAside = included.reduce((sum, pot) => sum + pot.saved, 0) || flow.actualSavings;
   const totalBalance = useMemo(() => presentAccountTiles(tiles), [tiles]);
+  const asOf = useMemo(
+    () => snapshotAsOfDate(allTransactions, tiles, accountMeta, mergedInto),
+    [accountMeta, allTransactions, mergedInto, tiles],
+  );
+  const accountCount = `Across ${formatCount(accounts.length)} account${accounts.length === 1 ? "" : "s"}`;
 
   if (!hasUploads) {
     return (
@@ -97,26 +102,7 @@ export function DashboardView() {
       <FeatureEnableOffer />
 
       <div className="grid gap-5">
-        <BankAccountsCard tiles={tiles} />
-
-        <PeriodStrip income={flow.income} spending={flow.spending} net={flow.net} />
-
         <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryCard
-            label="Total balance"
-            value={totalBalance.amount == null ? (totalBalance.label ?? "—") : formatAud(totalBalance.amount)}
-            detail={
-              totalBalance.amount == null
-                ? (totalBalance.prompt ?? `Across ${formatCount(accounts.length)} account${accounts.length === 1 ? "" : "s"}`)
-                : [
-                    totalBalance.label,
-                    totalBalance.warning,
-                    `Across ${formatCount(accounts.length)} account${accounts.length === 1 ? "" : "s"}`,
-                  ]
-                    .filter(Boolean)
-                    .join(". ")
-            }
-          />
           <SummaryCard
             label="Money in"
             value={formatAud(flow.cashIn)}
@@ -126,15 +112,33 @@ export function DashboardView() {
           <SummaryCard
             label="Money out"
             value={`−${formatAud(flow.cashOut)}`}
-            detail={`${formatCount(flow.transactionCount)} movements`}
+            detail={flow.periodLabel}
           />
           <SummaryCard
-            label="Set aside"
-            value={formatAud(setAside)}
-            detail={included.length > 0 ? "Moved to savings pots" : "Actual savings this period"}
-            highlight
+            label="Net"
+            value={formatSignedAud(flow.cashNet)}
+            detail={flow.periodLabel}
+            positive={flow.cashNet > 0}
+          />
+          <SummaryCard
+            label="Total balance"
+            value={totalBalance.amount == null ? (totalBalance.label ?? "—") : formatAud(totalBalance.amount)}
+            detail={
+              totalBalance.amount == null
+                ? (totalBalance.prompt ?? accountCount)
+                : [
+                    [asOf ? asOfHint(asOf) : null, totalBalance.label, totalBalance.warning, accountCount]
+                      .filter(Boolean)
+                      .join(". "),
+                    totalBalance.excludedNote,
+                  ]
+                    .filter(Boolean)
+                    .join(". ")
+            }
           />
         </section>
+
+        <BankAccountsCard tiles={tiles} />
 
         <BudgetBars rows={budgets} daysLeft={daysLeft} />
 
