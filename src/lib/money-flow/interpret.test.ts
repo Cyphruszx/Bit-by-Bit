@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { accountsByInstitution, accountsFrom } from "./accounts";
 import { detectFileKind } from "./detect";
+import { archivedPdfTestOptions } from "./ingest-pdf-flag";
 import { interpretDocuments } from "./interpret";
 import { parseDocument } from "./parsers";
 import { parseAmount, parseDate, roundMoney } from "./parse-values";
@@ -39,7 +40,7 @@ function flowRow(
 
 process.env.OPENAI_API_KEY = "";
 
-const samples = path.join(process.cwd(), "public/samples");
+const samples = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
 
 function file(filename: string, mime: string, contents: string | Uint8Array) {
   const bytes = typeof contents === "string" ? new TextEncoder().encode(contents) : contents;
@@ -123,7 +124,7 @@ describe("document interpretation", () => {
     assert.equal(parsed.transactions.length, 3);
     const gated = await interpretDocuments([file("export.ofx", "application/x-ofx", ofx)]);
     assert.equal(gated.transactions.length, 0);
-    assert.match(gated.files[0]?.processingError ?? "", /unavailable/i);
+    assert.match(gated.files[0]?.processingError ?? "", /OFX or QFX/);
 
     // The file's own fields, kept the way a spreadsheet's cells are kept.
     const salary = parsed.transactions.find((txn) => /salary/i.test(txn.merchant));
@@ -162,7 +163,7 @@ describe("document interpretation", () => {
     assert.equal(parsed.transactions.length, 2);
     const gated = await interpretDocuments([file("export.json", "application/json", json)]);
     assert.equal(gated.transactions.length, 0);
-    assert.match(gated.files[0]?.processingError ?? "", /unavailable/i);
+    assert.match(gated.files[0]?.processingError ?? "", /isn't supported/);
   });
 
   it("interprets QIF bank records", async () => {
@@ -180,7 +181,7 @@ PSalary Acme
     assert.equal(parsed.transactions.length, 2);
     const gated = await interpretDocuments([file("export.qif", "application/qif", qif)]);
     assert.equal(gated.transactions.length, 0);
-    assert.match(gated.files[0]?.processingError ?? "", /unavailable/i);
+    assert.match(gated.files[0]?.processingError ?? "", /isn't supported/);
 
     const shop = parsed.transactions.find((txn) => /woolworths/i.test(txn.merchant));
     assert.equal(sourceValue(shop?.source, "Payee"), "Woolworths");
@@ -225,7 +226,7 @@ LTransfer
     ]);
     assert.equal(gated.files[0].kind, "xlsx");
     assert.equal(gated.transactions.length, 0);
-    assert.match(gated.files[0]?.processingError ?? "", /unavailable/i);
+    assert.match(gated.files[0]?.processingError ?? "", /isn't supported/);
   });
 
   it("keeps Excel date cells on the calendar day, including month boundaries", async () => {
@@ -278,7 +279,7 @@ LTransfer
     assert.equal(result.flow.spending, 91.9);
   });
 
-  it("interprets a text PDF statement", async () => {
+  it("interprets a text PDF statement", archivedPdfTestOptions(), async () => {
     const pdf = minimalPdf("25/08/2026 Woolworths 86.40 DR\n18/08/2026 Salary Acme 1500.00 CR");
     assert.equal(detectFileKind("statement.pdf", "application/pdf", pdf), "pdf");
     const parsed = await parseDocument("statement.pdf", "application/pdf", pdf);
@@ -328,7 +329,7 @@ describe("NAB CSV exports", () => {
     const moneyOut = result.transactions.filter((txn) => txn.amount < 0).reduce((sum, txn) => sum + txn.amount, 0);
     assert.equal(Math.round(moneyIn * 100) / 100, 204214.49);
     assert.equal(Math.round(moneyOut * 100) / 100, -203665.05);
-    // public/samples nab-medicare.csv + nab-rent.csv: Money in/out omit classified
+    // Retired nab-medicare.csv + nab-rent.csv: Money in/out omit classified
     // same-institution pairs. Raw statement credits/debits stay 204214.49 / 203665.05.
     assert.equal(result.flow.cashIn, 162371.67);
     assert.equal(result.flow.cashOut, 161822.23);
@@ -500,7 +501,7 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
 
   it("reconciles the year sample with silent same-institution pairs (Spec 3/7)", async () => {
     const result = await readUpSample();
-    // public/samples/up-2025-07-to-2026-06.txt heads itself "Money In +$70,574.39
+    // Retired up-2025-07-to-2026-06.txt heads itself "Money In +$70,574.39
     // Money Out $71,631.34" excluding saver transfers. Unique Up pairs resolve
     // silently: Income/Spending stay those figures, Transfers $14,446.60,
     // Actual Savings $5,800.40. Unlinked refunds stay out of Income.
@@ -528,15 +529,15 @@ Wagga Wagga, NSW GLORY ENTERPRISE P,WAGGA WAGGA Refund +$7.90 $242.99
     assert.ok(!result.flow.insights.some((line) => /likely transfer/i.test(line)));
   });
 
-  it("runs the server action against the year sample", async () => {
+  it("rejects the printed year sample at the upload action (CSV only)", async () => {
     const { interpretUploadedDocuments } = await import("../../app/actions/interpret-documents");
     const form = new FormData();
     form.append("files", new File([readFileSync(upSample)], "up-2025-07-to-2026-06.txt", { type: "text/plain" }));
     const result = await interpretUploadedDocuments(form);
-    assert.equal(result.ok, true);
-    if (!result.ok) return;
-    assert.ok(result.transactions.length > 1000);
-    assert.equal(result.files[0].kind, "text");
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.code, "UNSUPPORTED_FILE_TYPE");
+    assert.match(result.error, /isn't supported/);
   });
 
   it("carries no personal detail into the shared sample", () => {
@@ -1092,7 +1093,7 @@ describe("splitting the samples into accounts", () => {
     );
 
     // Saver Money in/out omit classified pocket transfers; leftover is external
-    // (interest). public/samples/up-2025-07-to-2026-06.txt
+    // (interest). Retired up-2025-07-to-2026-06.txt
     assert.equal(roundMoney(savers.reduce((sum, account) => sum + account.flow.cashNet, 0)), 9.86);
   });
 
@@ -1300,7 +1301,7 @@ describe("what each scope reports", () => {
     // Spec 3/7 silent same-institution pairs cancel in the household view.
     // Income/Spending/Net/Cash are unchanged from the OPEN-hold figures; Transfers
     // and Actual Savings now include the silent Up/NAB pairs. Refunds stay unlinked.
-    // public/samples: nab-medicare.csv, nab-rent.csv, up-2025-07-to-2026-06.txt
+    // Retired samples: nab-medicare.csv, nab-rent.csv, up-2025-07-to-2026-06.txt
     assert.ok(rows.some((txn) => txn.transferPair && txn.decidedBy === "paired"));
     assert.ok(rows.every((txn) => !txn.refundPair));
     assert.equal(flow.income, 145096.99);

@@ -102,7 +102,7 @@ describe("saying where money in came from", () => {
 
 describe("the samples, split up", () => {
   async function sampleLedger() {
-    const dir = path.join(process.cwd(), "public/samples");
+    const dir = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
     const names = ["nab-medicare.csv", "nab-rent.csv", "up-2025-07-to-2026-06.txt"];
     const result = await interpretDocuments(
       names.map((filename) => ({

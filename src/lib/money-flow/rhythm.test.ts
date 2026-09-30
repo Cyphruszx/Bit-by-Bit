@@ -138,7 +138,7 @@ describe("a stream that stops", () => {
 
 describe("the samples, and the question that started this", () => {
   it("reads a year of Medicare billing as a rate a person can check", async () => {
-    const dir = path.join(process.cwd(), "public/samples");
+    const dir = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
     const names = ["nab-medicare.csv", "nab-rent.csv", "up-2025-07-to-2026-06.txt"];
     const result = await interpretDocuments(
       names.map((filename) => ({
@@ -172,7 +172,7 @@ describe("the samples, and the question that started this", () => {
   });
 
   it("says nothing about the monthly pennies of interest", async () => {
-    const dir = path.join(process.cwd(), "public/samples");
+    const dir = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
     const result = await interpretDocuments(
       [
         {

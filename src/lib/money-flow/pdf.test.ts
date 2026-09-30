@@ -17,6 +17,7 @@ import {
   uploadStudioBody,
   UPLOAD_STUDIO_HEADING,
 } from "./ingest-copy";
+import { archivedPdfTestOptions } from "./ingest-pdf-flag";
 import { interpretDocuments } from "./interpret";
 import { parseDocument } from "./parsers";
 import { PDF_SOFT_MAX_BYTES, PDF_SOFT_MAX_PAGES, pdfOverSoftSize, pdfTextUsable } from "./pdf";
@@ -106,7 +107,7 @@ function minimalPdf(text: string): Uint8Array {
   return new TextEncoder().encode(body);
 }
 
-describe("PDF accept and copy", () => {
+describe("PDF accept and copy", archivedPdfTestOptions(), () => {
   it("accepts PDF alongside CSV and images", () => {
     const accept = acceptedDropTypes();
     assert.match(accept, /\.pdf/);
@@ -152,7 +153,7 @@ describe("PDF accept and copy", () => {
   });
 });
 
-describe("PDF text usability", () => {
+describe("PDF text usability", archivedPdfTestOptions(), () => {
   it("prefers real statement text and rejects empty or page-number scans", () => {
     assert.equal(pdfTextUsable("25/08/2026 Woolworths 86.40 DR\n18/08/2026 Salary Acme 1500.00 CR"), true);
     assert.equal(pdfTextUsable(""), false);
@@ -164,7 +165,7 @@ describe("PDF text usability", () => {
   });
 });
 
-describe("PDF text-extract happy path", () => {
+describe("PDF text-extract happy path", archivedPdfTestOptions(), () => {
   it("reads a digital PDF without burning OCR pages", async () => {
     const pdf = minimalPdf("25/08/2026 Woolworths 86.40 DR\n18/08/2026 Salary Acme 1500.00 CR");
     const parsed = await parseDocument("statement.pdf", "application/pdf", pdf);
@@ -181,7 +182,7 @@ describe("PDF text-extract happy path", () => {
   });
 });
 
-describe("PDF OCR fallback", () => {
+describe("PDF OCR fallback", archivedPdfTestOptions(), () => {
   it("rasterizes and OCRs when extracted text is not usable", async () => {
     let rasterized = 0;
     let ocrPages = 0;
@@ -242,7 +243,7 @@ describe("PDF OCR fallback", () => {
   });
 });
 
-describe("PDF Confirm preview stays template-only", () => {
+describe("PDF Confirm preview stays template-only", archivedPdfTestOptions(), () => {
   it("builds a read-only mapped preview from already-interpreted PDF rows", () => {
     const draft = createDraft(
       interpretation([

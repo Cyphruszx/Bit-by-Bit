@@ -2,7 +2,7 @@ import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFl
 import { applySilentSameInstitutionUniquePairs, forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
 import { coreIngestUnavailable, ocrPagesFor } from "@/lib/money-flow/core-ingest";
 import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
-import { NO_MOVEMENT_ERROR } from "@/lib/money-flow/ingest-copy";
+import { noMovementError } from "@/lib/money-flow/ingest-copy";
 import { parseDocument, type ParseDocumentOptions } from "@/lib/money-flow/parsers";
 import { summarizeMoneyFlow, uniqueTransactions } from "@/lib/money-flow/summary";
 import type { FileInterpretation, InterpretationResult, InterpretedTransaction } from "@/lib/money-flow/types";
@@ -75,7 +75,7 @@ export async function interpretDocuments(
       interpretations.push({
         ...base,
         processingStatus: parsed.transactions.length > 0 ? "completed" : "failed",
-        processingError: parsed.transactions.length > 0 ? undefined : NO_MOVEMENT_ERROR,
+        processingError: parsed.transactions.length > 0 ? undefined : noMovementError(),
         transactionCount: parsed.transactions.length,
         notes: parsed.notes,
         ...(pages ? { ocrPages: pages } : {}),

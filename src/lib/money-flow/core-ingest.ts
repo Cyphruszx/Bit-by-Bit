@@ -1,11 +1,12 @@
 /**
- * Spec 2 Core ingest gates.
+ * Spec 2 Core ingest gates, amended by Spec 2A.
  *
- * CSV + digital PDF + OCR. Spec 2 weekly caps are 5 CSV / 20 OCR pages per
- * Australia/Sydney week. Those caps are off for unrestricted testing:
- * tryChargeCsv / tryChargeOcr still record usage but never refuse.
- * Text-extract PDF uses a CSV Confirm slot. OCR pages debit only when OCR runs
- * (photos at intake; scanned PDF pages after interpret). CSV slot only on Confirm.
+ * Uploads are CSV only. PDF text extraction and photo OCR stay in the repo
+ * behind INGEST_PDF_ENABLED (default off) and are not reached from upload
+ * while that flag is off. Weekly caps are 5 CSV Confirm imports per
+ * Australia/Sydney week (OCR page target archived). Caps are off for
+ * unrestricted testing: tryChargeCsv / tryChargeOcr still record usage but
+ * never refuse.
  *
  * Re-enable weekly caps later by setting NEXT_PUBLIC_INGEST_QUOTAS_DISABLED=false
  * (the upload studio charges in the browser, so it must be NEXT_PUBLIC_) or by
@@ -13,7 +14,9 @@
  * separate from these weekly blocks.
  */
 
+import { ingestPdfEnabled } from "@/lib/money-flow/ingest-pdf-flag";
 import { knownInstitutions } from "@/lib/money-flow/institution";
+import { rejectionCopy, type UploadRejectCase } from "@/lib/money-flow/upload-gate";
 import { APP_TIME_ZONE, calendarDate } from "@/lib/money-flow/period";
 import {
   mappedPreviewRows,
@@ -66,6 +69,7 @@ export function ingestQuotasDisabled(
 export function quotaStatusLabel(usage: QuotaUsage): string {
   if (ingestQuotasDisabled()) return "Testing — quotas off";
   const csvLeft = Math.max(0, CSV_WEEKLY_LIMIT - usage.csv);
+  if (!ingestPdfEnabled()) return `${csvLeft} CSV left this AU week`;
   const ocrLeft = Math.max(0, OCR_PAGE_WEEKLY_LIMIT - usage.ocrPages);
   return `${csvLeft} CSV and ${ocrLeft} OCR pages left this AU week`;
 }
@@ -74,8 +78,6 @@ export const LAUNCH_BANK_PRESETS = knownInstitutions();
 
 const DEVICE_KEY = "bitbybit.device-id";
 const QUOTA_KEY = "bitbybit.quota-v1";
-
-const CORE_CHANNELS = new Set(["csv", "ocr"]);
 
 export type QuotaActor = {
   userId?: string | null;
@@ -118,9 +120,22 @@ export function draftChannel(kind: FileKind | undefined, ocrPages: number): Inge
   return ingestChannel(kind) ?? "csv";
 }
 
+/**
+ * Interpret-time gate. CSV and plain-text statement fixtures stay readable.
+ * PDF and images stay readable only while INGEST_PDF_ENABLED is on. The upload
+ * route is stricter: it accepts `.csv` only (plus PDF/images when the flag is on).
+ */
 export function coreIngestUnavailable(kind: FileKind): string | undefined {
-  if (CORE_CHANNELS.has(ingestChannel(kind) ?? "")) return undefined;
-  return "Core accepts CSV, digital PDF, and photos (OCR) only. Excel, OFX, and QIF are unavailable.";
+  if (kind === "csv" || kind === "text") return undefined;
+  if (ingestPdfEnabled() && (kind === "pdf" || kind === "image")) return undefined;
+  return rejectionCopy(rejectCaseForKind(kind));
+}
+
+function rejectCaseForKind(kind: FileKind): UploadRejectCase {
+  if (kind === "pdf") return "pdf";
+  if (kind === "image") return "image";
+  if (kind === "ofx") return "ofx";
+  return "other";
 }
 
 export function ocrPagesFor(kind: FileKind | undefined, pageCount?: number): number {

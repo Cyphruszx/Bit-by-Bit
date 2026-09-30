@@ -15,7 +15,7 @@ import {
 } from "./statement-balance";
 import type { InterpretedTransaction } from "./types";
 
-const samples = path.join(process.cwd(), "public/samples");
+const samples = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
 
 function txn(
   over: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "amount" | "dateIso">,

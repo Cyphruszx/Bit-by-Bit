@@ -141,6 +141,10 @@ export async function parseDocument(
   return stamped(extractedDocument(fallback, filename, notesForText(fallback)), { text: fallback, filename });
 }
 
+/**
+ * Archived with Spec 2A. Upload reaches this only when INGEST_PDF_ENABLED is on.
+ * While the flag is off, interpret and POST /api/v1/ingest/upload return 415 first.
+ */
 async function readPdfDocument(
   filename: string,
   bytes: Uint8Array,

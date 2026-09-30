@@ -10,7 +10,7 @@ import type { InterpretedTransaction } from "./types";
 
 process.env.OPENAI_API_KEY = "";
 
-const samples = path.join(process.cwd(), "public/samples");
+const samples = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
 const NAMES = ["nab-medicare.csv", "nab-rent.csv", "up-2025-07-to-2026-06.txt"];
 
 let held: InterpretedTransaction[] | null = null;
@@ -160,7 +160,7 @@ describe("the movements the taxonomy has to get right", () => {
   it("keeps the household's cash tied to the statements while its income is not", async () => {
     const flow = summarizeMoneyFlow(await ledger());
     // Money in/out omit classified internals ($56,289.42 of paired legs).
-    // public/samples: nab-medicare.csv, nab-rent.csv, up-2025-07-to-2026-06.txt
+    // Retired samples: nab-medicare.csv, nab-rent.csv, up-2025-07-to-2026-06.txt
     assert.equal(flow.cashIn, 232946.06);
     assert.equal(flow.cashOut, 233453.57);
     assert.equal(flow.cashNet, -507.51, "household net unchanged: both legs leave together");
