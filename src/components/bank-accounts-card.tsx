@@ -50,7 +50,7 @@ function InstitutionTile({ tile }: { tile: BankInstitutionTile }) {
           <BalanceFigure
             amount={total.amount}
             label={total.label}
-            prompt={total.excludedNote ?? (total.amount == null ? total.prompt : undefined)}
+            prompt={total.amount == null ? undefined : total.prompt}
             warning={total.warning}
           />
         </div>

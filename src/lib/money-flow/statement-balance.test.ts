@@ -67,7 +67,14 @@ describe("stated statement balances", () => {
 
   it("derives credits minus debits when no stated balance exists, excluding PENDING", () => {
     const rows = [
-      txn({ id: "in", amount: 100, dateIso: "2026-06-01", type: "earned", categoryKey: "salary" }),
+      txn({
+        id: "in",
+        amount: 100,
+        dateIso: "2026-06-01",
+        type: "earned",
+        categoryKey: "salary",
+        verdict: { because: "earned", counts: true, at: "2026-01-01T00:00:00.000Z" },
+      }),
       txn({ id: "loan", amount: 250, dateIso: "2026-06-01", type: "borrowed", categoryKey: "uncategorised" }),
       txn({ id: "out", amount: -40, dateIso: "2026-06-02" }),
       txn({ id: "pending", amount: -80, dateIso: "2026-06-03", status: "PENDING" }),

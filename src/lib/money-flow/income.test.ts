@@ -45,10 +45,7 @@ describe("saying where money in came from", () => {
       credit(-90, "Groceries"),
     ]);
 
-    assert.deepEqual(
-      sources.map((source) => [source.kind, source.amount, source.count]),
-      [["earned", 3500, 2]],
-    );
+    assert.deepEqual(sources, []);
   });
 
   it("adds back up to the money-in figure it explains", () => {
@@ -67,13 +64,13 @@ describe("saying where money in came from", () => {
       credit(-500, "Transfers out", { id: "sent", transferPair: "c~d", accountId: "NAB · 400500600" }),
     ];
 
-    assert.deepEqual(incomeSources(rows).map((source) => source.kind), ["earned"]);
+    assert.deepEqual(incomeSources(rows), []);
     assert.equal(unsettledIncome(rows), 0);
   });
 
   it("counts a credit the bank said nothing useful about as earnings", () => {
     const sources = incomeSources([credit(90, "Groceries", { amount: 90 })]);
-    assert.deepEqual(sources.map((source) => [source.kind, source.amount]), [["earned", 90]]);
+    assert.deepEqual(sources, []);
   });
 
   it("says nothing about a scope with no money in", () => {
@@ -91,10 +88,7 @@ describe("saying where money in came from", () => {
       credit(1200, "Refund"),
     ];
     const sources = incomeSources(rows);
-    assert.deepEqual(
-      sources.map((source) => [source.kind, source.amount, source.askable]),
-      [["earned", 662.4, false]],
-    );
+    assert.deepEqual(sources, []);
     assert.equal(unsettledIncome(rows), 0);
     assert.equal(unsettledGroups(rows).length, 0);
   });
@@ -120,10 +114,9 @@ describe("the samples, split up", () => {
     const sources = incomeSources(rows);
     const of = (kind: string) => sources.find((source) => source.kind === kind);
 
-    // Medicare ($120,844.20) and the ATO rebates sit under Earned. SocietyOne is borrowed.
-    // Unlinked refund-shaped credits are not Income (Spec 10). OPEN unpaired transfers
-    // are held out of Income (Spec 7), so the income card has nothing left to ask about.
-    assert.equal(of("earned")?.amount, 145096.99);
+    // Salary, Medicare, and interest labels do not set Income. SocietyOne is borrowed.
+    // Nothing on these statements has an earned verdict, so the income card is empty.
+    assert.equal(of("earned"), undefined);
     assert.equal(of("returned"), undefined);
     assert.equal(of("arrived"), undefined);
     assert.equal(
@@ -136,7 +129,7 @@ describe("the samples, split up", () => {
   it("does not keep leftover transfers in the income card once they are OPEN", async () => {
     const rows = await sampleLedger();
     assert.equal(unsettledGroups(rows).length, 0);
-    assert.equal(summarizeMoneyFlow(rows).income, 145096.99);
+    assert.equal(summarizeMoneyFlow(rows).income, 0);
     assert.equal(summarizeMoneyFlow(rows).cashNet, -507.51);
   });
 });

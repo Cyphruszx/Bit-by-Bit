@@ -21,13 +21,7 @@ import { appendToLedger, EMPTY_LEDGER, visibleTransactions, type Ledger } from "
 import { filterByPeriod, summarizePeriod } from "./period";
 import { defaultTransactionScope } from "./scope";
 import { filterByScope } from "./scope";
-import {
-  ESTIMATED_BALANCE_LABEL,
-  NEGATIVE_ESTIMATE_WARNING,
-  NO_OPENING_BALANCE_LABEL,
-  NO_OPENING_BALANCE_PROMPT,
-  accountBalanceView,
-} from "./statement-balance";
+import { accountBalanceView, NO_BANK_BALANCE_LABEL } from "./statement-balance";
 import { summarizeMoneyFlow } from "./summary";
 import type { AccountMeta } from "./account-identity";
 import type { InterpretedTransaction } from "./types";
@@ -43,7 +37,7 @@ function txn(
   extras: Partial<InterpretedTransaction> = {},
 ): InterpretedTransaction {
   const accountId = extras.accountId ?? "NAB · Everyday";
-  return {
+  const row = {
     id,
     merchant: extras.merchant ?? "Cafe",
     categoryKey: extras.categoryKey ?? "groceries",
@@ -57,6 +51,10 @@ function txn(
     accountId,
     ...extras,
   };
+  if ((row.type === "earned" || row.type === "INCOME") && !row.verdict) {
+    row.verdict = { because: "earned", counts: true, at: "2026-01-01T00:00:00.000Z" };
+  }
+  return row;
 }
 
 /** Same read the dashboard uses: stored ledger, classify, then silent same-bank pairs. */
@@ -148,7 +146,7 @@ describe("Draft A period tiles", () => {
     ];
     const meta: Record<string, AccountMeta> = {
       "NAB · Everyday": { clearedBalance: 100, balanceSource: "running" },
-      "Up · Spending": { clearedBalance: 40, balanceSource: "header" },
+      "Up · Spending": { clearedBalance: 40, balanceSource: "running" },
     };
     const tiles = bankInstitutionTiles(accountsByInstitution(rows), { meta });
     const juneRows = filterByPeriod(rows, { kind: "month", month: "2026-06" });
@@ -167,14 +165,14 @@ describe("Draft A period tiles", () => {
   });
 });
 
-describe("Spec 10F partial total balance", () => {
+describe("bank totals hide when any account has no bank figure", () => {
   const stated = txn("stated", "2026-06-01", 10, {
     accountId: "NAB · Everyday",
     institution: "NAB",
     type: "INCOME",
     categoryKey: "salary",
   });
-  const estimated = txn("estimated", "2026-06-02", 20, {
+  const saver = txn("saver", "2026-06-02", 20, {
     accountId: "NAB · Saver",
     institution: "NAB",
     type: "INCOME",
@@ -183,49 +181,46 @@ describe("Spec 10F partial total balance", () => {
   const hidden = (id: string, accountId: string) =>
     txn(id, "2026-06-03", 5, { accountId, institution: "NAB", type: "INCOME", categoryKey: "salary" });
   const meta: Record<string, AccountMeta> = {
-    "NAB · Everyday": { clearedBalance: 100, balanceSource: "header" },
-    "NAB · Saver": { openingBalance: 0 },
+    "NAB · Everyday": { clearedBalance: 100, balanceSource: "running" },
+    "NAB · Saver": { clearedBalance: 20, balanceSource: "fiskil" },
   };
-  const readout = (rows: InterpretedTransaction[]) =>
-    presentAccountTiles(bankInstitutionTiles(accountsByInstitution(rows), { meta }));
+  const readout = (rows: InterpretedTransaction[], extra: Record<string, AccountMeta> = meta) =>
+    presentAccountTiles(bankInstitutionTiles(accountsByInstitution(rows), { meta: extra }));
 
-  it("sums only known balances and notes 0, 1, and 2 excluded accounts", () => {
-    const none = readout([stated, estimated]);
-    assert.equal(none.amount, 120);
-    assert.equal(none.label, ESTIMATED_BALANCE_LABEL);
-    assert.equal(none.excludedNote, undefined);
+  it("sums every bank figure and hides the total when one account has none", () => {
+    const both = readout([stated, saver]);
+    assert.equal(both.amount, 120);
+    assert.equal(both.label, undefined);
 
-    const one = readout([stated, hidden("hidden", "NAB · Hidden")]);
-    assert.equal(one.amount, 100);
-    assert.equal(one.label, undefined);
-    assert.equal(one.excludedNote, "Excludes 1 account without an opening balance (partial).");
+    const oneMissing = readout([stated, hidden("hidden", "NAB · Hidden")]);
+    assert.equal(oneMissing.amount, null);
+    assert.equal(oneMissing.label, NO_BANK_BALANCE_LABEL);
 
-    const two = readout([
-      stated,
-      hidden("hidden-a", "NAB · Hidden"),
-      hidden("hidden-b", "NAB · Other"),
-    ]);
-    assert.equal(two.amount, 100);
-    assert.equal(two.excludedNote, "Excludes 2 accounts without an opening balance (partial).");
+    const pdfAndRunning = readout([stated, saver], {
+      "NAB · Everyday": { clearedBalance: 100, balanceSource: "header" },
+      "NAB · Saver": { clearedBalance: 20, balanceSource: "fiskil" },
+    });
+    assert.equal(pdfAndRunning.amount, null);
+    assert.equal(pdfAndRunning.label, NO_BANK_BALANCE_LABEL);
   });
 
-  it("notes one excluded account on a bank total and keeps the Estimated label", () => {
-    const tiles = bankInstitutionTiles(accountsByInstitution([stated, estimated, hidden("hidden", "NAB · Hidden")]), {
+  it("does not render a partial bank total or an estimated label", () => {
+    const tiles = bankInstitutionTiles(accountsByInstitution([stated, saver, hidden("hidden", "NAB · Hidden")]), {
       meta,
     });
     const total = bankTileTotal(tiles[0]!);
-    assert.equal(total?.amount, 120);
-    assert.equal(total?.label, ESTIMATED_BALANCE_LABEL);
-    assert.equal(total?.excludedNote, "Excludes 1 account without an opening balance (partial).");
+    assert.equal(total?.amount, null);
+    assert.equal(total?.label, NO_BANK_BALANCE_LABEL);
 
     const html = renderToStaticMarkup(createElement(BankAccountsCard, { tiles }));
-    assert.match(html, /Estimated from movements/);
-    assert.match(html, /Excludes 1 account without an opening balance \(partial\)\./);
+    assert.equal(html.includes("Estimated from movements"), false);
+    assert.equal(html.includes("Excludes"), false);
+    assert.match(html, /No balance from your bank\./);
   });
 });
 
-describe("Draft A estimated balances", () => {
-  it("labels Up Investing −$1,433.14 as a fallback and hides a figure with no opening", () => {
+describe("Draft A bank balances", () => {
+  it("shows a CSV figure and hides an account with only an opening", () => {
     const rows = [
       txn("inv", "2026-06-02", -1433.14, {
         accountId: "Up · Investing",
@@ -242,32 +237,30 @@ describe("Draft A estimated balances", () => {
     const tiles = bankInstitutionTiles(accountsByInstitution(rows), {
       meta: {
         "Up · Investing": { openingBalance: 0 },
-        "Up · Spending": { clearedBalance: 177.64, balanceSource: "header" },
+        "Up · Spending": { clearedBalance: 177.64, balanceSource: "running" },
       },
     });
     const investing = tiles[0]?.accounts.find((account) => account.name === "Investing");
-    assert.equal(investing?.amount, -1433.14);
-    assert.equal(investing?.balanceSource, "estimated");
-    assert.equal(investing?.balanceLabel, ESTIMATED_BALANCE_LABEL);
-    assert.equal(investing?.balanceWarning, NEGATIVE_ESTIMATE_WARNING);
+    assert.equal(investing?.amount, null);
+    assert.equal(investing?.balanceLabel, NO_BANK_BALANCE_LABEL);
 
     const total = bankTileTotal(tiles[0]!);
-    assert.equal(total?.amount, -1255.5);
-    assert.equal(total?.label, ESTIMATED_BALANCE_LABEL);
+    assert.equal(total?.amount, null);
+    assert.equal(total?.label, NO_BANK_BALANCE_LABEL);
 
     const missing = accountBalanceView("Up · Investing", rows.filter((row) => row.accountId === "Up · Investing"), {});
     assert.equal(missing.amount, null);
-    assert.equal(missing.label, NO_OPENING_BALANCE_LABEL);
-    assert.equal(missing.prompt, NO_OPENING_BALANCE_PROMPT);
+    assert.equal(missing.label, NO_BANK_BALANCE_LABEL);
 
     const html = renderToStaticMarkup(createElement(BankAccountsCard, { tiles }));
-    assert.match(html, /Estimated from movements/);
-    assert.match(html, /-\$1,433\.14/);
-    assert.match(html, />Total</);
+    assert.equal(html.includes("Estimated from movements"), false);
+    assert.equal(html.includes("-$1,433.14"), false);
+    assert.match(html, /\$177\.64/);
+    assert.match(html, /No balance from your bank\./);
 
     const single = bankInstitutionTiles(
       accountsByInstitution(rows.filter((row) => row.accountId === "Up · Spending")),
-      { meta: { "Up · Spending": { clearedBalance: 177.64, balanceSource: "header" } } },
+      { meta: { "Up · Spending": { clearedBalance: 177.64, balanceSource: "running" } } },
     );
     assert.equal(bankTileTotal(single[0]!), null);
     const oneAccount = renderToStaticMarkup(createElement(BankAccountsCard, { tiles: single }));
@@ -318,25 +311,24 @@ describe("Draft A sample statements", () => {
     const upTotal = bankTileTotal(up.tiles[0]!);
 
     // Retired up-2025-07-to-2026-06.txt — all activity.
-    // Old strip was Income $70,120.77, Spending $71,631.34, Net −$1,510.57.
-    // Draft A Net is Money in − Money out.
+    // Printed closings stay stored and are not shown. Income is 0 without an earned verdict.
     assert.equal(upFlow.cashIn, 70574.39);
     assert.equal(upFlow.cashOut, 71631.34);
     assert.equal(upFlow.cashNet, -1056.95);
-    assert.equal(upFlow.net, -1510.57);
+    assert.equal(upFlow.net, -71631.34);
     assert.notEqual(upFlow.cashNet, upFlow.net);
-    assert.equal(upSnapshot.amount, 257.55);
-    assert.equal(upSnapshot.label, undefined);
-    assert.equal(snapshotAsOfDate(up.transactions, up.tiles, up.meta), "2026-06-30");
+    assert.equal(upSnapshot.amount, null);
+    assert.equal(upSnapshot.label, NO_BANK_BALANCE_LABEL);
+    assert.equal(snapshotAsOfDate(up.transactions, up.tiles, up.meta), null);
     assert.equal(asOfHint("2026-06-30"), "as of 30 June 2026");
     assert.equal(up.tiles[0]?.institution, "Up");
     assert.equal(up.tiles[0]?.accounts.length, 9);
-    assert.equal(upTotal?.amount, 257.55);
-    assert.equal(upTotal?.label, undefined);
+    assert.equal(upTotal?.amount, null);
+    assert.equal(upTotal?.label, NO_BANK_BALANCE_LABEL);
     assert.equal(upJune.cashIn, 4788.08);
     assert.equal(upJune.cashOut, 4879.57);
     assert.equal(upJune.cashNet, -91.49);
-    assert.equal(presentAccountTiles(up.tiles).amount, 257.55);
+    assert.equal(presentAccountTiles(up.tiles).amount, null);
 
     const nab = await shownLedger([
       { filename: "nab-medicare.csv", mime: "text/csv" },
@@ -348,11 +340,11 @@ describe("Draft A sample statements", () => {
     const nabTotal = bankTileTotal(nab.tiles[0]!);
 
     // Retired nab-medicare.csv + nab-rent.csv — all activity.
-    // Old strip was Income $129,800.67, Spending $25,351.83, Net $104,448.84.
+    // CSV Balance cells still show. Income is 0 without an earned verdict.
     assert.equal(nabFlow.cashIn, 162371.67);
     assert.equal(nabFlow.cashOut, 161822.23);
     assert.equal(nabFlow.cashNet, 549.44);
-    assert.equal(nabFlow.net, 104448.84);
+    assert.equal(nabFlow.net, -161822.23);
     assert.notEqual(nabFlow.cashNet, nabFlow.net);
     assert.equal(nabSnapshot.amount, 4913.56);
     assert.equal(nabSnapshot.label, undefined);
@@ -369,7 +361,7 @@ describe("Draft A sample statements", () => {
     assert.equal(nabJune.cashIn, 37121.25);
     assert.equal(nabJune.cashOut, 35751.4);
     assert.equal(nabJune.cashNet, 1369.85);
-    assert.equal(nabJune.net, -12680.36);
+    assert.equal(nabJune.net, -35751.4);
     assert.equal(presentAccountTiles(nab.tiles).amount, 4913.56);
 
     const both = await shownLedger([

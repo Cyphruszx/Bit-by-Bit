@@ -28,8 +28,8 @@ export type IncomeSource = {
   amount: number;
   count: number;
   /**
-   * Whether a person could settle this themselves. Earnings need no verdict; a credit
-   * that arrived from nowhere is exactly what only they can explain.
+   * Whether a person could settle this themselves. Income is only an earned verdict.
+   * A credit that arrived from nowhere is exactly what only they can explain.
    */
   askable: boolean;
 };

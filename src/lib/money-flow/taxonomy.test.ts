@@ -69,7 +69,7 @@ describe("the movements the taxonomy has to get right", () => {
 
     const earned = on(rows, "2026-06-30", 0.1, /^\s*Interest\b/i);
     assert.equal(earned.categoryKey, "other-income");
-    assert.equal(earned.type, "INCOME");
+    assert.equal(earned.type, "UNREVIEWED");
   });
 
   it("reads a government benefit as income, not as an expense category", async () => {
@@ -79,11 +79,11 @@ describe("the movements the taxonomy has to get right", () => {
     const medicare = on(rows, "2026-06-29", 662.4, /MCARE BENEFITS/i);
     assert.equal(medicare.categoryKey, "other-income");
     assert.deepEqual(medicare.tags, ["Rebate"]);
-    assert.equal(medicare.type, "INCOME");
+    assert.equal(medicare.type, "UNREVIEWED");
 
     const dva = on(rows, "2026-06-29", 41.45, /VTA BENEFITS/i);
     assert.equal(dva.categoryKey, "other-income");
-    assert.equal(dva.type, "INCOME");
+    assert.equal(dva.type, "UNREVIEWED");
   });
 
   it("recognises the everyday merchants, including the one that used to land in Other", async () => {
@@ -121,8 +121,8 @@ describe("the movements the taxonomy has to get right", () => {
     const groups = reviewGroups(await ledger());
     const offset = groups.filter((group) => /casey lee offset/i.test(group.merchant));
 
-    // OPEN unpaired offsets leave the merchant queue; Review Queue holds them instead.
-    assert.equal(offset.length, 0);
+    // One-sided offsets are not Review holds, so both wordings stay in the merchant queue.
+    assert.equal(offset.length, 2);
   });
 
   it("puts the money in front of the person in the order it matters", async () => {
@@ -130,10 +130,9 @@ describe("the movements the taxonomy has to get right", () => {
     const groups = reviewGroups(rows);
     const progress = reviewProgress(rows);
 
-    // OPEN unpaired transfers leave the counted set, so a larger share is already
-    // placed. The merchant seed files more of the long tail (67% of 1303 rows on the
-    // three sample statements) without touching Income 145096.99 / Spending 89913.17.
-    assert.equal(progress.percent, 67);
+    // Salary, benefit, and interest credits stay UNREVIEWED, so fewer rows count as placed.
+    // 64% of 1303 rows on the three sample statements.
+    assert.equal(progress.percent, 64);
     assert.ok(groups.length < 250, `${groups.length} questions, not one per movement`);
     assert.ok(
       Math.abs(groups[0].amount) > Math.abs(groups[groups.length - 1].amount),
@@ -164,10 +163,10 @@ describe("the movements the taxonomy has to get right", () => {
     assert.equal(flow.cashIn, 232946.06);
     assert.equal(flow.cashOut, 233453.57);
     assert.equal(flow.cashNet, -507.51, "household net unchanged: both legs leave together");
-    // Spec 7: OPEN unpaired transfers are held out of Income/Spending. $25,000 of what
-    // arrived was borrowed, so it is in the cash and not in the earnings.
-    assert.equal(flow.income, 145096.99);
-    assert.equal(flow.spending, 89913.17);
+    // Income is only an earned verdict. One-sided transfers are not Review holds, so
+    // those debits sit in Spending. $25,000 borrowed stays out of Income. Cash is unchanged.
+    assert.equal(flow.income, 0);
+    assert.equal(flow.spending, 171559.12);
     assert.equal(flow.refunds, 0);
   });
 });
