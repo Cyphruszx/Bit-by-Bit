@@ -28,7 +28,7 @@ function upCsv(rows: string): string {
 function txn(
   over: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "amount">,
 ): InterpretedTransaction {
-  return {
+  const row = {
     merchant: "Cafe",
     categoryKey: "groceries",
     date: "1 Jun 2026",
@@ -39,6 +39,10 @@ function txn(
     institution: "Up",
     ...over,
   };
+  if ((row.type === "earned" || row.type === "INCOME") && !row.verdict) {
+    row.verdict = { because: "earned", counts: true, at: "2026-01-01T00:00:00.000Z" };
+  }
+  return row;
 }
 
 function upOfx(body: string, ledger = "340.40"): string {

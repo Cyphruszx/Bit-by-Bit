@@ -7,7 +7,6 @@ import {
   bankInstitutionTiles,
   budgetRowsFromPrior,
   institutionAccountName,
-  monthlyBalanceSeries,
   payRunCount,
   recentLedgerRows,
   spendDonutSlices,
@@ -25,7 +24,7 @@ function txn(
   amount: number,
   extras: Partial<InterpretedTransaction> = {},
 ): InterpretedTransaction {
-  return {
+  const row = {
     id,
     merchant: extras.merchant ?? "Cafe",
     categoryKey: extras.categoryKey ?? "groceries",
@@ -37,6 +36,10 @@ function txn(
     confidence: 1,
     ...extras,
   };
+  if ((row.type === "earned" || row.type === "INCOME") && !row.verdict) {
+    row.verdict = { because: "earned", counts: true, at: "2026-01-01T00:00:00.000Z" };
+  }
+  return row;
 }
 
 describe("dashboard widgets", () => {
@@ -85,32 +88,6 @@ describe("dashboard widgets", () => {
     assert.equal(rows[1]?.over, 0);
   });
 
-  it("walks a running position across the last twelve months", () => {
-    const rows = [
-      txn("1", "2025-08-01", 1000, { categoryKey: "salary", type: "earned" }),
-      txn("2", "2026-01-15", 500, { categoryKey: "salary", type: "earned" }),
-      txn("3", "2026-09-10", -200, { categoryKey: "groceries", type: "spent" }),
-    ];
-    const months = [
-      "2025-10",
-      "2025-11",
-      "2025-12",
-      "2026-01",
-      "2026-02",
-      "2026-03",
-      "2026-04",
-      "2026-05",
-      "2026-06",
-      "2026-07",
-      "2026-08",
-      "2026-09",
-    ];
-    const series = monthlyBalanceSeries(rows, months);
-    assert.equal(series[0]?.value, 1000);
-    assert.equal(series[3]?.value, 1500);
-    assert.equal(series[11]?.value, 1300);
-  });
-
   it("lists the newest ledger rows with a running cash position", () => {
     const rows = recentLedgerRows([
       txn("a", "2026-09-10", 100, { merchant: "Pay", categoryKey: "salary", type: "earned" }),
@@ -153,7 +130,7 @@ describe("dashboard widgets", () => {
     );
     assert.equal(accountDisplayAmount("NAB · Everyday", {}), null);
     assert.equal(accountBalanceView("NAB · Everyday", [], {}).amount, null);
-    assert.equal(accountBalanceView("NAB · Everyday", [], {}).label, "No opening balance");
+    assert.equal(accountBalanceView("NAB · Everyday", [], {}).label, "No balance from your bank.");
   });
 
   it("keeps 1–3 real account rows per bank and does not merge soft-pool balances", () => {
@@ -256,8 +233,9 @@ describe("dashboard widgets", () => {
     const tiles = bankInstitutionTiles(accountsByInstitution(rows), {
       meta: { "NAB · Everyday": { openingBalance: 0 } },
     });
-    assert.equal(totalAccountBalance(tiles), 1000);
-    assert.equal(tiles[0]?.accounts[0]?.balanceLabel, "Estimated from movements");
+    assert.equal(totalAccountBalance(tiles), null);
+    assert.equal(tiles[0]?.accounts[0]?.amount, null);
+    assert.equal(tiles[0]?.accounts[0]?.balanceLabel, "No balance from your bank.");
     assert.equal(summarizeMoneyFlow(rows).cashOut, 80, "raw Money out still sees the pending debit");
     assert.equal(summarizeMoneyFlow(rows).spending, 0);
   });
@@ -287,10 +265,10 @@ describe("dashboard widgets", () => {
       meta: { "NAB · Everyday": { openingBalance: 0 } },
     });
     const flow = summarizeMoneyFlow(rows);
-    assert.equal(flow.net, 2960);
-    assert.equal(totalAccountBalance(tiles), 27960);
-    assert.equal(tiles[0]?.accounts[0]?.balanceLabel, "Estimated from movements");
-    assert.notEqual(totalAccountBalance(tiles), flow.net);
+    assert.equal(flow.cashIn, 28000);
+    assert.equal(totalAccountBalance(tiles), null);
+    assert.equal(tiles[0]?.accounts[0]?.balanceLabel, "No balance from your bank.");
+    assert.notEqual(totalAccountBalance(tiles), flow.cashNet);
   });
 
   it("uses raw cashIn/cashOut for Money in and Money out, not Income/Spending", () => {

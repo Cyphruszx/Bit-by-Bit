@@ -92,7 +92,7 @@ describe("Open Banking ledger upsert", () => {
     assert.equal(ledger.entries.filter((row) => row.status === "PENDING").length, 1);
   });
 
-  it("fingerprint-matches CSV+OB into one CLEARED survivor and opens DUPLICATE_HOLD", () => {
+  it("fingerprint-matches CSV+OB into one CLEARED survivor", () => {
     const csv: LedgerEntry = {
       id: "csv-1",
       merchant: "Woolworths",
@@ -132,8 +132,8 @@ describe("Open Banking ledger upsert", () => {
     assert.equal(ledger.entries[0]?.decidedBy, "user_overridden");
     assert.equal(ledger.entries[0]?.externalId, "tx_ob");
     assert.equal(
-      ledger.review?.some((item) => item.reason === "DUPLICATE_HOLD" && item.state === "OPEN"),
-      true,
+      (ledger.review ?? []).some((item) => item.reason === "DUPLICATE_HOLD" && item.state === "OPEN"),
+      false,
     );
   });
 

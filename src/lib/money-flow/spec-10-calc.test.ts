@@ -22,7 +22,7 @@ import type { InterpretedTransaction } from "./types";
 
 function txn(over: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "amount" | "dateIso">): InterpretedTransaction {
   const amount = over.amount;
-  return {
+  const row = {
     merchant: over.merchant ?? "Cafe",
     categoryKey: over.categoryKey ?? (amount > 0 ? "salary" : "groceries"),
     date: over.dateIso,
@@ -31,6 +31,10 @@ function txn(over: Partial<InterpretedTransaction> & Pick<InterpretedTransaction
     confidence: 1,
     ...over,
   };
+  if ((row.type === "earned" || row.type === "INCOME") && !row.verdict) {
+    row.verdict = { because: "earned", counts: true, at: "2026-01-01T00:00:00.000Z" };
+  }
+  return row;
 }
 
 describe("Spec 10 Net Money", () => {
@@ -83,7 +87,7 @@ describe("Spec 10 unlinked refund-shaped credits are not Income", () => {
     assert.equal(flow.net, 300);
   });
 
-  it("still counts a filed earnings credit the bank happened to label Refund", () => {
+  it("does not count a bank-labelled refund as Income", () => {
     const medicare = txn({
       id: "mcare",
       amount: 662.4,
@@ -95,8 +99,8 @@ describe("Spec 10 unlinked refund-shaped credits are not Income", () => {
       decidedBy: "rules",
     });
     assert.equal(looksReturned(medicare), true);
-    assert.equal(isEarnings(medicare), true);
-    assert.equal(summarizeMoneyFlow([medicare]).income, 662.4);
+    assert.equal(isEarnings(medicare), false);
+    assert.equal(summarizeMoneyFlow([medicare]).income, 0);
   });
 });
 

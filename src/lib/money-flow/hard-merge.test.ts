@@ -112,7 +112,7 @@ describe("no undo", () => {
 });
 
 describe("fingerprint collision on remap", () => {
-  it("keeps one CLEARED row, opens DUPLICATE_HOLD, and does not double Net or cash", () => {
+  it("keeps one CLEARED row and does not double Net or cash", () => {
     const held = ledgerOf([
       txn({ id: "survivor", accountId: SURVIVOR, amount: -86.4, decidedBy: "said", userFlaggedSavings: true }),
       txn({ id: "source", accountId: SOURCE, amount: -86.4 }),
@@ -132,9 +132,10 @@ describe("fingerprint collision on remap", () => {
     assert.equal(kept?.userFlaggedSavings, true);
     assert.ok(kept?.importIds.length === 1);
 
-    const hold = (merged.ledger.review ?? []).find((item) => item.reason === "DUPLICATE_HOLD");
-    assert.equal(hold?.state, "OPEN");
-    assert.deepEqual(hold?.movementIds, [], "empty so the survivor is not tile-held");
+    assert.equal(
+      (merged.ledger.review ?? []).some((item) => item.reason === "DUPLICATE_HOLD"),
+      false,
+    );
 
     const after = summarizeMoneyFlow(ledgerTransactions(merged.ledger));
     assert.equal(after.cashOut, 86.4);
@@ -142,7 +143,7 @@ describe("fingerprint collision on remap", () => {
     assert.equal(after.net, -86.4);
 
     const queue = buildReviewQueue(ledgerTransactions(merged.ledger), { stored: merged.ledger.review });
-    assert.ok(queue.some((item) => item.reason === "DUPLICATE_HOLD" && item.state === "OPEN"));
+    assert.equal(queue.some((item) => item.reason === "DUPLICATE_HOLD" && item.state === "OPEN"), false);
   });
 
   it("copies source user_overridden onto a survivor that has none", () => {
@@ -188,7 +189,7 @@ describe("re-import after merge", () => {
 });
 
 describe("same-account transfer pair collapse", () => {
-  it("breaks the pair and opens UNPAIRED_TRANSFER", () => {
+  it("breaks the pair and does not open a one-sided hold", () => {
     const debit = txn({
       id: "out",
       accountId: SURVIVOR,
@@ -230,7 +231,7 @@ describe("same-account transfer pair collapse", () => {
 
     const rows = ledgerTransactions(merged.ledger);
     const queue = buildReviewQueue(rows, { stored: merged.ledger.review });
-    assert.ok(queue.some((item) => item.reason === "UNPAIRED_TRANSFER" && item.state === "OPEN"));
+    assert.equal(queue.some((item) => item.reason === "UNPAIRED_TRANSFER" && item.state === "OPEN"), false);
     assert.equal(summarizeMoneyFlow(rows).transfers, 0);
     assert.ok(!rows.some((row) => row.transferPair && row.accountId === SURVIVOR));
   });

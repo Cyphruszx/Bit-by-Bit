@@ -103,9 +103,9 @@ describe("Core ingest does not auto-write refund pairs", () => {
 
     const flow = result.flow;
     assert.equal(flow.refunds, 0, "unconfirmed refunds are not Refund credits");
-    assert.equal(flow.income, 3000, "the credit is not Income either (unlinked refund-shaped)");
+    assert.equal(flow.income, 0, "payroll and the unlinked refund are not Income without an earned verdict");
     assert.equal(flow.spending, 80, "month-freeze: the original payment stays in Spending");
-    assert.equal(flow.net, 3000 - 80);
+    assert.equal(flow.net, -80);
     assert.ok(flow.insights.some((line) => /likely refund/i.test(line)));
   });
 });

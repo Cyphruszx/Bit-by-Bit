@@ -16,18 +16,13 @@ import {
   confirmTransferPair,
   declineReviewSuggestion,
   declineTransferSuggestion,
-  deferReviewItem,
   dismissReviewItem,
-  isReviewDeferred,
   moneyTrustHoldIds,
   openReviewCount,
-  parseReviewItems,
   refundPaymentsFor,
   resolveReviewItem,
   transferPartnersFor,
-  undeferReviewItem,
 } from "./review-queue";
-import { EMPTY_LEDGER, recordReview } from "./ledger";
 import { fileAsLoanDrawdown } from "./review-page";
 import { summarizeMoneyFlow } from "./summary";
 import { countsAsIncome, countsAsSpending } from "./taxonomy";
@@ -38,7 +33,7 @@ function txn(
   over: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "amount" | "dateIso">,
 ): InterpretedTransaction {
   const amount = over.amount;
-  return {
+  const row = {
     merchant: over.merchant ?? "Cafe",
     categoryKey: over.categoryKey ?? (amount > 0 ? "salary" : "groceries"),
     date: over.dateIso,
@@ -47,6 +42,7 @@ function txn(
     confidence: 1,
     ...over,
   };
+  return row;
 }
 
 const out = txn({
@@ -135,6 +131,7 @@ describe("OPEN exclusion", () => {
       merchant: "Acme Payroll",
       type: "earned",
       categoryKey: "salary",
+      verdict: { because: "earned", counts: true, at: "2026-01-01T00:00:00.000Z" },
     });
 
     const flow = summarizeMoneyFlow([paid, back, salary]);
@@ -363,18 +360,14 @@ describe("Spec 3/7 silent same-institution pairing", () => {
     assert.ok(leftover.every((row) => !row.movementIds.includes("c-out") && !row.movementIds.includes("c1")));
   });
 
-  it("Not that stays OPEN and does not dismiss money-trust", () => {
+  it("Not that on the only partner does not leave a one-sided hold", () => {
     const item = buildReviewQueue([nabOut, upIn]).find((row) => row.reason === "UNPAIRED_TRANSFER")!;
     const declined = declineTransferSuggestion(item, item.creditId!);
     assert.equal(declined.state, "OPEN");
     assert.ok(declined.declinedCreditIds?.includes("up-in"));
     assert.throws(() => dismissReviewItem(declined), /INGEST_PARSE/);
     const next = buildReviewQueue([nabOut, upIn], { stored: [declined] });
-    assert.ok(openReviewCount(next) >= 1);
-    assert.ok(next.some((row) => row.state === "OPEN" && row.debitId === "nab-out"));
-    assert.ok(next.every((row) => row.creditId !== "up-in" || row.debitId !== "nab-out"));
-    const partners = next.flatMap((row) => transferPartnersFor(row, [nabOut, upIn]));
-    assert.ok(partners.every((partner) => partner.id !== "up-in"));
+    assert.equal(next.some((row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER"), false);
   });
 });
 
@@ -408,19 +401,17 @@ describe("OPEN settle paths", () => {
     const next = buildReviewQueue(judged, { stored: [closed] });
     assert.ok(!next.some((row) => row.state === "OPEN" && row.creditId === "back"));
     assert.ok(!moneyTrustHoldIds(judged, { stored: [closed] }).has("back"));
-    assert.equal(summarizeMoneyFlow(judged).income, 80);
+    assert.equal(summarizeMoneyFlow(judged).income, 0);
     assert.equal(summarizeMoneyFlow(judged).refunds, 0);
   });
 
-  it("Confirm as transfer marks an orphan TRANSFER without inventing a pair", () => {
-    const item = buildReviewQueue([out]).find((row) => row.reason === "UNPAIRED_TRANSFER");
-    assert.ok(item);
+  it("does not open a one-sided transfer, and a not-mine verdict still files TRANSFER", () => {
+    assert.equal(buildReviewQueue([out]).some((row) => row.reason === "UNPAIRED_TRANSFER"), false);
     const judged = applyVerdicts([out], { [oneKey(out)]: verdictFor("not-mine", "2026-09-20T00:00:00Z") });
     assert.equal(judged[0]?.type, "TRANSFER");
     assert.equal(judged[0]?.transferPair, undefined);
     assert.equal(judged[0]?.decidedBy, "user_overridden");
-    const closed = resolveReviewItem(item!);
-    assert.equal(openReviewCount(buildReviewQueue(judged, { stored: [closed] })), 0);
+    assert.equal(openReviewCount(buildReviewQueue(judged)), 0);
     const flow = summarizeMoneyFlow(judged);
     assert.equal(flow.income, 0);
     assert.equal(flow.spending, 0);
@@ -428,20 +419,8 @@ describe("OPEN settle paths", () => {
     assert.equal(flow.transfers, 0);
   });
 
-  it("Skip for now stays OPEN and rebuilds into the stored deferred hint", () => {
-    const item = buildReviewQueue([out]).find((row) => row.reason === "UNPAIRED_TRANSFER");
-    assert.ok(item);
-    const deferred = deferReviewItem(item!);
-    assert.equal(deferred.state, "OPEN");
-    assert.ok(isReviewDeferred(deferred));
-    assert.equal(undeferReviewItem(deferred).deferredAt, undefined);
-    const parsed = parseReviewItems([deferred]);
-    assert.equal(parsed[0]?.deferredAt, deferred.deferredAt);
-    const rebuilt = buildReviewQueue([out], { stored: parsed });
-    const held = rebuilt.find((row) => row.id === item!.id);
-    assert.equal(held?.state, "OPEN");
-    assert.ok(isReviewDeferred(held!));
-    assert.equal(openReviewCount(rebuilt), 1);
+  it("does not open a one-sided transfer to skip", () => {
+    assert.equal(buildReviewQueue([out]).some((row) => row.reason === "UNPAIRED_TRANSFER"), false);
   });
 
   it("Apply to similar resolves each matching OPEN orphan and records History", () => {
@@ -465,18 +444,16 @@ describe("OPEN settle paths", () => {
       bank: { category: "Internal transfers", type: "TRANSFER DEBIT" },
       categoryKey: "uncategorised",
     });
-    const queue = buildReviewQueue([first, second]);
-    const open = queue.filter((row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER");
-    assert.equal(open.length, 2);
+    const open = buildReviewQueue([first, second]).filter(
+      (row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER",
+    );
+    assert.equal(open.length, 0);
     const at = "2026-09-20T00:00:00Z";
     const judged = applyVerdicts([first, second], {
       [oneKey(first)]: verdictFor("not-mine", at),
       [oneKey(second)]: verdictFor("not-mine", at),
     });
-    const stored = open.map((row) => resolveReviewItem(row));
-    const next = buildReviewQueue(judged, { stored });
-    assert.equal(openReviewCount(next), 0);
-    assert.equal(stored.filter((row) => row.state === "RESOLVED").length, 2);
+    assert.equal(openReviewCount(buildReviewQueue(judged)), 0);
     assert.ok(judged.every((row) => row.type === "TRANSFER" && !row.transferPair));
     const flow = summarizeMoneyFlow(judged);
     assert.equal(flow.spending, 0);
@@ -495,9 +472,7 @@ describe("OPEN settle paths", () => {
       categoryKey: "uncategorised",
       bank: { category: "Internal transfers", type: "TRANSFER CREDIT" },
     });
-    const item = buildReviewQueue([draw]).find((row) => row.reason === "UNPAIRED_TRANSFER");
-    assert.ok(item);
-    assert.equal(item?.creditId, "loan-in");
+    assert.equal(buildReviewQueue([draw]).some((row) => row.reason === "UNPAIRED_TRANSFER"), false);
     const at = "2026-09-20T00:00:00Z";
     const filed = fileAsLoanDrawdown(draw);
     const judged = applyVerdicts([filed], { [oneKey(draw)]: verdictFor("borrowed", at) });
@@ -508,8 +483,7 @@ describe("OPEN settle paths", () => {
     assert.equal(judged[0]?.decidedBy, "user_overridden");
     assert.equal(countsAsIncome("DEBT_PRINCIPAL"), false);
     assert.equal(countsAsSpending("DEBT_PRINCIPAL"), false);
-    const closed = resolveReviewItem(item!);
-    assert.equal(openReviewCount(buildReviewQueue(judged, { stored: [closed] })), 0);
+    assert.equal(openReviewCount(buildReviewQueue(judged)), 0);
     const flow = summarizeMoneyFlow(judged);
     assert.equal(flow.income, 0);
     assert.equal(flow.spending, 0);
@@ -539,57 +513,42 @@ describe("OPEN settle paths", () => {
       bank: { category: "Internal transfers", type: "TRANSFER CREDIT" },
       categoryKey: "uncategorised",
     });
-    const queue = buildReviewQueue([first, second]);
-    const open = queue.filter((row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER");
-    assert.equal(open.length, 2);
+    const open = buildReviewQueue([first, second]).filter(
+      (row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER",
+    );
+    assert.equal(open.length, 0);
     const at = "2026-09-20T00:00:00Z";
     const judged = applyVerdicts([fileAsLoanDrawdown(first), fileAsLoanDrawdown(second)], {
       [oneKey(first)]: verdictFor("borrowed", at),
       [oneKey(second)]: verdictFor("borrowed", at),
     });
-    const stored = open.map((row) => resolveReviewItem(row));
-    const next = buildReviewQueue(judged, { stored });
-    assert.equal(openReviewCount(next), 0);
+    assert.equal(openReviewCount(buildReviewQueue(judged)), 0);
     assert.ok(judged.every((row) => row.type === "DEBT_PRINCIPAL" && !row.transferPair));
     assert.equal(summarizeMoneyFlow(judged).income, 0);
     assert.equal(summarizeMoneyFlow(judged).cashIn, 16000);
   });
 
-  it("persists a skipped OPEN item and drops it when Skip is cleared", () => {
-    const item = buildReviewQueue([out]).find((row) => row.reason === "UNPAIRED_TRANSFER");
-    assert.ok(item);
-    const deferred = deferReviewItem(item!);
-    const stored = recordReview(EMPTY_LEDGER, deferred);
-    assert.equal(stored.review?.[0]?.state, "OPEN");
-    assert.equal(stored.review?.[0]?.deferredAt, deferred.deferredAt);
-    const restored = recordReview(stored, undeferReviewItem(deferred));
-    assert.equal((restored.review ?? []).some((row) => row.id === item!.id), false);
+  it("does not persist a one-sided transfer as an OPEN review item", () => {
+    assert.equal(buildReviewQueue([out]).some((row) => row.reason === "UNPAIRED_TRANSFER"), false);
   });
 
-  it("Keep as spending settles an orphan transfer via spent verdict", () => {
-    const item = buildReviewQueue([out]).find((row) => row.reason === "UNPAIRED_TRANSFER");
-    assert.ok(item);
-    assert.equal(transferPartnersFor(item!, [out]).length, 0);
+  it("Keep as spending files an unmatched debit without opening a hold", () => {
+    assert.equal(buildReviewQueue([out]).some((row) => row.reason === "UNPAIRED_TRANSFER"), false);
     const judged = applyVerdicts([out], { [oneKey(out)]: verdictFor("spent", "2026-09-20T00:00:00Z") });
-    const closed = resolveReviewItem(item!);
-    assert.equal(openReviewCount(buildReviewQueue(judged, { stored: [closed] })), 0);
-    assert.ok(!moneyTrustHoldIds(judged, { stored: [closed] }).has("out"));
+    assert.equal(openReviewCount(buildReviewQueue(judged)), 0);
     assert.equal(summarizeMoneyFlow(judged).spending, 400);
   });
 
-  it("Not that on a refund declines the payment and still leaves a primary path", () => {
+  it("Not that on the only equal payment does not leave a partial refund hold", () => {
     const item = buildReviewQueue([paid, back]).find((row) => row.creditId === "back")!;
+    assert.equal(item.reason, "FULL_REFUND_AMBIGUOUS");
     assert.equal(item.debitId, "paid");
     assert.equal(refundPaymentsFor(item, [paid, back]).length, 1);
     const declined = declineReviewSuggestion(item, "paid");
     assert.equal(declined.state, "OPEN");
     assert.ok(declined.declinedDebitIds?.includes("paid"));
-    assert.equal(declined.debitId, undefined);
     const next = buildReviewQueue([paid, back], { stored: [declined] });
-    const leftover = next.find((row) => row.state === "OPEN" && row.creditId === "back");
-    assert.ok(leftover);
-    assert.equal(leftover?.debitId, undefined);
-    assert.equal(refundPaymentsFor(leftover!, [paid, back]).length, 0);
+    assert.equal(next.some((row) => row.state === "OPEN" && row.creditId === "back"), false);
   });
 
   it("Confirm refund still lists payments when debitId is unset", () => {

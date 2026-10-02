@@ -11,12 +11,9 @@ import { parseDocument } from "./parsers";
 import { sourceFromPairs } from "./source";
 import {
   accountBalanceView,
-  ESTIMATED_BALANCE_LABEL,
   fileIndexOf,
   mostRecentStatedBalances,
-  NEGATIVE_ESTIMATE_WARNING,
-  NO_OPENING_BALANCE_LABEL,
-  NO_OPENING_BALANCE_PROMPT,
+  NO_BANK_BALANCE_LABEL,
   statedBalanceFromSource,
 } from "./statement-balance";
 import { summarizeMoneyFlow } from "./summary";
@@ -206,13 +203,12 @@ describe("F4 file index and Up closing", () => {
     const flow = summarizeMoneyFlow(spending);
     assert.equal(flow.cashIn, 70564.53);
     assert.equal(flow.cashOut, 71631.34);
-    // Was $77,757.11 while one-legged transfer credits still counted as Income.
-    assert.equal(flow.income, 70110.91);
+    assert.equal(flow.income, 0);
   });
 });
 
-describe("F5 estimated balance", () => {
-  it("includes transfer legs and labels a negative estimate", () => {
+describe("F5 bank balance", () => {
+  it("does not turn an opening plus movements into a balance", () => {
     const rows = [
       txn({
         id: "in",
@@ -229,47 +225,45 @@ describe("F5 estimated balance", () => {
         accountId: "Up · Investing",
       }),
     ];
-    const estimated = accountBalanceView("Up · Investing", rows, {
+    const openingOnly = accountBalanceView("Up · Investing", rows, {
       "Up · Investing": { openingBalance: 100 },
     });
-    assert.equal(estimated.amount, 666.86);
-    assert.notEqual(estimated.amount, 100 - 1433.14);
-    assert.equal(estimated.label, ESTIMATED_BALANCE_LABEL);
-    assert.equal(estimated.warning, undefined);
+    assert.equal(openingOnly.amount, null);
+    assert.equal(openingOnly.label, NO_BANK_BALANCE_LABEL);
+    assert.notEqual(openingOnly.amount, 666.86);
 
-    const negative = accountBalanceView("Up · Investing", [rows[1]!], {
-      "Up · Investing": { openingBalance: 100 },
+    const pdf = accountBalanceView("Up · Investing", rows, {
+      "Up · Investing": { clearedBalance: 666.86, balanceSource: "header" },
     });
-    assert.equal(negative.amount, 100 - 1433.14);
-    assert.equal(negative.label, ESTIMATED_BALANCE_LABEL);
-    assert.equal(negative.warning, NEGATIVE_ESTIMATE_WARNING);
+    assert.equal(pdf.amount, null);
+    assert.equal(pdf.label, NO_BANK_BALANCE_LABEL);
 
-    const saver = accountBalanceView("Up · Save!!", [txn({ id: "s", dateIso: "2026-06-01", amount: -40, accountId: "Up · Save!!" })], {
-      "Up · Save!!": { openingBalance: 10 },
+    const fiskil = accountBalanceView("Up · Investing", rows, {
+      "Up · Investing": { clearedBalance: 0, balanceSource: "fiskil" },
     });
-    assert.equal(saver.warning, NEGATIVE_ESTIMATE_WARNING);
-
-    const credit = accountBalanceView("NAB · Credit", [txn({ id: "c", dateIso: "2026-06-01", amount: -40, accountId: "NAB · Credit" })], {
-      "NAB · Credit": { openingBalance: 10 },
-    });
-    assert.equal(credit.amount, -30);
-    assert.equal(credit.warning, undefined);
-    assert.equal(credit.label, ESTIMATED_BALANCE_LABEL);
+    assert.equal(fiskil.amount, 0);
+    assert.equal(fiskil.label, undefined);
   });
 
-  it("hides the figure when there is no opening and prefers a stated balance", () => {
+  it("hides the figure when the bank sent none and shows a CSV or running cell, including zero", () => {
     const rows = [txn({ id: "a", dateIso: "2026-06-01", amount: 500, type: "INCOME", accountId: "NAB · Everyday" })];
     const missing = accountBalanceView("NAB · Everyday", rows, {});
     assert.equal(missing.amount, null);
-    assert.equal(missing.label, NO_OPENING_BALANCE_LABEL);
-    assert.equal(missing.prompt, NO_OPENING_BALANCE_PROMPT);
+    assert.equal(missing.label, NO_BANK_BALANCE_LABEL);
+    assert.equal("prompt" in missing, false);
 
-    const stated = accountBalanceView("NAB · Everyday", rows, {
+    const header = accountBalanceView("NAB · Everyday", rows, {
       "NAB · Everyday": { clearedBalance: 177.64, balanceSource: "header", openingBalance: 10 },
     });
-    assert.equal(stated.amount, 177.64);
-    assert.equal(stated.source, "header");
-    assert.equal(stated.label, undefined);
+    assert.equal(header.amount, null);
+    assert.equal(header.label, NO_BANK_BALANCE_LABEL);
+
+    const running = accountBalanceView("NAB · Everyday", rows, {
+      "NAB · Everyday": { clearedBalance: 0, balanceSource: "running" },
+    });
+    assert.equal(running.amount, 0);
+    assert.equal(running.source, "running");
+    assert.equal(running.label, undefined);
   });
 });
 

@@ -31,8 +31,11 @@ const AT = "2026-09-03T00:00:00.000Z";
 describe("settling what the statements cannot say", () => {
   it("takes borrowed money out of income, leaving the cash where it is", () => {
     const loan = credit(25000, "SOC-10000000001CT SocietyOne");
-    const rows = [loan, credit(3000, "Acme Payroll", { type: "earned" })];
-    const settled = applyVerdicts(rows, { [oneKey(loan)]: verdictFor("borrowed", AT) });
+    const payroll = credit(3000, "Acme Payroll", { type: "earned" });
+    const settled = applyVerdicts([loan, payroll], {
+      [oneKey(loan)]: verdictFor("borrowed", AT),
+      [oneKey(payroll)]: verdictFor("earned", AT),
+    });
     const flow = summarizeMoneyFlow(settled);
 
     assert.equal(flow.income, 3000, "a loan is not money the household earned");
@@ -91,11 +94,11 @@ describe("settling what the statements cannot say", () => {
     assert.equal(summarizeMoneyFlow(settled).income, 500);
   });
 
-  it("gives back the whole figure when a verdict is taken away", () => {
+  it("does not turn a credit into Income when a borrowed verdict is taken away", () => {
     const loan = credit(25000, "SocietyOne Drawdown");
     const settled = applyVerdicts([loan], { [oneKey(loan)]: verdictFor("borrowed", AT) });
     assert.equal(summarizeMoneyFlow(settled).income, 0);
-    assert.equal(summarizeMoneyFlow(applyVerdicts(settled, {})).income, 25000);
+    assert.equal(summarizeMoneyFlow(applyVerdicts(settled, {})).income, 0);
     assert.equal(applyVerdicts(settled, {})[0].verdict, undefined);
   });
 

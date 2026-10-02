@@ -2,7 +2,6 @@ import {
   accountCaption,
   accountLabel,
   canonicalAccountId,
-  clearedBalanceOf,
   type AccountMeta,
   type AccountRegistry,
 } from "@/lib/money-flow/account-identity";
@@ -15,10 +14,8 @@ import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { countedMovements, isEarnings, isRefundCredit, isSpending, tileAmount } from "@/lib/money-flow/summary";
 import {
   accountBalanceView,
-  ESTIMATED_BALANCE_LABEL,
-  NEGATIVE_ESTIMATE_WARNING,
-  NO_OPENING_BALANCE_LABEL,
-  NO_OPENING_BALANCE_PROMPT,
+  displayedStoredBalance,
+  NO_BANK_BALANCE_LABEL,
   type AccountBalanceView,
 } from "@/lib/money-flow/statement-balance";
 import { topChartCategories } from "@/lib/money-flow/tag-charts";
@@ -114,8 +111,6 @@ export type BalanceReadout = {
   label?: string;
   prompt?: string;
   warning?: string;
-  /** Set when the sum leaves out accounts that have no opening balance. */
-  excludedNote?: string;
 };
 
 export type BankInstitutionTile = {
@@ -124,79 +119,43 @@ export type BankInstitutionTile = {
 };
 
 /**
- * A stored statement balance. Without one this is null: a movement sum is not
- * shown unless `accountBalanceView` has an opening and can label it estimated.
+ * A stored bank figure. Without one this is null. A movement sum is not a balance.
  */
 export function accountDisplayAmount(
   accountId: string,
   meta: Record<string, AccountMeta> = {},
   mergedInto: Record<string, string> = {},
 ): number | null {
-  const held = clearedBalanceOf(accountId, meta, mergedInto);
-  return held.missing ? null : held.amount;
+  const id = canonicalAccountId(accountId, mergedInto);
+  return displayedStoredBalance(meta[id] ?? meta[accountId]);
 }
 
 /**
- * Sum of the figures the Bank Accounts card shows. Accounts with no figure
- * are left out. Not Spec 10 Net.
+ * Sum of the figures the Bank Accounts card shows. Not Spec 10 Net.
+ * A missing account is not added as zero, and a partial sum is not shown.
  */
 export function totalAccountBalance(tiles: BankInstitutionTile[]): number | null {
   return presentAccountTiles(tiles).amount;
 }
 
 /**
- * Household total of the card figures. Stated, statement, OFX, Fiskil, and
- * estimated balances (opening plus movements) are included. An account hidden
- * for lack of an opening balance is left out. Any estimated amount still
- * labels the total. When one or more are left out of a sum that still has a
- * figure, `excludedNote` says so. When every account lacks a figure, the
- * total is "No opening balance".
+ * Household total of bank-supplied card figures. If any account has no bank
+ * figure, the total is hidden — it is not a partial sum and the missing
+ * account is not treated as zero.
  */
 export function presentAccountTiles(tiles: BankInstitutionTile[]): BalanceReadout {
-  let sum = 0;
-  let any = false;
-  let estimated = false;
-  let warning = false;
-  let excluded = 0;
-  for (const tile of tiles) {
-    for (const account of tile.accounts) {
-      if (account.amount == null) {
-        if (account.balanceSource === "missing_opening") excluded += 1;
-        continue;
-      }
-      sum = roundMoney(sum + account.amount);
-      any = true;
-      if (account.balanceSource === "estimated") estimated = true;
-      if (account.balanceWarning) warning = true;
-    }
+  const accounts = tiles.flatMap((tile) => tile.accounts);
+  if (accounts.length === 0 || accounts.some((account) => account.amount == null)) {
+    return { amount: null, label: NO_BANK_BALANCE_LABEL };
   }
-  if (!any) {
-    return {
-      amount: null,
-      label: NO_OPENING_BALANCE_LABEL,
-      prompt: NO_OPENING_BALANCE_PROMPT,
-    };
-  }
-  const excludedNote = excludedOpeningBalanceNote(excluded);
   return {
-    amount: sum,
-    ...(estimated ? { label: ESTIMATED_BALANCE_LABEL } : {}),
-    ...(warning ? { warning: NEGATIVE_ESTIMATE_WARNING } : {}),
-    ...(excludedNote ? { excludedNote } : {}),
+    amount: roundMoney(accounts.reduce((sum, account) => sum + (account.amount ?? 0), 0)),
   };
 }
 
-/** Spec 10F. Only when the total is partial: at least one account was left out. */
-export function excludedOpeningBalanceNote(count: number): string | undefined {
-  if (count < 1) return undefined;
-  const noun = count === 1 ? "account" : "accounts";
-  return `Excludes ${count} ${noun} without an opening balance (partial).`;
-}
-
 /**
- * Bank card total. Only banks with two or more accounts show one. Any
- * estimated account labels the total; a bank whose accounts all lack a
- * figure is "No opening balance".
+ * Bank card total. Only banks with two or more accounts show one.
+ * Any account without a bank figure hides the total.
  */
 export function bankTileTotal(tile: BankInstitutionTile): BalanceReadout | null {
   if (tile.accounts.length < 2) return null;
@@ -358,8 +317,6 @@ function lineFromView(id: string, name: string, view: AccountBalanceView): BankA
     amount: view.amount,
     balanceSource: view.source,
     ...(view.label ? { balanceLabel: view.label } : {}),
-    ...(view.prompt ? { balancePrompt: view.prompt } : {}),
-    ...(view.warning ? { balanceWarning: view.warning } : {}),
   };
 }
 
@@ -401,35 +358,6 @@ export function monthlyNetDelta(transactions: InterpretedTransaction[], month: s
     else if (isRefundCredit(txn)) delta += Math.abs(tileAmount(txn));
   }
   return roundMoney(delta);
-}
-
-export function monthlyBalanceSeries(
-  transactions: InterpretedTransaction[],
-  months: string[],
-): DashboardPoint[] {
-  const counted = countedMovements(transactions);
-  const first = months[0];
-  let running = 0;
-  if (first) {
-    for (const txn of counted) {
-      const month = monthKey(txn.dateIso);
-      if (!month || month >= first) continue;
-      running += netOf(txn);
-    }
-    running = roundMoney(running);
-  }
-
-  const byMonth = new Map<string, number>();
-  for (const txn of counted) {
-    const month = monthKey(txn.dateIso);
-    if (!months.includes(month)) continue;
-    byMonth.set(month, roundMoney((byMonth.get(month) ?? 0) + netOf(txn)));
-  }
-
-  return months.map((key) => {
-    running = roundMoney(running + (byMonth.get(key) ?? 0));
-    return { key, label: shortMonthLabel(key), value: running };
-  });
 }
 
 export function monthlySpendingSeries(
@@ -479,9 +407,3 @@ export function withRunningPosition(
   });
 }
 
-function netOf(txn: InterpretedTransaction): number {
-  if (isEarnings(txn)) return tileAmount(txn);
-  if (isSpending(txn)) return -Math.abs(tileAmount(txn));
-  if (isRefundCredit(txn)) return Math.abs(tileAmount(txn));
-  return 0;
-}

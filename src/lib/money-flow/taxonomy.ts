@@ -69,8 +69,8 @@ const TYPES: Record<MovementKind, TypeMeaning> = {
   DEBT_COST: { label: "Debt cost", side: "out", income: false, spending: true },
   INVESTMENT: { label: "Investment", side: "out", income: false, spending: false },
   ADJUSTMENT: { label: "Adjustment", side: "both", income: false, spending: false },
-  // Unsorted still tiles by sign, same as the old uncategorised earned/spent pair.
-  UNREVIEWED: { label: "Unreviewed", side: "both", income: true, spending: true },
+  // Unsorted does not count as Income. A category and a bank label do not either.
+  UNREVIEWED: { label: "Unreviewed", side: "both", income: false, spending: true },
 };
 
 export function isTransactionType(value: unknown): value is TransactionType {
@@ -83,7 +83,7 @@ export function typeLabel(type: TransactionType): string {
 
 /** Whether a credit of this type belongs in the money-in figure. */
 export function countsAsIncome(type: TransactionType): boolean {
-  return TYPES[kindOf(type)]?.income ?? true;
+  return TYPES[kindOf(type)]?.income ?? false;
 }
 
 /** Whether a debit of this type belongs in the money-out figure. */
@@ -769,7 +769,10 @@ export function typeForCategory(key: string | undefined, amount: number): Transa
   const held = LOOSE[key] ?? extra ?? BY_KEY.get(key);
   const meaning = held ?? LOOSE[UNCATEGORISED];
   const raw = amount > 0 ? meaning.inType : meaning.outType;
-  return kindOf(raw);
+  const kind = kindOf(raw);
+  // A category must not imply Income, including a credit mapped to earned.
+  if (amount > 0 && kind === "INCOME") return "UNREVIEWED";
+  return kind;
 }
 
 /**

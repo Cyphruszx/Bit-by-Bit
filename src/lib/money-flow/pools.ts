@@ -9,11 +9,11 @@
 import {
   accountKindOf,
   canonicalAccountId,
-  clearedBalanceOf,
   inferAccountCurrency,
   isCashAccountKind,
   type AccountMeta,
 } from "@/lib/money-flow/account-identity";
+import { displayedStoredBalance } from "@/lib/money-flow/statement-balance";
 
 /** Soft warning once the person has this many live pools. Empty pools still count. */
 export const POOL_SOFT_LIMIT = 20;
@@ -232,8 +232,9 @@ export type CashInPool = {
 };
 
 /**
- * Cash in pool: Σ live CLEARED of CHECKING/SAVINGS members only.
- * Prefers accounts.`cleared_balance`. Missing → 0 + hint. Debt never enters.
+ * Cash in pool: Σ of bank-supplied CHECKING/SAVINGS balances only.
+ * A missing figure is not added as zero, and one missing member hides the
+ * total rather than leaving a partial sum. Debt never enters.
  * Does not invent Σ(CLEARED movements). Display only.
  */
 export function cashInPool(
@@ -248,21 +249,25 @@ export function cashInPool(
   if (cash.length === 0) return { amount: null, cashMemberCount: 0, missingBalances: false };
 
   let amount = 0;
-  let missingBalances = false;
   for (const member of cash) {
-    const held = clearedBalanceOf(member.accountId, meta, mergedInto);
+    const held = memberSignedBalance(member.accountId, meta, mergedInto);
+    if (held.amount == null) {
+      return { amount: null, cashMemberCount: cash.length, missingBalances: true };
+    }
     amount += held.amount;
-    if (held.missing) missingBalances = true;
   }
-  return { amount, cashMemberCount: cash.length, missingBalances };
+  return { amount, cashMemberCount: cash.length, missingBalances: false };
 }
 
 export function memberSignedBalance(
   accountId: string,
   meta: Record<string, AccountMeta> = {},
   mergedInto: Record<string, string> = {},
-): { amount: number; missing: boolean } {
-  return clearedBalanceOf(accountId, meta, mergedInto);
+): { amount: number | null; missing: boolean } {
+  const at = canonicalAccountId(accountId, mergedInto);
+  const shown = displayedStoredBalance(meta[at] ?? meta[accountId]);
+  if (shown == null) return { amount: null, missing: true };
+  return { amount: shown, missing: false };
 }
 
 /**
