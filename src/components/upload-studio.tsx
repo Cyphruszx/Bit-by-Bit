@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { interpretUploadedDocuments } from "@/app/actions/interpret-documents";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { useSession } from "@/components/session-store";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
-import { acceptedDropTypes, looksLikeImageUpload } from "@/lib/money-flow/accept";
+import {
+  confirmChargeCopy,
+  ingestChannelLabel,
+  ocrQuotaError,
+  uploadStudioBody,
+  uploadStudioHeading,
+} from "@/lib/money-flow/ingest-copy";
 import { accountsFrom, suggestNameForKey, type AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import {
@@ -26,13 +31,7 @@ import {
   tryChargeOcr,
   type IngestDraft,
 } from "@/lib/money-flow/core-ingest";
-import {
-  confirmChargeCopy,
-  ingestChannelLabel,
-  ocrQuotaError,
-  uploadStudioBody,
-  UPLOAD_STUDIO_HEADING,
-} from "@/lib/money-flow/ingest-copy";
+import { acceptedUploadTypes, classifyUpload } from "@/lib/money-flow/upload-gate";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
@@ -41,12 +40,12 @@ import { tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const SAMPLES: Array<{ path: string; label: string }> = [
-  { path: "/samples/nab-medicare.csv", label: "NAB everyday account" },
-  { path: "/samples/nab-rent.csv", label: "NAB rent and offset account" },
-  { path: "/samples/up-2025-07-to-2026-06.txt", label: "Up financial year" },
+  { path: "/samples/nab-x1541-2026-09.csv", label: "NAB ···1541" },
+  { path: "/samples/nab-x5479-2026-09.csv", label: "NAB ···5479" },
+  { path: "/samples/up-spending-2026-09.csv", label: "Up spending" },
 ];
 
-export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
+export function UploadStudio({ aiReady = false, pdfEnabled = false }: { aiReady?: boolean; pdfEnabled?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const session = useSession();
   const {
@@ -61,6 +60,7 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
     setAccountName,
     statements,
     transactions,
+    featureOn,
   } = useMoneyFlow();
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,13 +90,19 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
       setError("Upload one file at a time.");
       return;
     }
-    const formData = new FormData();
-    formData.append("files", list[0]);
+    const file = list[0];
     setError(null);
     startTransition(async () => {
       const store = localQuotaStore();
       const subject = quotaSubject(actor());
-      const ocrGuess = looksLikeImageUpload(list[0].name, list[0].type);
+      const openBanking = featureOn("OPEN_BANKING");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const decision = classifyUpload(file.name, file.type || "", bytes, { pdfEnabled, openBanking });
+      if (!decision.ok) {
+        setError(decision.message);
+        return;
+      }
+      const ocrGuess = pdfEnabled && decision.kind === "image";
       if (ocrGuess) {
         const charged = tryChargeOcr(store, subject, 1);
         if (!charged.ok) {
@@ -105,10 +111,19 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
           return;
         }
       }
-      const hashes = await hashFiles(list);
-      const result = await interpretUploadedDocuments(formData);
-      if (!result.ok) {
-        setError(result.error);
+      const formData = new FormData();
+      formData.append("files", new File([bytes], file.name, { type: file.type }));
+      if (openBanking) formData.append("openBanking", "true");
+      const hashes = await hashFiles([file]);
+      const response = await fetch("/api/v1/ingest/upload", { method: "POST", body: formData });
+      const result = (await response.json()) as {
+        ok: boolean;
+        error?: string;
+        message?: string;
+        code?: string;
+      } & Awaited<ReturnType<typeof import("@/lib/money-flow/interpret").interpretDocuments>>;
+      if (!response.ok || !result.ok) {
+        setError(result.message || result.error || "Could not read this file.");
         refreshQuota();
         return;
       }
@@ -177,17 +192,21 @@ export function UploadStudio({ aiReady = false }: { aiReady?: boolean }) {
         }`}
       >
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Core feature</p>
-        <h2 className="mt-2 text-2xl font-bold">{UPLOAD_STUDIO_HEADING}</h2>
+        <h2 className="mt-2 text-2xl font-bold">{uploadStudioHeading()}</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted">
           {uploadStudioBody()}
-          {aiReady
-            ? " AI vision can read photos and suggest tags when a merchant is still unlabelled."
-            : " Add OPENAI_API_KEY to .env.local to let AI read receipt photos; until then, photos use on-device OCR."}
+          {pdfEnabled
+            ? aiReady
+              ? " AI vision can read photos and suggest tags when a merchant is still unlabelled."
+              : " Add OPENAI_API_KEY to .env.local to let AI read receipt photos; until then, photos use on-device OCR."
+            : aiReady
+              ? " AI can suggest tags when a merchant is still unlabelled."
+              : ""}
         </p>
         <input
           ref={inputRef}
           type="file"
-          accept={acceptedDropTypes()}
+          accept={acceptedUploadTypes(pdfEnabled)}
           className="hidden"
           onChange={(event) => interpret([...(event.target.files ?? [])])}
         />

@@ -1,24 +1,50 @@
 import type { IngestChannel } from "@/lib/money-flow/core-ingest";
-import { ingestQuotasDisabled, OCR_PAGE_WEEKLY_LIMIT } from "@/lib/money-flow/core-ingest";
+import { CSV_WEEKLY_LIMIT, ingestQuotasDisabled, OCR_PAGE_WEEKLY_LIMIT } from "@/lib/money-flow/core-ingest";
+import { ingestPdfEnabled } from "@/lib/money-flow/ingest-pdf-flag";
 
-export const INTERPRET_EMPTY_ERROR = "Choose a CSV, PDF, or photo to interpret.";
+export function interpretEmptyError(): string {
+  return ingestPdfEnabled()
+    ? "Choose a CSV, PDF, or photo to interpret."
+    : "Choose a CSV to interpret.";
+}
 
-export const UPLOAD_STUDIO_HEADING = "Drop a CSV, PDF, or photo";
+export const INTERPRET_EMPTY_ERROR = interpretEmptyError();
 
-export const UPLOAD_ACCOUNTS_DETAIL = "CSV, PDF, and OCR photos";
+export function uploadStudioHeading(): string {
+  return ingestPdfEnabled() ? "Drop a CSV, PDF, or photo" : "Drop a CSV";
+}
 
-export const NO_MOVEMENT_ERROR = "No money movement found. Try a bank CSV, a digital PDF, or a clearer photo.";
+export const UPLOAD_STUDIO_HEADING = uploadStudioHeading();
+
+export const UPLOAD_ACCOUNTS_DETAIL = "CSV";
+
+export function noMovementError(): string {
+  return ingestPdfEnabled()
+    ? "No money movement found. Try a bank CSV, a digital PDF, or a clearer photo."
+    : "No money movement found. Try a bank CSV.";
+}
+
+export const NO_MOVEMENT_ERROR = noMovementError();
 
 const SIZE_GUIDANCE = "Keep CSV around 5MB and PDFs and photos around 10MB.";
+const CSV_SIZE_GUIDANCE = "Keep CSV around 5MB.";
 
 export function uploadPageIntro(): string {
   const confirm = ingestQuotasDisabled()
     ? "Preview the mapped rows, then Confirm. Testing — weekly quotas are off."
     : "Preview the mapped rows, then Confirm — a CSV slot is used only then.";
+  if (!ingestPdfEnabled()) {
+    return `Core ingest is CSV. Download a CSV file from your bank's app or internet banking and upload that. ${confirm} ${CSV_SIZE_GUIDANCE}`;
+  }
   return `Core ingest is CSV, digital PDF, and OCR photos. Drop one bank CSV, a PDF, or photograph a page. Digital PDFs are text-extracted when the text is usable; scanned pages use OCR. ${confirm} Excel, OFX, and QIF are unavailable. ${SIZE_GUIDANCE}`;
 }
 
 export function uploadStudioBody(): string {
+  if (!ingestPdfEnabled()) {
+    return ingestQuotasDisabled()
+      ? `Core ingest is CSV — one file at a time. Download a CSV file from your bank's app or internet banking and upload that. ${CSV_SIZE_GUIDANCE}`
+      : `Core ingest is CSV — one file at a time. Download a CSV file from your bank's app or internet banking and upload that. ${CSV_WEEKLY_LIMIT} CSV imports each Australian week. ${CSV_SIZE_GUIDANCE}`;
+  }
   if (ingestQuotasDisabled()) {
     return `Core ingest is CSV, digital PDF, and OCR photos — one file at a time. Excel, OFX, and QIF are unavailable. ${SIZE_GUIDANCE} PDFs are text-extracted when the text is usable; scanned pages use OCR.`;
   }

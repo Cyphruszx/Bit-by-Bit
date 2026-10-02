@@ -88,9 +88,9 @@ describe("Up Transfer type cash tiles", () => {
     const flow = summarizeMoneyFlow(result.transactions);
     assert.equal(flow.cashIn, 2000, "Salary only — Transfer credit omitted");
     assert.equal(flow.cashOut, 75, "Purchase + Direct Debit + Payment — Transfer debit omitted");
-    // The unsigned +500 Transfer is stored as −500, so both legs are outflows.
-    // The estimate includes them. It is not the transfer-excluded cash net.
-    assert.equal(derivedMovementBalance(result.transactions), 925);
+    // Amount (AUD) is already signed. A positive Transfer stays a credit, so the
+    // two legs cancel in the movement estimate. Cash tiles still omit both.
+    assert.equal(derivedMovementBalance(result.transactions), 1925);
     assert.equal(accountBalanceOf(result.transactions), null);
   });
 

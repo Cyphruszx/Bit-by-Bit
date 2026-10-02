@@ -24,7 +24,7 @@ import { countsAsIncome, countsAsSpending } from "./taxonomy";
 import type { InterpretedTransaction } from "./types";
 import { looksLikeUpStatement } from "./up-statement";
 
-const samples = path.join(process.cwd(), "public/samples");
+const samples = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
 
 function txn(
   over: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "amount" | "dateIso">,

@@ -7,8 +7,8 @@ describe("brand copy", () => {
     assert.equal(siteName, "BitbyBit");
     assert.match(siteTagline, /money flow/i);
     assert.match(siteDescription, /csv/i);
-    assert.match(siteDescription, /pdf/i);
-    assert.match(siteDescription, /photo/i);
+    assert.doesNotMatch(siteDescription, /pdf/i);
+    assert.doesNotMatch(siteDescription, /photo/i);
     assert.match(siteDescription, /guest/i);
     assert.match(siteDescription, /this browser/i);
   });

@@ -115,7 +115,7 @@ export function interpretTable(
   if (known) return { ...known, headers };
 
   const dateIdx = findColumn(headers, DATE_HEADERS);
-  const amountIdx = findColumn(headers, AMOUNT_HEADERS);
+  const amountIdx = amountColumnIndex(headers);
   const debitIdx = findColumn(headers, DEBIT_HEADERS);
   const creditIdx = findColumn(headers, CREDIT_HEADERS);
   const typeIdx = findColumn(headers, TYPE_HEADERS);
@@ -151,7 +151,10 @@ export function interpretTable(
       if (parsed == null) return;
       const direction = directionFrom(typeHint);
       amount = parsed > 0 && direction < 0 ? -parsed : parsed;
-      directionKnown = parsed < 0 || direction !== 0;
+      // The amount column is already signed. A positive Up Transfer is money in;
+      // only an explicit debit/credit type may flip it. Leaving direction unknown
+      // made readMovement treat "Transfer" as money out.
+      directionKnown = true;
     }
     if (amount == null) {
       amount = lastAmountCell(cells, balanceIdx);
@@ -230,6 +233,23 @@ export function mappedPreviewRows(
       ...(showAccount && account ? { account } : {}),
     };
   });
+}
+
+/**
+ * Prefer a real Amount column. Up's 2026 export has no Amount column: Subtotal
+ * omits round-ups and Total (AUD) is the figure 2A.8 L2 locks ($12,969.81 out).
+ * "subtotal aud" contains the letters of "total aud", so this match is exact.
+ */
+function amountColumnIndex(headers: string[]): number {
+  const normalized = headers.map(norm);
+  const exact = (name: string) => normalized.findIndex((header) => header === name);
+  const amountAud = exact("amount aud");
+  if (amountAud >= 0) return amountAud;
+  const amount = exact("amount");
+  if (amount >= 0) return amount;
+  const totalAud = exact("total aud");
+  if (totalAud >= 0) return totalAud;
+  return findColumn(headers, AMOUNT_HEADERS);
 }
 
 function directionFrom(typeHint: string): number {

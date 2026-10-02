@@ -1,14 +1,15 @@
 "use server";
 
-import { CORE_FILES_PER_ATTEMPT, coreIngestUnavailable } from "@/lib/money-flow/core-ingest";
-import { detectFileKind } from "@/lib/money-flow/detect";
-import { INTERPRET_EMPTY_ERROR } from "@/lib/money-flow/ingest-copy";
+import { CORE_FILES_PER_ATTEMPT } from "@/lib/money-flow/core-ingest";
+import { ingestPdfEnabled } from "@/lib/money-flow/ingest-pdf-flag";
+import { interpretEmptyError } from "@/lib/money-flow/ingest-copy";
 import { interpretDocuments, MAX_FILE_BYTES } from "@/lib/money-flow/interpret";
+import { classifyUpload, UNSUPPORTED_FILE_TYPE } from "@/lib/money-flow/upload-gate";
 
 export async function interpretUploadedDocuments(formData: FormData) {
   const files = formData.getAll("files").filter((value): value is File => value instanceof File && value.size > 0);
   if (files.length === 0) {
-    return { ok: false as const, error: INTERPRET_EMPTY_ERROR };
+    return { ok: false as const, error: interpretEmptyError() };
   }
   if (files.length > CORE_FILES_PER_ATTEMPT) {
     return { ok: false as const, error: "Upload one file at a time." };
@@ -20,9 +21,12 @@ export async function interpretUploadedDocuments(formData: FormData) {
       return { ok: false as const, error: `${file.name} is larger than 12MB.` };
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const blocked = coreIngestUnavailable(detectFileKind(file.name, file.type || "", bytes));
-    if (blocked) {
-      return { ok: false as const, error: blocked };
+    const decision = classifyUpload(file.name, file.type || "", bytes, {
+      pdfEnabled: ingestPdfEnabled(),
+      openBanking: formData.get("openBanking") === "true",
+    });
+    if (!decision.ok) {
+      return { ok: false as const, code: UNSUPPORTED_FILE_TYPE, error: decision.message };
     }
     payload.push({
       filename: file.name,

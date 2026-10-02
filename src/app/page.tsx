@@ -10,18 +10,19 @@ import {
   LAUNCH_BANK_PRESETS,
   OCR_PAGE_WEEKLY_LIMIT,
 } from "@/lib/money-flow/core-ingest";
+import { ingestPdfEnabled } from "@/lib/money-flow/ingest-pdf-flag";
 import { canSignIn } from "@/lib/supabase/config";
 
 const features = [
   [
-    "CSV, PDF, and photos",
+    "CSV upload",
     ingestQuotasDisabled()
-      ? "Bank CSV and digital PDF map onto a template, you Confirm the preview, and scanned pages go through OCR. Testing — weekly quotas are off."
-      : `Bank CSV and digital PDF map onto a template, you Confirm the preview, and scanned pages go through OCR. ${CSV_WEEKLY_LIMIT} CSVs and ${OCR_PAGE_WEEKLY_LIMIT} OCR pages each Australian week.`,
+      ? "Download a CSV from your bank, map it onto a template, then Confirm the preview. Testing — weekly quotas are off."
+      : `Download a CSV from your bank, map it onto a template, then Confirm the preview. ${CSV_WEEKLY_LIMIT} CSV imports each Australian week.`,
   ],
   [
     "Connect a bank",
-    "Signed-in Open Banking through Fiskil. Sandbox institutions for now — real banks when Fiskil unlocks the team. CSV, PDF, and photos still work as a guest.",
+    "Signed-in Open Banking through Fiskil. Sandbox institutions for now — real banks when Fiskil unlocks the team. A CSV upload still works as a guest.",
   ],
   [
     "Dashboard and ledger",
@@ -90,16 +91,20 @@ export default function Home() {
               Bank CSV — template mapping, then Confirm
               {ingestQuotasDisabled() ? " (testing — quotas off)" : ` (${CSV_WEEKLY_LIMIT} per AU week)`}
             </li>
-            <li>
-              Digital PDF — text extract, or OCR when scanned
-              {ingestQuotasDisabled() ? " (testing — quotas off)" : ` (${CSV_WEEKLY_LIMIT} CSV slots / ${OCR_PAGE_WEEKLY_LIMIT} OCR pages per AU week)`}
-            </li>
-            <li>
-              Photos of receipts and printed pages
-              {ingestQuotasDisabled()
-                ? " (testing — quotas off)"
-                : ` (${OCR_PAGE_WEEKLY_LIMIT} OCR pages per AU week)`}
-            </li>
+            {ingestPdfEnabled() ? (
+              <>
+                <li>
+                  Digital PDF — text extract, or OCR when scanned
+                  {ingestQuotasDisabled() ? " (testing — quotas off)" : ` (${CSV_WEEKLY_LIMIT} CSV slots / ${OCR_PAGE_WEEKLY_LIMIT} OCR pages per AU week)`}
+                </li>
+                <li>
+                  Photos of receipts and printed pages
+                  {ingestQuotasDisabled()
+                    ? " (testing — quotas off)"
+                    : ` (${OCR_PAGE_WEEKLY_LIMIT} OCR pages per AU week)`}
+                </li>
+              </>
+            ) : null}
             <li>Open Banking via Fiskil when you sign in (sandbox institutions for now)</li>
             <li>CSV presets: {LAUNCH_BANK_PRESETS.join(", ")}</li>
           </ul>

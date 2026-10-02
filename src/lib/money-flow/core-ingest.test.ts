@@ -37,6 +37,7 @@ import {
   tryChargeOcr,
   uploadStatus,
 } from "./core-ingest";
+import { ingestPdfEnabled } from "./ingest-pdf-flag";
 import { interpretDocuments } from "./interpret";
 import { interpretMovement } from "./interpret-row";
 import { resolveReviewItem } from "./review-queue";
@@ -123,13 +124,17 @@ describe("Spec 2 format gates", () => {
     assert.equal(ingestChannel("xlsx"), undefined);
     assert.equal(ingestChannel("ofx"), undefined);
     assert.equal(ingestChannel("qif"), undefined);
-    assert.match(coreIngestUnavailable("xlsx") ?? "", /unavailable/i);
-    assert.match(coreIngestUnavailable("ofx") ?? "", /unavailable/i);
-    assert.match(coreIngestUnavailable("qif") ?? "", /unavailable/i);
-    assert.match(coreIngestUnavailable("xlsx") ?? "", /Excel, OFX, and QIF/i);
-    assert.equal(coreIngestUnavailable("pdf"), undefined);
+    assert.match(coreIngestUnavailable("xlsx") ?? "", /isn't supported/);
+    assert.match(coreIngestUnavailable("ofx") ?? "", /OFX or QFX/);
+    assert.match(coreIngestUnavailable("qif") ?? "", /isn't supported/);
     assert.equal(coreIngestUnavailable("csv"), undefined);
-    assert.equal(coreIngestUnavailable("image"), undefined);
+    if (ingestPdfEnabled()) {
+      assert.equal(coreIngestUnavailable("pdf"), undefined);
+      assert.equal(coreIngestUnavailable("image"), undefined);
+    } else {
+      assert.match(coreIngestUnavailable("pdf") ?? "", /can't read PDF/);
+      assert.match(coreIngestUnavailable("image") ?? "", /can't read photos/);
+    }
     assert.equal(CORE_FILES_PER_ATTEMPT, 1);
     assert.equal(ocrPagesFor("csv"), 0);
     assert.equal(ocrPagesFor("pdf"), 0);
@@ -148,11 +153,11 @@ describe("Spec 2 format gates", () => {
       ),
     ]);
     assert.equal(ofx.transactions.length, 0);
-    assert.match(ofx.files[0]?.processingError ?? "", /unavailable/i);
+    assert.match(ofx.files[0]?.processingError ?? "", /OFX or QFX/);
 
     const qif = await interpretDocuments([file("export.qif", "application/qif", "!Type:Bank\n")]);
     assert.equal(qif.transactions.length, 0);
-    assert.match(qif.files[0]?.processingError ?? "", /unavailable/i);
+    assert.match(qif.files[0]?.processingError ?? "", /isn't supported/);
 
     const XLSX = await import("xlsx");
     const workbook = XLSX.utils.book_new();
@@ -162,7 +167,7 @@ describe("Spec 2 format gates", () => {
       { filename: "statement.xlsx", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes },
     ]);
     assert.equal(excel.transactions.length, 0);
-    assert.match(excel.files[0]?.processingError ?? "", /unavailable/i);
+    assert.match(excel.files[0]?.processingError ?? "", /isn't supported/);
   });
 });
 
@@ -456,7 +461,7 @@ describe("Spec 2 Confirm and mapper", () => {
   });
 });
 
-const samples = path.join(process.cwd(), "public/samples");
+const samples = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
 
 describe("Spec 2 Confirm preview against sample files", () => {
   it("maps NAB and Up sample files into a confirmable preview", async () => {

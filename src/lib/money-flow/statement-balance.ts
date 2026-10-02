@@ -10,7 +10,7 @@ import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export const ESTIMATED_BALANCE_LABEL = "Estimated from movements";
 export const NO_OPENING_BALANCE_LABEL = "No opening balance";
-export const NO_OPENING_BALANCE_PROMPT = "Upload a statement that prints one, or enter it.";
+export const NO_OPENING_BALANCE_PROMPT = "Enter it by hand, or connect your bank (Open Banking).";
 export const NEGATIVE_ESTIMATE_WARNING =
   "This estimate is negative. It is not the balance the bank printed.";
 

@@ -163,7 +163,7 @@ describe("the samples, split across two devices", () => {
     const { readFileSync } = await import("node:fs");
     const path = await import("node:path");
     const { interpretDocuments } = await import("./interpret");
-    const dir = path.join(process.cwd(), "public/samples");
+    const dir = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
 
     const read = async (name: string) =>
       interpretDocuments(

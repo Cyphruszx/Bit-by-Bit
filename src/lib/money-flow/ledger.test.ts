@@ -53,7 +53,7 @@ function upload(transactions: InterpretedTransaction[]) {
   return { files: names.map(file), transactions };
 }
 
-const samples = path.join(process.cwd(), "public/samples");
+const samples = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
 
 async function readSamples(names: string[]) {
   return interpretDocuments(

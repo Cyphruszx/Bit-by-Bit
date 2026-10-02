@@ -33,7 +33,8 @@ import type { AccountMeta } from "./account-identity";
 import type { InterpretedTransaction } from "./types";
 import { applyVerdicts } from "./verdicts";
 
-const samples = path.join(process.cwd(), "public/samples");
+/** Retired 2025–26 corpus. The served public samples are the 2026-09 CSVs locked in sample-locks.test.ts. */
+const samples = path.join(process.cwd(), "src/lib/money-flow/fixtures/retired-samples");
 
 function txn(
   id: string,
@@ -316,7 +317,7 @@ describe("Draft A sample statements", () => {
     const upSnapshot = presentAccountTiles(up.tiles);
     const upTotal = bankTileTotal(up.tiles[0]!);
 
-    // public/samples/up-2025-07-to-2026-06.txt — all activity.
+    // Retired up-2025-07-to-2026-06.txt — all activity.
     // Old strip was Income $70,120.77, Spending $71,631.34, Net −$1,510.57.
     // Draft A Net is Money in − Money out.
     assert.equal(upFlow.cashIn, 70574.39);
@@ -346,7 +347,7 @@ describe("Draft A sample statements", () => {
     const nabSnapshot = presentAccountTiles(nab.tiles);
     const nabTotal = bankTileTotal(nab.tiles[0]!);
 
-    // public/samples/nab-medicare.csv + nab-rent.csv — all activity.
+    // Retired nab-medicare.csv + nab-rent.csv — all activity.
     // Old strip was Income $129,800.67, Spending $25,351.83, Net $104,448.84.
     assert.equal(nabFlow.cashIn, 162371.67);
     assert.equal(nabFlow.cashOut, 161822.23);

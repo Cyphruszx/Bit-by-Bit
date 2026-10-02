@@ -9,6 +9,7 @@ import {
   visionMime,
   type MoneyFlowAi,
 } from "./ai";
+import { archivedPdfTestOptions } from "./ingest-pdf-flag";
 import { interpretDocuments } from "./interpret";
 import { readImageDocument } from "./parsers";
 import { snapCategory } from "./categorize";
@@ -171,7 +172,7 @@ describe("OpenAI client", () => {
   });
 });
 
-describe("image interpretation with AI", () => {
+describe("image interpretation with AI", archivedPdfTestOptions(), () => {
   it("uses AI vision and skips OCR when the model finds activity", async () => {
     let ocrCalled = false;
     const ai: MoneyFlowAi = {
