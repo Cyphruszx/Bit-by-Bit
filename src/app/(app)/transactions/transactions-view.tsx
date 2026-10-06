@@ -106,11 +106,7 @@ export function TransactionsView() {
         <SummaryCard
           label="Account balance"
           value={accountBalance.amount == null ? (accountBalance.label ?? "—") : formatAud(accountBalance.amount)}
-          detail={
-            accountBalance.warning
-              ? `${accountBalance.label ?? "Estimated from movements"}. ${accountBalance.warning}`
-              : (accountBalance.label ?? accountBalance.prompt ?? "Statement balance")
-          }
+          detail={accountBalance.amount == null ? (accountBalance.label ?? "No balance from your bank.") : "Statement balance"}
           positive={accountBalance.amount != null && accountBalance.amount > 0}
           compact
         />

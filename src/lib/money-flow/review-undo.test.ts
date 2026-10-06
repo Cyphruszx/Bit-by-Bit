@@ -133,15 +133,16 @@ describe("Review undo", () => {
       bank: { category: "Internal transfers", type: "TRANSFER CREDIT" },
       categoryKey: "uncategorised",
     });
-    const open = buildReviewQueue([first, second]).filter(
-      (row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER",
+    assert.equal(
+      buildReviewQueue([first, second]).filter((row) => row.state === "OPEN" && row.reason === "UNPAIRED_TRANSFER")
+        .length,
+      0,
     );
-    assert.equal(open.length, 2);
     const at = "2026-09-20T00:00:00Z";
     const action = captureReviewUndo({
       transactions: [first, second],
       label: "Confirm as loan (similar)",
-      items: open,
+      items: [],
       movementIds: ["loan-1", "loan-2"],
       verdictKeys: [oneKey(first), oneKey(second)],
       ruleKeys: ["latitude fin"],
@@ -150,10 +151,9 @@ describe("Review undo", () => {
       [oneKey(first)]: verdictFor("borrowed", at),
       [oneKey(second)]: verdictFor("borrowed", at),
     });
-    const stored = open.map((row) => resolveReviewItem(row));
     assert.equal(summarizeMoneyFlow(judged).income, 0);
     const undone = applyReviewUndoParts(action, {
-      review: stored,
+      review: [],
       verdicts: {
         [oneKey(first)]: verdictFor("borrowed", at),
         [oneKey(second)]: verdictFor("borrowed", at),
@@ -165,9 +165,8 @@ describe("Review undo", () => {
     assert.equal(undone.rules, undefined);
     assert.ok(undone.transactions.every((row) => row.type === "TRANSFER" && row.categoryKey === "uncategorised"));
     const next = buildReviewQueue(undone.transactions, { stored: undone.review ?? [] });
-    assert.equal(openReviewCount(next), 2);
-    assert.ok(moneyTrustHoldIds(undone.transactions, { stored: undone.review ?? [] }).has("loan-1"));
-    assert.ok(moneyTrustHoldIds(undone.transactions, { stored: undone.review ?? [] }).has("loan-2"));
+    assert.equal(next.some((row) => row.reason === "UNPAIRED_TRANSFER"), false);
+    assert.equal(next.filter((row) => row.reason === "UNREVIEWED_KIND").length, 1);
   });
 
   it("undoes a parse dismiss back to OPEN", () => {

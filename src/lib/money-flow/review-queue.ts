@@ -15,8 +15,8 @@ import { roundMoney } from "@/lib/money-flow/parse-values";
 import { merchantKey } from "@/lib/money-flow/redact";
 import { tidyMerchant } from "@/lib/money-flow/categorize";
 import { type RefundOptions } from "@/lib/money-flow/refunds";
-import { isRefundKind, isTransferKind } from "@/lib/money-flow/movement-kind";
-import { looksInternal, looksReturned } from "@/lib/money-flow/statement-category";
+import { isRefundKind } from "@/lib/money-flow/movement-kind";
+import { looksReturned } from "@/lib/money-flow/statement-category";
 import { calendarDaysBetween, matchTransfers, type MatchOptions } from "@/lib/money-flow/transfers";
 import type { FileInterpretation, InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -262,13 +262,8 @@ function detectReviewItems(
   const seen = new Set(items.map((item) => item.id));
   for (const item of options.stored ?? []) {
     if (item.state !== "OPEN" || seen.has(item.id) || closed.has(item.id)) continue;
-    if (
-      item.reason !== "DUPLICATE_HOLD" &&
-      item.reason !== "FINGERPRINT_CONFLICT" &&
-      item.reason !== "RULE_CONFLICT"
-    ) {
-      continue;
-    }
+    // Stored DUPLICATE_HOLD and RULE_CONFLICT are not reopened. Fingerprint clashes are.
+    if (item.reason !== "FINGERPRINT_CONFLICT") continue;
     items.push(item);
     seen.add(item.id);
   }
@@ -283,18 +278,11 @@ function unpairedTransfers(
   const open = transactions.filter((txn) => !settledMoneyTrust(txn));
   const match = matchTransfers(open, options);
   const items: ReviewItem[] = [];
-  const used = new Set<string>();
 
   for (const pair of match.pairs) {
-    if (isSilentSameInstitutionUniquePair(pair, options.institutions)) {
-      used.add(pair.debit.id);
-      used.add(pair.credit.id);
-      continue;
-    }
+    if (isSilentSameInstitutionUniquePair(pair, options.institutions)) continue;
     const declined = declinedCreditsFor(options.stored, pair.debit.id);
     if (declined.has(pair.credit.id)) continue;
-    used.add(pair.debit.id);
-    used.add(pair.credit.id);
     items.push({
       id: `UNPAIRED_TRANSFER:${pair.debit.id}~${pair.credit.id}`,
       reason: "UNPAIRED_TRANSFER",
@@ -311,9 +299,7 @@ function unpairedTransfers(
     const declined = declinedCreditsFor(options.stored, row.debit.id);
     const candidates = row.candidates.filter((credit) => !declined.has(credit.id));
     if (candidates.length === 0) continue;
-    used.add(row.debit.id);
     const candidateIds = candidates.map((credit) => credit.id);
-    for (const id of candidateIds) used.add(id);
     items.push({
       id: `UNPAIRED_TRANSFER:${row.debit.id}`,
       reason: "UNPAIRED_TRANSFER",
@@ -329,21 +315,7 @@ function unpairedTransfers(
     });
   }
 
-  for (const txn of open) {
-    if (used.has(txn.id) || !unpairedTransferCandidate(txn)) continue;
-    used.add(txn.id);
-    const declined = declinedCreditsFor(options.stored, txn.id);
-    items.push({
-      id: `UNPAIRED_TRANSFER:${txn.id}`,
-      reason: "UNPAIRED_TRANSFER",
-      state: "OPEN",
-      movementIds: [txn.id],
-      ...(txn.amount < 0 ? { debitId: txn.id } : { creditId: txn.id }),
-      label: `Looks like a transfer (${money(txn.amount)}) but the other leg is not here`,
-      ...(declined.size > 0 ? { declinedCreditIds: [...declined] } : {}),
-    });
-  }
-
+  // A one-sided transfer (no partner in this ledger) is not a Review hold.
   return items;
 }
 
@@ -434,18 +406,8 @@ function refundItems(
       return lag >= 0 && lag <= REFUND_WINDOW_DAYS;
     });
 
-    if (payments.length === 0) {
-      items.push({
-        id: `PARTIAL_REFUND:${credit.id}`,
-        reason: "PARTIAL_REFUND",
-        state: "OPEN",
-        movementIds: [credit.id],
-        creditId: credit.id,
-        label: `Refund-shaped ${money(credit.amount)} with no exact payment to reverse`,
-        ...(declined.size > 0 ? { declinedDebitIds: [...declined] } : {}),
-      });
-      continue;
-    }
+    // No equal payment: do not open PARTIAL_REFUND. FULL_REFUND_AMBIGUOUS stays.
+    if (payments.length === 0) continue;
 
     const nearest = payments.reduce((best, next) =>
       next.dateIso > best.dateIso || (next.dateIso === best.dateIso && next.id > best.id) ? next : best,
@@ -606,11 +568,6 @@ function aiLowConfidenceItems(
       movementIds: [txn.id],
       label: `AI filing for ${txn.merchant} is below the bar for ${money(txn.amount)}`,
     }));
-}
-
-function unpairedTransferCandidate(txn: InterpretedTransaction): boolean {
-  if (txn.transferPair) return false;
-  return looksInternal(txn) || isTransferKind(txn.type);
 }
 
 function isRefundCandidate(txn: InterpretedTransaction): boolean {

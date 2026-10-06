@@ -11,7 +11,7 @@ import { appendToLedger, EMPTY_LEDGER } from "./ledger";
 import { interpretDocuments } from "./interpret";
 import { buildReviewQueue } from "./review-queue";
 import { sourceValue } from "./source";
-import { accountBalanceView, fileIndexOf, mostRecentStatedBalances, NO_OPENING_BALANCE_LABEL } from "./statement-balance";
+import { accountBalanceView, fileIndexOf, mostRecentStatedBalances, NO_BANK_BALANCE_LABEL } from "./statement-balance";
 import { summarizeMoneyFlow } from "./summary";
 import type { InterpretedTransaction } from "./types";
 
@@ -107,7 +107,7 @@ describe("2026-09 sample locks (2A.8 L1–L12)", () => {
     assert.deepEqual(upIds.sort(), ["Up · 633-123 / 05", "Up · 633-123 / 172365082"]);
     for (const id of upIds) {
       const view = accountBalanceView(id ?? "", up.filter((txn) => txn.accountId === id));
-      assert.equal(view.label, NO_OPENING_BALANCE_LABEL, "L4");
+      assert.equal(view.label, NO_BANK_BALANCE_LABEL, "L4");
       assert.equal(view.amount, null, "L4");
     }
     const saverPayees = ["CashFlow", "Emergency Fund", "Essentials", "Presents", "Tax", "Investing"];

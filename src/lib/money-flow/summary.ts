@@ -6,10 +6,10 @@ import { isRefundKind } from "@/lib/money-flow/movement-kind";
 import { looksInternal, looksReturned } from "@/lib/money-flow/statement-category";
 import { chartLabel, groupOf, isGroupId } from "@/lib/money-flow/category-book";
 import { categoryOf } from "@/lib/money-flow/tags";
-import { countsAsIncome, countsAsSpending } from "@/lib/money-flow/taxonomy";
+import { countsAsSpending } from "@/lib/money-flow/taxonomy";
 import { moneyTrustHoldIds } from "@/lib/money-flow/review-queue";
 import { isActualSavings, isCleared, tileAmount } from "@/lib/money-flow/tile";
-import { excludingInternalTransfers } from "@/lib/money-flow/internal-transfers";
+import { excludingInternalTransfers, isInternalTransfer } from "@/lib/money-flow/internal-transfers";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
@@ -53,8 +53,9 @@ export type FlowOverTimePoint = {
  * The second filter is what the type layer is for. Money arriving is not the same as money
  * earned: a $25,000 drawdown from a lender lands in the account like a salary does and
  * changes nothing about what the household owns. Reading the sign alone counted it, and
- * one such row destroys a month. So a credit reaches the income figure only if its type
- * says it was earned, and a debit reaches spending only if its type says it was spent.
+ * one such row destroys a month. A credit reaches the income figure only when a person
+ * has already said it was earned, and a debit reaches spending only if its type says it
+ * was spent.
  */
 /**
  * Spec 10 tile path. Dashboard, transactions, and account cards all call this.
@@ -175,13 +176,16 @@ export function isUnlinkedRefundShaped(txn: InterpretedTransaction): boolean {
   return !EARNINGS_CATEGORIES.has(txn.categoryKey);
 }
 
-/** A credit the household actually earned, rather than one that merely arrived. */
+/**
+ * Income is only an existing user verdict of money earned, on a positive row
+ * that is inside Money in and is not a refund. A category, a bank label, and
+ * "Mark as income" on a refund do not count.
+ */
 export function isEarnings(txn: InterpretedTransaction): boolean {
   if (tileAmount(txn) <= 0) return false;
-  if (isRefundCredit(txn)) return false;
-  if (txn.verdict?.counts === true) return true;
-  if (isUnlinkedRefundShaped(txn)) return false;
-  return countsAsIncome(txn.type);
+  if (isInternalTransfer(txn)) return false;
+  if (isRefundCredit(txn) || isRefundKind(txn.type) || looksReturned(txn)) return false;
+  return txn.verdict?.because === "earned" && txn.verdict.counts === true;
 }
 
 /** A payment that was really spent, rather than moved, repaid or invested. */

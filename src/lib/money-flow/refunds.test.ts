@@ -65,7 +65,12 @@ describe("recognising money that came back", () => {
       move(ACCOUNT, -100, "2026-03-03", "Domino Pizza"),
       move(ACCOUNT, 100, "2026-03-04", "Domino Pizza"),
       move(ACCOUNT, -40, "2026-03-05", "Woolworths Bondi"),
-      move(ACCOUNT, 3000, "2026-03-06", "Acme Payroll", { type: "earned", categoryKey: "salary", bank: { category: "Salary" } }),
+      move(ACCOUNT, 3000, "2026-03-06", "Acme Payroll", {
+        type: "earned",
+        categoryKey: "salary",
+        bank: { category: "Salary" },
+        verdict: { because: "earned", counts: true, at: "2026-01-01T00:00:00.000Z" },
+      }),
       ...filler(),
     ]);
     const flow = summarizeMoneyFlow(rows);
@@ -92,7 +97,7 @@ describe("recognising money that came back", () => {
 
     const match = matchRefunds([...benefits, ...rent]);
     assert.equal(match.pairs.length, 0, "a surname on every row ties nothing to anything");
-    assert.equal(summarizeMoneyFlow(markRefundLegs([...benefits, ...rent])).income, 15000);
+    assert.equal(summarizeMoneyFlow(markRefundLegs([...benefits, ...rent])).income, 0);
   });
 
   it("will not send money back to an account it never left", () => {
@@ -191,7 +196,7 @@ describe("money that only looks like it came back", () => {
     const flow = summarizeMoneyFlow(markRefundLegs(rows));
 
     assert.equal(matchRefunds(rows).pairs.length, 0);
-    assert.equal(flow.income, 2300, "the rent is still income");
+    assert.equal(flow.income, 0, "rent received is not Income without an earned verdict");
     assert.equal(flow.spending, 2300 + FILLER_SPENDING, "and the fee is still spending");
   });
 

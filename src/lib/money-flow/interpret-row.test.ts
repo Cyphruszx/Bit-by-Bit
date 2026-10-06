@@ -95,7 +95,7 @@ describe("movement interpretation", () => {
     // direction decides which of the two it meant, which is the whole point of splitting
     // the category from the type.
     assert.equal(txn.categoryKey, "other-income");
-    assert.equal(txn.type, "INCOME");
+    assert.equal(txn.type, "UNREVIEWED");
     assert.equal(txn.amount, 662.4);
   });
 

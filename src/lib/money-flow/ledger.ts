@@ -392,8 +392,8 @@ export type MergeAccountsResult = { ok: true; ledger: Ledger } | { ok: false; re
 
 /**
  * Spec 6c hard merge: source → survivor. Remaps stored rows, recomputes fingerprints,
- * collapses collisions to one CLEARED movement with an OPEN DUPLICATE_HOLD, and
- * breaks same-account transfer pairs. No undo.
+ * collapses collisions to one CLEARED movement and breaks same-account
+ * transfer pairs. No undo. A collision is not a DUPLICATE_HOLD review item.
  */
 export function mergeAccounts(ledger: Ledger, sourceId: string, survivorId: string): MergeAccountsResult {
   const source = canonicalAccountId(sourceId.trim(), ledger.mergedInto);
@@ -433,8 +433,7 @@ export function mergeAccounts(ledger: Ledger, sourceId: string, survivorId: stri
   }
 
   const entries: LedgerEntry[] = [];
-  const duplicateHolds: ReviewItem[] = [];
-  for (const [fingerprint, group] of byFingerprint) {
+  for (const [, group] of byFingerprint) {
     if (group.length === 1) {
       entries.push(group[0].entry);
       continue;
@@ -447,22 +446,10 @@ export function mergeAccounts(ledger: Ledger, sourceId: string, survivorId: stri
       applySurvivorOverride(kept, other.entry);
     }
     entries.push(kept);
-    duplicateHolds.push({
-      id: `DUPLICATE_HOLD:${fingerprint}`,
-      reason: "DUPLICATE_HOLD",
-      state: "OPEN",
-      movementIds: [],
-      label: `Merge collapsed a duplicate of ${kept.merchant} on ${kept.dateIso} into one cleared movement`,
-    });
   }
 
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
   const collapsed = entries.map((entry) => breakSameAccountTransfer(entry, byId, mergedInto));
-
-  const review = [
-    ...(ledger.review ?? []).filter((item) => !duplicateHolds.some((hold) => hold.id === item.id)),
-    ...duplicateHolds,
-  ];
 
   const remappedPools = applyMergedIntoToPoolMembers(poolBookOf(ledger.accountPools, ledger.accountPoolMembers), mergedInto);
 
@@ -473,7 +460,6 @@ export function mergeAccounts(ledger: Ledger, sourceId: string, survivorId: stri
       version: LEDGER_VERSION,
       mergedInto,
       entries: sortEntries(collapsed),
-      ...(review.length > 0 ? { review } : {}),
       ...poolFields(remappedPools),
       ...namedAccountMeta(remapMergedAccountMeta(ledger.accountMeta, source, survivor)),
     },

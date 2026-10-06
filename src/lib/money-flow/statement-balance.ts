@@ -1,5 +1,4 @@
 import {
-  accountKindOf,
   canonicalAccountId,
   type AccountMeta,
   type BalanceSource,
@@ -8,11 +7,16 @@ import { parseAmount, roundMoney } from "@/lib/money-flow/parse-values";
 import { sourceValue } from "@/lib/money-flow/source";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
-export const ESTIMATED_BALANCE_LABEL = "Estimated from movements";
-export const NO_OPENING_BALANCE_LABEL = "No opening balance";
-export const NO_OPENING_BALANCE_PROMPT = "Enter it by hand, or connect your bank (Open Banking).";
-export const NEGATIVE_ESTIMATE_WARNING =
-  "This estimate is negative. It is not the balance the bank printed.";
+/** Shown when the bank did not supply a cleared, stated, or running figure. */
+export const NO_BANK_BALANCE_LABEL = "No balance from your bank.";
+
+/**
+ * Sources a person may see as the account balance.
+ * Fiskil cleared, a CSV running/stated cell (including a stored cell with no
+ * source tag), and an OFX ledger balance. Printed PDF header/section figures
+ * stay on the ledger and are not displayed. Estimates are not a source.
+ */
+const DISPLAYED_BALANCE_SOURCES = new Set<BalanceSource>(["fiskil", "running", "ofx_ledger"]);
 
 type BalanceSourceRow = Pick<InterpretedTransaction, "id" | "dateIso" | "sourceFile"> &
   Partial<Pick<InterpretedTransaction, "accountId" | "accountKey" | "source">>;
@@ -120,15 +124,25 @@ export function canReplaceBalance(
 
 export type AccountBalanceView = {
   amount: number | null;
-  source: BalanceSource | "estimated" | "missing_opening";
+  source: BalanceSource | "missing_opening";
   label?: string;
-  prompt?: string;
-  warning?: string;
 };
 
 /**
- * Stated balance wins. Otherwise opening + every signed movement, labelled
- * estimated. With no opening, the figure is hidden.
+ * A finite cleared balance the bank supplied: Fiskil, a CSV running/stated
+ * cell, an OFX ledger balance, or a stored figure with no source tag (treated
+ * as that running cell). A real $0.00 counts. PDF header/section figures do not.
+ */
+export function displayedStoredBalance(meta: AccountMeta | undefined): number | null {
+  if (typeof meta?.clearedBalance !== "number" || !Number.isFinite(meta.clearedBalance)) return null;
+  if (!meta.balanceSource || DISPLAYED_BALANCE_SOURCES.has(meta.balanceSource)) return meta.clearedBalance;
+  return null;
+}
+
+/**
+ * Bank figure only. A CSV Balance cell on the rows counts, including $0.00.
+ * Opening balance plus movements is not a balance. With no bank figure the
+ * amount is hidden and the label is the no-balance sentence.
  */
 export function accountBalanceView(
   accountId: string,
@@ -137,43 +151,25 @@ export function accountBalanceView(
   mergedInto: Record<string, string> = {},
 ): AccountBalanceView {
   const id = canonicalAccountId(accountId, mergedInto);
-  const stored = meta[id]?.clearedBalance ?? meta[accountId]?.clearedBalance;
-  if (typeof stored === "number" && Number.isFinite(stored)) {
-    return {
-      amount: stored,
-      source: meta[id]?.balanceSource ?? meta[accountId]?.balanceSource ?? "running",
-    };
+  const storedMeta = meta[id] ?? meta[accountId];
+  const stored = displayedStoredBalance(storedMeta);
+  if (stored != null) {
+    const source = storedMeta?.balanceSource ?? "running";
+    return { amount: stored, source: DISPLAYED_BALANCE_SOURCES.has(source) ? source : "running" };
   }
-  const fromRows = mostRecentStatedBalances(transactions, mergedInto)[id];
+  // Up text and OFX rows can carry a printed running figure. That is not a CSV
+  // Balance cell, and a stored PDF/header closing is not shown from it either.
+  const fromRows = mostRecentStatedBalances(
+    transactions.filter((txn) => !/-(?:up|ofx)-\d/.test(txn.id)),
+    mergedInto,
+  )[id];
   if (fromRows != null) {
     return { amount: fromRows, source: "running" };
   }
-  const opening = meta[id]?.openingBalance ?? meta[accountId]?.openingBalance;
-  if (opening == null) {
-    return {
-      amount: null,
-      source: "missing_opening",
-      label: NO_OPENING_BALANCE_LABEL,
-      prompt: NO_OPENING_BALANCE_PROMPT,
-    };
-  }
-  const net = derivedMovementBalance(transactions) ?? 0;
-  return estimatedView(roundMoney(opening + net), id, meta);
-}
-
-function estimatedView(
-  amount: number,
-  accountId: string,
-  meta: Record<string, AccountMeta>,
-): AccountBalanceView {
-  const kind = accountKindOf(accountId, meta);
-  const warning =
-    amount < 0 && (kind === "SAVINGS" || kind === "CHECKING") ? NEGATIVE_ESTIMATE_WARNING : undefined;
   return {
-    amount,
-    source: "estimated",
-    label: ESTIMATED_BALANCE_LABEL,
-    ...(warning ? { warning } : {}),
+    amount: null,
+    source: "missing_opening",
+    label: NO_BANK_BALANCE_LABEL,
   };
 }
 

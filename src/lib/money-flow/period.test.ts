@@ -20,7 +20,7 @@ import {
 import type { InterpretedTransaction } from "./types";
 
 function txn(id: string, dateIso: string, amount = -10): InterpretedTransaction {
-  return {
+  const row: InterpretedTransaction = {
     id,
     merchant: "Cafe",
     categoryKey: "groceries",
@@ -31,6 +31,10 @@ function txn(id: string, dateIso: string, amount = -10): InterpretedTransaction 
     sourceFile: "demo",
     confidence: 1,
   };
+  if ((row.type === "earned" || row.type === "INCOME") && !row.verdict) {
+    row.verdict = { because: "earned", counts: true, at: "2026-01-01T00:00:00.000Z" };
+  }
+  return row;
 }
 
 describe("period filtering", () => {

@@ -138,10 +138,10 @@ describe("walking the ladder", () => {
     assert.equal(rows[1].decidedBy, "merchant");
   });
 
-  it("re-derives the type from the category and the direction", () => {
+  it("does not turn a category correction on a credit into Income", () => {
     const rules = learn({}, txn({ merchant: "Ato" }), "other-income", "2026-07-01T00:00:00.000Z");
     const credit = classify([txn({ merchant: "Ato", amount: 1067, type: "spent" })], { rules })[0];
-    assert.equal(credit.type, "INCOME");
+    assert.equal(credit.type, "UNREVIEWED");
   });
 
   it("reaches the same answer run twice, so importing again changes nothing", () => {

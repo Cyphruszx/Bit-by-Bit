@@ -2,7 +2,7 @@
  * Spec 12 Slice 3 ledger upsert: Open Banking → the same ledger as CSV/OCR.
  *
  * Prefer Fiskil `external_id`, else fingerprint. Same txn id updates PENDING→CLEARED
- * in place. Dual ingest keeps one CLEARED survivor + DUPLICATE_HOLD. user_overridden
+ * in place. Dual ingest keeps one CLEARED survivor. user_overridden
  * is never overwritten. After upsert, silent same-institution pairing (both CLEARED,
  * known institution) and Spec 7 RQ as today.
  */
@@ -22,7 +22,7 @@ import {
   LEDGER_VERSION,
 } from "@/lib/money-flow/ledger";
 import { isUserOverridden } from "@/lib/money-flow/movement-kind";
-import { buildReviewQueue, type ReviewItem } from "@/lib/money-flow/review-queue";
+import { buildReviewQueue } from "@/lib/money-flow/review-queue";
 import { matchTransfers } from "@/lib/money-flow/transfers";
 import type { CdrType, FileKind, InterpretedTransaction } from "@/lib/money-flow/types";
 import type { FiskilBankingAccount, FiskilBankingBalance, FiskilBankingTransaction } from "@/lib/fiskil/banking";
@@ -195,7 +195,6 @@ export function upsertOpenBankingLedger(
   let added = 0;
   let updated = 0;
   let duplicates = 0;
-  const duplicateHolds: ReviewItem[] = [];
 
   for (const raw of input.transactions) {
     const account = byFiskilAccount.get(raw.accountId);
@@ -221,15 +220,6 @@ export function upsertOpenBankingLedger(
       applyIncomingWithoutOverride(existing, incoming);
       if (!existing.importIds.includes(importId)) existing.importIds.push(importId);
       duplicates += 1;
-      if ((existing.status ?? "CLEARED") === "CLEARED") {
-        duplicateHolds.push({
-          id: `DUPLICATE_HOLD:${existing.fingerprint}`,
-          reason: "DUPLICATE_HOLD",
-          state: "OPEN",
-          movementIds: [existing.id],
-          label: `Open Banking matched an existing cleared movement of ${existing.merchant} on ${existing.dateIso}`,
-        });
-      }
       continue;
     }
 
@@ -245,7 +235,6 @@ export function upsertOpenBankingLedger(
     added += 1;
   }
 
-  const review = mergeDuplicateHolds(next.review, duplicateHolds);
   next = {
     ...next,
     version: LEDGER_VERSION,
@@ -267,7 +256,6 @@ export function upsertOpenBankingLedger(
         duplicates,
       },
     ],
-    ...(review.length > 0 ? { review } : {}),
   };
 
   next = applySilentSameInstitutionPairs(next);
@@ -447,14 +435,6 @@ function copyMissingCdrFields(held: LedgerEntry, incoming: InterpretedTransactio
   if (incoming.crn && !held.crn) held.crn = incoming.crn;
   if (incoming.extendedData && !held.extendedData) held.extendedData = incoming.extendedData;
   if (incoming.ingestReview && !held.ingestReview) held.ingestReview = incoming.ingestReview;
-}
-
-function mergeDuplicateHolds(stored: ReviewItem[] | undefined, extra: ReviewItem[]): ReviewItem[] {
-  const held = new Map((stored ?? []).map((item) => [item.id, item]));
-  for (const item of extra) {
-    if (!held.has(item.id)) held.set(item.id, item);
-  }
-  return [...held.values()];
 }
 
 function normalizeDigits(raw: string | undefined): string | undefined {

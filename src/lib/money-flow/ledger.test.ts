@@ -171,7 +171,10 @@ describe("two downloads of one account that overlap", () => {
     assert.equal(visibleTransactions(merged.ledger).length, 1);
     assert.equal(ledgerTransactions(merged.ledger).length, 1, "collision drops the duplicate row");
     assert.equal(merged.ledger.mergedInto?.["Up · ···000"], "Up · 700000000");
-    assert.ok((merged.ledger.review ?? []).some((item) => item.reason === "DUPLICATE_HOLD" && item.state === "OPEN"));
+    assert.equal(
+      (merged.ledger.review ?? []).some((item) => item.reason === "DUPLICATE_HOLD" && item.state === "OPEN"),
+      false,
+    );
   });
 });
 
@@ -467,10 +470,10 @@ describe("the Up statement, downloaded twice over overlapping periods", () => {
     // Core ingest no longer does this automatically.
     const settle = (rows: InterpretedTransaction[]) => markRefundLegs(markTransferLegs(rows));
     const flow = summarizeMoneyFlow(settle(shown));
-    assert.equal(flow.income, 70120.77);
+    assert.equal(flow.income, 0);
     assert.equal(flow.spending, 71631.34);
     assert.equal(flow.refunds, 448.89);
-    assert.equal(flow.net, -1061.68);
+    assert.equal(flow.net, -71182.45);
     assert.equal(flow.actualSavings, 5800.4);
   });
 

@@ -205,13 +205,14 @@ describe("Cash in pool", () => {
     assert.equal(cashInPool(added.book, poolId, meta).amount, -50);
   });
 
-  it("treats a missing cleared_balance as 0 with a soft hint and does not invent Σ movements", () => {
+  it("does not treat a missing cleared_balance as 0 or invent Σ movements", () => {
     const { book, poolId } = bookWith();
     const meta: Record<string, AccountMeta> = { [EVERYDAY]: { kind: "CHECKING", currency: "AUD" } };
     const added = mustOk(addPoolMember(book, poolId, EVERYDAY, { meta, now: NOW }));
     const cash = cashInPool(added.book, poolId, meta);
-    assert.equal(cash.amount, 0);
+    assert.equal(cash.amount, null);
     assert.equal(cash.missingBalances, true);
+    assert.equal(memberSignedBalance(EVERYDAY, meta).amount, null);
     assert.equal(memberSignedBalance(EVERYDAY, meta).missing, true);
   });
 

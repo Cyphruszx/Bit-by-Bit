@@ -353,11 +353,9 @@ function AccountCard({
       </div>
 
       <p className="mt-4 text-2xl font-bold">
-        {balance.amount == null ? (balance.label ?? "—") : formatAud(balance.amount)}
+        {balance.amount == null ? (balance.label ?? "No balance from your bank.") : formatAud(balance.amount)}
       </p>
       {balance.amount != null && balance.label ? <p className="mt-1 text-sm text-muted">{balance.label}</p> : null}
-      {balance.prompt ? <p className="mt-1 text-sm text-muted">{balance.prompt}</p> : null}
-      {balance.warning ? <p className="mt-1 text-sm text-negative">{balance.warning}</p> : null}
       <p className="mt-1 text-sm text-muted">
         Balance · {formatAud(account.flow.cashIn)} in · {formatAud(account.flow.cashOut)} out
       </p>

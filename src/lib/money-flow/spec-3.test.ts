@@ -63,11 +63,11 @@ describe("Spec 3 movement_kind", () => {
     assert.equal(kindOf("INCOME"), "INCOME");
   });
 
-  it("derives UNREVIEWED for unsorted rows and INCOME/SPENDING/DEBT from categories", () => {
+  it("derives UNREVIEWED for credits and SPENDING/DEBT from categories", () => {
     assert.equal(typeForCategory("uncategorised", -12), "UNREVIEWED");
     assert.equal(typeForCategory("uncategorised", 12), "UNREVIEWED");
     assert.equal(typeForCategory("groceries", -12), "SPENDING");
-    assert.equal(typeForCategory("salary", 12), "INCOME");
+    assert.equal(typeForCategory("salary", 12), "UNREVIEWED");
     assert.equal(typeForCategory("debt-payments", 25000), "DEBT_PRINCIPAL");
     assert.equal(typeForCategory("debt-payments", -400), "DEBT_PRINCIPAL");
     assert.equal(typeForCategory("invest", -100), "INVESTMENT");

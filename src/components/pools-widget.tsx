@@ -186,8 +186,6 @@ function PoolCard({
   const candidates = accounts.filter((account) => !memberIds.has(account.id));
   const cashCandidates = candidates.filter((account) => isCashAccountKind(accountKindOf(account.id, accountMeta)));
   const debtCandidates = candidates.filter((account) => !isCashAccountKind(accountKindOf(account.id, accountMeta)));
-  const missingHint = bookMembers.some((member) => memberSignedBalance(member.accountId, accountMeta, mergedInto).missing);
-
   return (
     <div className="rounded-[var(--radius-inner)] border border-line px-4 py-4" style={pool.colour ? { borderColor: pool.colour } : undefined}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -239,7 +237,7 @@ function PoolCard({
       <p className="mt-3 text-sm">
         <span className="font-semibold">{CASH_IN_POOL_LABEL}</span>{" "}
         <span className="tabular-nums">
-          {cash.amount == null ? "—" : formatAud(cash.amount)}
+          {cash.cashMemberCount === 0 ? "—" : cash.amount == null ? "No balance from your bank." : formatAud(cash.amount)}
         </span>
       </p>
 
@@ -257,7 +255,9 @@ function PoolCard({
                   <span className="ml-2 text-xs text-muted">{kindLabel(kind)}</span>
                 </span>
                 <span className="flex items-center gap-3">
-                  <span className="tabular-nums font-semibold">{formatSignedAud(signed.amount)}</span>
+                  <span className="tabular-nums font-semibold">
+                    {signed.amount == null ? "No balance from your bank." : formatSignedAud(signed.amount)}
+                  </span>
                   <button
                     type="button"
                     onClick={() => onRemove(member.accountId)}
@@ -273,10 +273,6 @@ function PoolCard({
       ) : (
         <p className="mt-3 text-sm text-muted">No accounts in this pool yet.</p>
       )}
-
-      {missingHint ? (
-        <p className="mt-2 text-xs text-muted">Cleared balance not stored yet — showing $0.</p>
-      ) : null}
 
       {candidates.length > 0 ? (
         <label className="mt-3 flex items-center gap-2 text-sm text-muted">
