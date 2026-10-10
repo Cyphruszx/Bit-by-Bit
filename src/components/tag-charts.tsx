@@ -289,8 +289,8 @@ function PieChart({
           y={cy - 6}
           textAnchor="middle"
           fill={net >= 0 ? "var(--color-positive)" : "var(--color-primary)"}
-          fontSize="16"
-          className="font-display"
+          fontSize="13"
+          fontWeight="700"
         >
           {signedCompact(net)}
         </text>

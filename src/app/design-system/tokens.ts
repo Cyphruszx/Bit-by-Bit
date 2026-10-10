@@ -63,12 +63,12 @@ export const typeFaces = [
   {
     name: "Display",
     cssVar: "--font-display",
-    use: "Wordmark, nav, eyebrows, titles, button and chip labels, amounts",
+    use: "Wordmark, nav, eyebrows, titles, button and chip labels, money tiles",
   },
   {
     name: "Body",
     cssVar: "--font-sans",
-    use: "Body, tables, category names, inputs",
+    use: "Body, tables, category names, inputs, ledger and chart amounts",
   },
 ] as const;
 

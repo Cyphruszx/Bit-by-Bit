@@ -88,7 +88,7 @@ export function DesignSystemGallery() {
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
-        <Section index="02" eyebrow="Typography" title="Silkscreen for chrome and amounts, Public Sans for copy">
+        <Section index="02" eyebrow="Typography" title="Silkscreen for chrome and money tiles, Public Sans for data">
           <div className="grid gap-2 pb-2">
             {typeFaces.map((face) => (
               <p key={face.cssVar} className="text-[12.5px] leading-6 text-muted">
@@ -103,7 +103,10 @@ export function DesignSystemGallery() {
             <TypeRow spec="32 / 400 display" sampleClass="font-display text-[32px]">
               Page title
             </TypeRow>
-            <TypeRow spec="24 / 400 display" sampleClass="font-display text-[24px] tabular-nums">
+            <TypeRow spec="24 / 400 display tile" sampleClass="font-display text-[24px] tabular-nums">
+              {formatAud(18420.65)}
+            </TypeRow>
+            <TypeRow spec="27 / 700 ledger" sampleClass="font-sans text-[27px] font-bold tracking-tight tabular-nums">
               {formatAud(18420.65)}
             </TypeRow>
             <TypeRow spec="24 / 400 display" sampleClass="font-display text-2xl">
@@ -132,11 +135,11 @@ export function DesignSystemGallery() {
             </TypeRow>
           </div>
           <p className="text-[12.5px] leading-6 text-muted">
-            Pixel type is Silkscreen at 8px multiples (16 / 24 / 32 / 48), regular weight, no smoothing — boxier than Pixelify, kept for 16-bit chrome. Amounts use the same face via{" "}
+            Pixel type is Silkscreen at 8px multiples (16 / 24 / 32 / 48), regular weight, no smoothing — boxier than Pixelify, kept for 16-bit chrome. Money tiles use that face. Ledger rows and chart figures stay on Public Sans with{" "}
             <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">
               tabular-nums
-            </code>
-            . Negative amounts use the true minus sign (−), not a hyphen. Body copy never drops below
+            </code>{" "}
+            so columns align. Negative amounts use the true minus sign (−), not a hyphen. Body copy never drops below
             12.5px.
           </p>
         </Section>

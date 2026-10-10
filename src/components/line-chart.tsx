@@ -72,14 +72,7 @@ export function LineChart({
               strokeWidth={CHART_PIXEL / 2}
               shapeRendering="crispEdges"
             />
-            <text
-              x={pad.left - 8}
-              y={y(tick) + 4}
-              textAnchor="end"
-              fill="var(--color-muted)"
-              fontSize="16"
-              className="font-display"
-            >
+            <text x={pad.left - 8} y={y(tick) + 4} textAnchor="end" fill="var(--color-muted)" fontSize="11">
               {formatAudCompact(tick)}
             </text>
           </g>

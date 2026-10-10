@@ -270,6 +270,14 @@ html.dark .card,
   background: var(--color-surface);
 }
 
+input,
+textarea,
+select,
+table,
+.tabular-nums {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
 h1,
 .font-display {
   font-family: var(--font-display), ui-sans-serif, sans-serif;
@@ -277,22 +285,6 @@ h1,
   font-synthesis: none;
   letter-spacing: 0;
   line-height: 1.25;
-  -webkit-font-smoothing: none;
-  -moz-osx-font-smoothing: unset;
-}
-
-input,
-textarea,
-select,
-table {
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-}
-
-.tabular-nums {
-  font-family: var(--font-display), ui-sans-serif, sans-serif;
-  font-weight: 400;
-  font-synthesis: none;
-  letter-spacing: 0;
   -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: unset;
 }

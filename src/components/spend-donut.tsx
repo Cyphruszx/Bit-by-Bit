@@ -36,7 +36,7 @@ export function SpendDonut({
             />
           ))}
         </g>
-        <text x="80" y="76" textAnchor="middle" className="fill-ink font-display text-base">
+        <text x="80" y="76" textAnchor="middle" className="fill-ink font-sans text-[19px] font-bold">
           {formatAud(total).replace(/\.00$/, "")}
         </text>
         <text x="80" y="93" textAnchor="middle" className="fill-muted font-sans text-[10.5px]">
