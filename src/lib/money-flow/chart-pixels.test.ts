@@ -19,7 +19,7 @@ describe("chart pixels", () => {
   });
 
   it("walks a line as horizontal then vertical stairs", () => {
-    assert.equal(steppedPath([{ x: 10, y: 20 }, { x: 40, y: 36 }]), "M 8 20 H 40 V 36");
+    assert.equal(steppedPath([{ x: 12, y: 20 }, { x: 40, y: 36 }]), "M 12 20 H 40 V 36");
     assert.equal(steppedPath([undefined, { x: 4, y: 4 }]), "M 4 4");
     assert.equal(closeSteppedArea("M 8 20 H 40 V 36", 8, 80), "M 8 20 H 40 V 36 V 80 H 8 Z");
   });
