@@ -1,4 +1,4 @@
-import { Public_Sans, Silkscreen } from "next/font/google";
+import { Pixelify_Sans, Public_Sans } from "next/font/google";
 import type { Metadata } from "next";
 import { MoneyFlowProvider } from "@/components/money-flow-provider";
 import { ThemeScript } from "@/components/theme-script";
@@ -11,7 +11,7 @@ const publicSans = Public_Sans({
   variable: "--font-sans",
 });
 
-const silkscreen = Silkscreen({
+const pixelify = Pixelify_Sans({
   weight: "400",
   subsets: ["latin"],
   display: "swap",
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html
       lang="en-AU"
-      className={`${publicSans.className} ${publicSans.variable} ${silkscreen.variable}`}
+      className={`${publicSans.className} ${publicSans.variable} ${pixelify.variable}`}
       suppressHydrationWarning
     >
       <head>

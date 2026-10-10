@@ -13,8 +13,8 @@ import { pieSlices } from "./tag-charts";
 
 describe("chart pixels", () => {
   it("snaps coordinates onto the chart grid", () => {
-    assert.equal(snapChart(6), 8);
-    assert.equal(snapChart(5), 4);
+    assert.equal(snapChart(6), 6);
+    assert.equal(snapChart(5), 6);
     assert.equal(snapChart(11, 8), 8);
   });
 
@@ -62,6 +62,7 @@ describe("chart pixels", () => {
       16,
     );
     assert.equal(assigned[0]?.cells.length, 1);
-    assert.equal(CHART_PIXEL, 4);
+    assert.equal(CHART_PIXEL, 2);
+    assert.equal(PIE_PIXEL, 4);
   });
 });

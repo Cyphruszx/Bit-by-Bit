@@ -83,17 +83,21 @@ describe("design system tokens", () => {
     assert.deepEqual(
       radiusSamples.map((sample) => [sample.name, sample.value, sample.cssVar]),
       [
-        ["Mark", "0", "--radius-mark"],
-        ["Inner", "0", "--radius-inner"],
-        ["Card", "0", "--radius-card"],
-        ["Pill", "0", "--radius-pill"],
+        ["Mark", "2px", "--radius-mark"],
+        ["Inner", "2px", "--radius-inner"],
+        ["Card", "4px", "--radius-card"],
+        ["Pill", "4px", "--radius-pill"],
       ],
     );
     for (const sample of radiusSamples) {
-      assert.match(css, new RegExp(`${escapeRegExp(sample.cssVar)}\\s*:\\s*0`), sample.cssVar);
+      assert.match(
+        css,
+        new RegExp(`${escapeRegExp(sample.cssVar)}\\s*:\\s*${escapeRegExp(sample.value)}`),
+        sample.cssVar,
+      );
     }
-    assert.match(css, /--radius-full:\s*0/);
-    assert.match(css, /--radius-inner:\s*0/);
+    assert.match(css, /--radius-full:\s*4px/);
+    assert.match(css, /--radius-inner:\s*2px/);
   });
 
   it("keeps a hybrid type pair and hard offset shadows", () => {
@@ -104,15 +108,15 @@ describe("design system tokens", () => {
     assert.deepEqual(
       shadowSamples.map((sample) => [sample.cssVar, sample.value]),
       [
-        ["--shadow-card", "4px 4px 0"],
-        ["--header-shadow", "4px 4px 0"],
+        ["--shadow-card", "2px 2px 0"],
+        ["--header-shadow", "2px 2px 0"],
       ],
     );
-    assert.equal(gridSample.px, 16);
-    assert.match(css, /--sweep-grid-size:\s*16px/);
+    assert.equal(gridSample.px, 8);
+    assert.match(css, /--sweep-grid-size:\s*8px/);
     assert.match(css, /background-size:\s*var\(--sweep-grid-size\)/);
-    assert.match(css, /--shadow-card:\s*4px 4px 0 #123a8f/);
-    assert.match(css, /--header-shadow:\s*4px 4px 0 #123a8f/);
+    assert.match(css, /--shadow-card:\s*2px 2px 0 #123a8f/);
+    assert.match(css, /--header-shadow:\s*2px 2px 0 #123a8f/);
     assert.doesNotMatch(css, /backdrop-filter/);
   });
 
@@ -132,9 +136,10 @@ describe("design system tokens", () => {
     assert.match(gallery, /font-display text-\[32px\]/);
     assert.match(gallery, /font-sans text-\[27px\].*tabular-nums/);
     assert.match(gallery, /font-display text-base/);
-    assert.match(gallery, /Silkscreen at 8px multiples/);
-    assert.match(gallery, /Silkscreen \+ Public Sans/);
+    assert.match(gallery, /Pixelify Sans at 16px and up/);
+    assert.match(gallery, /Pixelify \+ Public Sans/);
     assert.doesNotMatch(gallery, /Press Start 2P/);
+    assert.doesNotMatch(gallery, /Silkscreen/);
     assert.doesNotMatch(gallery, /font-display[^"'\n]*tracking-tight/);
   });
 });
@@ -162,16 +167,16 @@ describe("pixel restyle locks", () => {
     assert.match(css, /html\.dark[\s\S]*--color-secondary:\s*#6f9bff/);
   });
 
-  it("loads Silkscreen as --font-display and skips Press Start 2P", () => {
+  it("loads Pixelify Sans as --font-display and skips Press Start 2P", () => {
     const layout = readFileSync(new URL("../layout.tsx", import.meta.url), "utf8");
-    assert.match(layout, /Silkscreen/);
+    assert.match(layout, /Pixelify_Sans/);
     assert.match(layout, /variable:\s*"--font-display"/);
     assert.match(layout, /Public_Sans/);
     assert.doesNotMatch(layout, /Press_Start_2P/);
-    assert.doesNotMatch(layout, /Pixelify_Sans/);
+    assert.doesNotMatch(layout, /Silkscreen/);
     assert.doesNotMatch(css, /Press Start 2P/i);
-    assert.match(css, /letter-spacing:\s*0/);
-    assert.match(css, /-webkit-font-smoothing:\s*none/);
+    assert.match(css, /letter-spacing:\s*0\.02em/);
+    assert.match(css, /-webkit-font-smoothing:\s*antialiased/);
   });
 });
 

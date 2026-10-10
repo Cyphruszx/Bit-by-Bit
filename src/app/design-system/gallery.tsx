@@ -46,7 +46,7 @@ export function DesignSystemGallery() {
         </div>
         <div className="grid justify-items-end gap-1.5 text-right text-xs text-muted">
           <span className="rounded-full bg-accent-surface px-3 py-1.5 font-display text-base text-primary-strong">
-            {theme === "dark" ? "8a dark" : "7b light"} · Silkscreen + Public Sans
+            {theme === "dark" ? "8a dark" : "7b light"} · Pixelify + Public Sans
           </span>
           <span>Toggle Dark in the header to rematch every swatch.</span>
         </div>
@@ -88,7 +88,7 @@ export function DesignSystemGallery() {
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
-        <Section index="02" eyebrow="Typography" title="Silkscreen for chrome, Public Sans for data">
+        <Section index="02" eyebrow="Typography" title="Pixelify Sans for chrome, Public Sans for data">
           <div className="grid gap-2 pb-2">
             {typeFaces.map((face) => (
               <p key={face.cssVar} className="text-[12.5px] leading-6 text-muted">
@@ -132,7 +132,7 @@ export function DesignSystemGallery() {
             </TypeRow>
           </div>
           <p className="text-[12.5px] leading-6 text-muted">
-            Pixel type is Silkscreen at 8px multiples (16 / 24 / 32 / 48), regular weight, no smoothing — boxier and clearer than Pixelify. Every amount stays on Public Sans with{" "}
+            Pixel type is Pixelify Sans at 16px and up, regular weight, smoothed — 16-bit resolution instead of 8-bit chunks. Every amount stays on Public Sans with{" "}
             <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">
               font-variant-numeric: tabular-nums
             </code>{" "}
@@ -142,7 +142,7 @@ export function DesignSystemGallery() {
         </Section>
 
         <div className="grid gap-5">
-          <Section index="03" eyebrow="Spacing & radius" title="4px base, square corners, hard offset">
+          <Section index="03" eyebrow="Spacing & radius" title="4px base, 16-bit corners, hard offset">
             <div className="grid gap-2">
               {spaceSamples.map((sample) => (
                 <div key={sample.px} className="flex items-center gap-3">
@@ -176,12 +176,12 @@ export function DesignSystemGallery() {
                 Backdrop grid is {gridSample.px}px via{" "}
                 <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">{gridSample.cssVar}</code>
                 . Tailwind <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">--radius-full</code>{" "}
-                is also 0 so <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">rounded-full</code>{" "}
-                becomes a rectangle.
+                is 4px so <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">rounded-full</code>{" "}
+                becomes a soft rectangle.
               </p>
             </div>
             <p className="text-[12.5px] leading-6 text-muted">
-              Every corner role is 0 — mark, inner, card, and pill. Don’t invent a fifth radius.
+              Mark and inner are 2px; card and pill are 4px. Don’t invent a fifth radius.
             </p>
           </Section>
         </div>
@@ -302,7 +302,7 @@ export function DesignSystemGallery() {
             <p className="text-[12.5px] text-muted">
               Primary is <code className="font-mono text-[11px]">bg-primary-strong</code> (Add). Brand is{" "}
               <code className="font-mono text-[11px]">bg-primary</code>. Secondary is a lined surface square. Labels use
-              Silkscreen. Hover is the shared 160ms opacity. Disabled keeps the label and mutes the fill.
+              Pixelify Sans. Hover is the shared 160ms opacity. Disabled keeps the label and mutes the fill.
             </p>
           </div>
 
