@@ -275,10 +275,10 @@ h1,
   font-family: var(--font-display), ui-sans-serif, sans-serif;
   font-weight: 400;
   font-synthesis: none;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   line-height: 1.25;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
 }
 
 input,
