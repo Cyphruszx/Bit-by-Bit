@@ -134,7 +134,7 @@ describe("design system tokens", () => {
     assert.match(gallery, /fill="bg-chart-4"/);
     assert.match(gallery, /ink \(`--color-ink`\) is #101214/);
     assert.match(gallery, /font-display text-\[32px\]/);
-    assert.match(gallery, /font-sans text-\[27px\].*tabular-nums/);
+    assert.match(gallery, /font-display text-\[24px\].*tabular-nums/);
     assert.match(gallery, /font-display text-base/);
     assert.match(gallery, /Silkscreen at 8px multiples/);
     assert.match(gallery, /Silkscreen \+ Public Sans/);
@@ -176,6 +176,8 @@ describe("pixel restyle locks", () => {
     assert.doesNotMatch(css, /Press Start 2P/i);
     assert.match(css, /letter-spacing:\s*0/);
     assert.match(css, /-webkit-font-smoothing:\s*none/);
+    assert.match(css, /\.tabular-nums\s*\{[\s\S]*--font-display/);
+    assert.match(css, /input[\s\S]*table\s*\{[\s\S]*--font-sans/);
   });
 });
 

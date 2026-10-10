@@ -27,7 +27,7 @@ export function MobileNav() {
         >
           {label}
           {href === "/review" && openReviewCount > 0 ? (
-            <span className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-primary px-1 font-sans text-xs font-bold text-on-primary">
+            <span className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-primary px-1 font-display text-xs text-on-primary">
               {formatCount(openReviewCount)}
             </span>
           ) : null}

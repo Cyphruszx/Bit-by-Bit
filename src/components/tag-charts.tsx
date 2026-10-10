@@ -289,8 +289,8 @@ function PieChart({
           y={cy - 6}
           textAnchor="middle"
           fill={net >= 0 ? "var(--color-positive)" : "var(--color-primary)"}
-          fontSize="13"
-          fontWeight="700"
+          fontSize="16"
+          className="font-display"
         >
           {signedCompact(net)}
         </text>
@@ -324,7 +324,7 @@ function PieChart({
                     {slice.direction}
                   </span>
                 </span>
-                <span className={`shrink-0 ${slice.amount >= 0 ? "text-positive" : "text-muted"}`}>
+                <span className={`shrink-0 tabular-nums ${slice.amount >= 0 ? "text-positive" : "text-muted"}`}>
                   {formatSignedAud(slice.amount)} · {slice.share}%
                 </span>
               </button>

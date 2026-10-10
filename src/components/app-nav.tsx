@@ -32,7 +32,7 @@ export function AppNav() {
             {label}
             {href === "/review" && openReviewCount > 0 ? (
               <span
-                className={`ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 font-sans text-xs font-bold ${
+                className={`ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 font-display text-xs ${
                   active ? "bg-on-primary text-primary" : "bg-primary text-on-primary"
                 }`}
               >
