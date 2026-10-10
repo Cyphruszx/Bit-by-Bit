@@ -32,7 +32,7 @@ export function TransactionsView() {
     renameTagEverywhere,
     transactions,
   } = useMoneyFlow();
-  const [chart, setChart] = useState<ChartKind>("bar");
+  const [chart, setChart] = useState<ChartKind>("line");
   const [selectedTag, setSelectedTag] = useState("All");
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),

@@ -1,6 +1,7 @@
 "use client";
 
 import { formatAud, formatAudCompact } from "@/lib/format";
+import { CHART_PIXEL, closeSteppedArea, snapChart, steppedPath } from "@/lib/money-flow/chart-pixels";
 import type { ChartPoint } from "@/lib/money-flow/savings";
 
 export type LineChartSeries = {
@@ -43,9 +44,11 @@ export function LineChart({
   const maxValue = niceMax(Math.max(0, ...values));
   const minValue = lowest < 0 ? -niceMax(-lowest) : 0;
   const x = (index: number) =>
-    pad.left + (labels.length === 1 ? innerWidth / 2 : (index / (labels.length - 1)) * innerWidth);
+    snapChart(
+      pad.left + (labels.length === 1 ? innerWidth / 2 : (index / (labels.length - 1)) * innerWidth),
+    );
   const y = (value: number) =>
-    pad.top + innerHeight - ((value - minValue) / Math.max(maxValue - minValue, 1)) * innerHeight;
+    snapChart(pad.top + innerHeight - ((value - minValue) / Math.max(maxValue - minValue, 1)) * innerHeight);
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minValue + (maxValue - minValue) * ratio);
   const xLabelEvery = Math.max(1, Math.ceil(labels.length / 6));
 
@@ -66,7 +69,8 @@ export function LineChart({
               y1={y(tick)}
               y2={y(tick)}
               stroke="var(--color-surface-subtle)"
-              strokeWidth="1"
+              strokeWidth={CHART_PIXEL / 2}
+              shapeRendering="crispEdges"
             />
             <text x={pad.left - 8} y={y(tick) + 4} textAnchor="end" fill="var(--color-muted)" fontSize="11">
               {formatAudCompact(tick)}
@@ -74,7 +78,15 @@ export function LineChart({
           </g>
         ))}
         {minValue < 0 ? (
-          <line x1={pad.left} x2={width - pad.right} y1={y(0)} y2={y(0)} stroke="var(--color-axis)" strokeWidth="1" />
+          <line
+            x1={pad.left}
+            x2={width - pad.right}
+            y1={y(0)}
+            y2={y(0)}
+            stroke="var(--color-axis)"
+            strokeWidth={CHART_PIXEL / 2}
+            shapeRendering="crispEdges"
+          />
         ) : null}
         {labels.map((label, index) =>
           index % xLabelEvery === 0 || index === labels.length - 1 ? (
@@ -92,30 +104,34 @@ export function LineChart({
         )}
         {series.map((item) => {
           const aligned = labels.map((label) => item.points.find((point) => point.key === label.key));
-          const path = toPath(aligned, x, y);
-          const area = item.fill && path ? `${path} L ${x(labels.length - 1)} ${y(0)} L ${x(0)} ${y(0)} Z` : null;
+          const path = steppedPath(
+            aligned.map((point, index) => (point ? { x: x(index), y: y(point.value) } : undefined)),
+          );
+          const area = item.fill && path ? closeSteppedArea(path, x(0), y(0)) : null;
+          const mark = CHART_PIXEL * 2;
           return (
-            <g key={item.id}>
+            <g key={item.id} shapeRendering="crispEdges">
               {area ? <path d={area} fill={item.fill} opacity="0.35" /> : null}
               {path ? (
                 <path
                   d={path}
                   fill="none"
                   stroke={item.color}
-                  strokeWidth="4"
+                  strokeWidth={CHART_PIXEL}
                   strokeLinejoin="miter"
                   strokeLinecap="square"
-                  strokeDasharray={item.dashed ? "6 6" : undefined}
+                  strokeDasharray={item.dashed ? `${CHART_PIXEL} ${CHART_PIXEL}` : undefined}
                 />
               ) : null}
               {showPoints
                 ? aligned.map((point, index) =>
                     point ? (
-                      <circle
+                      <rect
                         key={`${item.id}-${point.key}`}
-                        cx={x(index)}
-                        cy={y(point.value)}
-                        r="3.5"
+                        x={x(index) - mark / 2}
+                        y={y(point.value) - mark / 2}
+                        width={mark}
+                        height={mark}
                         fill={item.color}
                         aria-label={`${item.label}: ${formatAud(point.value)} · ${point.label}`}
                       />
@@ -154,19 +170,6 @@ function sharedLabels(series: LineChartSeries[]) {
   return [...seen.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, label]) => ({ key, label }));
-}
-
-function toPath(
-  points: Array<ChartPoint | undefined>,
-  x: (index: number) => number,
-  y: (value: number) => number,
-) {
-  const commands: string[] = [];
-  points.forEach((point, index) => {
-    if (!point) return;
-    commands.push(`${commands.length === 0 ? "M" : "L"} ${x(index)} ${y(point.value)}`);
-  });
-  return commands.length ? commands.join(" ") : "";
 }
 
 function niceMax(value: number) {
