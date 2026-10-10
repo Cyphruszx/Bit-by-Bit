@@ -1,5 +1,5 @@
-export const CHART_PIXEL = 4;
-export const PIE_PIXEL = 8;
+export const CHART_PIXEL = 2;
+export const PIE_PIXEL = 4;
 
 export type PixelCell = {
   x: number;

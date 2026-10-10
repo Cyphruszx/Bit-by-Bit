@@ -324,7 +324,7 @@ function PieChart({
                     {slice.direction}
                   </span>
                 </span>
-                <span className={`shrink-0 ${slice.amount >= 0 ? "text-positive" : "text-muted"}`}>
+                <span className={`shrink-0 tabular-nums ${slice.amount >= 0 ? "text-positive" : "text-muted"}`}>
                   {formatSignedAud(slice.amount)} · {slice.share}%
                 </span>
               </button>

@@ -83,17 +83,21 @@ describe("design system tokens", () => {
     assert.deepEqual(
       radiusSamples.map((sample) => [sample.name, sample.value, sample.cssVar]),
       [
-        ["Mark", "0", "--radius-mark"],
-        ["Inner", "0", "--radius-inner"],
-        ["Card", "0", "--radius-card"],
-        ["Pill", "0", "--radius-pill"],
+        ["Mark", "2px", "--radius-mark"],
+        ["Inner", "2px", "--radius-inner"],
+        ["Card", "4px", "--radius-card"],
+        ["Pill", "4px", "--radius-pill"],
       ],
     );
     for (const sample of radiusSamples) {
-      assert.match(css, new RegExp(`${escapeRegExp(sample.cssVar)}\\s*:\\s*0`), sample.cssVar);
+      assert.match(
+        css,
+        new RegExp(`${escapeRegExp(sample.cssVar)}\\s*:\\s*${escapeRegExp(sample.value)}`),
+        sample.cssVar,
+      );
     }
-    assert.match(css, /--radius-full:\s*0/);
-    assert.match(css, /--radius-inner:\s*0/);
+    assert.match(css, /--radius-full:\s*4px/);
+    assert.match(css, /--radius-inner:\s*2px/);
   });
 
   it("keeps a hybrid type pair and hard offset shadows", () => {
@@ -104,15 +108,15 @@ describe("design system tokens", () => {
     assert.deepEqual(
       shadowSamples.map((sample) => [sample.cssVar, sample.value]),
       [
-        ["--shadow-card", "4px 4px 0"],
-        ["--header-shadow", "4px 4px 0"],
+        ["--shadow-card", "2px 2px 0"],
+        ["--header-shadow", "2px 2px 0"],
       ],
     );
-    assert.equal(gridSample.px, 16);
-    assert.match(css, /--sweep-grid-size:\s*16px/);
+    assert.equal(gridSample.px, 8);
+    assert.match(css, /--sweep-grid-size:\s*8px/);
     assert.match(css, /background-size:\s*var\(--sweep-grid-size\)/);
-    assert.match(css, /--shadow-card:\s*4px 4px 0 #123a8f/);
-    assert.match(css, /--header-shadow:\s*4px 4px 0 #123a8f/);
+    assert.match(css, /--shadow-card:\s*2px 2px 0 #123a8f/);
+    assert.match(css, /--header-shadow:\s*2px 2px 0 #123a8f/);
     assert.doesNotMatch(css, /backdrop-filter/);
   });
 
@@ -130,6 +134,7 @@ describe("design system tokens", () => {
     assert.match(gallery, /fill="bg-chart-4"/);
     assert.match(gallery, /ink \(`--color-ink`\) is #101214/);
     assert.match(gallery, /font-display text-\[32px\]/);
+    assert.match(gallery, /font-display text-\[24px\].*tabular-nums/);
     assert.match(gallery, /font-sans text-\[27px\].*tabular-nums/);
     assert.match(gallery, /font-display text-base/);
     assert.match(gallery, /Silkscreen at 8px multiples/);
@@ -172,6 +177,10 @@ describe("pixel restyle locks", () => {
     assert.doesNotMatch(css, /Press Start 2P/i);
     assert.match(css, /letter-spacing:\s*0/);
     assert.match(css, /-webkit-font-smoothing:\s*none/);
+    assert.match(css, /\.tabular-nums\s*\{[^}]*--font-sans/);
+    assert.match(css, /\.font-display\s*\{[^}]*--font-display/);
+    const tiles = readFileSync(new URL("../../components/summary-card.tsx", import.meta.url), "utf8");
+    assert.match(tiles, /font-display tabular-nums/);
   });
 });
 

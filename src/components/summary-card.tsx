@@ -17,7 +17,7 @@ export function SummaryCard({
     <article className={`${highlight ? "card-highlight" : "card"} ${compact ? "px-3.5 py-2.5" : "p-5"}`}>
       <p className={`text-sm ${highlight ? "text-on-dark-muted" : "text-muted"}`}>{label}</p>
       <p
-        className={`${compact ? "mt-0.5 text-xl" : "mt-2 text-[27px]"} break-words font-bold tracking-tight tabular-nums ${
+        className={`${compact ? "mt-0.5 text-2xl" : "mt-2 text-[24px]"} break-words font-display tabular-nums ${
           highlight ? "text-on-dark" : positive ? "text-positive" : ""
         }`}
       >

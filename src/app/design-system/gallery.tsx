@@ -88,7 +88,7 @@ export function DesignSystemGallery() {
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
-        <Section index="02" eyebrow="Typography" title="Silkscreen for chrome, Public Sans for data">
+        <Section index="02" eyebrow="Typography" title="Silkscreen for chrome and money tiles, Public Sans for data">
           <div className="grid gap-2 pb-2">
             {typeFaces.map((face) => (
               <p key={face.cssVar} className="text-[12.5px] leading-6 text-muted">
@@ -103,7 +103,10 @@ export function DesignSystemGallery() {
             <TypeRow spec="32 / 400 display" sampleClass="font-display text-[32px]">
               Page title
             </TypeRow>
-            <TypeRow spec="27 / 700 tabular" sampleClass="font-sans text-[27px] font-bold tracking-tight tabular-nums">
+            <TypeRow spec="24 / 400 display tile" sampleClass="font-display text-[24px] tabular-nums">
+              {formatAud(18420.65)}
+            </TypeRow>
+            <TypeRow spec="27 / 700 ledger" sampleClass="font-sans text-[27px] font-bold tracking-tight tabular-nums">
               {formatAud(18420.65)}
             </TypeRow>
             <TypeRow spec="24 / 400 display" sampleClass="font-display text-2xl">
@@ -132,9 +135,9 @@ export function DesignSystemGallery() {
             </TypeRow>
           </div>
           <p className="text-[12.5px] leading-6 text-muted">
-            Pixel type is Silkscreen at 8px multiples (16 / 24 / 32 / 48), regular weight, no smoothing — boxier and clearer than Pixelify. Every amount stays on Public Sans with{" "}
+            Pixel type is Silkscreen at 8px multiples (16 / 24 / 32 / 48), regular weight, no smoothing — boxier than Pixelify, kept for 16-bit chrome. Money tiles use that face. Ledger rows and chart figures stay on Public Sans with{" "}
             <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">
-              font-variant-numeric: tabular-nums
+              tabular-nums
             </code>{" "}
             so columns align. Negative amounts use the true minus sign (−), not a hyphen. Body copy never drops below
             12.5px.
@@ -142,7 +145,7 @@ export function DesignSystemGallery() {
         </Section>
 
         <div className="grid gap-5">
-          <Section index="03" eyebrow="Spacing & radius" title="4px base, square corners, hard offset">
+          <Section index="03" eyebrow="Spacing & radius" title="4px base, 16-bit corners, hard offset">
             <div className="grid gap-2">
               {spaceSamples.map((sample) => (
                 <div key={sample.px} className="flex items-center gap-3">
@@ -176,12 +179,12 @@ export function DesignSystemGallery() {
                 Backdrop grid is {gridSample.px}px via{" "}
                 <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">{gridSample.cssVar}</code>
                 . Tailwind <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">--radius-full</code>{" "}
-                is also 0 so <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">rounded-full</code>{" "}
-                becomes a rectangle.
+                is 4px so <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">rounded-full</code>{" "}
+                becomes a soft rectangle.
               </p>
             </div>
             <p className="text-[12.5px] leading-6 text-muted">
-              Every corner role is 0 — mark, inner, card, and pill. Don’t invent a fifth radius.
+              Mark and inner are 2px; card and pill are 4px. Don’t invent a fifth radius.
             </p>
           </Section>
         </div>
