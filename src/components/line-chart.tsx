@@ -102,9 +102,9 @@ export function LineChart({
                   d={path}
                   fill="none"
                   stroke={item.color}
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
+                  strokeWidth="4"
+                  strokeLinejoin="miter"
+                  strokeLinecap="square"
                   strokeDasharray={item.dashed ? "6 6" : undefined}
                 />
               ) : null}
@@ -130,7 +130,7 @@ export function LineChart({
         {series.map((item) => (
           <span key={item.id} className="inline-flex items-center gap-2">
             <span
-              className="inline-block h-0.5 w-5 rounded-full"
+              className="inline-block h-1 w-5 rounded-none"
               style={{
                 background: item.dashed ? "transparent" : item.color,
                 borderTop: item.dashed ? `2px dashed ${item.color}` : undefined,

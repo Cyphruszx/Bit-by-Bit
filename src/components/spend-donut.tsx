@@ -23,7 +23,7 @@ export function SpendDonut({
   return (
     <div className="flex items-center gap-5">
       <svg viewBox="0 0 160 160" className="h-[150px] w-[150px] shrink-0" role="img" aria-label="Spend by category">
-        <g transform="rotate(-90 80 80)" fill="none" strokeWidth="22">
+        <g transform="rotate(-90 80 80)" fill="none" strokeWidth="24" strokeLinecap="square">
           {rings.map((slice) => (
             <circle
               key={slice.name}
@@ -36,10 +36,10 @@ export function SpendDonut({
             />
           ))}
         </g>
-        <text x="80" y="76" textAnchor="middle" className="fill-ink text-[19px] font-bold">
+        <text x="80" y="76" textAnchor="middle" className="fill-ink font-sans text-[19px] font-bold">
           {formatAud(total).replace(/\.00$/, "")}
         </text>
-        <text x="80" y="93" textAnchor="middle" className="fill-muted text-[10.5px]">
+        <text x="80" y="93" textAnchor="middle" className="fill-muted font-sans text-[10.5px]">
           out this month
         </text>
       </svg>

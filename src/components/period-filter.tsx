@@ -31,7 +31,7 @@ export function PeriodFilterBar() {
   return (
     <div className="app-period">
       <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2 px-5 py-[11px] md:px-7">
-        <p className="mr-1 text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted">Period</p>
+        <p className="mr-1 font-display text-xs font-bold uppercase tracking-[0.16em] text-muted">Period</p>
         <PeriodChip
           active={period.kind === "month"}
           onClick={() => setPeriod({ kind: "month", month: selectedMonth })}
@@ -69,7 +69,7 @@ export function PeriodFilterBar() {
               onChange={(event) => {
                 if (event.target.value) setPeriod({ kind: "month", month: event.target.value });
               }}
-              className="rounded-full border border-line bg-surface px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft outline-none focus:border-primary"
+              className="rounded-full border-2 border-line bg-surface px-3 py-1.5 font-sans text-[13px] font-semibold text-ink-soft outline-none focus:border-primary"
             >
               {months.map((month) => (
                 <option key={month} value={month}>
@@ -122,7 +122,7 @@ function DateField({
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-primary outline-none focus:border-primary"
+        className="rounded-full border-2 border-line bg-surface px-3 py-1.5 font-sans text-sm font-semibold text-primary outline-none focus:border-primary"
       />
     </label>
   );

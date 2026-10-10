@@ -53,11 +53,31 @@ export const darkColourTokens: ColorToken[] = [
 ];
 
 export const radiusSamples = [
-  { name: "Mark", value: "2", className: "rounded-[var(--radius-mark)]", cssVar: "--radius-mark" },
-  { name: "Inner", value: "10", className: "rounded-[var(--radius-inner)]", cssVar: "--radius-inner" },
-  { name: "Card", value: "16", className: "rounded-[var(--radius-card)]", cssVar: "--radius-card" },
-  { name: "Pill", value: "999", className: "rounded-[var(--radius-pill)]", cssVar: "--radius-pill" },
+  { name: "Mark", value: "0", className: "rounded-[var(--radius-mark)]", cssVar: "--radius-mark" },
+  { name: "Inner", value: "0", className: "rounded-[var(--radius-inner)]", cssVar: "--radius-inner" },
+  { name: "Card", value: "0", className: "rounded-[var(--radius-card)]", cssVar: "--radius-card" },
+  { name: "Pill", value: "0", className: "rounded-[var(--radius-pill)]", cssVar: "--radius-pill" },
 ] as const;
+
+export const typeFaces = [
+  {
+    name: "Display",
+    cssVar: "--font-display",
+    use: "Wordmark, nav, eyebrows, titles, button and chip labels",
+  },
+  {
+    name: "Body",
+    cssVar: "--font-sans",
+    use: "Body, tables, category names, inputs, amounts",
+  },
+] as const;
+
+export const shadowSamples = [
+  { name: "Card", cssVar: "--shadow-card", value: "4px 4px 0" },
+  { name: "Header", cssVar: "--header-shadow", value: "4px 4px 0" },
+] as const;
+
+export const gridSample = { px: 16, cssVar: "--sweep-grid-size" } as const;
 
 export const spaceSamples = [
   { px: 4, barClass: "w-[4px] bg-chart-4", use: "icon gaps, tight stacks" },

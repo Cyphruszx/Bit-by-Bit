@@ -1,4 +1,4 @@
-import { Public_Sans } from "next/font/google";
+import { Pixelify_Sans, Public_Sans } from "next/font/google";
 import type { Metadata } from "next";
 import { MoneyFlowProvider } from "@/components/money-flow-provider";
 import { ThemeScript } from "@/components/theme-script";
@@ -8,6 +8,13 @@ import "./globals.css";
 const publicSans = Public_Sans({
   subsets: ["latin"],
   display: "swap",
+  variable: "--font-sans",
+});
+
+const pixelifySans = Pixelify_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
 });
 
 export const metadata: Metadata = {
@@ -20,7 +27,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en-AU" className={publicSans.className} suppressHydrationWarning>
+    <html
+      lang="en-AU"
+      className={`${publicSans.className} ${publicSans.variable} ${pixelifySans.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <ThemeScript />
       </head>

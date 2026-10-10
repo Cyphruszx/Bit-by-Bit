@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { colourTokens, darkColourTokens, radiusSamples, spaceSamples } from "./tokens";
+import {
+  colourTokens,
+  darkColourTokens,
+  gridSample,
+  radiusSamples,
+  shadowSamples,
+  spaceSamples,
+  typeFaces,
+} from "./tokens";
 
 const css = readFileSync(new URL("../globals.css", import.meta.url), "utf8");
 
@@ -75,16 +83,37 @@ describe("design system tokens", () => {
     assert.deepEqual(
       radiusSamples.map((sample) => [sample.name, sample.value, sample.cssVar]),
       [
-        ["Mark", "2", "--radius-mark"],
-        ["Inner", "10", "--radius-inner"],
-        ["Card", "16", "--radius-card"],
-        ["Pill", "999", "--radius-pill"],
+        ["Mark", "0", "--radius-mark"],
+        ["Inner", "0", "--radius-inner"],
+        ["Card", "0", "--radius-card"],
+        ["Pill", "0", "--radius-pill"],
       ],
     );
     for (const sample of radiusSamples) {
-      assert.match(css, new RegExp(`${escapeRegExp(sample.cssVar)}\\s*:`), sample.cssVar);
+      assert.match(css, new RegExp(`${escapeRegExp(sample.cssVar)}\\s*:\\s*0`), sample.cssVar);
     }
-    assert.match(css, /--radius-inner:\s*10px/);
+    assert.match(css, /--radius-full:\s*0/);
+    assert.match(css, /--radius-inner:\s*0/);
+  });
+
+  it("keeps a hybrid type pair and hard offset shadows", () => {
+    assert.deepEqual(
+      typeFaces.map((face) => face.cssVar),
+      ["--font-display", "--font-sans"],
+    );
+    assert.deepEqual(
+      shadowSamples.map((sample) => [sample.cssVar, sample.value]),
+      [
+        ["--shadow-card", "4px 4px 0"],
+        ["--header-shadow", "4px 4px 0"],
+      ],
+    );
+    assert.equal(gridSample.px, 16);
+    assert.match(css, /--sweep-grid-size:\s*16px/);
+    assert.match(css, /background-size:\s*var\(--sweep-grid-size\)/);
+    assert.match(css, /--shadow-card:\s*4px 4px 0 #123a8f/);
+    assert.match(css, /--header-shadow:\s*4px 4px 0 #123a8f/);
+    assert.doesNotMatch(css, /backdrop-filter/);
   });
 
   it("keeps gallery chrome on named section-01 tokens", () => {
@@ -100,6 +129,43 @@ describe("design system tokens", () => {
     assert.match(gallery, /fill = "bg-accent-surface"/);
     assert.match(gallery, /fill="bg-chart-4"/);
     assert.match(gallery, /ink \(`--color-ink`\) is #101214/);
+    assert.match(gallery, /font-display text-\[38px\]/);
+    assert.match(gallery, /font-sans text-\[27px\].*tabular-nums/);
+    assert.match(gallery, /Pixelify Sans/);
+    assert.doesNotMatch(gallery, /Press Start 2P/);
+  });
+});
+
+describe("pixel restyle locks", () => {
+  it("does not remap live colour token hexes", () => {
+    const light = [
+      ["--color-canvas", "#e2e8f3"],
+      ["--color-surface", "#ffffff"],
+      ["--color-ink", "#101214"],
+      ["--color-primary", "#1b4fd8"],
+      ["--color-primary-strong", "#123a8f"],
+      ["--color-secondary", "#5a8bf0"],
+      ["--color-positive", "#1b4fd8"],
+      ["--color-negative", "#101214"],
+      ["--color-chart-1", "#123a8f"],
+      ["--color-chart-2", "#1b4fd8"],
+      ["--color-chart-3", "#5a8bf0"],
+      ["--color-chart-4", "#9dbaf7"],
+    ] as const;
+    for (const [name, hex] of light) {
+      assert.match(css, new RegExp(`${escapeRegExp(name)}:\\s*${hex}`), name);
+    }
+    assert.match(css, /html\.dark[\s\S]*--color-primary:\s*#2f5bd0/);
+    assert.match(css, /html\.dark[\s\S]*--color-secondary:\s*#6f9bff/);
+  });
+
+  it("loads Pixelify Sans as --font-display and skips Press Start 2P", () => {
+    const layout = readFileSync(new URL("../layout.tsx", import.meta.url), "utf8");
+    assert.match(layout, /Pixelify_Sans/);
+    assert.match(layout, /variable:\s*"--font-display"/);
+    assert.match(layout, /Public_Sans/);
+    assert.doesNotMatch(layout, /Press_Start_2P/);
+    assert.doesNotMatch(css, /Press Start 2P/i);
   });
 });
 

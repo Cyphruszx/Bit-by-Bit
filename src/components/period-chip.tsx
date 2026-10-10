@@ -22,8 +22,8 @@ export function PeriodChip({
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-35 ${
-        active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
+      className={`rounded-full px-3 py-1.5 font-display text-[13px] font-semibold disabled:opacity-35 ${
+        active ? "bg-primary text-on-primary" : "border-2 border-line bg-surface text-ink-soft"
       }`}
     >
       {children}
