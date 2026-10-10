@@ -31,7 +31,7 @@ export function PeriodFilterBar() {
   return (
     <div className="app-period">
       <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2 px-5 py-[11px] md:px-7">
-        <p className="mr-1 font-display text-sm uppercase tracking-[0.16em] text-muted">Period</p>
+        <p className="mr-1 font-display text-base uppercase text-muted">Period</p>
         <PeriodChip
           active={period.kind === "month"}
           onClick={() => setPeriod({ kind: "month", month: selectedMonth })}

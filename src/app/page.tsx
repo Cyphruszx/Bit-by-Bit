@@ -63,8 +63,8 @@ export default function Home() {
       </nav>
       <section className="mx-auto grid max-w-[1240px] gap-12 px-5 pb-20 pt-16 md:grid-cols-[1.1fr_.9fr] md:items-center md:px-7 md:pt-24">
         <div>
-          <p className="mb-5 font-display text-sm uppercase tracking-[0.2em] text-muted">Australian money flow</p>
-          <h1 className="max-w-xl font-display text-5xl md:text-6xl">Upload a statement. See the money flow.</h1>
+          <p className="mb-5 font-display text-base uppercase text-muted">Australian money flow</p>
+          <h1 className="max-w-xl font-display text-5xl md:text-[64px]">Upload a statement. See the money flow.</h1>
           <p className="mt-6 max-w-lg text-lg leading-8 text-muted">{siteDescription}</p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             {signInReady ? (

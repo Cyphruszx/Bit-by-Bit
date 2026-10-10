@@ -36,7 +36,7 @@ export function DesignSystemGallery() {
     <div className="grid gap-5">
       <header className="flex flex-wrap items-end justify-between gap-8 px-0.5 pb-1.5">
         <div className="grid gap-2.5">
-          <h1 className="font-display text-[38px]">Design system</h1>
+          <h1 className="font-display text-[32px]">Design system</h1>
           <p className="max-w-[62ch] text-sm leading-6 text-ink-soft">
             Living tokens from <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">src/app/globals.css</code>.
             Swatches use the same Tailwind theme classes as the product —{" "}
@@ -45,8 +45,8 @@ export function DesignSystemGallery() {
           </p>
         </div>
         <div className="grid justify-items-end gap-1.5 text-right text-xs text-muted">
-          <span className="rounded-full bg-accent-surface px-3 py-1.5 font-display text-sm text-primary-strong">
-            {theme === "dark" ? "8a dark" : "7b light"} · Pixelify Sans + Public Sans
+          <span className="rounded-full bg-accent-surface px-3 py-1.5 font-display text-base text-primary-strong">
+            {theme === "dark" ? "8a dark" : "7b light"} · Silkscreen + Public Sans
           </span>
           <span>Toggle Dark in the header to rematch every swatch.</span>
         </div>
@@ -59,7 +59,7 @@ export function DesignSystemGallery() {
         hint="Blue carries meaning — brand, positive movement, selection. Neutrals carry everything else."
       >
         <div className="grid gap-2.5">
-          <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Light theme</p>
+          <p className="font-display text-base uppercase text-muted">Light theme</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {colourTokens.map((token) => (
               <TokenSwatch key={`light-${token.name}`} token={token} />
@@ -68,7 +68,7 @@ export function DesignSystemGallery() {
         </div>
 
         <div className="dark grid gap-2.5 rounded-[var(--radius-inner)] border-2 border-secondary/20 bg-surface-subtle p-[18px]">
-          <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Dark theme</p>
+          <p className="font-display text-base uppercase text-muted">Dark theme</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {darkColourTokens.map((token) => (
               <TokenSwatch key={`dark-${token.name}`} token={token} />
@@ -88,7 +88,7 @@ export function DesignSystemGallery() {
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
-        <Section index="02" eyebrow="Typography" title="Pixelify Sans for chrome, Public Sans for data">
+        <Section index="02" eyebrow="Typography" title="Silkscreen for chrome, Public Sans for data">
           <div className="grid gap-2 pb-2">
             {typeFaces.map((face) => (
               <p key={face.cssVar} className="text-[12.5px] leading-6 text-muted">
@@ -100,13 +100,13 @@ export function DesignSystemGallery() {
             ))}
           </div>
           <div>
-            <TypeRow spec="38 / 600 display" sampleClass="font-display text-[38px]">
+            <TypeRow spec="32 / 400 display" sampleClass="font-display text-[32px]">
               Page title
             </TypeRow>
             <TypeRow spec="27 / 700 tabular" sampleClass="font-sans text-[27px] font-bold tracking-tight tabular-nums">
               {formatAud(18420.65)}
             </TypeRow>
-            <TypeRow spec="24 / 600 display" sampleClass="font-display text-2xl">
+            <TypeRow spec="24 / 400 display" sampleClass="font-display text-2xl">
               Product wordmark
             </TypeRow>
             <TypeRow spec="15.5 / 700" sampleClass="text-[15.5px] font-bold">
@@ -115,7 +115,7 @@ export function DesignSystemGallery() {
             <TypeRow spec="14 / 600" sampleClass="text-sm font-semibold">
               Row title — Coles Brunswick
             </TypeRow>
-            <TypeRow spec="16 / 600 display" sampleClass="font-display text-base">
+            <TypeRow spec="16 / 400 display" sampleClass="font-display text-base">
               Nav item
             </TypeRow>
             <TypeRow spec="13 / 400" sampleClass="text-[13px]">
@@ -124,15 +124,15 @@ export function DesignSystemGallery() {
             <TypeRow spec="12.5 / 400 muted" sampleClass="text-[12.5px] text-muted">
               Supporting line — across 3 accounts
             </TypeRow>
-            <TypeRow spec="16 / 600 display" sampleClass="font-display text-base">
+            <TypeRow spec="16 / 400 display" sampleClass="font-display text-base">
               Button label
             </TypeRow>
-            <TypeRow spec="14 / 600 display" sampleClass="font-display text-sm uppercase tracking-[0.16em] text-muted">
+            <TypeRow spec="16 / 400 display" sampleClass="font-display text-base uppercase text-muted">
               Section eyebrow
             </TypeRow>
           </div>
           <p className="text-[12.5px] leading-6 text-muted">
-            Pixel type stays on chrome at 16px, or 14px for uppercase eyebrows, with open tracking so the bitmap stays readable. Every amount stays on Public Sans with{" "}
+            Pixel type is Silkscreen at 8px multiples (16 / 24 / 32 / 48), regular weight, no smoothing — boxier and clearer than Pixelify. Every amount stays on Public Sans with{" "}
             <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">
               font-variant-numeric: tabular-nums
             </code>{" "}
@@ -189,7 +189,7 @@ export function DesignSystemGallery() {
 
       <Section index="04" eyebrow="Layout grid" title="One shell, four page grids">
         <div className="grid gap-2 rounded-[var(--radius-inner)] border-2 border-primary/20 bg-accent-surface px-4 py-3.5 text-[12.5px] leading-normal text-ink-soft">
-          <p className="font-display text-sm uppercase tracking-[0.12em] text-primary-strong">Fixed for every page</p>
+          <p className="font-display text-base uppercase text-primary-strong">Fixed for every page</p>
           <p>
             Desktop shell <span className="font-bold text-ink">1240px</span> · padding{" "}
             <span className="font-bold text-ink">28px</span> · gutter{" "}
@@ -278,7 +278,7 @@ export function DesignSystemGallery() {
       >
         <div className="grid gap-6">
           <div className="grid gap-3">
-            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Buttons</p>
+            <p className="font-display text-base uppercase text-muted">Buttons</p>
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" className={primaryButton}>
                 Add
@@ -302,12 +302,12 @@ export function DesignSystemGallery() {
             <p className="text-[12.5px] text-muted">
               Primary is <code className="font-mono text-[11px]">bg-primary-strong</code> (Add). Brand is{" "}
               <code className="font-mono text-[11px]">bg-primary</code>. Secondary is a lined surface square. Labels use
-              Pixelify Sans. Hover is the shared 160ms opacity. Disabled keeps the label and mutes the fill.
+              Silkscreen. Hover is the shared 160ms opacity. Disabled keeps the label and mutes the fill.
             </p>
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Nav labels</p>
+            <p className="font-display text-base uppercase text-muted">Nav labels</p>
             <nav className="flex flex-wrap items-center gap-1">
               {["Dashboard", "Transactions", "Recurring"].map((label) => (
                 <button
@@ -323,9 +323,9 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Period filter chips</p>
+            <p className="font-display text-base uppercase text-muted">Period filter chips</p>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="mr-1 font-display text-sm uppercase tracking-[0.16em] text-muted">Period</p>
+              <p className="mr-1 font-display text-base uppercase text-muted">Period</p>
               <PeriodChip active={period === "month"} onClick={() => setPeriod("month")}>
                 September 2026
               </PeriodChip>
@@ -345,7 +345,7 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Cards and SummaryCard</p>
+            <p className="font-display text-base uppercase text-muted">Cards and SummaryCard</p>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <SummaryCard
                 label="Money in"
@@ -381,7 +381,7 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Logo mark</p>
+            <p className="font-display text-base uppercase text-muted">Logo mark</p>
             <div className="flex flex-wrap items-center gap-6">
               <BrandMark />
               <span aria-hidden className="grid grid-cols-2 gap-px">
@@ -425,7 +425,7 @@ function Section({
     <section className="card grid gap-5 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-display text-sm uppercase tracking-[0.16em] text-muted">
+          <p className="font-display text-base uppercase text-muted">
             {index} · {eyebrow}
           </p>
           <h2 className="mt-1.5 font-display text-2xl">{title}</h2>
@@ -489,11 +489,11 @@ function Guidance({ doText, dontText }: { doText: string; dontText: string }) {
   return (
     <div className="grid gap-3.5 md:grid-cols-2">
       <div className="grid gap-1.5 rounded-[var(--radius-inner)] border-2 border-primary/20 bg-accent-surface p-4">
-        <p className="font-display text-sm uppercase tracking-[0.12em] text-primary-strong">Do</p>
+        <p className="font-display text-base uppercase text-primary-strong">Do</p>
         <p className="text-[12.5px] leading-relaxed text-ink-soft">{doText}</p>
       </div>
       <div className="grid gap-1.5 rounded-[var(--radius-inner)] border-2 border-line bg-surface-subtle p-4">
-        <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Don’t</p>
+        <p className="font-display text-base uppercase text-muted">Don’t</p>
         <p className="text-[12.5px] leading-relaxed text-ink-soft">{dontText}</p>
       </div>
     </div>

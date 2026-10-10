@@ -2,7 +2,7 @@ import Link from "next/link";
 import { siteName } from "@/lib/brand";
 
 export function BrandMark({ href = "/", size = "md" }: { href?: string; size?: "sm" | "md" }) {
-  const labelClass = size === "sm" ? "font-display text-xl" : "font-display text-2xl";
+  const labelClass = size === "sm" ? "font-display text-base" : "font-display text-2xl";
 
   return (
     <Link href={href} className="flex items-center gap-2.5 text-ink">

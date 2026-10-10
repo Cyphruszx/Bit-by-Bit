@@ -129,11 +129,11 @@ describe("design system tokens", () => {
     assert.match(gallery, /fill = "bg-accent-surface"/);
     assert.match(gallery, /fill="bg-chart-4"/);
     assert.match(gallery, /ink \(`--color-ink`\) is #101214/);
-    assert.match(gallery, /font-display text-\[38px\]/);
+    assert.match(gallery, /font-display text-\[32px\]/);
     assert.match(gallery, /font-sans text-\[27px\].*tabular-nums/);
     assert.match(gallery, /font-display text-base/);
-    assert.match(gallery, /16px, or 14px for uppercase eyebrows/);
-    assert.match(gallery, /Pixelify Sans/);
+    assert.match(gallery, /Silkscreen at 8px multiples/);
+    assert.match(gallery, /Silkscreen \+ Public Sans/);
     assert.doesNotMatch(gallery, /Press Start 2P/);
     assert.doesNotMatch(gallery, /font-display[^"'\n]*tracking-tight/);
   });
@@ -162,15 +162,16 @@ describe("pixel restyle locks", () => {
     assert.match(css, /html\.dark[\s\S]*--color-secondary:\s*#6f9bff/);
   });
 
-  it("loads Pixelify Sans as --font-display and skips Press Start 2P", () => {
+  it("loads Silkscreen as --font-display and skips Press Start 2P", () => {
     const layout = readFileSync(new URL("../layout.tsx", import.meta.url), "utf8");
-    assert.match(layout, /Pixelify_Sans/);
+    assert.match(layout, /Silkscreen/);
     assert.match(layout, /variable:\s*"--font-display"/);
     assert.match(layout, /Public_Sans/);
     assert.doesNotMatch(layout, /Press_Start_2P/);
+    assert.doesNotMatch(layout, /Pixelify_Sans/);
     assert.doesNotMatch(css, /Press Start 2P/i);
-    assert.match(css, /\.font-display\s*\{[\s\S]*letter-spacing:\s*0\.05em/);
-    assert.match(css, /h1\s*\{[\s\S]*letter-spacing:\s*0\.03em/);
+    assert.match(css, /letter-spacing:\s*0/);
+    assert.match(css, /-webkit-font-smoothing:\s*none/);
   });
 });
 

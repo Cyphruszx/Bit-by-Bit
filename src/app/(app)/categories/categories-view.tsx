@@ -10,7 +10,7 @@ export function CategoriesView() {
     <>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
+          <h1 className="text-[32px]">Categories</h1>
           <p className="mt-2 max-w-2xl text-muted">
             Every movement carries one of these categories. Your bank reports each transaction
             against its own label; those route to the categories below when a merchant rule does

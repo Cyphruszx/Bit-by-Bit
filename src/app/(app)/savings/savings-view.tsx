@@ -27,7 +27,7 @@ export function SavingsView() {
   return (
     <>
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Savings</h1>
+      <h1 className="mt-2 text-[32px]">Savings</h1>
       <p className="mt-2 max-w-2xl text-muted">
         Track pots toward the things you are saving for. Add one below to start. Hide a pot to keep it
         off the combined total and charts so you can watch one goal at a time. Edits stay in this browser.

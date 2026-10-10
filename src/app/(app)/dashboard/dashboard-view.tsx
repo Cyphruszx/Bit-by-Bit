@@ -78,7 +78,7 @@ export function DashboardView() {
   if (!hasUploads) {
     return (
       <>
-        <h1 className="text-3xl font-bold tracking-tight">Your financial snapshot</h1>
+        <h1 className="text-[32px]">Your financial snapshot</h1>
         <EmptyLedger>
           Once a statement is read, this page shows what actually came in and went out across every
           account, with money you moved between your own accounts counted once.
