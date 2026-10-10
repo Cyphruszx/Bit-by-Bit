@@ -8,9 +8,9 @@ import { formatCount } from "@/lib/format";
 const links = [
   ["Home", "/dashboard"],
   ["Ledger", "/transactions"],
-  ["Review", "/review"],
   ["Categories", "/categories"],
-  ["Pots", "/savings"],
+  ["Budget", "/budgeting"],
+  ["Review", "/review"],
 ] as const;
 
 export function MobileNav() {

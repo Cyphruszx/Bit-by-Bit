@@ -309,7 +309,7 @@ export function DesignSystemGallery() {
           <div className="grid gap-3">
             <p className="font-display text-base uppercase text-muted">Nav labels</p>
             <nav className="flex flex-wrap items-center gap-1">
-              {["Dashboard", "Transactions", "Recurring"].map((label) => (
+              {["Dashboard", "Transactions", "Categories", "Budgeting", "Review"].map((label) => (
                 <button
                   key={label}
                   type="button"

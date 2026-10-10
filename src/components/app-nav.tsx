@@ -9,9 +9,7 @@ const links = [
   ["Dashboard", "/dashboard"],
   ["Transactions", "/transactions"],
   ["Categories", "/categories"],
-  ["Recurring", "/recurring"],
-  ["Savings", "/savings"],
-  ["Accounts", "/accounts"],
+  ["Budgeting", "/budgeting"],
   ["Review", "/review"],
 ] as const;
 
