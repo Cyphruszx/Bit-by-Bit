@@ -4,10 +4,7 @@ import { useMemo } from "react";
 import { BankAccountsCard } from "@/components/bank-accounts-card";
 import { BudgetBars } from "@/components/budget-bars";
 import { EmptyLedger } from "@/components/empty-ledger";
-import { FeatureEnableOffer, OptionalFeaturesPanel } from "@/components/feature-enable-offer";
 import { useMoneyFlow } from "@/components/money-flow-provider";
-import { useSavingsPots } from "@/components/savings-store";
-import { SavingsRings } from "@/components/savings-rings";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud, formatCount, formatSignedAud } from "@/lib/format";
 import { accountsByInstitution, accountsFrom } from "@/lib/money-flow/accounts";
@@ -27,7 +24,6 @@ import {
   shiftMonth,
 } from "@/lib/money-flow/period";
 import { poolBookOf } from "@/lib/money-flow/pools";
-import { potsInTotal } from "@/lib/money-flow/savings";
 import { spendByCategory } from "@/lib/money-flow/summary";
 
 export function DashboardView() {
@@ -44,8 +40,6 @@ export function DashboardView() {
     period,
     mergedInto,
   } = useMoneyFlow();
-  const { pots } = useSavingsPots();
-  const included = potsInTotal(pots);
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
     [accountNames, institutionOverrides, payers, mergedInto],
@@ -78,20 +72,17 @@ export function DashboardView() {
   if (!hasUploads) {
     return (
       <>
-        <h1 className="text-3xl font-bold tracking-tight">Your financial snapshot</h1>
+        <h1 className="text-[32px]">Your financial snapshot</h1>
         <EmptyLedger>
           Once a statement is read, this page shows what actually came in and went out across every
           account, with money you moved between your own accounts counted once.
         </EmptyLedger>
-        <OptionalFeaturesPanel />
       </>
     );
   }
 
   return (
     <>
-      <FeatureEnableOffer />
-
       <div className="grid gap-5">
         <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryCard
@@ -125,11 +116,7 @@ export function DashboardView() {
         <BankAccountsCard tiles={tiles} />
 
         <BudgetBars rows={budgets} daysLeft={daysLeft} />
-
-        <SavingsRings pots={included} />
       </div>
-
-      <OptionalFeaturesPanel />
     </>
   );
 }

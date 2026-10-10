@@ -32,7 +32,7 @@ export function TransactionsView() {
     renameTagEverywhere,
     transactions,
   } = useMoneyFlow();
-  const [chart, setChart] = useState<ChartKind>("bar");
+  const [chart, setChart] = useState<ChartKind>("line");
   const [selectedTag, setSelectedTag] = useState("All");
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
@@ -69,7 +69,7 @@ export function TransactionsView() {
   if (!hasUploads) {
     return (
       <>
-        <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
+        <h1 className="text-2xl">Transactions</h1>
         <EmptyLedger>
           Every movement BitbyBit reads will be listed here, searchable and sortable, each with one
           category for what the money was for and any tags you want to find it by.
@@ -81,7 +81,7 @@ export function TransactionsView() {
   return (
     <>
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight">Transactions</h1>
+      <h1 className="mt-1 text-2xl">Transactions</h1>
       <p className="mt-1 max-w-2xl text-sm text-muted">
         Money in and out are the credits and debits in this period, excluding
         internal transfers. Account balance is the statement figure, not Net.

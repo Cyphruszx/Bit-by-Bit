@@ -7,16 +7,25 @@ import { SummaryCard } from "@/components/summary-card";
 import { useTheme } from "@/components/theme-store";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { TokenSwatch } from "./token-swatch";
-import { colourTokens, darkColourTokens, radiusSamples, spaceSamples } from "./tokens";
+import {
+  colourTokens,
+  darkColourTokens,
+  gridSample,
+  radiusSamples,
+  shadowSamples,
+  spaceSamples,
+  typeFaces,
+} from "./tokens";
 
 const primaryButton =
-  "rounded-full bg-primary-strong px-4 py-2 text-[13px] font-bold text-on-primary disabled:opacity-35";
-const brandButton = "rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-on-primary disabled:opacity-35";
+  "rounded-full bg-primary-strong px-4 py-2 font-display text-base text-on-primary disabled:opacity-35";
+const brandButton =
+  "rounded-full bg-primary px-5 py-2.5 font-display text-base text-on-primary disabled:opacity-35";
 const secondaryButton =
-  "rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-bold text-ink disabled:opacity-35";
+  "rounded-full border-2 border-line bg-surface px-5 py-2.5 font-display text-base text-ink disabled:opacity-35";
 
-const navIdle = "rounded-full px-[13px] py-1.5 text-[13.5px] font-semibold text-muted hover:bg-accent-surface";
-const navActive = "rounded-full bg-primary px-[13px] py-1.5 text-[13.5px] font-semibold text-on-primary";
+const navIdle = "rounded-full px-3.5 py-1.5 font-display text-base text-muted hover:bg-accent-surface";
+const navActive = "rounded-full bg-primary px-3.5 py-1.5 font-display text-base text-on-primary";
 
 export function DesignSystemGallery() {
   const { theme } = useTheme();
@@ -27,7 +36,7 @@ export function DesignSystemGallery() {
     <div className="grid gap-5">
       <header className="flex flex-wrap items-end justify-between gap-8 px-0.5 pb-1.5">
         <div className="grid gap-2.5">
-          <h1 className="text-[38px] font-bold leading-none tracking-tight">Design system</h1>
+          <h1 className="font-display text-[32px]">Design system</h1>
           <p className="max-w-[62ch] text-sm leading-6 text-ink-soft">
             Living tokens from <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">src/app/globals.css</code>.
             Swatches use the same Tailwind theme classes as the product —{" "}
@@ -36,8 +45,8 @@ export function DesignSystemGallery() {
           </p>
         </div>
         <div className="grid justify-items-end gap-1.5 text-right text-xs text-muted">
-          <span className="rounded-full bg-accent-surface px-3 py-1 font-semibold text-primary-strong">
-            {theme === "dark" ? "8a dark" : "7b light"} · Public Sans
+          <span className="rounded-full bg-accent-surface px-3 py-1.5 font-display text-base text-primary-strong">
+            {theme === "dark" ? "8a dark" : "7b light"} · Silkscreen + Public Sans
           </span>
           <span>Toggle Dark in the header to rematch every swatch.</span>
         </div>
@@ -50,7 +59,7 @@ export function DesignSystemGallery() {
         hint="Blue carries meaning — brand, positive movement, selection. Neutrals carry everything else."
       >
         <div className="grid gap-2.5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Light theme</p>
+          <p className="font-display text-base uppercase text-muted">Light theme</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {colourTokens.map((token) => (
               <TokenSwatch key={`light-${token.name}`} token={token} />
@@ -58,8 +67,8 @@ export function DesignSystemGallery() {
           </div>
         </div>
 
-        <div className="dark grid gap-2.5 rounded-[14px] border border-secondary/20 bg-surface-subtle p-[18px]">
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Dark theme</p>
+        <div className="dark grid gap-2.5 rounded-[var(--radius-inner)] border-2 border-secondary/20 bg-surface-subtle p-[18px]">
+          <p className="font-display text-base uppercase text-muted">Dark theme</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {darkColourTokens.map((token) => (
               <TokenSwatch key={`dark-${token.name}`} token={token} />
@@ -79,15 +88,25 @@ export function DesignSystemGallery() {
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
-        <Section index="02" eyebrow="Typography" title="Public Sans, four weights">
+        <Section index="02" eyebrow="Typography" title="Silkscreen for chrome, Public Sans for data">
+          <div className="grid gap-2 pb-2">
+            {typeFaces.map((face) => (
+              <p key={face.cssVar} className="text-[12.5px] leading-6 text-muted">
+                <span className="font-semibold text-ink">{face.name}</span>{" "}
+                <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">{face.cssVar}</code>
+                {" — "}
+                {face.use}
+              </p>
+            ))}
+          </div>
           <div>
-            <TypeRow spec="38 / 700 / −.03em" sampleClass="text-[38px] font-bold leading-none tracking-tight">
+            <TypeRow spec="32 / 400 display" sampleClass="font-display text-[32px]">
               Page title
             </TypeRow>
-            <TypeRow spec="27 / 700 / tabular" sampleClass="text-[27px] font-bold tracking-tight tabular-nums">
+            <TypeRow spec="27 / 700 tabular" sampleClass="font-sans text-[27px] font-bold tracking-tight tabular-nums">
               {formatAud(18420.65)}
             </TypeRow>
-            <TypeRow spec="19 / 700" sampleClass="text-[19px] font-bold tracking-tight">
+            <TypeRow spec="24 / 400 display" sampleClass="font-display text-2xl">
               Product wordmark
             </TypeRow>
             <TypeRow spec="15.5 / 700" sampleClass="text-[15.5px] font-bold">
@@ -96,7 +115,7 @@ export function DesignSystemGallery() {
             <TypeRow spec="14 / 600" sampleClass="text-sm font-semibold">
               Row title — Coles Brunswick
             </TypeRow>
-            <TypeRow spec="13.5 / 600" sampleClass="text-[13.5px] font-semibold">
+            <TypeRow spec="16 / 400 display" sampleClass="font-display text-base">
               Nav item
             </TypeRow>
             <TypeRow spec="13 / 400" sampleClass="text-[13px]">
@@ -105,15 +124,15 @@ export function DesignSystemGallery() {
             <TypeRow spec="12.5 / 400 muted" sampleClass="text-[12.5px] text-muted">
               Supporting line — across 3 accounts
             </TypeRow>
-            <TypeRow spec="11.5 / 600" sampleClass="text-[11.5px] font-semibold">
-              Pill label
+            <TypeRow spec="16 / 400 display" sampleClass="font-display text-base">
+              Button label
             </TypeRow>
-            <TypeRow spec="10.5 / 700 / .16em" sampleClass="text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted">
+            <TypeRow spec="16 / 400 display" sampleClass="font-display text-base uppercase text-muted">
               Section eyebrow
             </TypeRow>
           </div>
           <p className="text-[12.5px] leading-6 text-muted">
-            Every amount gets{" "}
+            Pixel type is Silkscreen at 8px multiples (16 / 24 / 32 / 48), regular weight, no smoothing — boxier and clearer than Pixelify. Every amount stays on Public Sans with{" "}
             <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">
               font-variant-numeric: tabular-nums
             </code>{" "}
@@ -123,12 +142,12 @@ export function DesignSystemGallery() {
         </Section>
 
         <div className="grid gap-5">
-          <Section index="03" eyebrow="Spacing & radius" title="4px base, four corner roles">
+          <Section index="03" eyebrow="Spacing & radius" title="4px base, square corners, hard offset">
             <div className="grid gap-2">
               {spaceSamples.map((sample) => (
                 <div key={sample.px} className="flex items-center gap-3">
                   <span className="w-[52px] shrink-0 font-mono text-[11px] text-muted">{sample.px}</span>
-                  <span className={`h-2.5 rounded-sm ${sample.barClass}`} />
+                  <span className={`h-2.5 rounded-none ${sample.barClass}`} />
                   <span className="text-xs text-muted">{sample.use}</span>
                 </div>
               ))}
@@ -137,24 +156,40 @@ export function DesignSystemGallery() {
               {radiusSamples.map((sample) => (
                 <div key={sample.cssVar} className="grid justify-items-center gap-1">
                   <div
-                    className={`h-10 w-[52px] border border-primary/20 bg-accent-surface ${sample.className}`}
+                    className={`h-10 w-[52px] border-2 border-primary/20 bg-accent-surface ${sample.className}`}
                   />
                   <span className="font-mono text-[11px] text-muted">{sample.value}</span>
                   <span className="text-xs font-semibold text-ink">{sample.name}</span>
                 </div>
               ))}
             </div>
+            <div className="grid gap-2 pt-1">
+              {shadowSamples.map((sample) => (
+                <p key={sample.cssVar} className="text-[12.5px] leading-6 text-muted">
+                  <span className="font-semibold text-ink">{sample.name}</span>{" "}
+                  <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">{sample.cssVar}</code>
+                  {" — "}
+                  {sample.value} using primary or ink, no blur.
+                </p>
+              ))}
+              <p className="text-[12.5px] leading-6 text-muted">
+                Backdrop grid is {gridSample.px}px via{" "}
+                <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">{gridSample.cssVar}</code>
+                . Tailwind <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">--radius-full</code>{" "}
+                is also 0 so <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">rounded-full</code>{" "}
+                becomes a rectangle.
+              </p>
+            </div>
             <p className="text-[12.5px] leading-6 text-muted">
-              16 for cards, 10 for nested non-control blocks inside a card, 999 for controls and tags, 2 for logo mark
-              squares. Don’t invent a fifth radius — if it isn’t mark, inner, card, or pill, reuse one of those.
+              Every corner role is 0 — mark, inner, card, and pill. Don’t invent a fifth radius.
             </p>
           </Section>
         </div>
       </div>
 
       <Section index="04" eyebrow="Layout grid" title="One shell, four page grids">
-        <div className="grid gap-2 rounded-[var(--radius-inner)] border border-primary/20 bg-accent-surface px-4 py-3.5 text-[12.5px] leading-normal text-ink-soft">
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-primary-strong">Fixed for every page</p>
+        <div className="grid gap-2 rounded-[var(--radius-inner)] border-2 border-primary/20 bg-accent-surface px-4 py-3.5 text-[12.5px] leading-normal text-ink-soft">
+          <p className="font-display text-base uppercase text-primary-strong">Fixed for every page</p>
           <p>
             Desktop shell <span className="font-bold text-ink">1240px</span> · padding{" "}
             <span className="font-bold text-ink">28px</span> · gutter{" "}
@@ -243,7 +278,7 @@ export function DesignSystemGallery() {
       >
         <div className="grid gap-6">
           <div className="grid gap-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Pill buttons</p>
+            <p className="font-display text-base uppercase text-muted">Buttons</p>
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" className={primaryButton}>
                 Add
@@ -266,15 +301,15 @@ export function DesignSystemGallery() {
             </div>
             <p className="text-[12.5px] text-muted">
               Primary is <code className="font-mono text-[11px]">bg-primary-strong</code> (Add). Brand is{" "}
-              <code className="font-mono text-[11px]">bg-primary</code>. Secondary is a lined surface pill. Hover is the
-              shared 160ms opacity. Disabled keeps the label and mutes the fill.
+              <code className="font-mono text-[11px]">bg-primary</code>. Secondary is a lined surface square. Labels use
+              Silkscreen. Hover is the shared 160ms opacity. Disabled keeps the label and mutes the fill.
             </p>
           </div>
 
           <div className="grid gap-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Nav pills</p>
+            <p className="font-display text-base uppercase text-muted">Nav labels</p>
             <nav className="flex flex-wrap items-center gap-1">
-              {["Dashboard", "Transactions", "Recurring"].map((label) => (
+              {["Dashboard", "Transactions", "Categories", "Budgeting", "Review"].map((label) => (
                 <button
                   key={label}
                   type="button"
@@ -288,9 +323,9 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Period filter chips</p>
+            <p className="font-display text-base uppercase text-muted">Period filter chips</p>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="mr-1 text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted">Period</p>
+              <p className="mr-1 font-display text-base uppercase text-muted">Period</p>
               <PeriodChip active={period === "month"} onClick={() => setPeriod("month")}>
                 September 2026
               </PeriodChip>
@@ -310,7 +345,7 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Cards and SummaryCard</p>
+            <p className="font-display text-base uppercase text-muted">Cards and SummaryCard</p>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <SummaryCard
                 label="Money in"
@@ -346,17 +381,17 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Logo mark</p>
+            <p className="font-display text-base uppercase text-muted">Logo mark</p>
             <div className="flex flex-wrap items-center gap-6">
               <BrandMark />
-              <span aria-hidden className="grid grid-cols-2 gap-0.5">
+              <span aria-hidden className="grid grid-cols-2 gap-px">
                 <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-primary" />
                 <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-chart-4" />
                 <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-secondary" />
                 <span className="h-2.5 w-2.5 rounded-[var(--radius-mark)] bg-primary-strong" />
               </span>
               <p className="text-[12.5px] text-muted">
-                Four squares — Brand, Brand 300, Brand 400, Brand deep — radius 2px, 2px gap.
+                Four squares — Brand, Brand 300, Brand 400, Brand deep — radius 0, 1px gap.
               </p>
             </div>
           </div>
@@ -390,10 +425,10 @@ function Section({
     <section className="card grid gap-5 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted">
+          <p className="font-display text-base uppercase text-muted">
             {index} · {eyebrow}
           </p>
-          <h2 className="mt-1.5 text-[19px] font-bold tracking-tight">{title}</h2>
+          <h2 className="mt-1.5 font-display text-2xl">{title}</h2>
         </div>
         {hint ? <p className="max-w-sm text-right text-[12.5px] leading-relaxed text-muted">{hint}</p> : null}
       </div>
@@ -419,7 +454,7 @@ function LayoutPage({
         <span className="text-[12.5px] font-semibold">{name}</span>
         <span className="font-mono text-[11px] text-muted">{spec}</span>
       </div>
-      <div className="grid gap-2 rounded-[var(--radius-inner)] border border-dashed border-primary/30 bg-surface-subtle p-2">
+      <div className="grid gap-2 rounded-[var(--radius-inner)] border-2 border-dashed border-primary/30 bg-surface-subtle p-2">
         {children}
       </div>
       <p className="text-[11.5px] text-muted">{note}</p>
@@ -429,7 +464,7 @@ function LayoutPage({
 
 function WireTile({ fill = "bg-accent-surface", height = "h-6" }: { fill?: string; height?: string }) {
   return (
-    <div className={`${height} rounded-[var(--radius-inner)] border border-primary/15 ${fill}`} />
+    <div className={`${height} rounded-[var(--radius-inner)] border-2 border-primary/15 ${fill}`} />
   );
 }
 
@@ -453,12 +488,12 @@ function TypeRow({
 function Guidance({ doText, dontText }: { doText: string; dontText: string }) {
   return (
     <div className="grid gap-3.5 md:grid-cols-2">
-      <div className="grid gap-1.5 rounded-[10px] border border-primary/20 bg-accent-surface p-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-primary-strong">Do</p>
+      <div className="grid gap-1.5 rounded-[var(--radius-inner)] border-2 border-primary/20 bg-accent-surface p-4">
+        <p className="font-display text-base uppercase text-primary-strong">Do</p>
         <p className="text-[12.5px] leading-relaxed text-ink-soft">{doText}</p>
       </div>
-      <div className="grid gap-1.5 rounded-[10px] border border-line bg-surface-subtle p-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Don’t</p>
+      <div className="grid gap-1.5 rounded-[var(--radius-inner)] border-2 border-line bg-surface-subtle p-4">
+        <p className="font-display text-base uppercase text-muted">Don’t</p>
         <p className="text-[12.5px] leading-relaxed text-ink-soft">{dontText}</p>
       </div>
     </div>

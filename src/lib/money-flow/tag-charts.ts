@@ -5,7 +5,7 @@ export const TAG_CHART_COLORS = ["var(--color-chart-1)", "var(--color-chart-2)",
 
 const MIN_BAR_HEIGHT = 2;
 
-export type ChartKind = "bar" | "line" | "pie";
+export type ChartKind = "line" | "pie";
 
 export type TagChartSlice = CategorySpend & {
   color: string;

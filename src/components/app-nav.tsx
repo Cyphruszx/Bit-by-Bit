@@ -9,9 +9,7 @@ const links = [
   ["Dashboard", "/dashboard"],
   ["Transactions", "/transactions"],
   ["Categories", "/categories"],
-  ["Recurring", "/recurring"],
-  ["Savings", "/savings"],
-  ["Accounts", "/accounts"],
+  ["Budgeting", "/budgeting"],
   ["Review", "/review"],
 ] as const;
 
@@ -20,7 +18,7 @@ export function AppNav() {
   const { openReviewCount } = useMoneyFlow();
 
   return (
-    <nav className="flex items-center gap-1 overflow-x-auto text-[13.5px] font-semibold">
+    <nav className="flex items-center gap-1 overflow-x-auto font-display text-base">
       {links.map(([label, href]) => {
         const active = pathname === href;
         return (
@@ -34,7 +32,7 @@ export function AppNav() {
             {label}
             {href === "/review" && openReviewCount > 0 ? (
               <span
-                className={`ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
+                className={`ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 font-sans text-xs font-bold ${
                   active ? "bg-on-primary text-primary" : "bg-primary text-on-primary"
                 }`}
               >

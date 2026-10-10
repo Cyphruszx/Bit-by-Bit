@@ -49,7 +49,7 @@ export function TokenSwatch({ token }: { token: ColorToken }) {
     <div className="grid gap-1.5">
       <div
         ref={ref}
-        className={`h-[60px] rounded-[10px] ${token.swatchClass} ${token.bordered ? "border border-line" : ""}`}
+        className={`h-[60px] rounded-[var(--radius-inner)] ${token.swatchClass} ${token.bordered ? "border-2 border-line" : ""}`}
         style={
           token.gradient
             ? { backgroundImage: `var(${token.cssVar})` }

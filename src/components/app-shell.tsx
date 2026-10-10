@@ -26,12 +26,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {openReviewCount > 0 ? (
               <Link
                 href="/review"
-                className="rounded-full bg-accent-surface px-3 py-1 text-[12.5px] font-semibold text-primary-strong"
+                className="rounded-full bg-accent-surface px-3 py-1.5 font-display text-base text-primary-strong"
               >
                 {formatCount(openReviewCount)} to review
               </Link>
             ) : (
-              <span className="hidden rounded-full bg-accent-surface px-3 py-1 text-[12.5px] font-medium text-ink-soft sm:inline">
+              <span className="hidden rounded-full bg-accent-surface px-3 py-1.5 font-display text-base text-ink-soft sm:inline">
                 {!ready ? "Opening your ledger" : hasUploads ? "Interpreted from files" : "No statements yet"}
               </span>
             )}
@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <AccountLink />
               <Link
                 href="/upload"
-                className="rounded-full bg-primary-strong px-4 py-2 text-[13px] font-bold text-on-primary"
+                className="rounded-full bg-primary-strong px-4 py-2 font-display text-base text-on-primary"
               >
                 Add
               </Link>

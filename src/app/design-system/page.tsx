@@ -18,7 +18,7 @@ export default function DesignSystemPage() {
         <BrandMark />
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <Link href="/dashboard" className="text-sm font-semibold text-ink-soft">
+          <Link href="/dashboard" className="font-display text-base text-ink-soft">
             Dashboard
           </Link>
         </div>

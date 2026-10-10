@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   barAxisTicks,
@@ -108,6 +109,16 @@ describe("tag charts", () => {
     assert.equal(slices[1]?.share, 25);
     assert.equal(slices[1]?.direction, "out");
     assert.ok(Math.abs((slices[1]?.endAngle ?? 0) - (-Math.PI / 2 + Math.PI * 2)) < 1e-9);
+  });
+
+  it("keeps only line and pie on the tag chart", () => {
+    const card = readFileSync(new URL("../../components/tag-charts.tsx", import.meta.url), "utf8");
+    const kinds = readFileSync(new URL("./tag-charts.ts", import.meta.url), "utf8");
+    assert.match(kinds, /export type ChartKind = "line" \| "pie"/);
+    assert.doesNotMatch(card, /Bar graph/);
+    assert.match(card, /Line graph/);
+    assert.match(card, /Pie chart/);
+    assert.match(card, /assignPixelDonutCells/);
   });
 
   it("orders money in ahead of money out", () => {

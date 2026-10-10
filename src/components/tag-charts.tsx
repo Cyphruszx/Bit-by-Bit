@@ -11,18 +11,15 @@ import {
   tagFlowOverTime,
   type FlowOverTimePoint,
 } from "@/lib/money-flow/summary";
+import { assignPixelDonutCells } from "@/lib/money-flow/chart-pixels";
 import {
-  barAxisTicks,
-  barLayout,
-  donutPath,
   nextTagSelection,
   orderByFlow,
   pieSlices,
   topChartCategories,
-  withTagColors,
   type ChartKind,
 } from "@/lib/money-flow/tag-charts";
-import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
+import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export function TagChartCard({
   transactions = [],
@@ -76,18 +73,15 @@ export function TagChartCard({
         <div>
           <h2 className={compact ? "text-base font-bold" : "text-lg font-bold"}>{title}</h2>
           <p className={`text-muted ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"}`}>
-            {chart === "bar"
-              ? "Money in sits above the line, money out below."
-              : chart === "line"
-                ? "A running total stepping at every movement: money in lifts the line, money out pulls it down, and it holds level on quiet days."
-                : "Slice size is the share of all movement, and money in is outlined."}{" "}
-            Groups first, then the categories inside a group. Tags stay metadata and never split a bar.
+            {chart === "line"
+              ? "A running total stepping at every movement: money in lifts the line, money out pulls it down, and it holds level on quiet days."
+              : "Slice size is the share of all movement, and money in is outlined."}{" "}
+            Groups first, then the categories inside a group. Tags stay metadata and never split a chart.
           </p>
         </div>
         <div className="flex flex-wrap gap-1">
           {(
             [
-              ["bar", "Bar", "Bar graph"],
               ["line", "Line", "Line graph"],
               ["pie", "Pie", "Pie chart"],
             ] as const
@@ -108,8 +102,6 @@ export function TagChartCard({
       </div>
       {spend.length === 0 ? (
         <p className={`${compact ? "mt-3" : "mt-5"} text-sm text-muted`}>{emptyLabel}</p>
-      ) : chart === "line" ? (
-        <FlowLineChart points={timeline} compact={compact} />
       ) : chart === "pie" ? (
         <PieChart
           slices={slices}
@@ -120,13 +112,7 @@ export function TagChartCard({
           compact={compact}
         />
       ) : (
-        <BarGraph
-          categories={spend}
-          selectedTag={selectedTag}
-          highlightAll={highlightAll}
-          onSelectTag={selectChartTag}
-          compact={compact}
-        />
+        <FlowLineChart points={timeline} compact={compact} />
       )}
       {primaries.length > 0 || subs.length > 0 ? (
         <div className={`${compact ? "mt-3 space-y-2" : "mt-5 space-y-3"}`}>
@@ -201,102 +187,6 @@ function TagToggle({
   );
 }
 
-function BarGraph({
-  categories,
-  selectedTag,
-  highlightAll = false,
-  onSelectTag,
-  compact = false,
-}: {
-  categories: CategorySpend[];
-  selectedTag: string;
-  highlightAll?: boolean;
-  onSelectTag: (tag: string) => void;
-  compact?: boolean;
-}) {
-  const width = 640;
-  const height = compact ? 168 : 240;
-  const pad = compact ? { top: 10, right: 12, bottom: 36, left: 44 } : { top: 16, right: 16, bottom: 48, left: 52 };
-  const innerWidth = width - pad.left - pad.right;
-  const innerHeight = height - pad.top - pad.bottom;
-  const colored = withTagColors(categories);
-  const bars = barLayout(colored, innerWidth, innerHeight);
-  const zeroY = pad.top + (bars[0]?.zeroY ?? innerHeight);
-  const ticks = barAxisTicks(categories);
-  const span =
-    Math.max(0, ...categories.map((item) => item.amount)) + Math.max(0, ...categories.map((item) => -item.amount));
-
-  return (
-    <figure className={`${compact ? "mt-3" : "mt-5"} min-w-0`}>
-      <svg
-        role="img"
-        aria-label="Bar graph of money in and out by tag"
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-auto w-full"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {ticks.map((tick) => {
-          const y = span > 0 ? zeroY - (tick / span) * innerHeight : zeroY;
-          const isZero = tick === 0;
-          return (
-            <g key={tick}>
-              <line
-                x1={pad.left}
-                x2={width - pad.right}
-                y1={y}
-                y2={y}
-                stroke={isZero ? "var(--color-axis)" : "var(--color-surface-subtle)"}
-                strokeWidth="1"
-              />
-              <text x={pad.left - 8} y={y + 4} textAnchor="end" fill="var(--color-muted)" fontSize="11">
-                {signedCompact(tick)}
-              </text>
-            </g>
-          );
-        })}
-        {bars.map((bar) => {
-          const selected = selectedTag === bar.name;
-          const incoming = bar.amount >= 0;
-          return (
-            <g key={bar.name}>
-              <rect
-                role="button"
-                tabIndex={0}
-                aria-label={`${chartLabel(bar.name)}: ${formatAud(Math.abs(bar.amount))} ${incoming ? "in" : "out"}`}
-                aria-pressed={selected}
-                x={pad.left + bar.x}
-                y={pad.top + bar.y}
-                width={bar.width}
-                height={Math.max(bar.height, 0)}
-                rx="6"
-                fill={bar.color}
-                opacity={highlightAll || selectedTag === "All" || selected ? 1 : 0.38}
-                className="cursor-pointer"
-                onClick={() => onSelectTag(bar.name)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onSelectTag(bar.name);
-                  }
-                }}
-              />
-              <text
-                x={pad.left + bar.x + bar.width / 2}
-                y={height - 14}
-                textAnchor="middle"
-                fill="var(--color-muted)"
-                fontSize="11"
-              >
-                {chartLabel(bar.name)}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </figure>
-  );
-}
-
 function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[]; compact?: boolean }) {
   const series: LineChartSeries[] = [
     {
@@ -339,40 +229,38 @@ function PieChart({
   onSelectTag: (tag: string) => void;
   compact?: boolean;
 }) {
-  const size = compact ? 220 : 280;
+  const size = compact ? 224 : 280;
   const cx = size / 2;
   const cy = size / 2;
-  const outer = compact ? 84 : 108;
-  const inner = compact ? 50 : 64;
+  const outer = compact ? 88 : 112;
+  const inner = compact ? 48 : 64;
+  const painted = assignPixelDonutCells(slices, cx, cy, outer, inner);
   const active = (name: string) => highlightAll || selectedTag === "All" || selectedTag === name;
 
   return (
     <div
       className={`grid md:items-center ${
-        compact ? "mt-3 gap-4 md:grid-cols-[220px_1fr]" : "mt-5 gap-6 md:grid-cols-[280px_1fr]"
+        compact ? "mt-3 gap-4 md:grid-cols-[224px_1fr]" : "mt-5 gap-6 md:grid-cols-[280px_1fr]"
       }`}
     >
       <svg
         role="img"
         aria-label="Pie chart of money in and out by tag"
         viewBox={`0 0 ${size} ${size}`}
-        className={`mx-auto h-auto w-full ${compact ? "max-w-[220px]" : "max-w-[280px]"}`}
+        className={`mx-auto h-auto w-full ${compact ? "max-w-[224px]" : "max-w-[280px]"}`}
       >
-        {slices.map((slice) => {
+        {painted.map((slice) => {
           const selected = selectedTag === slice.name;
           return (
-            <path
+            <g
               key={slice.name}
               role="button"
               tabIndex={0}
               aria-label={`${chartLabel(slice.name)}: ${formatAud(Math.abs(slice.amount))} ${slice.direction}, ${slice.share}%`}
               aria-pressed={selected}
-              d={donutPath(cx, cy, outer, inner, slice.startAngle, slice.endAngle)}
-              fill={slice.color}
-              opacity={active(slice.name) ? 1 : 0.38}
-              stroke={slice.direction === "in" ? "var(--color-positive)" : "transparent"}
-              strokeWidth={slice.direction === "in" ? 2 : 0}
               className="cursor-pointer"
+              shapeRendering="crispEdges"
+              opacity={active(slice.name) ? 1 : 0.38}
               onClick={() => onSelectTag(slice.name)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -380,7 +268,20 @@ function PieChart({
                   onSelectTag(slice.name);
                 }
               }}
-            />
+            >
+              {slice.cells.map((cell) => (
+                <rect
+                  key={`${slice.name}-${cell.x}-${cell.y}`}
+                  x={cell.x}
+                  y={cell.y}
+                  width={cell.size}
+                  height={cell.size}
+                  fill={slice.color}
+                  stroke={slice.direction === "in" ? "var(--color-positive)" : "var(--color-surface)"}
+                  strokeWidth={slice.direction === "in" ? 2 : 1}
+                />
+              ))}
+            </g>
           );
         })}
         <text
@@ -412,10 +313,10 @@ function PieChart({
               >
                 <span className="inline-flex min-w-0 items-center gap-2">
                   <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    className="h-2 w-2 shrink-0 rounded-none"
                     style={{
                       background: slice.color,
-                      boxShadow: slice.direction === "in" ? "0 0 0 2px var(--color-positive)" : undefined,
+                      boxShadow: slice.direction === "in" ? `0 0 0 2px var(--color-positive)` : undefined,
                     }}
                   />
                   <span className="truncate font-medium">{chartLabel(slice.name)}</span>

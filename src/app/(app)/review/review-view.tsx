@@ -103,7 +103,7 @@ export function ReviewView() {
 
   return (
     <>
-      <h1 className="text-3xl font-bold tracking-tight">Review</h1>
+      <h1 className="text-[32px]">Review</h1>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <SurfaceTab

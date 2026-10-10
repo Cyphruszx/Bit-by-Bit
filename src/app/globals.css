@@ -58,7 +58,8 @@
   --color-mark-3: #5a8bf0;
   --color-mark-4: #123a8f;
 
-  --shadow-card: 0 1px 2px rgba(18, 58, 143, 0.06), 0 14px 30px -16px rgba(18, 58, 143, 0.28);
+  --shadow-card: 4px 4px 0 #123a8f;
+  --radius-full: 0;
 }
 
 @layer theme {
@@ -113,22 +114,28 @@
     --color-mark-3: #8fb2ff;
     --color-mark-4: #24407f;
 
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 34px -18px rgba(0, 0, 0, 0.85);
+    --shadow-card: 4px 4px 0 #e9edf3;
   }
 }
 
+@theme inline {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-sans-serif, sans-serif;
+}
+
 :root {
-  --radius-card: 1rem;
-  --radius-pill: 9999px;
-  --radius-mark: 2px;
-  --radius-inner: 10px;
+  --radius-card: 0;
+  --radius-pill: 0;
+  --radius-mark: 0;
+  --radius-inner: 0;
 
   --card-bg: #ffffff;
-  --card-border: rgba(18, 58, 143, 0.1);
-  --header-bg: rgba(255, 255, 255, 0.92);
-  --header-line: rgba(18, 58, 143, 0.1);
-  --header-shadow: 0 10px 24px -20px rgba(18, 58, 143, 0.5);
-  --period-bg: rgba(245, 246, 248, 0.72);
+  --card-border: #e3e6ea;
+  --header-bg: #ffffff;
+  --header-line: #e3e6ea;
+  --header-shadow: 4px 4px 0 #123a8f;
+  --period-bg: #f5f6f8;
+  --sweep-grid-size: 16px;
 
   --canvas-gradient: linear-gradient(170deg, #eff3fa 0%, #e2e8f3 60%, #d5dcea 100%);
   --sweep-grid: rgba(27, 79, 216, 0.13);
@@ -140,7 +147,7 @@
     transparent 66%
   );
   --sweep-wash: radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.2), transparent 42%);
-  --sweep-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -56px 80px -56px rgba(18, 58, 143, 0.4);
+  --sweep-inset: none;
   --highlight-gradient: linear-gradient(160deg, #2c4c93, #1d3569);
 
   --background: #e2e8f3;
@@ -149,12 +156,12 @@
 
 html.dark,
 .dark {
-  --card-bg: rgba(23, 27, 34, 0.92);
-  --card-border: rgba(111, 155, 255, 0.14);
-  --header-bg: rgba(17, 22, 33, 0.88);
-  --header-line: rgba(111, 155, 255, 0.12);
-  --header-shadow: 0 10px 24px -20px rgba(0, 0, 0, 0.9);
-  --period-bg: rgba(14, 17, 22, 0.72);
+  --card-bg: #171b22;
+  --card-border: #262c36;
+  --header-bg: #171b22;
+  --header-line: #262c36;
+  --header-shadow: 4px 4px 0 #e9edf3;
+  --period-bg: #0e1116;
 
   --canvas-gradient: linear-gradient(170deg, #111621 0%, #0d1119 60%, #080b11 100%);
   --sweep-grid: rgba(111, 155, 255, 0.13);
@@ -168,7 +175,7 @@ html.dark,
   --sweep-wash:
     radial-gradient(120% 70% at 50% 0%, rgba(111, 155, 255, 0.1), transparent 45%),
     radial-gradient(130% 110% at 50% 118%, rgba(5, 8, 14, 0.75), transparent 62%);
-  --sweep-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -60px 90px -60px rgba(0, 0, 0, 0.8);
+  --sweep-inset: none;
 
   --background: #0d1119;
   --foreground: #e9edf3;
@@ -220,19 +227,9 @@ a:hover {
   background-image:
     linear-gradient(to right, var(--sweep-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--sweep-grid) 1px, transparent 1px);
-  background-size: 72px 72px;
+  background-size: var(--sweep-grid-size) var(--sweep-grid-size);
   mask-image: radial-gradient(130% 110% at 50% 40%, #000 35%, transparent 85%);
   -webkit-mask-image: radial-gradient(130% 110% at 50% 40%, #000 35%, transparent 85%);
-}
-
-.app-sweep-beam {
-  position: absolute;
-  top: -40%;
-  left: 0;
-  width: 160%;
-  height: 180%;
-  background: var(--sweep-beam);
-  animation: om-sweep 11s ease-in-out infinite alternate;
 }
 
 .app-sweep-wash {
@@ -243,27 +240,26 @@ a:hover {
 }
 
 .app-header {
-  background: var(--header-bg);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--header-line);
+  background: var(--color-surface);
+  border-bottom: 2px solid var(--color-line);
   box-shadow: var(--header-shadow);
 }
 
 .app-period {
   background: var(--period-bg);
-  border-bottom: 1px solid var(--color-line);
+  border-bottom: 2px solid var(--color-line);
 }
 
 .card {
   background: var(--color-surface);
-  border: 1px solid var(--card-border);
+  border: 2px solid var(--color-line);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
 
 .card-highlight {
   background: var(--highlight-gradient);
-  border: 1px solid rgba(157, 186, 247, 0.35);
+  border: 2px solid var(--color-chart-4);
   border-radius: var(--radius-card);
   color: var(--color-on-primary);
   box-shadow: var(--shadow-card);
@@ -271,20 +267,24 @@ a:hover {
 
 html.dark .card,
 .dark .card {
-  background: rgba(23, 27, 34, 0.92);
+  background: var(--color-surface);
 }
 
-@keyframes om-sweep {
-  0% {
-    transform: translate3d(-28%, 0, 0);
-  }
-  100% {
-    transform: translate3d(28%, 0, 0);
-  }
+h1,
+.font-display {
+  font-family: var(--font-display), ui-sans-serif, sans-serif;
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
+  line-height: 1.25;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .app-sweep-beam {
-    animation: none;
-  }
+input,
+textarea,
+select,
+table,
+.tabular-nums {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }

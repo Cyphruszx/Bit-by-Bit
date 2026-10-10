@@ -2,11 +2,11 @@ import Link from "next/link";
 import { siteName } from "@/lib/brand";
 
 export function BrandMark({ href = "/", size = "md" }: { href?: string; size?: "sm" | "md" }) {
-  const labelClass = size === "sm" ? "text-lg font-bold tracking-tight" : "text-[19px] font-bold tracking-tight";
+  const labelClass = size === "sm" ? "font-display text-base" : "font-display text-2xl";
 
   return (
     <Link href={href} className="flex items-center gap-2.5 text-ink">
-      <span aria-hidden className="grid grid-cols-2 gap-0.5">
+      <span aria-hidden className="grid grid-cols-2 gap-px">
         <span className="h-2 w-2 rounded-[var(--radius-mark)] bg-mark-1" />
         <span className="h-2 w-2 rounded-[var(--radius-mark)] bg-mark-2" />
         <span className="h-2 w-2 rounded-[var(--radius-mark)] bg-mark-3" />

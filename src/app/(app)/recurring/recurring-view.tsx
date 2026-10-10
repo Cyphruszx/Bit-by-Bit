@@ -45,7 +45,7 @@ export function RecurringView() {
   return (
     <>
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Recurring payments</h1>
+      <h1 className="mt-2 text-[32px]">Recurring payments</h1>
       <p className="mt-2 max-w-2xl text-muted">
         {hasUploads
           ? "Track repeating money out from your documents. BitbyBit matches them against activity in this period."

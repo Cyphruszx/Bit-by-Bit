@@ -78,7 +78,7 @@ export function AccountsView() {
   if (!hasUploads) {
     return (
       <>
-        <h1 className="text-3xl font-bold tracking-tight">Accounts and sources</h1>
+        <h1 className="text-[32px]">Accounts and sources</h1>
         <OpenBankingAccountsControl />
         <EmptyLedger>
           Every account BitbyBit reads will appear here under the bank it belongs to, ready to be
@@ -91,7 +91,7 @@ export function AccountsView() {
   return (
     <>
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Accounts and sources</h1>
+      <h1 className="mt-2 text-[32px]">Accounts and sources</h1>
       <p className="mt-2 text-muted">
         Every account BitbyBit has read, under the bank it belongs to. Name one to recognise it next
         time, or merge two that turned out to be the same account. Merging is permanent, for
