@@ -20,7 +20,7 @@ export function AppNav() {
   const { openReviewCount } = useMoneyFlow();
 
   return (
-    <nav className="flex items-center gap-1 overflow-x-auto font-display text-[13.5px] font-semibold">
+    <nav className="flex items-center gap-1 overflow-x-auto font-display text-base">
       {links.map(([label, href]) => {
         const active = pathname === href;
         return (

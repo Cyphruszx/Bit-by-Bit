@@ -18,16 +18,14 @@ import {
 } from "./tokens";
 
 const primaryButton =
-  "rounded-full bg-primary-strong px-4 py-2 font-display text-[13px] font-bold text-on-primary disabled:opacity-35";
+  "rounded-full bg-primary-strong px-4 py-2 font-display text-base text-on-primary disabled:opacity-35";
 const brandButton =
-  "rounded-full bg-primary px-5 py-2.5 font-display text-sm font-bold text-on-primary disabled:opacity-35";
+  "rounded-full bg-primary px-5 py-2.5 font-display text-base text-on-primary disabled:opacity-35";
 const secondaryButton =
-  "rounded-full border-2 border-line bg-surface px-5 py-2.5 font-display text-sm font-bold text-ink disabled:opacity-35";
+  "rounded-full border-2 border-line bg-surface px-5 py-2.5 font-display text-base text-ink disabled:opacity-35";
 
-const navIdle =
-  "rounded-full px-[13px] py-1.5 font-display text-[13.5px] font-semibold text-muted hover:bg-accent-surface";
-const navActive =
-  "rounded-full bg-primary px-[13px] py-1.5 font-display text-[13.5px] font-semibold text-on-primary";
+const navIdle = "rounded-full px-3.5 py-1.5 font-display text-base text-muted hover:bg-accent-surface";
+const navActive = "rounded-full bg-primary px-3.5 py-1.5 font-display text-base text-on-primary";
 
 export function DesignSystemGallery() {
   const { theme } = useTheme();
@@ -38,7 +36,7 @@ export function DesignSystemGallery() {
     <div className="grid gap-5">
       <header className="flex flex-wrap items-end justify-between gap-8 px-0.5 pb-1.5">
         <div className="grid gap-2.5">
-          <h1 className="font-display text-[38px] font-bold leading-none tracking-tight">Design system</h1>
+          <h1 className="font-display text-[38px]">Design system</h1>
           <p className="max-w-[62ch] text-sm leading-6 text-ink-soft">
             Living tokens from <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">src/app/globals.css</code>.
             Swatches use the same Tailwind theme classes as the product —{" "}
@@ -47,7 +45,7 @@ export function DesignSystemGallery() {
           </p>
         </div>
         <div className="grid justify-items-end gap-1.5 text-right text-xs text-muted">
-          <span className="rounded-full bg-accent-surface px-3 py-1 font-display text-xs font-semibold text-primary-strong">
+          <span className="rounded-full bg-accent-surface px-3 py-1.5 font-display text-sm text-primary-strong">
             {theme === "dark" ? "8a dark" : "7b light"} · Pixelify Sans + Public Sans
           </span>
           <span>Toggle Dark in the header to rematch every swatch.</span>
@@ -61,7 +59,7 @@ export function DesignSystemGallery() {
         hint="Blue carries meaning — brand, positive movement, selection. Neutrals carry everything else."
       >
         <div className="grid gap-2.5">
-          <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-muted">Light theme</p>
+          <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Light theme</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {colourTokens.map((token) => (
               <TokenSwatch key={`light-${token.name}`} token={token} />
@@ -70,7 +68,7 @@ export function DesignSystemGallery() {
         </div>
 
         <div className="dark grid gap-2.5 rounded-[var(--radius-inner)] border-2 border-secondary/20 bg-surface-subtle p-[18px]">
-          <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-muted">Dark theme</p>
+          <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Dark theme</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {darkColourTokens.map((token) => (
               <TokenSwatch key={`dark-${token.name}`} token={token} />
@@ -102,13 +100,13 @@ export function DesignSystemGallery() {
             ))}
           </div>
           <div>
-            <TypeRow spec="38 / 700 display" sampleClass="font-display text-[38px] font-bold leading-none tracking-tight">
+            <TypeRow spec="38 / 600 display" sampleClass="font-display text-[38px]">
               Page title
             </TypeRow>
             <TypeRow spec="27 / 700 tabular" sampleClass="font-sans text-[27px] font-bold tracking-tight tabular-nums">
               {formatAud(18420.65)}
             </TypeRow>
-            <TypeRow spec="19 / 700 display" sampleClass="font-display text-[19px] font-bold tracking-tight">
+            <TypeRow spec="24 / 600 display" sampleClass="font-display text-2xl">
               Product wordmark
             </TypeRow>
             <TypeRow spec="15.5 / 700" sampleClass="text-[15.5px] font-bold">
@@ -117,7 +115,7 @@ export function DesignSystemGallery() {
             <TypeRow spec="14 / 600" sampleClass="text-sm font-semibold">
               Row title — Coles Brunswick
             </TypeRow>
-            <TypeRow spec="13.5 / 600 display" sampleClass="font-display text-[13.5px] font-semibold">
+            <TypeRow spec="16 / 600 display" sampleClass="font-display text-base">
               Nav item
             </TypeRow>
             <TypeRow spec="13 / 400" sampleClass="text-[13px]">
@@ -126,15 +124,15 @@ export function DesignSystemGallery() {
             <TypeRow spec="12.5 / 400 muted" sampleClass="text-[12.5px] text-muted">
               Supporting line — across 3 accounts
             </TypeRow>
-            <TypeRow spec="13 / 700 display" sampleClass="font-display text-[13px] font-bold">
+            <TypeRow spec="16 / 600 display" sampleClass="font-display text-base">
               Button label
             </TypeRow>
-            <TypeRow spec="12 / 700 display" sampleClass="font-display text-xs font-bold uppercase tracking-[0.16em] text-muted">
+            <TypeRow spec="14 / 600 display" sampleClass="font-display text-sm uppercase tracking-[0.16em] text-muted">
               Section eyebrow
             </TypeRow>
           </div>
           <p className="text-[12.5px] leading-6 text-muted">
-            Pixel type stays on chrome at 12px or above. Every amount stays on Public Sans with{" "}
+            Pixel type stays on chrome at 16px, or 14px for uppercase eyebrows, with open tracking so the bitmap stays readable. Every amount stays on Public Sans with{" "}
             <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">
               font-variant-numeric: tabular-nums
             </code>{" "}
@@ -191,7 +189,7 @@ export function DesignSystemGallery() {
 
       <Section index="04" eyebrow="Layout grid" title="One shell, four page grids">
         <div className="grid gap-2 rounded-[var(--radius-inner)] border-2 border-primary/20 bg-accent-surface px-4 py-3.5 text-[12.5px] leading-normal text-ink-soft">
-          <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-primary-strong">Fixed for every page</p>
+          <p className="font-display text-sm uppercase tracking-[0.12em] text-primary-strong">Fixed for every page</p>
           <p>
             Desktop shell <span className="font-bold text-ink">1240px</span> · padding{" "}
             <span className="font-bold text-ink">28px</span> · gutter{" "}
@@ -280,7 +278,7 @@ export function DesignSystemGallery() {
       >
         <div className="grid gap-6">
           <div className="grid gap-3">
-            <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-muted">Buttons</p>
+            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Buttons</p>
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" className={primaryButton}>
                 Add
@@ -309,7 +307,7 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-muted">Nav labels</p>
+            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Nav labels</p>
             <nav className="flex flex-wrap items-center gap-1">
               {["Dashboard", "Transactions", "Recurring"].map((label) => (
                 <button
@@ -325,9 +323,9 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-muted">Period filter chips</p>
+            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Period filter chips</p>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="mr-1 font-display text-xs font-bold uppercase tracking-[0.16em] text-muted">Period</p>
+              <p className="mr-1 font-display text-sm uppercase tracking-[0.16em] text-muted">Period</p>
               <PeriodChip active={period === "month"} onClick={() => setPeriod("month")}>
                 September 2026
               </PeriodChip>
@@ -347,7 +345,7 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-muted">Cards and SummaryCard</p>
+            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Cards and SummaryCard</p>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <SummaryCard
                 label="Money in"
@@ -383,7 +381,7 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-muted">Logo mark</p>
+            <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Logo mark</p>
             <div className="flex flex-wrap items-center gap-6">
               <BrandMark />
               <span aria-hidden className="grid grid-cols-2 gap-px">
@@ -427,10 +425,10 @@ function Section({
     <section className="card grid gap-5 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-display text-xs font-bold uppercase tracking-[0.16em] text-muted">
+          <p className="font-display text-sm uppercase tracking-[0.16em] text-muted">
             {index} · {eyebrow}
           </p>
-          <h2 className="mt-1.5 font-display text-[19px] font-bold tracking-tight">{title}</h2>
+          <h2 className="mt-1.5 font-display text-2xl">{title}</h2>
         </div>
         {hint ? <p className="max-w-sm text-right text-[12.5px] leading-relaxed text-muted">{hint}</p> : null}
       </div>
@@ -491,11 +489,11 @@ function Guidance({ doText, dontText }: { doText: string; dontText: string }) {
   return (
     <div className="grid gap-3.5 md:grid-cols-2">
       <div className="grid gap-1.5 rounded-[var(--radius-inner)] border-2 border-primary/20 bg-accent-surface p-4">
-        <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-primary-strong">Do</p>
+        <p className="font-display text-sm uppercase tracking-[0.12em] text-primary-strong">Do</p>
         <p className="text-[12.5px] leading-relaxed text-ink-soft">{doText}</p>
       </div>
       <div className="grid gap-1.5 rounded-[var(--radius-inner)] border-2 border-line bg-surface-subtle p-4">
-        <p className="font-display text-xs font-bold uppercase tracking-[0.1em] text-muted">Don’t</p>
+        <p className="font-display text-sm uppercase tracking-[0.12em] text-muted">Don’t</p>
         <p className="text-[12.5px] leading-relaxed text-ink-soft">{dontText}</p>
       </div>
     </div>

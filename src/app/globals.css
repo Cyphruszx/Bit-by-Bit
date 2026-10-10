@@ -272,6 +272,22 @@ html.dark .card,
 
 h1 {
   font-family: var(--font-display), ui-sans-serif, sans-serif;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  font-weight: 600;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .font-display {
+    font-family: var(--font-display), ui-sans-serif, sans-serif;
+    letter-spacing: 0.05em;
+    line-height: 1.3;
+    font-weight: 600;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 input,

@@ -22,7 +22,7 @@ export function PeriodChip({
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 font-display text-[13px] font-semibold disabled:opacity-35 ${
+      className={`rounded-full px-3.5 py-2 font-display text-base disabled:opacity-35 ${
         active ? "bg-primary text-on-primary" : "border-2 border-line bg-surface text-ink-soft"
       }`}
     >

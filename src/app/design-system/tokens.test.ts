@@ -131,8 +131,11 @@ describe("design system tokens", () => {
     assert.match(gallery, /ink \(`--color-ink`\) is #101214/);
     assert.match(gallery, /font-display text-\[38px\]/);
     assert.match(gallery, /font-sans text-\[27px\].*tabular-nums/);
+    assert.match(gallery, /font-display text-base/);
+    assert.match(gallery, /16px, or 14px for uppercase eyebrows/);
     assert.match(gallery, /Pixelify Sans/);
     assert.doesNotMatch(gallery, /Press Start 2P/);
+    assert.doesNotMatch(gallery, /font-display[^"'\n]*tracking-tight/);
   });
 });
 
@@ -166,6 +169,8 @@ describe("pixel restyle locks", () => {
     assert.match(layout, /Public_Sans/);
     assert.doesNotMatch(layout, /Press_Start_2P/);
     assert.doesNotMatch(css, /Press Start 2P/i);
+    assert.match(css, /\.font-display\s*\{[\s\S]*letter-spacing:\s*0\.05em/);
+    assert.match(css, /h1\s*\{[\s\S]*letter-spacing:\s*0\.03em/);
   });
 });
 

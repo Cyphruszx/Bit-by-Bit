@@ -18,7 +18,7 @@ export function MobileNav() {
   const { openReviewCount } = useMoneyFlow();
 
   return (
-    <nav className="fixed inset-x-4 bottom-4 z-20 flex justify-around rounded-full border-2 border-line bg-surface px-2 py-3 font-display text-xs font-semibold text-muted shadow-card md:hidden">
+    <nav className="fixed inset-x-4 bottom-4 z-20 flex justify-around rounded-full border-2 border-line bg-surface px-2 py-3 font-display text-sm text-muted shadow-card md:hidden">
       {links.map(([label, href]) => (
         <Link
           key={href}

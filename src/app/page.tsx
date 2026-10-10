@@ -42,9 +42,9 @@ const features = [
   ],
 ];
 
-const primaryCtaClass = "rounded-full bg-primary px-6 py-3 font-display font-bold text-on-primary";
+const primaryCtaClass = "rounded-full bg-primary px-6 py-3 font-display text-lg text-on-primary";
 const secondaryCtaClass =
-  "rounded-full border-2 border-line bg-surface px-6 py-3 font-display font-bold text-ink";
+  "rounded-full border-2 border-line bg-surface px-6 py-3 font-display text-lg text-ink";
 
 export default function Home() {
   const signInReady = canSignIn();
@@ -56,15 +56,15 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <AccountLink />
-          <Link href="/dashboard" className="rounded-full bg-primary px-5 py-2.5 font-display text-sm font-semibold text-on-primary">
+          <Link href="/dashboard" className="rounded-full bg-primary px-5 py-2.5 font-display text-base text-on-primary">
             Guest mode
           </Link>
         </div>
       </nav>
       <section className="mx-auto grid max-w-[1240px] gap-12 px-5 pb-20 pt-16 md:grid-cols-[1.1fr_.9fr] md:items-center md:px-7 md:pt-24">
         <div>
-          <p className="mb-5 font-display text-sm font-bold uppercase tracking-[0.2em] text-muted">Australian money flow</p>
-          <h1 className="max-w-xl font-display text-5xl font-bold tracking-tight md:text-6xl">Upload a statement. See the money flow.</h1>
+          <p className="mb-5 font-display text-sm uppercase tracking-[0.2em] text-muted">Australian money flow</p>
+          <h1 className="max-w-xl font-display text-5xl md:text-6xl">Upload a statement. See the money flow.</h1>
           <p className="mt-6 max-w-lg text-lg leading-8 text-muted">{siteDescription}</p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             {signInReady ? (
@@ -132,7 +132,7 @@ export default function Home() {
       <section className="mx-auto grid max-w-[1240px] gap-4 px-5 pb-16 md:grid-cols-2 md:px-7 lg:grid-cols-3">
         {features.map(([title, description]) => (
           <article key={title} className="card p-6">
-            <h2 className="font-display font-bold">{title}</h2>
+            <h2 className="font-display text-lg">{title}</h2>
             <p className="mt-2 leading-6 text-muted">{description}</p>
           </article>
         ))}
