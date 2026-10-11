@@ -31,11 +31,18 @@ const RULES: Rule[] = [
     /\b(cafe|coffee|restaurant|dining|mcdonald|kfc|hungry jack|red rooster|nando|subway|grill.?d|guzman|zambrero|sushia|soul origin|roll viet|domino|thaigga|uneke)\b/i,
     "eating-out.restaurants",
   ],
+  // Subscription billing names only. A bare "Apple" is not this category.
+  [/\b(apple\.com\/bill|google play|google one)\b/i, "software-apps"],
+  [/\b(netflix|spotify|disney|stan|binge|youtube|amazon prime|prime video)\b/i, "streaming"],
+  [/\b(the iconic|asos|shein|cotton on|uniqlo|country road|witchery)\b/i, "clothing"],
+  [/\b(apple store|apple\.com\/au)\b/i, "household-electronics"],
   [
-    /\b(netflix|spotify|disney|stan|youtube|google play|google one|amazon prime|discord|brave|apple\.com\/bill|prime video)\b/i,
-    "entertainment.streaming",
+    /\b(jb hi-?fi|officeworks|harvey norman|the good guys|bing lee|kitchen antics|kmart|target|myer|amazon|big w|shopify)\b/i,
+    "household-electronics",
   ],
-  [/\b(event|cinema|ticketek|ticketmaster|entertainment|townhouse|ice zoo)\b/i, "entertainment.events"],
+  [/\b(donation|red cross|salvation army|world vision|gofundme)\b/i, "donations"],
+  [/\b(betashares?|vanguard|commsec|selfwealth|spaceship|raiz|superannuation)\b/i, "invest"],
+  [/\b(event|cinema|ticketek|ticketmaster|entertainment|townhouse|ice zoo|discord|brave)\b/i, "entertainment.events"],
   [/\b(petrol|fuel|shell|bp|caltex|ampol|7-eleven|wagga motors)\b/i, "car.fuel"],
   [/\b(opal|uber|train|bus|transport)\b/i, "getting-around"],
   // Rent going out is housing; rent arriving is income. The same word at opposite ends.
@@ -44,10 +51,6 @@ const RULES: Rule[] = [
   [
     /\b(bunnings|ikea|hardware|furniture)\b/i,
     "home-garden",
-  ],
-  [
-    /\b(kmart|target|myer|amazon|big w|the iconic|jb hi-fi|officeworks|shopify|kitchen antics)\b/i,
-    "shopping",
   ],
   [/\b(exetel|telstra|optus|vodafone|internet|mobile)\b/i, "internet-phone"],
   [/\b(origin|agl|energy|water|utility|electric)\b/i, "utilities"],
@@ -60,8 +63,6 @@ const RULES: Rule[] = [
   // direction is the only thing that tells the two apart under one name.
   [/\b(societyone|latitude fin|harmoney|plenti|wisr|now finance|moneyme|nimble loans)\b/i, "debt-payments.drawdown", "in"],
   [/\b(societyone|latitude fin|harmoney|plenti|wisr|now finance|moneyme|nimble loans)\b/i, "debt-payments.loan-repayment"],
-  [/\binterest charged\b/i, "bank-fees.interest-charged", "out"],
-  [/\binterest\b/i, "other-income.interest-earned", "in"],
   [/\b(centrelink|services australia|veterans|vta benefits|dva)\b/i, "other-income.government-benefit", "in"],
   // A payment to the ATO is tax; money from the ATO is a refund of it.
   [/\b(australian taxation|ato|tax office)\b/i, "other-income.rebate", "in"],
@@ -80,9 +81,15 @@ const RULES: Rule[] = [
 export function categorize(
   description: string,
   amount: number,
-  options: { mcc?: string | number | null } = {},
+  options: { mcc?: string | number | null; bankMapped?: boolean } = {},
 ): string | null {
   const direction = amount > 0 ? "in" : "out";
+  // Amend BV.G.6a. A bank label that already maps the row wins; otherwise interest
+  // out is Bank Fees and interest in is Other Income (not income unless marked).
+  if (/\binterest\b/i.test(description) && !options.bankMapped) {
+    if (direction === "out") return "bank-fees.interest-charged";
+    if (direction === "in") return "other-income.interest-earned";
+  }
   for (const [pattern, category, when] of RULES) {
     if (when && when !== direction) continue;
     if (pattern.test(description)) return category;

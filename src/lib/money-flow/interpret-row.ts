@@ -74,7 +74,8 @@ export function readMovement(
   mcc?: string,
 ): Reading {
   const amount = directionKnown ? rawAmount : Math.abs(rawAmount) * directionFromWords(text);
-  const fromRules = categorize(text, amount, { mcc });
+  const bankMapped = Boolean(categoryFromBankLabel(bankCategory, amount));
+  const fromRules = categorize(text, amount, { mcc, bankMapped });
   const fromBank = fromRules ? null : categoryFromBankLabel(bankCategory, amount);
   // A rule says `food.groceries` because that is the legible way to write a rule. It means
   // a category and a tag, and this is where the two come apart.

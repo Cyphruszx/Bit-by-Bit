@@ -68,7 +68,8 @@ describe("period filtering", () => {
     );
     const summary = summarizePeriod(rows, { kind: "month", month: "2026-08" });
     assert.equal(summary.income, 2620);
-    assert.equal(summary.spending, 980);
+    assert.equal(summary.cashOut, 980);
+    assert.equal(summary.categories.reduce((sum, row) => sum + row.amount, 0), 980);
     assert.equal(summary.periodLabel, "August 2026");
     assert.equal(summarizePeriod(rows, { kind: "all" }).income, 5240);
   });

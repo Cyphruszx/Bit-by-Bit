@@ -11,7 +11,7 @@ import { UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
 import { monthKey } from "@/lib/money-flow/period";
 import { livePools, membersOf, type PoolBook } from "@/lib/money-flow/pools";
 import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
-import { countedMovements, isEarnings, isRefundCredit, isSpending, tileAmount } from "@/lib/money-flow/summary";
+import { countedMovements, isEarnings, isFiledMoneyOut, tileAmount } from "@/lib/money-flow/summary";
 import {
   accountBalanceView,
   displayedStoredBalance,
@@ -332,7 +332,7 @@ export function budgetRowsFromPrior(
 ): BudgetRow[] {
   const priorBy = new Map(prior.map((row) => [row.name, row.amount]));
   return current
-    .filter((row) => row.amount > 0 && row.name !== "transfers")
+    .filter((row) => row.amount > 0)
     .slice(0, limit)
     .map((row) => {
       const target = priorBy.get(row.name) ?? 0;
@@ -349,24 +349,13 @@ export function budgetRowsFromPrior(
     });
 }
 
-export function monthlyNetDelta(transactions: InterpretedTransaction[], month: string): number {
-  let delta = 0;
-  for (const txn of countedMovements(transactions)) {
-    if (monthKey(txn.dateIso) !== month) continue;
-    if (isEarnings(txn)) delta += tileAmount(txn);
-    else if (isSpending(txn)) delta -= Math.abs(tileAmount(txn));
-    else if (isRefundCredit(txn)) delta += Math.abs(tileAmount(txn));
-  }
-  return roundMoney(delta);
-}
-
 export function monthlySpendingSeries(
   transactions: InterpretedTransaction[],
   months: string[],
 ): DashboardPoint[] {
   const byMonth = new Map<string, number>();
   for (const txn of countedMovements(transactions)) {
-    if (!isSpending(txn)) continue;
+    if (!isFiledMoneyOut(txn)) continue;
     const month = monthKey(txn.dateIso);
     if (!months.includes(month)) continue;
     byMonth.set(month, roundMoney((byMonth.get(month) ?? 0) + Math.abs(tileAmount(txn))));

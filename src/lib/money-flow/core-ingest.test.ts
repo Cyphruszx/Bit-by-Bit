@@ -98,13 +98,10 @@ function interpretation(
     transactions: rows,
     flow: {
       income: 0,
-      spending: 0,
-      net: 0,
       cashIn: 0,
       cashOut: 0,
       cashNet: 0,
       transfers: 0,
-      actualSavings: 0,
       unmatchedInternal: 0,
       refunds: 0,
       transactionCount: rows.length,

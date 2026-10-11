@@ -8,12 +8,12 @@ import { chartLabel, groupOf, isGroupId } from "@/lib/money-flow/category-book";
 import { categoryOf } from "@/lib/money-flow/tags";
 import { countsAsSpending } from "@/lib/money-flow/taxonomy";
 import { moneyTrustHoldIds } from "@/lib/money-flow/review-queue";
-import { isActualSavings, isCleared, tileAmount } from "@/lib/money-flow/tile";
+import { isCleared, tileAmount } from "@/lib/money-flow/tile";
 import { excludingInternalTransfers, isInternalTransfer } from "@/lib/money-flow/internal-transfers";
 
 import type { CategorySpend, InterpretedTransaction, MoneyFlowSummary } from "@/lib/money-flow/types";
 
-export { isActualSavings, isCleared, tileAmount } from "@/lib/money-flow/tile";
+export { isCleared, tileAmount } from "@/lib/money-flow/tile";
 
 export type TagFlowDirection = "out" | "in";
 
@@ -63,18 +63,15 @@ export type FlowOverTimePoint = {
  * Tiles are Σ `base_amount` of CLEARED counted rows. Missing `status`/`baseAmount`
  * on a stored row means CLEARED / `amount` (interim for ledgers written before
  * those fields). Cash in/out still sum statement `amount` by sign only —
- * Transactions Money in / Money out use these, not Income / Spending, and omit
- * every TRANSFER kind (and proved pairs). Bank Transfer type and Up OFX pocket
- * names are classify paths that stamp TRANSFER; they are not a tile denylist.
- * Dashboard Income / Spending / Net stay on countedMovements.
+ * Transactions Money in / Money out use these, not Income, and omit every
+ * TRANSFER kind (and proved pairs). Bank Transfer type and Up OFX pocket names
+ * are classify paths that stamp TRANSFER; they are not a tile denylist.
+ * Dashboard Net is `cashNet`. Spent bars are filed money out, not a type total.
  */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const counted = countedMovements(transactions);
   const income = roundMoney(
     counted.filter(isEarnings).reduce((sum, txn) => sum + tileAmount(txn), 0),
-  );
-  const spending = roundMoney(
-    counted.filter(isSpending).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
   const cashRows = excludingInternalTransfers(transactions);
   const cashIn = roundMoney(
@@ -93,11 +90,6 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
       .filter((txn) => isCleared(txn) && tileAmount(txn) < 0 && settledTransfer.has(txn.id))
       .reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
-  // Matched TRANSFER IN to savings / user-flagged. Counted from the full set because
-  // settled transfer legs are excluded from `counted`.
-  const actualSavings = roundMoney(
-    transactions.filter(isActualSavings).reduce((sum, txn) => sum + tileAmount(txn), 0),
-  );
   // Movements the *bank* called internal that no other leg was ever found for. Read from
   // the statement's own words rather than from a type, because that wording is the only
   // record of what the bank believed and it is not allowed to decide anything on its own.
@@ -111,25 +103,21 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
   const refunds = roundMoney(
     counted.filter(isRefundCredit).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
-  const net = roundMoney(income - spending + refunds);
   const cashNet = roundMoney(cashIn - cashOut);
   const categories = spendByCategory(transactions);
 
   return {
     income,
-    spending,
-    net,
     cashIn,
     cashOut,
     cashNet,
     transfers,
-    actualSavings,
     unmatchedInternal,
     refunds,
     transactionCount: transactions.length,
     categories,
     periodLabel: periodLabel(transactions),
-    insights: insights(transactions, { income, spending, net, cashNet, transfers, unmatchedInternal, categories }),
+    insights: insights(transactions, { cashNet, transfers, unmatchedInternal, categories }),
   };
 }
 
@@ -188,13 +176,28 @@ export function isEarnings(txn: InterpretedTransaction): boolean {
   return txn.verdict?.because === "earned" && txn.verdict.counts === true;
 }
 
-/** A payment that was really spent, rather than moved, repaid or invested. */
+/**
+ * A payment whose type says it was spent. Amend BV.R: this no longer drives a figure.
+ * Spent is {@link isFiledMoneyOut}.
+ */
 export function isSpending(txn: InterpretedTransaction): boolean {
   return tileAmount(txn) < 0 && countsAsSpending(txn.type);
 }
 
+/** Groups that never count as spent (Amend BV.G.3). Transfers are named, not inferred from type. */
+const OFF_SPEND_BARS = new Set(["money-moves", "transfers"]);
+
+/**
+ * Money out filed under a category or group. Debits only. Refunds are credits, so they
+ * are not subtracted. Money moves (including Transfers) are left out by group.
+ */
+export function isFiledMoneyOut(txn: InterpretedTransaction): boolean {
+  if (tileAmount(txn) >= 0) return false;
+  return !OFF_SPEND_BARS.has(groupOf(categoryOf(txn)));
+}
+
 export function spendByCategory(transactions: InterpretedTransaction[]): CategorySpend[] {
-  return amountByCategory(transactions, "out");
+  return aggregateByTag(countedMovements(transactions).filter(isFiledMoneyOut), (txn) => groupOf(categoryOf(txn)));
 }
 
 export function amountByCategory(
@@ -307,14 +310,13 @@ export function tagFlowOverTime(
   const firstDay = days[0];
   const lastDay = days[days.length - 1];
   const byDay = spanInDays(firstDay, lastDay) <= MAX_DAILY_SPAN;
-  const totals = new Map<string, { income: number; spending: number; refunds: number }>();
+  const totals = new Map<string, { income: number; spending: number }>();
 
   for (const txn of rows) {
     const key = txn.dateIso.slice(0, byDay ? 10 : 7);
-    const entry = totals.get(key) ?? { income: 0, spending: 0, refunds: 0 };
+    const entry = totals.get(key) ?? { income: 0, spending: 0 };
     if (isEarnings(txn)) entry.income = roundMoney(entry.income + tileAmount(txn));
-    else if (isSpending(txn)) entry.spending = roundMoney(entry.spending + Math.abs(tileAmount(txn)));
-    else if (isRefundCredit(txn)) entry.refunds = roundMoney(entry.refunds + Math.abs(tileAmount(txn)));
+    else if (isFiledMoneyOut(txn)) entry.spending = roundMoney(entry.spending + Math.abs(tileAmount(txn)));
     totals.set(key, entry);
   }
 
@@ -324,8 +326,8 @@ export function tagFlowOverTime(
 
   let running = 0;
   return keys.map((key) => {
-    const entry = totals.get(key) ?? { income: 0, spending: 0, refunds: 0 };
-    const net = roundMoney(entry.income - entry.spending + entry.refunds);
+    const entry = totals.get(key) ?? { income: 0, spending: 0 };
+    const net = roundMoney(entry.income - entry.spending);
     running = roundMoney(running + net);
     return {
       key,
@@ -385,12 +387,9 @@ function daySpan(first: string, last: string): string[] {
 function flowTotals(transactions: InterpretedTransaction[]): { income: number; spending: number; net: number } {
   const income = roundMoney(transactions.filter(isEarnings).reduce((sum, txn) => sum + tileAmount(txn), 0));
   const spending = roundMoney(
-    transactions.filter(isSpending).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
+    transactions.filter(isFiledMoneyOut).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
   );
-  const refunds = roundMoney(
-    transactions.filter(isRefundCredit).reduce((sum, txn) => sum + Math.abs(tileAmount(txn)), 0),
-  );
-  return { income, spending, net: roundMoney(income - spending + refunds) };
+  return { income, spending, net: roundMoney(income - spending) };
 }
 
 function netByTag(
@@ -402,7 +401,7 @@ function netByTag(
     const name = keyOf(txn);
     const entry = byTag.get(name) ?? { income: 0, spending: 0 };
     if (isEarnings(txn)) entry.income = roundMoney(entry.income + tileAmount(txn));
-    else if (isSpending(txn)) entry.spending = roundMoney(entry.spending + Math.abs(tileAmount(txn)));
+    else if (isFiledMoneyOut(txn)) entry.spending = roundMoney(entry.spending + Math.abs(tileAmount(txn)));
     byTag.set(name, entry);
   }
 
@@ -427,7 +426,7 @@ function netByTag(
  * that does not reconcile with the number above it is worse than no breakdown.
  */
 function directed(transactions: InterpretedTransaction[], direction: TagFlowDirection): InterpretedTransaction[] {
-  return countedMovements(transactions).filter(direction === "out" ? isSpending : isEarnings);
+  return countedMovements(transactions).filter(direction === "out" ? isFiledMoneyOut : isEarnings);
 }
 
 function signedTotal(transactions: InterpretedTransaction[]): number {
@@ -498,9 +497,6 @@ function periodLabel(transactions: InterpretedTransaction[]): string {
 function insights(
   transactions: InterpretedTransaction[],
   summary: {
-    income: number;
-    spending: number;
-    net: number;
     cashNet: number;
     transfers: number;
     unmatchedInternal: number;

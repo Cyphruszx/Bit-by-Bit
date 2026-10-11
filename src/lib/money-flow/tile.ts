@@ -19,21 +19,3 @@ export function isCleared(txn: InterpretedTransaction): boolean {
 export function tileAmount(txn: InterpretedTransaction): number {
   return txn.baseAmount ?? txn.amount;
 }
-
-/**
- * Spec 10 Actual Savings: CLEARED TRANSFER IN to a savings account, or
- * user-flagged. Inflow only. Unmatched internals do not count — the other leg
- * has to be found. No Soft pools; nickname/key is the only savings signal
- * until an account-type registry exists.
- */
-export function isActualSavings(txn: InterpretedTransaction): boolean {
-  if (!isCleared(txn)) return false;
-  if (tileAmount(txn) <= 0) return false;
-  if (!txn.transferPair) return false;
-  return Boolean(txn.userFlaggedSavings) || looksLikeSavingsAccount(txn);
-}
-
-function looksLikeSavingsAccount(txn: InterpretedTransaction): boolean {
-  const haystack = [txn.accountId, txn.accountKey].filter(Boolean).join(" ");
-  return /\bsavings?\b|\bsaver\b|save!!/i.test(haystack);
-}

@@ -130,8 +130,6 @@ describe("Draft A period tiles", () => {
     assert.equal(flow.cashIn, 27000);
     assert.equal(flow.cashOut, 40);
     assert.equal(flow.cashNet, 26960);
-    assert.equal(flow.net, 1960);
-    assert.notEqual(flow.cashNet, flow.net);
 
     const bank = summarizeMoneyFlow(filterByScope(rows, { kind: "institution", institution: "NAB" }));
     assert.equal(bank.cashIn, 27000);
@@ -315,8 +313,6 @@ describe("Draft A sample statements", () => {
     assert.equal(upFlow.cashIn, 70574.39);
     assert.equal(upFlow.cashOut, 71631.34);
     assert.equal(upFlow.cashNet, -1056.95);
-    assert.equal(upFlow.net, -71631.34);
-    assert.notEqual(upFlow.cashNet, upFlow.net);
     assert.equal(upSnapshot.amount, null);
     assert.equal(upSnapshot.label, NO_BANK_BALANCE_LABEL);
     assert.equal(snapshotAsOfDate(up.transactions, up.tiles, up.meta), null);
@@ -344,8 +340,6 @@ describe("Draft A sample statements", () => {
     assert.equal(nabFlow.cashIn, 162371.67);
     assert.equal(nabFlow.cashOut, 161822.23);
     assert.equal(nabFlow.cashNet, 549.44);
-    assert.equal(nabFlow.net, -161822.23);
-    assert.notEqual(nabFlow.cashNet, nabFlow.net);
     assert.equal(nabSnapshot.amount, 4913.56);
     assert.equal(nabSnapshot.label, undefined);
     assert.equal(snapshotAsOfDate(nab.transactions, nab.tiles, nab.meta), "2026-06-30");
@@ -361,7 +355,6 @@ describe("Draft A sample statements", () => {
     assert.equal(nabJune.cashIn, 37121.25);
     assert.equal(nabJune.cashOut, 35751.4);
     assert.equal(nabJune.cashNet, 1369.85);
-    assert.equal(nabJune.net, -35751.4);
     assert.equal(presentAccountTiles(nab.tiles).amount, 4913.56);
 
     const both = await shownLedger([

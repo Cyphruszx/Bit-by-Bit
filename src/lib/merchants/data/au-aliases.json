@@ -2,7 +2,7 @@
   "_meta": {
     "source": "bitbybit-seed-v1",
     "country": "AU",
-    "count": 309
+    "count": 312
   },
   "aliases": [
     {
@@ -1169,7 +1169,7 @@
     {
       "alias": "OFFICEWORKS",
       "canonicalName": "Officeworks",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "office-supplies"
       ],
@@ -1179,7 +1179,7 @@
     {
       "alias": "KMART",
       "canonicalName": "Kmart",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "department-stores"
       ],
@@ -1189,7 +1189,7 @@
     {
       "alias": "TARGET",
       "canonicalName": "Target",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "department-stores"
       ],
@@ -1199,7 +1199,7 @@
     {
       "alias": "BIG W",
       "canonicalName": "Big W",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "department-stores"
       ],
@@ -1209,7 +1209,7 @@
     {
       "alias": "BIGW",
       "canonicalName": "Big W",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "department-stores"
       ],
@@ -1219,7 +1219,7 @@
     {
       "alias": "MYER",
       "canonicalName": "Myer",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "department-stores"
       ],
@@ -1229,7 +1229,7 @@
     {
       "alias": "DAVID JONES",
       "canonicalName": "David Jones",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "department-stores"
       ],
@@ -1239,7 +1239,7 @@
     {
       "alias": "THE REJECT SHOP",
       "canonicalName": "The Reject Shop",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "department-stores"
       ],
@@ -1249,7 +1249,7 @@
     {
       "alias": "REJECT SHOP",
       "canonicalName": "The Reject Shop",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "department-stores"
       ],
@@ -1259,7 +1259,7 @@
     {
       "alias": "HARVEY NORMAN",
       "canonicalName": "Harvey Norman",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "electronics"
       ],
@@ -1269,7 +1269,7 @@
     {
       "alias": "JB HI FI",
       "canonicalName": "JB Hi-Fi",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "electronics"
       ],
@@ -1279,7 +1279,7 @@
     {
       "alias": "JB HIFI",
       "canonicalName": "JB Hi-Fi",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "electronics"
       ],
@@ -1289,7 +1289,7 @@
     {
       "alias": "JBHIFI",
       "canonicalName": "JB Hi-Fi",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "electronics"
       ],
@@ -1299,7 +1299,7 @@
     {
       "alias": "THE GOOD GUYS",
       "canonicalName": "The Good Guys",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "electronics"
       ],
@@ -1309,7 +1309,7 @@
     {
       "alias": "BING LEE",
       "canonicalName": "Bing Lee",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "electronics"
       ],
@@ -1319,7 +1319,7 @@
     {
       "alias": "THE ICONIC",
       "canonicalName": "The Iconic",
-      "categoryKey": "shopping",
+      "categoryKey": "clothing",
       "tags": [
         "clothing"
       ],
@@ -1329,7 +1329,7 @@
     {
       "alias": "ASOS",
       "canonicalName": "ASOS",
-      "categoryKey": "shopping",
+      "categoryKey": "clothing",
       "tags": [
         "clothing"
       ],
@@ -1339,7 +1339,7 @@
     {
       "alias": "CATCH",
       "canonicalName": "Catch",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "online-marketplaces"
       ],
@@ -1349,7 +1349,7 @@
     {
       "alias": "AMAZON",
       "canonicalName": "Amazon",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "online-marketplaces"
       ],
@@ -1359,7 +1359,7 @@
     {
       "alias": "AMAZON AU",
       "canonicalName": "Amazon",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "online-marketplaces"
       ],
@@ -1369,7 +1369,7 @@
     {
       "alias": "AMAZON MARKETPLACE",
       "canonicalName": "Amazon",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "online-marketplaces"
       ],
@@ -1379,7 +1379,7 @@
     {
       "alias": "EBAY",
       "canonicalName": "eBay",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "online-marketplaces"
       ],
@@ -1389,7 +1389,7 @@
     {
       "alias": "KOGAN",
       "canonicalName": "Kogan",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "online-marketplaces"
       ],
@@ -1399,7 +1399,7 @@
     {
       "alias": "TEMU",
       "canonicalName": "Temu",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "online-marketplaces"
       ],
@@ -1409,7 +1409,7 @@
     {
       "alias": "SHEIN",
       "canonicalName": "Shein",
-      "categoryKey": "shopping",
+      "categoryKey": "clothing",
       "tags": [
         "clothing"
       ],
@@ -1419,7 +1419,7 @@
     {
       "alias": "ALIEXPRESS",
       "canonicalName": "AliExpress",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "online-marketplaces"
       ],
@@ -1429,7 +1429,7 @@
     {
       "alias": "REBEL",
       "canonicalName": "Rebel",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "sporting-goods"
       ],
@@ -1439,7 +1439,7 @@
     {
       "alias": "REBEL SPORT",
       "canonicalName": "Rebel",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "sporting-goods"
       ],
@@ -1449,7 +1449,7 @@
     {
       "alias": "ANACONDA",
       "canonicalName": "Anaconda",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "sporting-goods"
       ],
@@ -1459,7 +1459,7 @@
     {
       "alias": "BCF",
       "canonicalName": "BCF",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "sporting-goods"
       ],
@@ -1469,7 +1469,7 @@
     {
       "alias": "EB GAMES",
       "canonicalName": "EB Games",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "hobbies"
       ],
@@ -1479,7 +1479,7 @@
     {
       "alias": "DYMOCKS",
       "canonicalName": "Dymocks",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "books-news"
       ],
@@ -1489,7 +1489,7 @@
     {
       "alias": "QBD BOOKS",
       "canonicalName": "QBD Books",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "books-news"
       ],
@@ -1499,7 +1499,7 @@
     {
       "alias": "BABY BUNTING",
       "canonicalName": "Baby Bunting",
-      "categoryKey": "shopping",
+      "categoryKey": "household-electronics",
       "tags": [
         "other-merchandise"
       ],
@@ -2549,7 +2549,7 @@
     {
       "alias": "NETFLIX",
       "canonicalName": "Netflix",
-      "categoryKey": "entertainment",
+      "categoryKey": "streaming",
       "tags": [
         "streaming"
       ],
@@ -2559,7 +2559,7 @@
     {
       "alias": "SPOTIFY",
       "canonicalName": "Spotify",
-      "categoryKey": "entertainment",
+      "categoryKey": "streaming",
       "tags": [
         "music-audio"
       ],
@@ -2569,7 +2569,7 @@
     {
       "alias": "DISNEY PLUS",
       "canonicalName": "Disney+",
-      "categoryKey": "entertainment",
+      "categoryKey": "streaming",
       "tags": [
         "streaming"
       ],
@@ -2579,7 +2579,7 @@
     {
       "alias": "DISNEY",
       "canonicalName": "Disney+",
-      "categoryKey": "entertainment",
+      "categoryKey": "streaming",
       "tags": [
         "streaming"
       ],
@@ -2589,7 +2589,7 @@
     {
       "alias": "STAN",
       "canonicalName": "Stan",
-      "categoryKey": "entertainment",
+      "categoryKey": "streaming",
       "tags": [
         "streaming"
       ],
@@ -2599,7 +2599,7 @@
     {
       "alias": "BINGE",
       "canonicalName": "Binge",
-      "categoryKey": "entertainment",
+      "categoryKey": "streaming",
       "tags": [
         "streaming"
       ],
@@ -2629,7 +2629,7 @@
     {
       "alias": "AMAZON PRIME",
       "canonicalName": "Amazon Prime",
-      "categoryKey": "entertainment",
+      "categoryKey": "streaming",
       "tags": [
         "streaming"
       ],
@@ -2639,7 +2639,7 @@
     {
       "alias": "PRIME VIDEO",
       "canonicalName": "Prime Video",
-      "categoryKey": "entertainment",
+      "categoryKey": "streaming",
       "tags": [
         "streaming"
       ],
@@ -3092,6 +3092,36 @@
       "categoryKey": "rent-mortgage",
       "tags": [
         "rent"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "APPLE.COM/BILL",
+      "canonicalName": "Apple",
+      "categoryKey": "software-apps",
+      "tags": [
+        "app-subscriptions"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GOOGLE PLAY",
+      "canonicalName": "Google Play",
+      "categoryKey": "software-apps",
+      "tags": [
+        "app-subscriptions"
+      ],
+      "country": "AU",
+      "source": "seed_v1"
+    },
+    {
+      "alias": "GOOGLE ONE",
+      "canonicalName": "Google One",
+      "categoryKey": "software-apps",
+      "tags": [
+        "app-subscriptions"
       ],
       "country": "AU",
       "source": "seed_v1"

@@ -4,13 +4,11 @@ import { LineChart, potLineColor, type LineChartSeries } from "@/components/line
 import { formatAud } from "@/lib/format";
 import {
   localIsoDate,
-  monthlyTransferSeries,
   projectedPotSeries,
   savingsProgressSeries,
   type SavingsPot,
   type SavingsSnapshot,
 } from "@/lib/money-flow/savings";
-import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export function SavingsPathChart({
   pots,
@@ -69,24 +67,4 @@ export function SavingsPotLinesChart({
     points: item.points,
   }));
   return <LineChart series={series} height={240} ariaLabel="Line graph of each savings pot over coming months" />;
-}
-
-export function SetAsideLineChart({ transactions }: { transactions: InterpretedTransaction[] }) {
-  const points = monthlyTransferSeries(transactions);
-  if (points.length < 2) return null;
-  return (
-    <LineChart
-      series={[
-        {
-          id: "actual-savings",
-          label: "Actual Savings",
-          color: "var(--color-primary)",
-          fill: "var(--color-accent)",
-          points,
-        },
-      ]}
-      height={200}
-      ariaLabel="Line graph of Actual Savings by month"
-    />
-  );
 }

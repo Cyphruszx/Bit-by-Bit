@@ -301,6 +301,49 @@ const CATEGORIES: Category[] = [
     ],
   },
   {
+    key: "streaming",
+    label: "Streaming",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["streaming", "Streaming"],
+      ["music-audio", "Music & Audio"],
+      ["tv-movies", "TV & Movies"],
+    ],
+  },
+  {
+    key: "software-apps",
+    label: "Software & apps",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["software", "Software"],
+      ["app-subscriptions", "App subscriptions"],
+    ],
+  },
+  {
+    key: "clothing",
+    label: "Clothing",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["clothing", "Clothing"],
+      ["clothing-accessories", "Clothing & Accessories"],
+    ],
+  },
+  {
+    key: "household-electronics",
+    label: "Household & electronics",
+    inType: "earned",
+    outType: "spent",
+    tags: [
+      ["electronics", "Electronics"],
+      ["homewares", "Homewares"],
+      ["office-supplies", "Office Supplies"],
+      ["department-stores", "Department Stores"],
+    ],
+  },
+  {
     key: "shopping",
     label: "Shopping",
     inType: "earned",
@@ -447,12 +490,13 @@ const CATEGORIES: Category[] = [
   },
   {
     key: "donations",
-    label: "Donations",
+    label: "Gifts & Donations",
     inType: "earned",
     outType: "spent",
     tags: [
       ["donations", "Donations"],
       ["charity", "Charity"],
+      ["gifts", "Gifts"],
     ],
   },
   {
@@ -473,8 +517,8 @@ const CATEGORIES: Category[] = [
   {
     key: "transfers",
     label: "Transfers",
-    inType: "earned",
-    outType: "spent",
+    inType: "moved",
+    outType: "moved",
     tags: [
       ["transfer-in", "Transfer In"],
       ["transfer-out", "Transfer Out"],
@@ -817,8 +861,8 @@ const FROM_OLD: Record<string, { categoryKey: string; tag?: string }> = {
   "health.private-cover": { categoryKey: "medical", tag: "Private Health Cover" },
   "health.fitness": { categoryKey: "personal-care", tag: "Fitness" },
   health: { categoryKey: "medical" },
-  "leisure.streaming": { categoryKey: "entertainment", tag: "Streaming" },
-  "leisure.software": { categoryKey: "entertainment", tag: "Software" },
+  "leisure.streaming": { categoryKey: "streaming", tag: "Streaming" },
+  "leisure.software": { categoryKey: "software-apps", tag: "Software" },
   "leisure.events": { categoryKey: "entertainment", tag: "Events" },
   "leisure.gaming": { categoryKey: "entertainment", tag: "Gaming" },
   "leisure.sport": { categoryKey: "entertainment", tag: "Sport" },
@@ -873,7 +917,7 @@ const LEGACY: Record<string, string> = {
   transport: "getting-around",
   shopping: "shopping",
   entertainment: "entertainment",
-  subscriptions: "entertainment.streaming",
+  subscriptions: "streaming",
   utilities: "utilities",
   health: "medical",
   travel: "travel",

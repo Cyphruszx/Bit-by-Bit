@@ -59,22 +59,22 @@ describe("the editable category book", () => {
     assert.ok(book.categories.find((category) => category.key === "eating-out")?.bankCategories.includes("Fast Food"));
     assert.equal(groupOf("groceries"), "food");
     assert.equal(groupOf("salary"), "income");
-    assert.equal(groupLabelOf("groceries"), "Food");
+    assert.equal(groupLabelOf("groceries"), "Food & Drink");
     assert.equal(groupLabelOf("salary"), "Income");
-    assert.equal(taxonomyPath("groceries"), "Food · Groceries");
+    assert.equal(taxonomyPath("groceries"), "Food & Drink · Groceries");
     assert.equal(taxonomyPath("salary"), "Income · Salary");
-    assert.equal(taxonomyPath("other"), "Other");
-    assert.equal(taxonomyPath("transfers"), "Transfers");
-    assert.equal(taxonomyPath("uncategorised"), "Other · Not sorted yet");
+    assert.equal(taxonomyPath("other"), "Unsorted · Other");
+    assert.equal(taxonomyPath("transfers"), "Money moves · Transfers");
+    assert.equal(taxonomyPath("uncategorised"), "Unsorted · Not sorted yet");
   });
 
   it("keeps the current category when the group already holds it", () => {
-    assert.equal(defaultCategoryForGroup("housing", "utilities"), "utilities");
+    assert.equal(defaultCategoryForGroup("housing", "home-garden"), "home-garden");
   });
 
   it("moves to the first category in a group that does not hold the current one", () => {
     assert.equal(defaultCategoryForGroup("food", "rent-mortgage"), "groceries");
-    assert.equal(defaultCategoryForGroup("misc", "groceries"), "other");
+    assert.equal(defaultCategoryForGroup("unsorted", "groceries"), "other");
   });
 
   it("lists picker options under the PDF groups, with Not sorted yet only when asked", () => {
@@ -172,16 +172,16 @@ describe("applying the book to the taxonomy", () => {
   });
 
   it("maps a bank label the person added onto an unsorted movement", () => {
-    const book = addBankCategory(defaultCategoryBook(), "shopping", "Corner Shop");
+    const book = addBankCategory(defaultCategoryBook(), "clothing", "Corner Shop");
     applyBook(book);
-    assert.equal(categoryForBankLabel("Corner Shop"), "shopping.corner-shop");
+    assert.equal(categoryForBankLabel("Corner Shop"), "clothing.corner-shop");
     const [placed] = classify([
       txn({
         bank: { category: "Corner Shop" },
         decidedBy: "unreviewed",
       }),
     ]);
-    assert.equal(placed.categoryKey, "shopping");
+    assert.equal(placed.categoryKey, "clothing");
     assert.equal(placed.decidedBy, "bank");
   });
 });

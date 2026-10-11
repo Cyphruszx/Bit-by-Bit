@@ -10,7 +10,8 @@ import { tidyInstitutionName, type InstitutionOverrides } from "@/lib/money-flow
 import { uniqueTransactions } from "@/lib/money-flow/summary";
 import { persistStoredTransaction, upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
 import { forget, learn, type LearnedRule, type Rules } from "@/lib/money-flow/rules";
-import { parseCategoryBook, type CategoryBook } from "@/lib/money-flow/category-book";
+import { defaultCategoryBook, parseCategoryBook, type CategoryBook } from "@/lib/money-flow/category-book";
+import { STARTER_LIST_VERSION, ledgerHasTestData, starterListVersionOf } from "@/lib/money-flow/starter-list";
 import { mergedReview, parseReviewItems, type ReviewItem } from "@/lib/money-flow/review-queue";
 import {
   applyReviewUndoParts,
@@ -126,9 +127,14 @@ export type Ledger = {
   rules?: Rules;
   /**
    * The category list a person has edited: groups, names, and the bank labels that hint
-   * at each one. Absent while they are still using the usual fourteen.
+   * at each one. Absent while they are still using the starter list for their version.
    */
   taxonomy?: CategoryBook;
+  /**
+   * Which starter list this ledger was built from. Missing plus saved test data means
+   * the previous list (Amend BV.T). An empty ledger is the current list.
+   */
+  starterListVersion?: number;
   /**
    * Spec 7 Review Queue items the person has already closed. OPEN items are
    * rebuilt from the current movements each read, so they are not stored here.
@@ -573,7 +579,42 @@ export function forgetCorrection(ledger: Ledger, key: string): Ledger {
   return { ...ledger, rules: forget(ledger.rules ?? {}, key) };
 }
 
-/** Records the category list a person has edited, or forgets it so the usual fourteen return. */
+/**
+ * An empty ledger is already on the current starter list. Stamp the version once so the
+ * first upload is not treated as old test data.
+ */
+export function adoptStarterList(ledger: Ledger): Ledger {
+  if (ledgerHasTestData(ledger)) return ledger;
+  if (ledger.starterListVersion === STARTER_LIST_VERSION) return ledger;
+  return { ...ledger, starterListVersion: STARTER_LIST_VERSION };
+}
+
+/**
+ * Pre-launch reset. Clears statements, income marks, payer rules, category rules, and
+ * per-row decisions, then loads the current starter list. Accounts, names, merges, pools,
+ * and feature toggles stay.
+ */
+export function resetStarterTestData(ledger: Ledger): Ledger {
+  const next: Ledger = {
+    version: ledger.version,
+    entries: [],
+    imports: [],
+    starterListVersion: STARTER_LIST_VERSION,
+    taxonomy: defaultCategoryBook(),
+  };
+  if (ledger.institutions) next.institutions = ledger.institutions;
+  if (ledger.accounts) next.accounts = ledger.accounts;
+  if (ledger.mergedInto) next.mergedInto = ledger.mergedInto;
+  if (ledger.accountMeta) next.accountMeta = ledger.accountMeta;
+  if (ledger.accountPools) next.accountPools = ledger.accountPools;
+  if (ledger.accountPoolMembers) next.accountPoolMembers = ledger.accountPoolMembers;
+  if (ledger.featureToggles) next.featureToggles = ledger.featureToggles;
+  if (ledger.featureOffer) next.featureOffer = ledger.featureOffer;
+  if (ledger.dashboardLayout) next.dashboardLayout = ledger.dashboardLayout;
+  return next;
+}
+
+/** Records the category list a person has edited, or forgets it so the starter list returns. */
 export function recordTaxonomy(ledger: Ledger, book: CategoryBook | null): Ledger {
   if (!book) {
     const next = { ...ledger };
@@ -682,6 +723,7 @@ export function mergeLedgers(mine: Ledger, theirs: Ledger): Ledger {
     ...mergedVerdicts(mine.verdicts, theirs.verdicts),
     ...mergedRules(mine.rules, theirs.rules),
     ...pickedTaxonomy(mine.taxonomy, theirs.taxonomy),
+    ...pickedStarterVersion(mine, theirs),
     ...pickedReview(mine.review, theirs.review),
     ...pickedReviewUndo(mine.reviewUndo, theirs.reviewUndo),
     ...pickedPools(mine, theirs, { ...theirs.mergedInto, ...mine.mergedInto }),
@@ -697,6 +739,11 @@ function mergedRules(mine: Rules | undefined, theirs: Rules | undefined) {
 function pickedTaxonomy(mine: CategoryBook | undefined, theirs: CategoryBook | undefined) {
   const held = mine ?? theirs;
   return held ? { taxonomy: held } : {};
+}
+
+/** The older list wins, so merging an empty current ledger cannot skip the reset prompt. */
+function pickedStarterVersion(mine: Ledger, theirs: Ledger) {
+  return { starterListVersion: Math.min(starterListVersionOf(mine), starterListVersionOf(theirs)) };
 }
 
 function pickedReview(mine: ReviewItem[] | undefined, theirs: ReviewItem[] | undefined) {
@@ -1016,6 +1063,9 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(raw.payers && typeof raw.payers === "object" ? { payers: stringsOnly(raw.payers) } : {}),
     ...(raw.rules && typeof raw.rules === "object" ? { rules: rulesOnly(raw.rules, extraKeys) } : {}),
     ...(taxonomy ? { taxonomy } : {}),
+    ...(typeof raw.starterListVersion === "number" && Number.isFinite(raw.starterListVersion)
+      ? { starterListVersion: raw.starterListVersion }
+      : {}),
     ...(review.length > 0 ? { review } : {}),
     ...(reviewUndo.length > 0 ? { reviewUndo } : {}),
     ...parsedPools(raw),

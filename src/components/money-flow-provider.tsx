@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
+  adoptStarterList,
   appendToLedger,
   EMPTY_LEDGER,
   heldStatements,
@@ -21,6 +22,7 @@ import {
   recordVerdict,
   undoLastReviewAction,
   recordTaxonomy,
+  resetStarterTestData,
   replaceTransactions,
   visibleTransactions,
   applyPoolWrite,
@@ -32,7 +34,8 @@ import {
   type Ledger,
   type MergeAccountsResult,
 } from "@/lib/money-flow/ledger";
-import { applyBook, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
+import { applyBook, bookForLedger, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
+import { needsStarterReset } from "@/lib/money-flow/starter-list";
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { applySilentSameInstitutionUniquePairs, forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
@@ -196,6 +199,12 @@ type MoneyFlowState = {
   setFeatureOn: (key: FeatureKey, enabled: boolean) => void;
   acceptEnableOffer: (keys: readonly EnableOfferKey[]) => void;
   dismissEnableOffer: () => void;
+  /** Amend BV.T. Stored starter list is older than the one shipped with this build. */
+  starterResetNeeded: boolean;
+  /** Clears test data and loads the current starter list. */
+  resetStarterData: () => void;
+  /** Leaves the old list in place for this session. */
+  dismissStarterReset: () => void;
 };
 
 const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
@@ -203,10 +212,17 @@ const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
 export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
   const held = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_SNAPSHOT);
   const period = useSyncExternalStore(subscribePeriod, getPeriod, () => ALL_PERIOD);
+  const [starterDismissed, setStarterDismissed] = useState(false);
 
   useEffect(() => {
     void hydrate();
   }, []);
+
+  useEffect(() => {
+    if (!held.ready) return;
+    const adopted = adoptStarterList(held.ledger);
+    if (adopted !== held.ledger) commit(adopted);
+  }, [held.ready, held.ledger]);
 
   const value = useMemo<MoneyFlowState>(() => {
     // Read past the overlap two downloads of one account share, so a week covered by both
@@ -226,7 +242,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     // Spec 7: Core never auto-resolves money-trust. Classify, drop any stored auto-pairs,
     // then apply what the person said. matchTransfers / matchRefunds still detect
     // candidates for the insight; they do not rewrite type or strip totals.
-    const categoryBook = resolveBook(held.ledger.taxonomy);
+    const categoryBook = bookForLedger(held.ledger);
     applyBook(categoryBook);
     const classified = forgetAutoPairs(classify(stored, { rules: held.ledger.rules ?? {} }));
     const judged = applyVerdicts(classified, held.ledger.verdicts ?? {}, registry);
@@ -302,8 +318,14 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       setFeatureOn,
       acceptEnableOffer,
       dismissEnableOffer,
+      starterResetNeeded: held.ready && !starterDismissed && needsStarterReset(held.ledger),
+      resetStarterData: () => {
+        setStarterDismissed(true);
+        commit(resetStarterTestData(snapshot.ledger));
+      },
+      dismissStarterReset: () => setStarterDismissed(true),
     };
-  }, [held, period]);
+  }, [held, period, starterDismissed]);
 
   return <MoneyFlowContext.Provider value={value}>{children}</MoneyFlowContext.Provider>;
 }

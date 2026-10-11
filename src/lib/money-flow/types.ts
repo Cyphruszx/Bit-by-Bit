@@ -234,18 +234,12 @@ export type CategorySpend = {
 
 export type MoneyFlowSummary = {
   income: number;
-  spending: number;
-  net: number;
   cashIn: number;
   cashOut: number;
+  /** 10F Net: Money in − Money out. */
   cashNet: number;
   /** Money moved between the person's own accounts, counted once rather than twice. */
   transfers: number;
-  /**
-   * Spec 10 Actual Savings: CLEARED TRANSFER IN to a savings account or
-   * user-flagged, inflow only. Not “any matched transfer”.
-   */
-  actualSavings: number;
   /** Movements a bank calls internal that have no partner here, so they still count. */
   unmatchedInternal: number;
   refunds: number;

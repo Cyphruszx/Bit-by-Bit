@@ -240,8 +240,6 @@ describe("Cash in pool", () => {
     assert.equal(cashInPool(added.book, poolId, META).amount, 800);
     assert.notEqual(before.cashNet, 800);
     assert.equal(summarizeMoneyFlow(ledgerTransactions(withPool)).income, before.income);
-    assert.equal(summarizeMoneyFlow(ledgerTransactions(withPool)).spending, before.spending);
-    assert.equal(summarizeMoneyFlow(ledgerTransactions(withPool)).actualSavings, before.actualSavings);
   });
 });
 

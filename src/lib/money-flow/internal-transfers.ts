@@ -15,6 +15,7 @@
 
 import { isProtectedAuthority, isTransferKind } from "@/lib/money-flow/movement-kind";
 import { sourceValue } from "@/lib/money-flow/source";
+import { OTHER, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /**
@@ -101,11 +102,11 @@ export function classifyKnownInternalTransfers(
 
 export function classifyKnownInternalTransfer(txn: InterpretedTransaction): InterpretedTransaction {
   if (isProtectedAuthority(txn.decidedBy)) return txn;
-  if (isTransferKind(txn.type)) return txn;
-  if (isBankTransferType(txn) || isUpOfxPocketTransfer(txn)) {
-    return { ...txn, type: "TRANSFER" };
-  }
-  return txn;
+  if (!(isTransferKind(txn.type) || isBankTransferType(txn) || isUpOfxPocketTransfer(txn))) return txn;
+  const unsorted = !txn.categoryKey || txn.categoryKey === UNCATEGORISED || txn.categoryKey === OTHER;
+  const categoryKey = unsorted ? "transfers" : txn.categoryKey;
+  if (isTransferKind(txn.type) && txn.categoryKey === categoryKey) return txn;
+  return { ...txn, type: "TRANSFER", categoryKey };
 }
 
 function pocketKey(name: string): string {

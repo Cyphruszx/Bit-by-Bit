@@ -99,7 +99,9 @@ describe("2026-09 sample locks (2A.8 L1–L12)", () => {
     assert.equal(upFlow.cashIn, upWithout.cashIn, "L3 transfers stay out of money in");
     assert.equal(upFlow.cashOut, upWithout.cashOut, "L3 transfers stay out of money out");
     assert.equal(upFlow.income, upWithout.income, "L3 transfers stay out of income");
-    assert.equal(upFlow.spending, upWithout.spending, "L3 transfers stay out of spending");
+    const spentOf = (flow: { categories: { amount: number }[] }) =>
+      round2(flow.categories.reduce((sum, row) => sum + row.amount, 0));
+    assert.equal(spentOf(upFlow), spentOf(upWithout), "L3 transfers stay out of spent bars");
 
     assert.deepEqual(mostRecentStatedBalances(up), {}, "L4 no balance column");
     assert.equal(up.every((txn) => sourceValue(txn.source, "Balance") === ""), true);

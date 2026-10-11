@@ -88,8 +88,9 @@ describe("Open Banking ledger upsert", () => {
       txn({ id: "posted", accountId: "acc_1", amount: -10, dateIso: "2026-09-03", status: "POSTED", description: "Cafe" }),
     ]);
     const flow = summarizeMoneyFlow(ledgerTransactions(ledger));
-    assert.equal(flow.spending, 10);
     assert.equal(ledger.entries.filter((row) => row.status === "PENDING").length, 1);
+    assert.equal(flow.categories.reduce((sum, row) => sum + row.amount, 0), 10);
+    assert.equal(flow.cashOut, 50, "raw Money out still sees the pending debit");
   });
 
   it("fingerprint-matches CSV+OB into one CLEARED survivor", () => {

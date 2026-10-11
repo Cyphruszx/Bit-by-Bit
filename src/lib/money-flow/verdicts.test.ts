@@ -40,7 +40,6 @@ describe("settling what the statements cannot say", () => {
 
     assert.equal(flow.income, 3000, "a loan is not money the household earned");
     assert.equal(flow.cashIn, 28000, "the cash still arrived, and the statement still says so");
-    assert.equal(flow.net, 3000);
   });
 
   it("settles every movement that reads the same way, in one go", () => {
@@ -115,7 +114,6 @@ describe("settling what the statements cannot say", () => {
     const rows = [offset, credit(-40, "Woolworths Bondi")];
     const flow = summarizeMoneyFlow(applyVerdicts(rows, { [oneKey(offset)]: verdictFor("not-mine", AT) }));
 
-    assert.equal(flow.spending, 40);
     assert.equal(flow.cashOut, 40, "classified own-account move is omitted from Money out");
   });
 });
