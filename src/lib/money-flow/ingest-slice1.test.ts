@@ -364,7 +364,6 @@ describe("F7 one-legged TRANSFER", () => {
     const june = filterByPeriod(rows, { kind: "month", month: "2026-06" });
     const juneSpend = june.filter((row) => row.accountId === "Up · Spending");
     const juneSave = june.filter((row) => row.accountId === "Up · Save!!");
-    assert.equal(summarizeMoneyFlow(juneSpend).spending, 20);
     assert.equal(summarizeMoneyFlow(juneSpend).income, 0);
     assert.equal(summarizeMoneyFlow(juneSpend).cashOut, 20);
     assert.equal(summarizeMoneyFlow(juneSave).income, 0);
@@ -372,7 +371,6 @@ describe("F7 one-legged TRANSFER", () => {
     assert.equal(summarizeMoneyFlow(june).income, 0);
 
     const spendingOnly = rows.filter((row) => row.accountId === "Up · Spending");
-    assert.equal(summarizeMoneyFlow(spendingOnly).spending, 20);
     assert.equal(summarizeMoneyFlow(spendingOnly).income, 0);
     assert.equal(summarizeMoneyFlow(spendingOnly).cashOut, 20);
 
@@ -385,6 +383,5 @@ describe("F7 one-legged TRANSFER", () => {
     const groups = accountsByInstitution(rows);
     const spending = groups.flatMap((group) => group.accounts).find((account) => account.id === "Up · Spending");
     assert.equal(spending?.flow.income, 0);
-    assert.equal(spending?.flow.spending, 20);
   });
 });

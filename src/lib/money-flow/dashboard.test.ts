@@ -210,7 +210,6 @@ describe("dashboard widgets", () => {
         "NAB · Savings": { clearedBalance: 12400 },
       },
     }), 16680.12);
-    assert.notEqual(totalAccountBalance(tiles), flow.net, "not parked Net Money(P)");
     assert.notEqual(totalAccountBalance(tiles), flow.cashNet, "not period money-in − money-out");
   });
 
@@ -237,7 +236,11 @@ describe("dashboard widgets", () => {
     assert.equal(tiles[0]?.accounts[0]?.amount, null);
     assert.equal(tiles[0]?.accounts[0]?.balanceLabel, "No balance from your bank.");
     assert.equal(summarizeMoneyFlow(rows).cashOut, 80, "raw Money out still sees the pending debit");
-    assert.equal(summarizeMoneyFlow(rows).spending, 0);
+    assert.equal(
+      summarizeMoneyFlow(rows).categories.reduce((sum, row) => sum + row.amount, 0),
+      0,
+      "pending money out is not on the spent bars",
+    );
   });
 
   it("returns no Total balance when every card is missing a figure", () => {
@@ -281,10 +284,8 @@ describe("dashboard widgets", () => {
     ];
     const flow = summarizeMoneyFlow(rows);
     assert.equal(flow.income, 3000);
-    assert.equal(flow.spending, 40);
     assert.equal(flow.cashIn, 28000, "salary + loan — classified transfer omitted");
     assert.equal(flow.cashOut, 40, "shop only — classified transfer omitted");
     assert.notEqual(flow.cashIn, flow.income);
-    assert.equal(flow.cashOut, flow.spending, "shop is the only remaining outflow");
   });
 });

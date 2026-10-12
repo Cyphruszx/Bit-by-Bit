@@ -55,7 +55,6 @@ describe("Core ingest silent-pairs unique same-institution transfers (Spec 3/7)"
     const flow = result.flow;
     assert.equal(flow.transfers, 400);
     assert.equal(flow.income, 0);
-    assert.equal(flow.spending, 0);
     assert.equal(flow.cashIn, 0, "classified same-institution pair is omitted from Money in");
     assert.equal(flow.cashOut, 0, "classified same-institution pair is omitted from Money out");
     assert.ok(!flow.insights.some((line) => /likely transfer/i.test(line)));
@@ -104,8 +103,6 @@ describe("Core ingest does not auto-write refund pairs", () => {
     const flow = result.flow;
     assert.equal(flow.refunds, 0, "unconfirmed refunds are not Refund credits");
     assert.equal(flow.income, 0, "payroll and the unlinked refund are not Income without an earned verdict");
-    assert.equal(flow.spending, 80, "month-freeze: the original payment stays in Spending");
-    assert.equal(flow.net, -80);
     assert.ok(flow.insights.some((line) => /likely refund/i.test(line)));
   });
 });
@@ -138,7 +135,6 @@ describe("forgetAutoPairs", () => {
     const flow = summarizeMoneyFlow(forgotten);
     assert.equal(flow.transfers, 0, "auto-marks cannot keep cancelling as confirmed transfers");
     assert.equal(flow.income, 0, "OPEN unpaired legs are held out of tiles");
-    assert.equal(flow.spending, 0);
     assert.equal(flow.cashOut, 400);
   });
 
@@ -163,7 +159,6 @@ describe("forgetAutoPairs", () => {
     });
     const kept = forgetAutoPairs([debit, credit]);
     assert.equal(kept[0]?.transferPair, "pair-save");
-    assert.equal(summarizeMoneyFlow(kept).actualSavings, 400);
   });
 });
 

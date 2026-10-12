@@ -8,7 +8,7 @@ export function BudgetBars({ rows, daysLeft }: { rows: BudgetRow[]; daysLeft: nu
         <h3 className="shrink-0 text-[15.5px] font-bold">Spending & budgets</h3>
         <div className="flex items-center gap-3">
           <LegendSwatch fill="bg-primary" label="Spend" />
-          <LegendSwatch fill="bg-muted" label="Budget" />
+          <LegendSwatch fill="bg-muted" label="Last month (money out)" />
         </div>
         {daysLeft !== null ? (
           <p className="shrink-0 text-right text-[12.5px] text-muted">{daysLeft} days left</p>

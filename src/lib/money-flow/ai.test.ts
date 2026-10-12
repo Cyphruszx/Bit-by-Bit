@@ -257,7 +257,6 @@ describe("image interpretation with AI", archivedPdfTestOptions(), () => {
     assert.equal(kiosk?.categoryKey, "shopping");
     assert.equal(kiosk?.decidedBy, "ai");
     assert.equal(result.flow.income, 1500);
-    assert.equal(result.flow.spending, 12);
     assert.ok(result.flow.insights.some((line) => /AI suggested tags/i.test(line)));
   });
 

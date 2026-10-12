@@ -12,7 +12,6 @@ import {
 import { accountsFrom } from "@/lib/money-flow/accounts";
 import {
   CASH_IN_POOL_LABEL,
-  NOT_ACTUAL_SAVINGS,
   POOL_OVERLAP_DISCLOSE,
   POOLS_TITLE,
   cashInPool,
@@ -85,7 +84,6 @@ export function PoolsWidget() {
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">{POOLS_TITLE}</h2>
-          <p className="mt-1 text-sm font-semibold text-muted">{NOT_ACTUAL_SAVINGS}</p>
         </div>
       </div>
       <p className="mt-2 text-sm text-muted">{POOL_OVERLAP_DISCLOSE}</p>

@@ -102,10 +102,8 @@ describe("Up CSV Transfer type cash tiles", () => {
     assert.equal(flow.cashOut, 75, "Purchase + Direct Debit + Payment — Transfer debit omitted");
     assert.equal(flow.cashNet, 2175);
     assert.equal(flow.income, 2000, "Dashboard Income is unchanged");
-    assert.equal(flow.spending, 75, "Dashboard Spending is unchanged");
     assert.equal(derivedMovementBalance(rows), 2175);
     assert.equal(accountBalanceOf(rows), null);
-    assert.notEqual(derivedMovementBalance(rows), flow.net);
   });
 
   it("omits Transaction Type Transfer from an Up-shaped CSV ingest", async () => {
@@ -251,8 +249,6 @@ describe("classified internals on every bank", () => {
     ];
     const flow = summarizeMoneyFlow(rows);
     assert.equal(flow.income, 3000);
-    assert.equal(flow.spending, 40);
-    assert.equal(flow.net, 2960);
     assert.equal(flow.cashIn, 28000, "salary + loan — paired transfer omitted");
     assert.equal(flow.cashOut, 40, "shop only — paired transfer omitted");
   });
@@ -320,7 +316,6 @@ describe("Up OFX pocket DEBIT/CREDIT", () => {
     assert.equal(meta?.balanceSource, "ofx_ledger");
     assert.equal(accountBalanceOf(parsed.transactions, { meta: stored.ledger.accountMeta }), 340.4);
     assert.notEqual(accountBalanceOf(parsed.transactions, { meta: stored.ledger.accountMeta }), flow.cashNet);
-    assert.notEqual(accountBalanceOf(parsed.transactions, { meta: stored.ledger.accountMeta }), flow.net);
   });
 
   it("matches Up CSV Transfer exclude on the same movements", async () => {
@@ -365,8 +360,6 @@ describe("Up OFX pocket DEBIT/CREDIT", () => {
     assert.equal(csvFlow.cashIn, 2000);
     assert.equal(csvFlow.cashOut, 75);
     assert.equal(csvFlow.income, ofxFlow.income, "Dashboard Income is unchanged across formats");
-    assert.equal(csvFlow.spending, ofxFlow.spending, "Dashboard Spending is unchanged across formats");
-    assert.equal(csvFlow.net, ofxFlow.net, "Dashboard Net is unchanged across formats");
   });
 
   it("does not denylist pocket names in the tile layer until they are TRANSFER", () => {

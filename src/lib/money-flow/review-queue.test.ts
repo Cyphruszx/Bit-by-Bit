@@ -94,11 +94,8 @@ describe("OPEN exclusion", () => {
 
     const flow = summarizeMoneyFlow(rows);
     assert.equal(flow.income, 0, "OPEN credit is not Income");
-    assert.equal(flow.spending, 0, "OPEN debit is not Spending");
     assert.equal(flow.refunds, 0);
-    assert.equal(flow.net, 0);
     assert.equal(flow.transfers, 0);
-    assert.equal(flow.actualSavings, 0);
     assert.equal(flow.cashIn, 400, "cash still ties to the statement");
     assert.equal(flow.cashOut, 400);
   });
@@ -135,10 +132,8 @@ describe("OPEN exclusion", () => {
     });
 
     const flow = summarizeMoneyFlow([paid, back, salary]);
-    assert.equal(flow.spending, 80, "month-freeze: original payment stays in Spending");
     assert.equal(flow.income, 3000);
     assert.equal(flow.refunds, 0);
-    assert.equal(flow.net, 3000 - 80);
     assert.ok(moneyTrustHoldIds([paid, back, salary]).has("back"));
     assert.ok(!moneyTrustHoldIds([paid, back, salary]).has("paid"));
   });
@@ -204,9 +199,7 @@ describe("RESOLVE transfer writes ledger truth", () => {
 
     const flow = summarizeMoneyFlow(forgotten);
     assert.equal(flow.income, 0, "confirmed transfer has left Income");
-    assert.equal(flow.spending, 0);
     assert.equal(flow.transfers, 400);
-    assert.equal(flow.actualSavings, 400, "CLEARED TRANSFER IN to Save!!");
     assert.equal(openReviewCount(buildReviewQueue(forgotten)), 0);
   });
 
@@ -234,9 +227,7 @@ describe("RESOLVE transfer writes ledger truth", () => {
     const linked = confirmRefundPair([paid, back], "paid", "back");
     const flow = summarizeMoneyFlow(forgetAutoPairs(linked));
     assert.equal(flow.refunds, 80);
-    assert.equal(flow.spending, 80);
     assert.equal(flow.income, 0);
-    assert.equal(flow.net, 0);
   });
 
   it("resolveReviewItem is what makes the badge clear", () => {
@@ -285,7 +276,6 @@ describe("Spec 3/7 silent same-institution pairing", () => {
     const flow = summarizeMoneyFlow(paired);
     assert.equal(flow.transfers, 400);
     assert.equal(flow.income, 0);
-    assert.equal(flow.spending, 0);
   });
 
   it("keeps unknown-institution unique pairs OPEN", () => {
@@ -414,8 +404,6 @@ describe("OPEN settle paths", () => {
     assert.equal(openReviewCount(buildReviewQueue(judged)), 0);
     const flow = summarizeMoneyFlow(judged);
     assert.equal(flow.income, 0);
-    assert.equal(flow.spending, 0);
-    assert.equal(flow.net, 0);
     assert.equal(flow.transfers, 0);
   });
 
@@ -456,9 +444,7 @@ describe("OPEN settle paths", () => {
     assert.equal(openReviewCount(buildReviewQueue(judged)), 0);
     assert.ok(judged.every((row) => row.type === "TRANSFER" && !row.transferPair));
     const flow = summarizeMoneyFlow(judged);
-    assert.equal(flow.spending, 0);
     assert.equal(flow.income, 0);
-    assert.equal(flow.net, 0);
   });
 
   it("Confirm as loan files a credit as DEBT_PRINCIPAL and keeps tiles out of Income", () => {
@@ -486,8 +472,6 @@ describe("OPEN settle paths", () => {
     assert.equal(openReviewCount(buildReviewQueue(judged)), 0);
     const flow = summarizeMoneyFlow(judged);
     assert.equal(flow.income, 0);
-    assert.equal(flow.spending, 0);
-    assert.equal(flow.net, 0);
     assert.equal(flow.cashIn, 25000);
     assert.equal(flow.transfers, 0);
   });
@@ -536,7 +520,6 @@ describe("OPEN settle paths", () => {
     assert.equal(buildReviewQueue([out]).some((row) => row.reason === "UNPAIRED_TRANSFER"), false);
     const judged = applyVerdicts([out], { [oneKey(out)]: verdictFor("spent", "2026-09-20T00:00:00Z") });
     assert.equal(openReviewCount(buildReviewQueue(judged)), 0);
-    assert.equal(summarizeMoneyFlow(judged).spending, 400);
   });
 
   it("Not that on the only equal payment does not leave a partial refund hold", () => {

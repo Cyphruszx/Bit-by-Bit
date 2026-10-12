@@ -62,7 +62,6 @@ describe("Up Transfer type cash tiles", () => {
     assert.equal(flow.cashNet, 2175);
     assert.equal(derivedMovementBalance(rows), 2175);
     assert.equal(accountBalanceOf(rows), null);
-    assert.notEqual(derivedMovementBalance(rows), flow.net);
   });
 
   it("omits Transaction Type Transfer from an Up-shaped CSV ingest", async () => {

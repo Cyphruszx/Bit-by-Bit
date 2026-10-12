@@ -55,11 +55,7 @@ describe("Spec 10 Net Money", () => {
 
     const flow = summarizeMoneyFlow([paid, refund, salary, shop]);
     assert.equal(flow.income, 3000);
-    assert.equal(flow.spending, 120, "the original payment still sits in Spending");
     assert.equal(flow.refunds, 80, "linked refund credit is its own addend");
-    assert.equal(flow.net, 3000 - 120 + 80);
-    assert.equal(flow.net, flow.income - flow.spending + flow.refunds);
-    assert.notEqual(flow.net, flow.income - flow.spending);
   });
 });
 
@@ -84,7 +80,6 @@ describe("Spec 10 unlinked refund-shaped credits are not Income", () => {
     const flow = summarizeMoneyFlow([refundShaped, salary]);
     assert.equal(flow.income, 300);
     assert.equal(flow.refunds, 0);
-    assert.equal(flow.net, 300);
   });
 
   it("does not count a bank-labelled refund as Income", () => {
@@ -125,22 +120,21 @@ describe("Spec 10 month-freeze", () => {
     });
     const rows = [paid, refund];
 
+    const spent = (flow: { categories: { amount: number }[] }) =>
+      flow.categories.reduce((sum, row) => sum + row.amount, 0);
     const february = summarizePeriod(rows, { kind: "month", month: "2026-02" });
-    assert.equal(february.spending, 100, "February spending stays 100 after the March link");
+    assert.equal(spent(february), 100, "February money out stays 100 after the March link");
     assert.equal(february.income, 0);
     assert.equal(february.refunds, 0, "refund date is not in February");
-    assert.equal(february.net, -100);
 
     const march = summarizePeriod(rows, { kind: "month", month: "2026-03" });
-    assert.equal(march.spending, 0, "March spending is not rewritten");
+    assert.equal(spent(march), 0, "March money out is not rewritten");
     assert.equal(march.income, 0, "the credit is Refund credits, never Income");
     assert.equal(march.refunds, 100);
-    assert.equal(march.net, 100);
 
     const all = summarizePeriod(rows, { kind: "all" });
-    assert.equal(all.spending, 100);
+    assert.equal(spent(all), 100);
     assert.equal(all.refunds, 100);
-    assert.equal(all.net, 0);
   });
 });
 
@@ -200,8 +194,6 @@ describe("Spec 10 base_amount and CLEARED tiles", () => {
     const flow = summarizeMoneyFlow([salary, shop]);
     assert.equal(tileAmount(salary), 300);
     assert.equal(flow.income, 300);
-    assert.equal(flow.spending, 40);
-    assert.equal(flow.net, 260);
   });
 
   it("sums base_amount on tiles when it differs from amount", () => {
@@ -222,8 +214,6 @@ describe("Spec 10 base_amount and CLEARED tiles", () => {
     });
     const flow = summarizeMoneyFlow([salary, shop]);
     assert.equal(flow.income, 2500);
-    assert.equal(flow.spending, 50);
-    assert.equal(flow.net, 2450);
     assert.equal(flow.cashIn, 3000, "cash still ties to statement amount");
     assert.equal(flow.cashOut, 80);
   });
@@ -256,9 +246,7 @@ describe("Spec 10 base_amount and CLEARED tiles", () => {
     });
     const flow = summarizeMoneyFlow([salary, heldPay, shop, heldShop, refund]);
     assert.equal(flow.income, 3000);
-    assert.equal(flow.spending, 40);
     assert.equal(flow.refunds, 0);
-    assert.equal(flow.net, 2960);
     assert.equal(flow.cashIn, 3520, "HOLD still sits on the statement cash figures");
   });
 
@@ -329,9 +317,7 @@ describe("Spec 10 Actual Savings", () => {
     });
     const flow = summarizeMoneyFlow([out, intoSave, intoSpend, spendOut]);
     assert.equal(flow.transfers, 480);
-    assert.equal(flow.actualSavings, 400);
     assert.equal(flow.income, 0);
-    assert.equal(flow.spending, 0);
   });
 
   it("does not count unmatched internals or HOLD credits as Actual Savings", () => {
@@ -361,7 +347,8 @@ describe("Spec 10 Actual Savings", () => {
       status: "HOLD",
     });
     const flow = summarizeMoneyFlow([unmatched, held, heldOut]);
-    assert.equal(flow.actualSavings, 0);
+    assert.equal("actualSavings" in flow, false);
+    assert.equal(flow.transfers, 0);
   });
 
   it("counts a user-flagged TRANSFER IN even when the destination name is not savings", () => {
@@ -383,7 +370,6 @@ describe("Spec 10 Actual Savings", () => {
       userFlaggedSavings: true,
     });
     const flow = summarizeMoneyFlow([out, flagged]);
-    assert.equal(flow.actualSavings, 90);
     assert.equal(flow.transfers, 90);
   });
 });
@@ -405,7 +391,6 @@ describe("Spec 12 PENDING never inflates Spec 10 tiles", () => {
       status: "CLEARED",
     });
     const flow = summarizeMoneyFlow([pending, cleared]);
-    assert.equal(flow.spending, 20);
     assert.equal(flow.income, 0);
   });
 });

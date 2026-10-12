@@ -79,9 +79,13 @@ describe("stated statement balances", () => {
       txn({ id: "out", amount: -40, dateIso: "2026-06-02" }),
       txn({ id: "pending", amount: -80, dateIso: "2026-06-03", status: "PENDING" }),
     ];
+    const flow = summarizeMoneyFlow(rows);
     assert.equal(derivedMovementBalance(rows), 310);
-    assert.equal(summarizeMoneyFlow(rows).net, 60);
-    assert.notEqual(derivedMovementBalance(rows), summarizeMoneyFlow(rows).net);
+    assert.equal(flow.cashIn, 350);
+    assert.equal(flow.cashOut, 120);
+    assert.equal(flow.cashNet, 230);
+    assert.equal(flow.cashNet, flow.cashIn - flow.cashOut);
+    assert.notEqual(derivedMovementBalance(rows), flow.cashNet);
   });
 });
 
@@ -102,18 +106,15 @@ describe("NAB sample stated balances", () => {
     const stated = mostRecentStatedBalances(result.transactions);
     assert.equal(stated["NAB · 100200300"], 4913.07);
     assert.equal(stated["NAB · 400500600"], 0.49);
-    assert.notEqual(stated["NAB · 100200300"], result.flow.net);
     assert.notEqual(stated["NAB · 100200300"], result.flow.cashNet);
     assert.equal(result.flow.cashNet, 549.44);
 
     const { ledger } = appendToLedger(EMPTY_LEDGER, result, { importedAt: "2026-09-01T00:00:00.000Z" });
     assert.equal(ledger.accountMeta?.["NAB · 100200300"]?.clearedBalance, 4913.07);
     assert.equal(ledger.accountMeta?.["NAB · 400500600"]?.clearedBalance, 0.49);
-    assert.notEqual(4913.07 + 0.49, result.flow.net);
 
     const tile = accountBalanceOf(result.transactions, { meta: ledger.accountMeta });
     assert.equal(tile, 4913.56, "Transactions Account balance sums stated CSV balances");
-    assert.notEqual(tile, result.flow.net);
     assert.notEqual(tile, result.flow.cashNet);
 
     const everyday = filterByScope(result.transactions, { kind: "account", accountId: "NAB · 100200300" });
@@ -121,7 +122,6 @@ describe("NAB sample stated balances", () => {
     const everydayFlow = summarizeMoneyFlow(everyday);
     assert.equal(everydayBalance, 4913.07);
     assert.equal(everydayFlow.cashNet, 27941.84);
-    assert.notEqual(everydayBalance, everydayFlow.net);
     assert.notEqual(everydayBalance, everydayFlow.cashNet);
   });
 });

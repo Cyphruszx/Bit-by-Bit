@@ -58,7 +58,7 @@ describe("hand-curated AU aliases", () => {
     assert.equal(matchAlias("ALDI")?.categoryKey, "groceries");
     assert.equal(matchAlias("COLES EXPRESS")?.categoryKey, "car");
     assert.equal(matchAlias("BUNNINGS WAREHOUSE WAGGA")?.categoryKey, "home-garden");
-    assert.equal(matchAlias("OFFICEWORKS")?.categoryKey, "shopping");
+    assert.equal(matchAlias("OFFICEWORKS")?.categoryKey, "household-electronics");
     assert.equal(matchAlias("AFTERPAY")?.categoryKey, "debt-payments");
     assert.equal(matchAlias("ZIP PAY")?.categoryKey, "debt-payments");
     assert.equal(matchAlias("HUMM")?.canonicalName, "Humm");
@@ -93,11 +93,11 @@ describe("NSI AU brands", () => {
   it("matches a sample of AU brands that the alias seed does not cover", () => {
     const dimmeys = matchNsiBrand("DIMMEYS MELBOURNE");
     assert.equal(dimmeys?.brand.name, "Dimmeys");
-    assert.equal(dimmeys?.categoryKey, "shopping");
+    assert.equal(dimmeys?.categoryKey, "household-electronics");
 
     const ally = matchNsiBrand("ALLY FASHION");
     assert.equal(ally?.brand.name, "Ally Fashion");
-    assert.equal(ally?.categoryKey, "shopping");
+    assert.equal(ally?.categoryKey, "clothing");
 
     const bakers = matchNsiBrand("BAKERS DELIGHT");
     assert.equal(bakers?.categoryKey, "groceries");
@@ -112,7 +112,7 @@ describe("resolver priority", () => {
 
     const nsi = resolveMerchant("DIMMEYS", { mcc: "5812" });
     assert.equal(nsi?.source, "nsi");
-    assert.equal(nsi?.categoryKey, "shopping");
+    assert.equal(nsi?.categoryKey, "household-electronics");
 
     const mcc = resolveMerchant("UNKNOWN LOCAL COUNTER 99", { mcc: "5812" });
     assert.equal(mcc?.source, "mcc");

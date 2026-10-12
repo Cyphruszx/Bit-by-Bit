@@ -2,21 +2,20 @@
 
 import { useState } from "react";
 import { useMoneyFlow } from "@/components/money-flow-provider";
-import { SavingsPathChart, SavingsPotLinesChart, SetAsideLineChart } from "@/components/savings-charts";
+import { SavingsPathChart, SavingsPotLinesChart } from "@/components/savings-charts";
 import { useSavingsPots } from "@/components/savings-store";
 import { ProgressBar } from "@/components/progress-bar";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud } from "@/lib/format";
 import {
   isIncludedInTotal,
-  monthlyTransferSeries,
   monthsToPot,
   potsInTotal,
   type SavingsPot,
 } from "@/lib/money-flow/savings";
 
 export function SavingsView() {
-  const { allTransactions, flow, hasUploads } = useMoneyFlow();
+  const { flow } = useMoneyFlow();
   const { pots, snapshots, addPot, updatePot, removePot, toggleIncluded } = useSavingsPots();
   const included = potsInTotal(pots);
   const hiddenCount = pots.length - included.length;
@@ -49,15 +48,9 @@ export function SavingsView() {
           detail={hiddenCount > 0 ? "Included pots only" : "Across your savings pots"}
         />
         <SummaryCard
-          label={hasUploads ? "Actual Savings" : "Monthly contributions"}
-          value={formatAud(hasUploads ? flow.actualSavings : monthly)}
-          detail={
-            hasUploads
-              ? "CLEARED TRANSFER IN to savings / user-flagged. Core does not auto-pair transfers (Spec 7)."
-              : hiddenCount > 0
-                ? "Included pots each month"
-                : "Planned each month"
-          }
+          label="Monthly contributions"
+          value={formatAud(monthly)}
+          detail={hiddenCount > 0 ? "Included pots each month" : "Planned each month"}
           positive
         />
       </section>
@@ -85,18 +78,6 @@ export function SavingsView() {
           <p className="mt-1 text-sm text-muted">How every included pot grows if you keep the same monthly amount.</p>
           <div className="mt-5">
             <SavingsPotLinesChart pots={included} colorFrom={pots} />
-          </div>
-        </article>
-      ) : null}
-      {hasUploads && monthlyTransferSeries(allTransactions).length >= 2 ? (
-        <article className="mt-8 card p-6">
-          <h2 className="text-lg font-bold">Actual Savings by month</h2>
-          <p className="mt-1 text-sm text-muted">
-            CLEARED transfers in to a savings account, or inflows you flagged as savings. Use the
-            period filter to change the Actual Savings total above.
-          </p>
-          <div className="mt-5">
-            <SetAsideLineChart transactions={allTransactions} />
           </div>
         </article>
       ) : null}

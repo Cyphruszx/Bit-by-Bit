@@ -139,8 +139,6 @@ describe("fingerprint collision on remap", () => {
 
     const after = summarizeMoneyFlow(ledgerTransactions(merged.ledger));
     assert.equal(after.cashOut, 86.4);
-    assert.equal(after.spending, 86.4);
-    assert.equal(after.net, -86.4);
 
     const queue = buildReviewQueue(ledgerTransactions(merged.ledger), { stored: merged.ledger.review });
     assert.equal(queue.some((item) => item.reason === "DUPLICATE_HOLD" && item.state === "OPEN"), false);
@@ -170,7 +168,7 @@ describe("re-import after merge", () => {
     const merged = mergeAccounts(first, SOURCE, SURVIVOR);
     assert.equal(merged.ok, true);
     if (!merged.ok) return;
-    const netBefore = summarizeMoneyFlow(ledgerTransactions(merged.ledger)).net;
+    const cashBefore = summarizeMoneyFlow(ledgerTransactions(merged.ledger)).cashNet;
 
     const again = appendToLedger(
       merged.ledger,
@@ -183,7 +181,7 @@ describe("re-import after merge", () => {
     assert.equal(again.report.added, 0);
     assert.equal(again.report.duplicates, 1);
     assert.equal(again.ledger.entries.length, merged.ledger.entries.length);
-    assert.equal(summarizeMoneyFlow(ledgerTransactions(again.ledger)).net, netBefore);
+    assert.equal(summarizeMoneyFlow(ledgerTransactions(again.ledger)).cashNet, cashBefore);
     assert.equal(again.ledger.entries.filter((row) => (row.status ?? "CLEARED") === "CLEARED").length, again.ledger.entries.length);
   });
 });

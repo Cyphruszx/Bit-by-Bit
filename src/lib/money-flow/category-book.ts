@@ -7,6 +7,11 @@
  */
 
 import {
+  STARTER_LIST_VERSION,
+  starterListVersionOf,
+  type StarterLedgerShape,
+} from "@/lib/money-flow/starter-list";
+import {
   applyCategoryOverlay,
   categoryLabel,
   isBuiltinCategoryKey,
@@ -36,11 +41,33 @@ export type BookCategory = {
 };
 
 export type CategoryBook = {
+  /** Which starter list this book was built from. Absent means the previous list. */
+  starterListVersion?: number;
   groups: BookGroup[];
   categories: BookCategory[];
 };
 
-const GROUPS: { id: string; label: string; keys: string[] }[] = [
+type GroupSpec = { id: string; label: string; keys: string[] };
+
+/** Amend BV.G.1. Shopping is a group, not a category. */
+const STARTER_GROUPS: GroupSpec[] = [
+  { id: "income", label: "Income", keys: ["salary", "other-income"] },
+  { id: "housing", label: "Housing", keys: ["rent-mortgage", "home-garden"] },
+  { id: "bills", label: "Bills", keys: ["utilities", "internet-phone"] },
+  { id: "subscriptions", label: "Subscriptions", keys: ["streaming", "software-apps"] },
+  { id: "food", label: "Food & Drink", keys: ["groceries", "eating-out"] },
+  { id: "transport", label: "Transport", keys: ["getting-around", "car"] },
+  { id: "shopping", label: "Shopping", keys: ["clothing", "household-electronics"] },
+  { id: "health", label: "Health", keys: ["medical", "personal-care"] },
+  { id: "family", label: "Family", keys: ["education-childcare", "pets"] },
+  { id: "lifestyle", label: "Lifestyle", keys: ["entertainment", "travel", "donations"] },
+  { id: "admin", label: "Admin & Fees", keys: ["insurance", "bank-fees", "government-tax"] },
+  { id: "money-moves", label: "Money moves", keys: ["invest", "debt-payments", "transfers"] },
+  { id: "unsorted", label: "Unsorted", keys: [OTHER, UNCATEGORISED] },
+];
+
+/** Previous starter list. Kept so "Not now" can leave it in place. */
+const LEGACY_GROUPS: GroupSpec[] = [
   { id: "income", label: "Income", keys: ["salary", "other-income"] },
   { id: "housing", label: "Housing", keys: ["rent-mortgage", "utilities", "internet-phone", "home-garden"] },
   { id: "food", label: "Food", keys: ["groceries", "eating-out"] },
@@ -55,13 +82,14 @@ const GROUPS: { id: string; label: string; keys: string[] }[] = [
 
 let applied: CategoryBook | null = null;
 
-export function defaultCategoryBook(): CategoryBook {
+function bookFromGroups(groups: GroupSpec[], version: number): CategoryBook {
   const builtins = new Map(
     [...listBuiltinCategories(), ...listLooseCategories()].map((category) => [category.key, category]),
   );
   return {
-    groups: GROUPS.map(({ id, label }) => ({ id, label })),
-    categories: GROUPS.flatMap((group) =>
+    starterListVersion: version,
+    groups: groups.map(({ id, label }) => ({ id, label })),
+    categories: groups.flatMap((group) =>
       group.keys.map((key) => {
         const held = builtins.get(key);
         if (!held) throw new Error(`unknown builtin category ${key}`);
@@ -79,9 +107,37 @@ export function defaultCategoryBook(): CategoryBook {
   };
 }
 
-/** A stored book, with any missing built-in keys put back so a later taxonomy cannot orphan them. */
-export function resolveBook(stored: CategoryBook | null | undefined): CategoryBook {
-  const base = defaultCategoryBook();
+/** Amend BV starter list (version {@link STARTER_LIST_VERSION}). */
+export function defaultCategoryBook(): CategoryBook {
+  return bookFromGroups(STARTER_GROUPS, STARTER_LIST_VERSION);
+}
+
+/** The starter list from before Amend BV. */
+export function legacyCategoryBook(): CategoryBook {
+  return bookFromGroups(LEGACY_GROUPS, 1);
+}
+
+/** The book a ledger should show: its saved list, or the starter list for its version. */
+export function bookForLedger(ledger: StarterLedgerShape): CategoryBook {
+  const version = starterListVersionOf(ledger);
+  if (isStoredBook(ledger.taxonomy)) return resolveBook(ledger.taxonomy, version);
+  return version < STARTER_LIST_VERSION ? legacyCategoryBook() : defaultCategoryBook();
+}
+
+function isStoredBook(value: unknown): value is CategoryBook {
+  if (!value || typeof value !== "object") return false;
+  const raw = value as Partial<CategoryBook>;
+  return Array.isArray(raw.groups) && raw.groups.length > 0 && Array.isArray(raw.categories) && raw.categories.length > 0;
+}
+
+/**
+ * A stored book, with any missing built-in keys from *its* starter list put back.
+ * An older list is not filled with the new categories — only Reset loads those.
+ */
+export function resolveBook(stored: CategoryBook | null | undefined, version?: number): CategoryBook {
+  const explicit = version ?? stored?.starterListVersion;
+  const useLegacy = explicit != null ? explicit < STARTER_LIST_VERSION : Boolean(stored);
+  const base = useLegacy ? legacyCategoryBook() : defaultCategoryBook();
   if (!stored || stored.groups.length === 0 || stored.categories.length === 0) return base;
 
   const kept = stored.categories.filter((category) => !RETIRED_CATEGORY_KEYS.has(category.key));
@@ -98,6 +154,7 @@ export function resolveBook(stored: CategoryBook | null | undefined): CategoryBo
   }
 
   return {
+    starterListVersion: explicit ?? base.starterListVersion,
     groups,
     categories: [
       ...kept.map((category) => ({
@@ -116,7 +173,8 @@ export function parseCategoryBook(value: unknown): CategoryBook | null {
   const groups = raw.groups.filter(isGroup);
   const categories = raw.categories.filter(isCategory);
   if (groups.length === 0 || categories.length === 0) return null;
-  return resolveBook({ groups, categories });
+  const version = typeof raw.starterListVersion === "number" ? raw.starterListVersion : undefined;
+  return resolveBook({ groups, categories, ...(version != null ? { starterListVersion: version } : {}) }, version);
 }
 
 export function applyBook(book: CategoryBook | null): void {
@@ -143,7 +201,12 @@ export function resolvedBook(): CategoryBook {
 }
 
 export function groupOf(categoryKey: string | undefined): string {
-  return resolvedBook().categories.find((category) => category.key === categoryKey)?.groupId ?? "misc";
+  const book = resolvedBook();
+  return (
+    book.categories.find((category) => category.key === categoryKey)?.groupId ??
+    book.groups.find((group) => group.id === "unsorted" || group.id === "misc")?.id ??
+    "unsorted"
+  );
 }
 
 export function groupLabel(groupId: string): string {
@@ -179,7 +242,7 @@ export function defaultCategoryForGroup(groupId: string, current?: string): stri
 
 /**
  * Group first, then the category, for sentences and search.
- * When both words are the same — Other, Transfers — the name is written once.
+ * When both words are the same, the name is written once.
  */
 export function taxonomyPath(categoryKey: string | undefined): string {
   const group = groupLabelOf(categoryKey);
@@ -344,6 +407,7 @@ function isCategory(value: unknown): value is BookCategory {
 
 function typesForGroup(groupId: string): { inType: TransactionType; outType: TransactionType } {
   if (groupId === "income") return { inType: "earned", outType: "adjusted" };
+  if (groupId === "money-moves" || groupId === "transfers") return { inType: "moved", outType: "moved" };
   return { inType: "earned", outType: "spent" };
 }
 

@@ -3,7 +3,7 @@
  *
  * Named groups with undoable membership. Never hard-merge, never rewrite
  * fingerprints, never change account_id. Cash in pool is a display Σ of stored
- * CHECKING/SAVINGS `cleared_balance` only — not Net Worth, not Actual Savings.
+ * CHECKING/SAVINGS `cleared_balance` only — not Net Worth.
  */
 
 import {
@@ -20,7 +20,6 @@ export const POOL_SOFT_LIMIT = 20;
 
 export const CASH_IN_POOL_LABEL = "Cash in pool";
 export const POOLS_TITLE = "Pools";
-export const NOT_ACTUAL_SAVINGS = "Not Actual Savings.";
 export const POOL_OVERLAP_DISCLOSE =
   "Accounts can sit in more than one pool; cash figures can overlap — not Net Worth.";
 

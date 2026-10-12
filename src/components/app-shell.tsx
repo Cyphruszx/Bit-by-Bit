@@ -9,10 +9,12 @@ import { MobileNav } from "@/components/mobile-nav";
 import { PeriodFilterBar } from "@/components/period-filter";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { StarterResetPrompt } from "@/components/starter-reset-prompt";
 import { formatCount } from "@/lib/format";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { hasUploads, openReviewCount, ready } = useMoneyFlow();
+  const { dismissStarterReset, hasUploads, openReviewCount, ready, resetStarterData, starterResetNeeded } =
+    useMoneyFlow();
 
   return (
     <AppFrame>
@@ -49,6 +51,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <PeriodFilterBar />
+      {ready && starterResetNeeded ? (
+        <StarterResetPrompt onReset={resetStarterData} onDismiss={dismissStarterReset} />
+      ) : null}
       <div className="relative z-10 mx-auto max-w-[1240px] px-5 py-7 pb-24 md:px-7 md:pb-10">
         {ready ? children : <p className="text-muted">Reading the statements you have already added…</p>}
         <p className="mt-16 text-center text-[12.5px] text-muted">
