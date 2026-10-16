@@ -189,10 +189,21 @@ html {
   scroll-behavior: smooth;
 }
 
+html {
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+html[data-font="geist-pixel"] {
+  --font-sans: var(--font-pixel), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-pixel), ui-sans-serif, system-ui, sans-serif;
+}
+
 body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 button,
@@ -285,6 +296,22 @@ h1,
   font-synthesis: none;
   letter-spacing: 0;
   line-height: 1.25;
+  -webkit-font-smoothing: antialiased;
+}
+
+html[data-font="geist-pixel"] body,
+html[data-font="geist-pixel"] h1,
+html[data-font="geist-pixel"] .font-display {
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+}
+
+.font-preview-sans {
+  font-family: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-preview-pixel {
+  font-family: var(--font-pixel), ui-sans-serif, sans-serif;
   -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: unset;
 }

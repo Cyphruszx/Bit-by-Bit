@@ -137,8 +137,9 @@ describe("design system tokens", () => {
     assert.match(gallery, /font-display text-\[24px\].*tabular-nums/);
     assert.match(gallery, /font-sans text-\[27px\].*tabular-nums/);
     assert.match(gallery, /font-display text-base/);
-    assert.match(gallery, /Silkscreen at 8px multiples/);
-    assert.match(gallery, /Silkscreen \+ Public Sans/);
+    assert.match(gallery, /Public Sans is the default for every line/);
+    assert.match(gallery, /Geist Pixel/);
+    assert.doesNotMatch(gallery, /Silkscreen/);
     assert.doesNotMatch(gallery, /Press Start 2P/);
     assert.doesNotMatch(gallery, /font-display[^"'\n]*tracking-tight/);
   });
@@ -167,16 +168,20 @@ describe("pixel restyle locks", () => {
     assert.match(css, /html\.dark[\s\S]*--color-secondary:\s*#6f9bff/);
   });
 
-  it("loads Silkscreen as --font-display and skips Press Start 2P", () => {
+  it("loads Public Sans as the default and Geist Pixel as the extra face", () => {
     const layout = readFileSync(new URL("../layout.tsx", import.meta.url), "utf8");
-    assert.match(layout, /Silkscreen/);
-    assert.match(layout, /variable:\s*"--font-display"/);
     assert.match(layout, /Public_Sans/);
+    assert.match(layout, /Geist_Pixel/);
+    assert.match(layout, /variable:\s*"--font-public-sans"/);
+    assert.match(layout, /variable:\s*"--font-pixel"/);
+    assert.doesNotMatch(layout, /Silkscreen/);
     assert.doesNotMatch(layout, /Press_Start_2P/);
     assert.doesNotMatch(layout, /Pixelify_Sans/);
     assert.doesNotMatch(css, /Press Start 2P/i);
+    assert.doesNotMatch(css, /Silkscreen/);
     assert.match(css, /letter-spacing:\s*0/);
-    assert.match(css, /-webkit-font-smoothing:\s*none/);
+    assert.match(css, /--font-display:\s*var\(--font-public-sans\)/);
+    assert.match(css, /data-font="geist-pixel"/);
     assert.match(css, /\.tabular-nums\s*\{[^}]*--font-sans/);
     assert.match(css, /\.font-display\s*\{[^}]*--font-display/);
     const tiles = readFileSync(new URL("../../components/summary-card.tsx", import.meta.url), "utf8");

@@ -46,7 +46,7 @@ export function DesignSystemGallery() {
         </div>
         <div className="grid justify-items-end gap-1.5 text-right text-xs text-muted">
           <span className="rounded-full bg-accent-surface px-3 py-1.5 font-display text-base text-primary-strong">
-            {theme === "dark" ? "8a dark" : "7b light"} · Silkscreen + Public Sans
+            {theme === "dark" ? "8a dark" : "7b light"} · Public Sans
           </span>
           <span>Toggle Dark in the header to rematch every swatch.</span>
         </div>
@@ -88,7 +88,7 @@ export function DesignSystemGallery() {
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
-        <Section index="02" eyebrow="Typography" title="Silkscreen for chrome and money tiles, Public Sans for data">
+        <Section index="02" eyebrow="Typography" title="Public Sans for every line, Geist Pixel as the other face">
           <div className="grid gap-2 pb-2">
             {typeFaces.map((face) => (
               <p key={face.cssVar} className="text-[12.5px] leading-6 text-muted">
@@ -135,7 +135,7 @@ export function DesignSystemGallery() {
             </TypeRow>
           </div>
           <p className="text-[12.5px] leading-6 text-muted">
-            Pixel type is Silkscreen at 8px multiples (16 / 24 / 32 / 48), regular weight, no smoothing — boxier than Pixelify, kept for 16-bit chrome. Money tiles use that face. Ledger rows and chart figures stay on Public Sans with{" "}
+            Public Sans is the default for every line, including headings and money tiles. Geist Pixel is the other face, chosen in Settings and saved on this device. Ledger rows and chart figures use{" "}
             <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">
               tabular-nums
             </code>{" "}
@@ -305,7 +305,7 @@ export function DesignSystemGallery() {
             <p className="text-[12.5px] text-muted">
               Primary is <code className="font-mono text-[11px]">bg-primary-strong</code> (Add). Brand is{" "}
               <code className="font-mono text-[11px]">bg-primary</code>. Secondary is a lined surface square. Labels use
-              Silkscreen. Hover is the shared 160ms opacity. Disabled keeps the label and mutes the fill.
+              Public Sans. Hover is the shared 160ms opacity. Disabled keeps the label and mutes the fill. Geist Pixel is available from Settings.
             </p>
           </div>
 

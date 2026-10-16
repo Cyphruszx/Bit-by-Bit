@@ -36,6 +36,15 @@ import {
 } from "@/lib/money-flow/ledger";
 import { applyBook, bookForLedger, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
 import { needsStarterReset } from "@/lib/money-flow/starter-list";
+import {
+  emptyBudgetBook,
+  ledgerWithBudgets,
+  setCategoryAmount,
+  setGroupAmount,
+  setIncome,
+  type BudgetBook,
+} from "@/lib/money-flow/budget-plan";
+import { applyAppFont, readAppFont } from "@/lib/font-choice";
 import type { AccountNames } from "@/lib/money-flow/accounts";
 import type { InstitutionOverrides } from "@/lib/money-flow/institution";
 import { applySilentSameInstitutionUniquePairs, forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
@@ -205,6 +214,11 @@ type MoneyFlowState = {
   resetStarterData: () => void;
   /** Leaves the old list in place for this session. */
   dismissStarterReset: () => void;
+  /** BV.A.2c typed plan, keyed by month. */
+  budgets: BudgetBook;
+  setExpectedIncome: (month: string, amount: number | null) => void;
+  setGroupBudget: (month: string, groupId: string, amount: number | null) => void;
+  setCategoryBudget: (month: string, categoryKey: string, amount: number | null) => void;
 };
 
 const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
@@ -216,6 +230,10 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void hydrate();
+  }, []);
+
+  useEffect(() => {
+    applyAppFont(readAppFont());
   }, []);
 
   useEffect(() => {
@@ -324,6 +342,10 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
         commit(resetStarterTestData(snapshot.ledger));
       },
       dismissStarterReset: () => setStarterDismissed(true),
+      budgets: held.ledger.budgets ?? emptyBudgetBook(),
+      setExpectedIncome,
+      setGroupBudget,
+      setCategoryBudget,
     };
   }, [held, period, starterDismissed]);
 
@@ -458,6 +480,22 @@ function mergeAccount(sourceId: string, survivorId: string): MergeAccountsResult
 function setCategoryBook(book: CategoryBook | null) {
   applyBook(book ? resolveBook(book) : null);
   commit(recordTaxonomy(snapshot.ledger, book));
+}
+
+function budgetBook(): BudgetBook {
+  return snapshot.ledger.budgets ?? emptyBudgetBook();
+}
+
+function setExpectedIncome(month: string, amount: number | null) {
+  commit(ledgerWithBudgets(snapshot.ledger, setIncome(budgetBook(), month, amount)));
+}
+
+function setGroupBudget(month: string, groupId: string, amount: number | null) {
+  commit(ledgerWithBudgets(snapshot.ledger, setGroupAmount(budgetBook(), month, groupId, amount)));
+}
+
+function setCategoryBudget(month: string, categoryKey: string, amount: number | null) {
+  commit(ledgerWithBudgets(snapshot.ledger, setCategoryAmount(budgetBook(), month, categoryKey, amount)));
 }
 
 function poolBook() {

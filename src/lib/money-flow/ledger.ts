@@ -11,6 +11,7 @@ import { uniqueTransactions } from "@/lib/money-flow/summary";
 import { persistStoredTransaction, upgradeTransactions, type StoredTransaction } from "@/lib/money-flow/upgrade";
 import { forget, learn, type LearnedRule, type Rules } from "@/lib/money-flow/rules";
 import { defaultCategoryBook, parseCategoryBook, type CategoryBook } from "@/lib/money-flow/category-book";
+import { mergeBudgetBooks, parseBudgetBook, type BudgetBook } from "@/lib/money-flow/budget-plan";
 import { STARTER_LIST_VERSION, ledgerHasTestData, starterListVersionOf } from "@/lib/money-flow/starter-list";
 import { mergedReview, parseReviewItems, type ReviewItem } from "@/lib/money-flow/review-queue";
 import {
@@ -153,6 +154,8 @@ export type Ledger = {
   featureOffer?: FeatureOffer;
   /** Spec 5 layout archive. Toggle-off hides UI and parks the widget here. */
   dashboardLayout?: DashboardLayout;
+  /** BV.A.2c monthly plan: expected income and typed group and category amounts. */
+  budgets?: BudgetBook;
 };
 
 export type ImportReport = {
@@ -728,12 +731,18 @@ export function mergeLedgers(mine: Ledger, theirs: Ledger): Ledger {
     ...pickedReviewUndo(mine.reviewUndo, theirs.reviewUndo),
     ...pickedPools(mine, theirs, { ...theirs.mergedInto, ...mine.mergedInto }),
     ...pickedFeatures(mine, theirs),
+    ...pickedBudgets(mine.budgets, theirs.budgets),
   };
 }
 
 function mergedRules(mine: Rules | undefined, theirs: Rules | undefined) {
   const held = { ...theirs, ...mine };
   return Object.keys(held).length > 0 ? { rules: held } : {};
+}
+
+function pickedBudgets(mine: BudgetBook | undefined, theirs: BudgetBook | undefined) {
+  const budgets = mergeBudgetBooks(mine, theirs);
+  return budgets ? { budgets } : {};
 }
 
 function pickedTaxonomy(mine: CategoryBook | undefined, theirs: CategoryBook | undefined) {
@@ -1070,7 +1079,13 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(reviewUndo.length > 0 ? { reviewUndo } : {}),
     ...parsedPools(raw),
     ...parsedFeatures(raw),
+    ...parsedBudgets(raw),
   };
+}
+
+function parsedBudgets(raw: Partial<Ledger>) {
+  const budgets = parseBudgetBook(raw.budgets);
+  return budgets ? { budgets } : {};
 }
 
 function parsedPools(raw: Partial<Ledger>) {
