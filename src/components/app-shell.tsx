@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AccountLink } from "@/components/account-link";
 import { AppFrame } from "@/components/app-frame";
-import { AppNav } from "@/components/app-nav";
+import { SettingsNavItem, SidebarNav } from "@/components/app-nav";
 import { BrandMark } from "@/components/brand-mark";
 import { MobileNav } from "@/components/mobile-nav";
 import { PeriodFilterBar } from "@/components/period-filter";
@@ -13,56 +14,79 @@ import { StarterResetPrompt } from "@/components/starter-reset-prompt";
 import { formatCount } from "@/lib/format";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { dismissStarterReset, hasUploads, openReviewCount, ready, resetStarterData, starterResetNeeded } =
-    useMoneyFlow();
+  const pathname = usePathname();
+  const showPeriod = pathname !== "/settings" && pathname !== "/budgeting";
+  const { dismissStarterReset, openReviewCount, ready, resetStarterData, starterResetNeeded } = useMoneyFlow();
 
   return (
     <AppFrame>
-      <header className="app-header relative z-10">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-5 py-4 md:px-7">
-          <BrandMark href="/dashboard" />
-          <div className="hidden md:block">
-            <AppNav />
+      <div className="relative z-10 flex min-h-screen">
+        <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 flex-col justify-between border-r-2 border-line bg-surface px-4 py-6 md:flex">
+          <div className="flex w-full flex-col gap-7">
+            <div className="px-3">
+              <BrandMark href="/dashboard" size="sm" />
+            </div>
+            <SidebarNav />
           </div>
-          <div className="flex items-center gap-2.5">
-            {openReviewCount > 0 ? (
-              <Link
-                href="/review"
-                className="rounded-full bg-accent-surface px-3 py-1.5 font-display text-base text-primary-strong"
-              >
-                {formatCount(openReviewCount)} to review
-              </Link>
-            ) : (
-              <span className="hidden rounded-full bg-accent-surface px-3 py-1.5 font-display text-base text-ink-soft sm:inline">
-                {!ready ? "Opening your ledger" : hasUploads ? "Interpreted from files" : "No statements yet"}
-              </span>
-            )}
-            <ThemeToggle />
-            <div className="flex shrink-0 items-center gap-2">
+          <div className="flex w-full flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2 px-1">
+              <ThemeToggle />
               <AccountLink />
-              <Link
-                href="/upload"
-                className="rounded-full bg-primary-strong px-4 py-2 font-display text-base text-on-primary"
-              >
-                Add
-              </Link>
+              <AddLink />
+            </div>
+            <div className="border-t border-line pt-3">
+              <SettingsNavItem />
             </div>
           </div>
+        </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="app-header md:hidden">
+            <div className="flex items-center justify-between gap-3 px-5 py-4">
+              <BrandMark href="/dashboard" size="sm" />
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <AccountLink />
+                <AddLink />
+              </div>
+            </div>
+          </header>
+          {showPeriod ? <PeriodFilterBar /> : null}
+          {ready && starterResetNeeded ? (
+            <StarterResetPrompt onReset={resetStarterData} onDismiss={dismissStarterReset} />
+          ) : null}
+          <div className="relative z-10 mx-auto w-full max-w-[1240px] px-5 py-7 pb-24 md:px-7 md:pb-10">
+            {openReviewCount > 0 ? (
+              <p className="mb-4">
+                <Link
+                  href="/review"
+                  className="rounded-[var(--radius-card)] bg-accent-surface px-3 py-1.5 text-sm font-semibold text-primary-strong"
+                >
+                  {formatCount(openReviewCount)} to review
+                </Link>
+              </p>
+            ) : null}
+            {ready ? (
+              children
+            ) : (
+              <p className="text-muted">Reading the statements you have already added…</p>
+            )}
+            <p className="mt-16 text-center text-[12.5px] text-muted">
+              <Link href="/design-system" className="underline-offset-4 hover:underline">
+                Design system
+              </Link>
+            </p>
+          </div>
         </div>
-      </header>
-      <PeriodFilterBar />
-      {ready && starterResetNeeded ? (
-        <StarterResetPrompt onReset={resetStarterData} onDismiss={dismissStarterReset} />
-      ) : null}
-      <div className="relative z-10 mx-auto max-w-[1240px] px-5 py-7 pb-24 md:px-7 md:pb-10">
-        {ready ? children : <p className="text-muted">Reading the statements you have already added…</p>}
-        <p className="mt-16 text-center text-[12.5px] text-muted">
-          <Link href="/design-system" className="underline-offset-4 hover:underline">
-            Design system
-          </Link>
-        </p>
       </div>
       <MobileNav />
     </AppFrame>
+  );
+}
+
+function AddLink() {
+  return (
+    <Link href="/upload" className="rounded-full bg-primary-strong px-4 py-2 font-display text-base text-on-primary">
+      Add
+    </Link>
   );
 }

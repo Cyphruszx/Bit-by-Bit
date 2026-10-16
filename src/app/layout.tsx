@@ -1,21 +1,22 @@
-import { Public_Sans, Silkscreen } from "next/font/google";
+import { Geist_Pixel, Public_Sans } from "next/font/google";
 import type { Metadata } from "next";
 import { MoneyFlowProvider } from "@/components/money-flow-provider";
-import { ThemeScript } from "@/components/theme-script";
+import { FontScript, ThemeScript } from "@/components/theme-script";
 import { siteDescription, siteName, siteTagline } from "@/lib/brand";
 import "./globals.css";
 
 const publicSans = Public_Sans({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-sans",
+  variable: "--font-public-sans",
 });
 
-const silkscreen = Silkscreen({
+const geistPixel = Geist_Pixel({
   weight: "400",
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-display",
+  variable: "--font-pixel",
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
@@ -30,11 +31,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html
       lang="en-AU"
-      className={`${publicSans.className} ${publicSans.variable} ${silkscreen.variable}`}
+      className={`${publicSans.variable} ${geistPixel.variable}`}
       suppressHydrationWarning
     >
       <head>
         <ThemeScript />
+        <FontScript />
       </head>
       <body>
         <MoneyFlowProvider>{children}</MoneyFlowProvider>
