@@ -1,6 +1,7 @@
 "use client";
 
 import { formatAud, formatAudCompact } from "@/lib/format";
+import { chartScale, formatChartAxis } from "@/lib/money-flow/chart-range";
 import { CHART_PIXEL, closeSteppedArea, smoothPath, snapChart, steppedPath } from "@/lib/money-flow/chart-pixels";
 import type { ChartPoint } from "@/lib/money-flow/savings";
 
@@ -25,6 +26,7 @@ export function LineChart({
   ariaLabel,
   showPoints = true,
   smooth = false,
+  frame = "standard",
 }: {
   series: LineChartSeries[];
   height?: number;
@@ -32,10 +34,15 @@ export function LineChart({
   showPoints?: boolean;
   /** Monotone curve. Savings charts stay on the stepped pixel line. */
   smooth?: boolean;
+  /** Transactions uses three labels and a $0 baseline. Savings keeps the full axis. */
+  frame?: "standard" | "minimal";
 }) {
   const labels = sharedLabels(series);
   if (labels.length === 0) {
     return <p className="text-sm text-muted">Nothing to plot yet.</p>;
+  }
+  if (frame === "minimal") {
+    return <MinimalChart series={series} height={height} ariaLabel={ariaLabel} smooth={smooth} />;
   }
 
   const width = 640;
@@ -158,6 +165,114 @@ export function LineChart({
           </span>
         ))}
       </figcaption>
+    </figure>
+  );
+}
+
+function MinimalChart({
+  series,
+  height,
+  ariaLabel,
+  smooth,
+}: {
+  series: LineChartSeries[];
+  height: number;
+  ariaLabel: string;
+  smooth: boolean;
+}) {
+  const labels = sharedLabels(series);
+  const plotWidth = 640;
+  const pad = { top: 12, right: 2, bottom: 30 };
+  const innerWidth = plotWidth - pad.right;
+  const innerHeight = height - pad.top - pad.bottom;
+  const values = series.flatMap((item) => item.points.map((point) => point.value));
+  const scale = chartScale(Math.max(0, ...values));
+  const maxValue = scale.max;
+  const x = (index: number) => (labels.length === 1 ? innerWidth / 2 : (index / (labels.length - 1)) * innerWidth);
+  const y = (value: number) => pad.top + innerHeight - (value / Math.max(maxValue, 1)) * innerHeight;
+  const ticks = [scale.max, scale.mid, 0];
+  const xLabelEvery = Math.max(1, Math.ceil(labels.length / 5));
+  const dateIndexes = labels
+    .map((_, index) => index)
+    .filter((index) => index % xLabelEvery === 0 || index === labels.length - 1);
+
+  return (
+    <figure className="min-w-0">
+      <div className="flex gap-2" style={{ height }}>
+        <div className="relative w-11 shrink-0">
+          {ticks.map((tick) => (
+            <span
+              key={tick}
+              className="absolute right-0 -translate-y-1/2 whitespace-nowrap text-right font-sans text-[11px] leading-none text-muted"
+              style={{ top: `${(y(tick) / height) * 100}%` }}
+            >
+              {formatChartAxis(tick)}
+            </span>
+          ))}
+        </div>
+        <svg
+          role="img"
+          aria-label={ariaLabel}
+          viewBox={`0 0 ${plotWidth} ${height}`}
+          preserveAspectRatio="none"
+          className="h-full min-w-0 flex-1 overflow-visible"
+        >
+          {ticks.map((tick) => (
+            <line
+              key={tick}
+              x1={0}
+              x2={innerWidth}
+              y1={y(tick)}
+              y2={y(tick)}
+              stroke="var(--color-line)"
+              strokeOpacity={tick === 0 ? 0.8 : 0.3}
+              strokeWidth={1}
+              shapeRendering="geometricPrecision"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {series.map((item) => {
+            const aligned = labels.map((label) => item.points.find((point) => point.key === label.key));
+            const plotted = aligned.map((point, index) => (point ? { x: x(index), y: y(point.value) } : undefined));
+            const path = smooth ? smoothPath(plotted) : steppedPath(plotted);
+            return (
+              <g key={item.id} shapeRendering={smooth ? "geometricPrecision" : "crispEdges"}>
+                {path ? (
+                  <path
+                    d={path}
+                    fill="none"
+                    stroke={item.color}
+                    strokeWidth={CHART_PIXEL}
+                    strokeLinejoin={smooth ? "round" : "miter"}
+                    strokeLinecap={smooth ? "round" : "square"}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ) : null}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="mt-1 flex gap-2">
+        <div className="w-11 shrink-0" aria-hidden="true" />
+        <div className="relative h-4 min-w-0 flex-1 font-sans text-[11px] leading-none text-muted">
+          {dateIndexes.map((index) => {
+            const label = labels[index];
+            if (!label) return null;
+            const atStart = index === 0;
+            const atEnd = index === labels.length - 1;
+            return (
+              <span
+                key={`${label.key}-${index}`}
+                className={`absolute top-0 whitespace-nowrap ${atStart ? "" : atEnd ? "-translate-x-full" : "-translate-x-1/2"}`}
+                style={{ left: `${(x(index) / innerWidth) * 100}%` }}
+              >
+                {label.label}
+              </span>
+            );
+          })}
+        </div>
+      </div>
     </figure>
   );
 }

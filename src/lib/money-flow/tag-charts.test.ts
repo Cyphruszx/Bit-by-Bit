@@ -111,14 +111,15 @@ describe("tag charts", () => {
     assert.ok(Math.abs((slices[1]?.endAngle ?? 0) - (-Math.PI / 2 + Math.PI * 2)) < 1e-9);
   });
 
-  it("keeps only line and pie on the tag chart", () => {
+  it("keeps pie geometry in the library and off the transactions card", () => {
     const card = readFileSync(new URL("../../components/tag-charts.tsx", import.meta.url), "utf8");
     const kinds = readFileSync(new URL("./tag-charts.ts", import.meta.url), "utf8");
     assert.match(kinds, /export type ChartKind = "line" \| "pie"/);
+    assert.match(kinds, /pieSlices/);
     assert.doesNotMatch(card, /Bar graph/);
-    assert.match(card, /Line graph/);
-    assert.match(card, /Pie chart/);
-    assert.match(card, /assignPixelDonutCells/);
+    assert.doesNotMatch(card, /Pie chart/);
+    assert.doesNotMatch(card, /assignPixelDonutCells/);
+    assert.match(card, /Money by group/);
   });
 
   it("orders money in ahead of money out", () => {

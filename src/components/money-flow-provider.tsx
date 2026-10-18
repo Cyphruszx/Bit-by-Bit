@@ -62,6 +62,7 @@ import {
   type ReviewItem,
 } from "@/lib/money-flow/review-queue";
 import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
+import { bumpPeriodRevision } from "@/lib/money-flow/period-revision";
 import {
   fileAsLoanDrawdown,
   reviewItemIsCredit,
@@ -576,6 +577,7 @@ function writePeriod(period: PeriodFilter) {
   localStorage.setItem(PERIOD_KEY, raw);
   cachedPeriodRaw = raw;
   cachedPeriod = period;
+  bumpPeriodRevision();
   periodListeners.forEach((listener) => listener());
 }
 

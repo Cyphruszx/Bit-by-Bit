@@ -39,7 +39,9 @@ describe("transactions page layout", () => {
     assert.equal(view.includes("Charts group by category"), false);
     assert.equal(view.includes("LearnedList"), false);
     assert.equal(view.includes("Your tags"), false);
-    assert.match(view, /lineOnly/);
+    assert.match(view, /transactions=\{scopedHoldings\}/);
+    assert.match(view, /pagePeriod=\{period\}/);
+    assert.equal(view.includes("lineOnly"), false);
   });
 
   it("keeps Date, Merchant, Amount, Account, Group and Category, and drops Tag and Type", () => {
@@ -68,15 +70,15 @@ describe("transactions page layout", () => {
         ],
         selectedTag: "All",
         onSelectTag: () => undefined,
-        lineOnly: true,
         compact: true,
       }),
     );
-    assert.match(html, /Money in and out by group/);
-    assert.match(html, /Line graph of the running total/);
+    assert.match(html, /Money by group/);
+    assert.equal(html.includes("Money in and out by group"), false);
     assert.match(html, /geometricPrecision/);
     assert.match(html, / C /);
     assert.equal(html.includes(">Pie<"), false);
     assert.equal(html.includes("Pie chart of money"), false);
+    assert.equal(html.includes("crispEdges"), false);
   });
 });

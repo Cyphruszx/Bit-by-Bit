@@ -25,6 +25,7 @@ export function TransactionsView() {
     payers,
     mergedInto,
     accountMeta,
+    period,
     transactions,
   } = useMoneyFlow();
   const [selectedTag, setSelectedTag] = useState("All");
@@ -77,10 +78,10 @@ export function TransactionsView() {
       <h1 className="text-2xl">Transactions</h1>
       <div className="mt-4">
         <TagChartCard
-          transactions={scoped}
+          transactions={scopedHoldings}
+          pagePeriod={period}
           selectedTag={selectedTag}
           onSelectTag={setSelectedTag}
-          lineOnly
           compact
         />
       </div>
