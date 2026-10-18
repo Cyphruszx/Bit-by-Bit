@@ -14,7 +14,10 @@ import {
   highlightedSpan,
   spanWindow,
 } from "./chart-range";
+import { filterByScope } from "./scope";
+import { filterByPeriod } from "./period";
 import { bumpPeriodRevision, getPeriodRevision } from "./period-revision";
+import { summarizeMoneyFlow } from "./summary";
 import type { InterpretedTransaction } from "./types";
 
 function txn(id: string, dateIso: string, amount: number, categoryKey: string): InterpretedTransaction {
@@ -154,6 +157,57 @@ describe("transactions chart range", () => {
     assert.equal(moneyOut.find((point) => point.key === "2026-10-06")?.value, 80);
   });
 
+  it("matches the Money in and Money out cards for the same period and bank", () => {
+    const rows = mixedLedger();
+    const nab = filterByScope(rows, { kind: "institution", institution: "NAB" });
+    const august = { kind: "month" as const, month: "2026-08" };
+    const augustFlow = summarizeMoneyFlow(filterByPeriod(nab, august));
+    const moneyIn = cumulativeLine(nab, "in", august);
+    const moneyOut = cumulativeLine(nab, "out", august);
+
+    assert.equal(augustFlow.cashIn, 29282.95);
+    assert.equal(augustFlow.cashOut, 2330.1);
+    assert.equal(moneyIn[0]?.value, 0);
+    assert.equal(moneyIn.at(-1)?.value, augustFlow.cashIn);
+    assert.equal(moneyOut.at(-1)?.value, augustFlow.cashOut);
+    assert.equal(augustFlow.income, 0);
+
+    const sparse = cumulativeLine(
+      nab.filter((row) => row.id === "nab-interest"),
+      "in",
+      august,
+    );
+    assert.equal(sparse.find((point) => point.key === "2026-08-14")?.value, 0);
+    assert.equal(sparse.find((point) => point.key === "2026-08-15")?.value, 12.4);
+    assert.equal(sparse.at(-1)?.value, 12.4);
+
+    const june = { kind: "month" as const, month: "2026-06" };
+    const juneWindow = chartWindow({ kind: "span", span: "1M" }, june, "2026-10-18");
+    const juneFlow = summarizeMoneyFlow(filterByPeriod(nab, juneWindow));
+    assert.equal(cumulativeLine(nab, "in", juneWindow).at(-1)?.value, juneFlow.cashIn);
+    assert.equal(cumulativeLine(nab, "out", juneWindow).at(-1)?.value, juneFlow.cashOut);
+    assert.notEqual(juneFlow.cashIn, augustFlow.cashIn);
+
+    const custom = { kind: "range" as const, from: "2026-07-10", to: "2026-08-05" };
+    const customFlow = summarizeMoneyFlow(filterByPeriod(nab, custom));
+    assert.equal(cumulativeLine(nab, "in", custom).at(-1)?.value, customFlow.cashIn);
+    assert.equal(cumulativeLine(nab, "out", custom).at(-1)?.value, customFlow.cashOut);
+
+    const week = chartWindow({ kind: "span", span: "1W" }, august, "2026-10-18");
+    const weekFlow = summarizeMoneyFlow(filterByPeriod(nab, week));
+    assert.equal(cumulativeLine(nab, "in", week).at(-1)?.value, weekFlow.cashIn);
+    assert.equal(cumulativeLine(nab, "out", week).at(-1)?.value, weekFlow.cashOut);
+    assert.ok(weekFlow.cashIn < augustFlow.cashIn);
+
+    const up = filterByScope(rows, { kind: "institution", institution: "Up" });
+    const upFlow = summarizeMoneyFlow(filterByPeriod(up, august));
+    assert.equal(cumulativeLine(up, "in", august).at(-1)?.value, upFlow.cashIn);
+    assert.equal(cumulativeLine(up, "out", august).at(-1)?.value, upFlow.cashOut);
+    assert.notEqual(upFlow.cashIn, augustFlow.cashIn);
+    assert.equal(chartScale(augustFlow.cashIn).max, 40000);
+    assert.notEqual(moneyIn.at(-1)?.value, chartScale(augustFlow.cashIn).max);
+  });
+
   it("renders Money in and 1M selected, with the curve starting on the $0 baseline", () => {
     const card = readFileSync(new URL("../../components/tag-charts.tsx", import.meta.url), "utf8");
     assert.match(card, /chartModeForRevision/);
@@ -197,3 +251,41 @@ describe("transactions chart range", () => {
     assert.equal(moveY, baseline ? attr(baseline, "y1") : undefined);
   });
 });
+
+function row(partial: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "dateIso" | "amount">): InterpretedTransaction {
+  return {
+    merchant: partial.id,
+    categoryKey: "groceries",
+    date: partial.dateIso.slice(8),
+    type: partial.amount > 0 ? "INCOME" : "SPENDING",
+    sourceFile: partial.institution === "Up" ? "up.csv" : "nab.csv",
+    confidence: 1,
+    institution: "NAB",
+    ...partial,
+  };
+}
+
+/** Several months, both directions, two banks, transfers, and credits that are not marked earned. */
+function mixedLedger(): InterpretedTransaction[] {
+  return [
+    row({ id: "nab-salary", dateIso: "2026-08-03", amount: 4200.55, baseAmount: 1, categoryKey: "salary", institution: "NAB" }),
+    row({ id: "nab-loan", dateIso: "2026-08-07", amount: 25000, categoryKey: "uncategorised", type: "borrowed", institution: "NAB" }),
+    row({ id: "nab-interest", dateIso: "2026-08-15", amount: 12.4, categoryKey: "other-income", institution: "NAB" }),
+    row({ id: "nab-held", dateIso: "2026-08-12", amount: 30, categoryKey: "other-income", status: "HOLD", institution: "NAB" }),
+    row({ id: "nab-week", dateIso: "2026-08-28", amount: 40, categoryKey: "other-income", institution: "NAB" }),
+    row({ id: "nab-rent", dateIso: "2026-08-01", amount: -1800, categoryKey: "rent-mortgage", institution: "NAB" }),
+    row({ id: "nab-shop", dateIso: "2026-08-04", amount: -80.1, categoryKey: "groceries", institution: "NAB" }),
+    row({ id: "nab-debt", dateIso: "2026-08-20", amount: -450, categoryKey: "debt-payments", institution: "NAB" }),
+    row({ id: "nab-move-out", dateIso: "2026-08-09", amount: -400, categoryKey: "transfers", type: "moved", transferPair: "pocket", institution: "NAB" }),
+    row({ id: "nab-move-in", dateIso: "2026-08-09", amount: 400, categoryKey: "transfers", type: "moved", transferPair: "pocket", institution: "NAB" }),
+    row({ id: "nab-orphan", dateIso: "2026-08-11", amount: 900, categoryKey: "transfers", type: "TRANSFER", institution: "NAB" }),
+    row({ id: "nab-july-early", dateIso: "2026-07-02", amount: 800, categoryKey: "salary", institution: "NAB" }),
+    row({ id: "nab-july-shop", dateIso: "2026-07-18", amount: -22, categoryKey: "eating-out", institution: "NAB" }),
+    row({ id: "nab-july-pay", dateIso: "2026-07-28", amount: 60, categoryKey: "groceries", institution: "NAB" }),
+    row({ id: "nab-june-pay", dateIso: "2026-06-05", amount: 3000, categoryKey: "salary", institution: "NAB" }),
+    row({ id: "nab-june-shop", dateIso: "2026-06-06", amount: -40, categoryKey: "groceries", institution: "NAB" }),
+    row({ id: "nab-sept-pay", dateIso: "2026-09-03", amount: 4000, categoryKey: "salary", institution: "NAB" }),
+    row({ id: "up-pay", dateIso: "2026-08-02", amount: 2100, categoryKey: "salary", institution: "Up" }),
+    row({ id: "up-cafe", dateIso: "2026-08-08", amount: -15.5, categoryKey: "eating-out", institution: "Up" }),
+  ];
+}

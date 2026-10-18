@@ -9,13 +9,8 @@ import {
   shiftMonth,
   type PeriodFilter,
 } from "@/lib/money-flow/period";
-import {
-  countedMovements,
-  isEarnings,
-  isFiledMoneyOut,
-  matches,
-} from "@/lib/money-flow/summary";
-import { tileAmount } from "@/lib/money-flow/tile";
+import { excludingInternalTransfers } from "@/lib/money-flow/internal-transfers";
+import { matches } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export type ChartSpan = "1W" | "1M" | "3M" | "6M" | "All";
@@ -93,6 +88,10 @@ export function spanWindow(span: ChartSpan, anchorDay: string): PeriodFilter {
 /**
  * One rising total for the chosen direction. The first point is $0 at the start of the window,
  * then each bucket adds that direction only.
+ *
+ * The rows are the same ones the Money in and Money out cards add: statement `amount` by
+ * sign, internal transfers left out, for this window and bank selection. Income verdicts
+ * and spend groups do not decide the line.
  */
 export function cumulativeLine(
   transactions: InterpretedTransaction[],
@@ -100,7 +99,7 @@ export function cumulativeLine(
   window: PeriodFilter,
   selected = "All",
 ): CumulativePoint[] {
-  const rows = filterByPeriod(countedMovements(transactions), window).filter(
+  const rows = filterByPeriod(excludingInternalTransfers(transactions), window).filter(
     (txn) => selected === "All" || matches(txn, selected),
   );
   const bounds = windowBounds(window, rows);
@@ -112,7 +111,7 @@ export function cumulativeLine(
     const amount = directionAmount(txn, direction);
     if (amount === 0) continue;
     const key = calendarDate(txn.dateIso).slice(0, byDay ? 10 : 7);
-    totals.set(key, roundMoney((totals.get(key) ?? 0) + amount));
+    totals.set(key, (totals.get(key) ?? 0) + amount);
   }
 
   const keys = byDay ? daySpan(bounds.from, bounds.to) : monthSpan(bounds.from.slice(0, 7), bounds.to.slice(0, 7));
@@ -126,11 +125,11 @@ export function cumulativeLine(
   ];
   let running = 0;
   for (const key of keys) {
-    running = roundMoney(running + (totals.get(key) ?? 0));
+    running += totals.get(key) ?? 0;
     points.push({
       key,
       label: byDay ? formatChartDate(key) : monthLabelFromKey(key),
-      value: running,
+      value: roundMoney(running),
     });
   }
   return points;
@@ -163,9 +162,10 @@ export function formatChartDate(iso: string): string {
   return `${day} ${SHORT_MONTH[(month ?? 1) - 1] ?? ""}`;
 }
 
+/** Statement amount by sign. Transfers are already removed. `baseAmount` is not the card figure. */
 function directionAmount(txn: InterpretedTransaction, direction: ChartDirection): number {
-  if (direction === "in") return isEarnings(txn) ? Math.max(0, tileAmount(txn)) : 0;
-  return isFiledMoneyOut(txn) ? Math.abs(tileAmount(txn)) : 0;
+  if (direction === "in") return txn.amount > 0 ? txn.amount : 0;
+  return txn.amount < 0 ? Math.abs(txn.amount) : 0;
 }
 
 function windowBounds(
