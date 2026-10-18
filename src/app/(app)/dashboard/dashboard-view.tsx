@@ -2,29 +2,16 @@
 
 import { useMemo } from "react";
 import { BankAccountsCard } from "@/components/bank-accounts-card";
-import { BudgetBars } from "@/components/budget-bars";
+import { DashboardBudgetCard } from "@/components/dashboard-budget-card";
 import { EmptyLedger } from "@/components/empty-ledger";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { SummaryCard } from "@/components/summary-card";
 import { formatAud, formatCount, formatSignedAud } from "@/lib/format";
 import { accountsByInstitution, accountsFrom } from "@/lib/money-flow/accounts";
-import {
-  asOfHint,
-  bankInstitutionTiles,
-  budgetRowsFromPrior,
-  presentAccountTiles,
-  snapshotAsOfDate,
-} from "@/lib/money-flow/dashboard";
-import {
-  APP_TIME_ZONE,
-  daysLeftInMonth,
-  filterByPeriod,
-  monthsFromDates,
-  previousPeriod,
-  shiftMonth,
-} from "@/lib/money-flow/period";
+import { dashboardBudgetCard, monthPlan, spentByCategoryKey } from "@/lib/money-flow/budget-plan";
+import { asOfHint, bankInstitutionTiles, presentAccountTiles, snapshotAsOfDate } from "@/lib/money-flow/dashboard";
+import { APP_TIME_ZONE, filterByPeriod } from "@/lib/money-flow/period";
 import { poolBookOf } from "@/lib/money-flow/pools";
-import { spendByCategory } from "@/lib/money-flow/summary";
 
 export function DashboardView() {
   const {
@@ -33,6 +20,8 @@ export function DashboardView() {
     accountPoolMembers,
     accountPools,
     allTransactions,
+    budgets,
+    categoryBook,
     flow,
     hasUploads,
     institutionOverrides,
@@ -54,14 +43,11 @@ export function DashboardView() {
     [accountMeta, book, groups, mergedInto],
   );
   const accounts = useMemo(() => accountsFrom(allTransactions, registry), [allTransactions, registry]);
-  const endMonth = monthsFromDates(allTransactions.map((txn) => txn.dateIso))[0] ?? currentMonth();
-  const priorFilter = previousPeriod(period.kind === "all" ? { kind: "month", month: endMonth } : period);
-  const priorCategories = useMemo(
-    () => (priorFilter ? spendByCategory(filterByPeriod(allTransactions, priorFilter)) : []),
-    [allTransactions, priorFilter],
-  );
-  const budgets = budgetRowsFromPrior(flow.categories, priorCategories);
-  const daysLeft = period.kind === "month" ? daysLeftInMonth(period.month, todayIso()) : null;
+  const budgetMonth = period.kind === "month" ? period.month : sydneyMonth();
+  const budgetCard = useMemo(() => {
+    const spent = spentByCategoryKey(filterByPeriod(allTransactions, { kind: "month", month: budgetMonth }));
+    return dashboardBudgetCard(categoryBook, monthPlan(budgets, budgetMonth), spent);
+  }, [allTransactions, budgetMonth, budgets, categoryBook]);
   const totalBalance = useMemo(() => presentAccountTiles(tiles), [tiles]);
   const asOf = useMemo(
     () => snapshotAsOfDate(allTransactions, tiles, accountMeta, mergedInto),
@@ -115,16 +101,12 @@ export function DashboardView() {
 
         <BankAccountsCard tiles={tiles} />
 
-        <BudgetBars rows={budgets} daysLeft={daysLeft} />
+        <DashboardBudgetCard card={budgetCard} />
       </div>
     </>
   );
 }
 
-function currentMonth(): string {
-  return shiftMonth(`${new Date().getUTCFullYear()}-01`, new Date().getUTCMonth());
-}
-
-function todayIso(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: APP_TIME_ZONE });
+function sydneyMonth(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: APP_TIME_ZONE }).slice(0, 7);
 }

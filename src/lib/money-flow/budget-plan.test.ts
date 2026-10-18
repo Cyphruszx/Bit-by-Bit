@@ -6,6 +6,7 @@ import { applyBook, defaultCategoryBook } from "@/lib/money-flow/category-book";
 import {
   budgetGroupLines,
   countedGroupAmount,
+  dashboardBudgetCard,
   emptyBudgetBook,
   groupShortfall,
   leftToPlan,
@@ -191,6 +192,67 @@ describe("budget page rows", () => {
     const left = leftToSpend(totals.planned, totals.spent);
     assert.equal(left.amount, 0);
     assert.equal(left.over, false);
+  });
+
+  it("adds each group's planned amount up to the header planned total", () => {
+    applyBook(defaultCategoryBook());
+    const book = defaultCategoryBook();
+    let stored = setGroupAmount(emptyBudgetBook(), "2026-10", "housing", 2100);
+    stored = setGroupAmount(stored, "2026-10", "transport", 100);
+    stored = setGroupAmount(stored, "2026-10", "food", 400);
+    const spent = spentByCategoryKey([
+      txn({ id: "rent", amount: -2085, categoryKey: "rent-mortgage" }),
+      txn({ id: "bus", amount: -115, categoryKey: "getting-around" }),
+      txn({ id: "shop", amount: -250, categoryKey: "groceries" }),
+      txn({ id: "loose", amount: -3509.75, categoryKey: "uncategorised" }),
+      txn({ id: "pay", amount: -500, categoryKey: "salary" }),
+      txn({ id: "move", amount: -80, categoryKey: "transfers" }),
+    ]);
+    const card = dashboardBudgetCard(book, monthPlan(stored, "2026-10"), spent);
+    const groups = card.tiles.filter((tile) => tile.kind === "group");
+    const unsorted = card.tiles.find((tile) => tile.kind === "unsorted");
+
+    assert.equal(
+      groups.some((tile) => tile.id === "income" || tile.label === "Income"),
+      false,
+    );
+    assert.equal(
+      groups.some((tile) => tile.id === "transfers" || tile.label === "Transfers"),
+      false,
+    );
+    assert.equal(unsorted?.label, "Unsorted");
+    assert.equal(unsorted?.spent, 3509.75);
+    assert.equal(formatAud(unsorted?.spent ?? 0), "$3,509.75");
+    assert.equal(unsorted?.planned, undefined);
+    assert.equal(unsorted?.remainder, undefined);
+
+    const housing = groups.find((tile) => tile.id === "housing");
+    const transport = groups.find((tile) => tile.id === "transport");
+    const food = groups.find((tile) => tile.id === "food");
+    assert.equal(housing?.planned, 2100);
+    assert.equal(housing?.remainder, 15);
+    assert.equal(housing?.over, false);
+    assert.equal(transport?.planned, 100);
+    assert.equal(transport?.remainder, 15);
+    assert.equal(transport?.over, true);
+    assert.equal(food?.planned, 400);
+    assert.equal(food?.over, false);
+
+    for (const tile of groups) {
+      const planned = tile.planned ?? 0;
+      const remainder = tile.remainder ?? 0;
+      assert.equal(planned, tile.over ? tile.spent - remainder : tile.spent + remainder);
+    }
+
+    const plannedSum = groups.reduce((sum, tile) => sum + (tile.planned ?? 0), 0);
+    assert.equal(plannedSum, card.planned);
+    assert.equal(card.planned, 2600);
+    assert.equal(formatAud(card.planned), "$2,600.00");
+    assert.equal(card.spent, 2450);
+    assert.equal(card.over, false);
+    assert.equal(card.remainder, 150);
+    assert.equal(formatAud(card.remainder), "$150.00");
+    assert.notEqual(card.spent, 2450 + 3509.75);
   });
 
   it("counts $40 spent in an unplanned category against Left to spend", () => {
