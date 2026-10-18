@@ -25,16 +25,19 @@ export function TagChartCard({
   transactions = [],
   selectedTag,
   onSelectTag,
-  chart,
+  chart = "line",
   onChartChange,
   compact = false,
+  lineOnly = false,
 }: {
   transactions?: InterpretedTransaction[];
   selectedTag: string;
   onSelectTag: (tag: string) => void;
-  chart: ChartKind;
-  onChartChange: (chart: ChartKind) => void;
+  chart?: ChartKind;
+  onChartChange?: (chart: ChartKind) => void;
   compact?: boolean;
+  /** Transactions mounts the smoothed line only. The pixel pie stays unmounted. */
+  lineOnly?: boolean;
 }) {
   const series = useMemo(
     () => chartTagFlowSeries(transactions, selectedTag),
@@ -73,36 +76,38 @@ export function TagChartCard({
         <div>
           <h2 className={compact ? "text-base font-bold" : "text-lg font-bold"}>{title}</h2>
           <p className={`text-muted ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"}`}>
-            {chart === "line"
+            {lineOnly || chart === "line"
               ? "A running total stepping at every movement: money in lifts the line, money out pulls it down, and it holds level on quiet days."
               : "Slice size is the share of all movement, and money in is outlined."}{" "}
             Groups first, then the categories inside a group. Tags stay metadata and never split a chart.
           </p>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {(
-            [
-              ["line", "Line", "Line graph"],
-              ["pie", "Pie", "Pie chart"],
-            ] as const
-          ).map(([value, short, long]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={chart === value}
-              onClick={() => onChartChange(value)}
-              className={`${toggleClass} ${
-                chart === value ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
-              }`}
-            >
-              {compact ? short : long}
-            </button>
-          ))}
-        </div>
+        {lineOnly ? null : (
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["line", "Line", "Line graph"],
+                ["pie", "Pie", "Pie chart"],
+              ] as const
+            ).map(([value, short, long]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={chart === value}
+                onClick={() => onChartChange?.(value)}
+                className={`${toggleClass} ${
+                  chart === value ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
+                }`}
+              >
+                {compact ? short : long}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {spend.length === 0 ? (
         <p className={`${compact ? "mt-3" : "mt-5"} text-sm text-muted`}>{emptyLabel}</p>
-      ) : chart === "pie" ? (
+      ) : !lineOnly && chart === "pie" ? (
         <PieChart
           slices={slices}
           net={series.net}
@@ -204,6 +209,7 @@ function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[
         height={compact ? 180 : 240}
         ariaLabel="Line graph of the running total of money in and out across the period"
         showPoints={false}
+        smooth
       />
     </div>
   );

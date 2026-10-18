@@ -38,6 +38,79 @@ export function closeSteppedArea(path: string, x0: number, y0: number, pixel = C
   return `${path} V ${snapChart(y0, pixel)} H ${snapChart(x0, pixel)} Z`;
 }
 
+/**
+ * A monotone cubic through the points, so a running total reads as one curve.
+ * Gaps start a new subpath. Two points stay a straight segment.
+ */
+export function smoothPath(points: Array<{ x: number; y: number } | null | undefined>): string {
+  const runs: Array<Array<{ x: number; y: number }>> = [];
+  let current: Array<{ x: number; y: number }> = [];
+  for (const point of points) {
+    if (!point) {
+      if (current.length > 0) runs.push(current);
+      current = [];
+      continue;
+    }
+    current.push(point);
+  }
+  if (current.length > 0) runs.push(current);
+  return runs.map(smoothRun).filter(Boolean).join(" ");
+}
+
+function smoothRun(points: Array<{ x: number; y: number }>): string {
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M ${fmt(points[0].x)} ${fmt(points[0].y)}`;
+  if (points.length === 2) {
+    return `M ${fmt(points[0].x)} ${fmt(points[0].y)} L ${fmt(points[1].x)} ${fmt(points[1].y)}`;
+  }
+
+  const n = points.length;
+  const delta: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dx = points[i + 1].x - points[i].x;
+    delta.push(dx === 0 ? 0 : (points[i + 1].y - points[i].y) / dx);
+  }
+  const slope = new Array<number>(n);
+  slope[0] = delta[0] ?? 0;
+  slope[n - 1] = delta[n - 2] ?? 0;
+  for (let i = 1; i < n - 1; i++) {
+    const left = delta[i - 1] ?? 0;
+    const right = delta[i] ?? 0;
+    slope[i] = left * right <= 0 ? 0 : (left + right) / 2;
+  }
+  for (let i = 0; i < n - 1; i++) {
+    const change = delta[i] ?? 0;
+    if (change === 0) {
+      slope[i] = 0;
+      slope[i + 1] = 0;
+      continue;
+    }
+    const a = (slope[i] ?? 0) / change;
+    const b = (slope[i + 1] ?? 0) / change;
+    const sum = a * a + b * b;
+    if (sum > 9) {
+      const scale = 3 / Math.sqrt(sum);
+      slope[i] = scale * a * change;
+      slope[i + 1] = scale * b * change;
+    }
+  }
+
+  const commands = [`M ${fmt(points[0].x)} ${fmt(points[0].y)}`];
+  for (let i = 0; i < n - 1; i++) {
+    const start = points[i];
+    const end = points[i + 1];
+    const dx = (end.x - start.x) / 3;
+    commands.push(
+      `C ${fmt(start.x + dx)} ${fmt(start.y + (slope[i] ?? 0) * dx)} ${fmt(end.x - dx)} ${fmt(end.y - (slope[i + 1] ?? 0) * dx)} ${fmt(end.x)} ${fmt(end.y)}`,
+    );
+  }
+  return commands.join(" ");
+}
+
+function fmt(value: number): string {
+  return String(Math.round(value * 100) / 100);
+}
+
 function angleInSweep(angle: number, start: number, end: number): boolean {
   if (end - start >= Math.PI * 2 - 1e-6) return true;
   let next = angle;

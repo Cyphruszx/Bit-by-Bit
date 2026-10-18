@@ -1,7 +1,7 @@
 "use client";
 
 import { formatAud, formatAudCompact } from "@/lib/format";
-import { CHART_PIXEL, closeSteppedArea, snapChart, steppedPath } from "@/lib/money-flow/chart-pixels";
+import { CHART_PIXEL, closeSteppedArea, smoothPath, snapChart, steppedPath } from "@/lib/money-flow/chart-pixels";
 import type { ChartPoint } from "@/lib/money-flow/savings";
 
 export type LineChartSeries = {
@@ -24,11 +24,14 @@ export function LineChart({
   height = 240,
   ariaLabel,
   showPoints = true,
+  smooth = false,
 }: {
   series: LineChartSeries[];
   height?: number;
   ariaLabel: string;
   showPoints?: boolean;
+  /** Monotone curve. Savings charts stay on the stepped pixel line. */
+  smooth?: boolean;
 }) {
   const labels = sharedLabels(series);
   if (labels.length === 0) {
@@ -104,13 +107,12 @@ export function LineChart({
         )}
         {series.map((item) => {
           const aligned = labels.map((label) => item.points.find((point) => point.key === label.key));
-          const path = steppedPath(
-            aligned.map((point, index) => (point ? { x: x(index), y: y(point.value) } : undefined)),
-          );
+          const plotted = aligned.map((point, index) => (point ? { x: x(index), y: y(point.value) } : undefined));
+          const path = smooth ? smoothPath(plotted) : steppedPath(plotted);
           const area = item.fill && path ? closeSteppedArea(path, x(0), y(0)) : null;
           const mark = CHART_PIXEL * 2;
           return (
-            <g key={item.id} shapeRendering="crispEdges">
+            <g key={item.id} shapeRendering={smooth ? "geometricPrecision" : "crispEdges"}>
               {area ? <path d={area} fill={item.fill} opacity="0.35" /> : null}
               {path ? (
                 <path
@@ -118,8 +120,8 @@ export function LineChart({
                   fill="none"
                   stroke={item.color}
                   strokeWidth={CHART_PIXEL}
-                  strokeLinejoin="miter"
-                  strokeLinecap="square"
+                  strokeLinejoin={smooth ? "round" : "miter"}
+                  strokeLinecap={smooth ? "round" : "square"}
                   strokeDasharray={item.dashed ? `${CHART_PIXEL} ${CHART_PIXEL}` : undefined}
                 />
               ) : null}
