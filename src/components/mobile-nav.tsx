@@ -11,6 +11,7 @@ const links = [
   ["Categories", "/categories"],
   ["Budget", "/budgeting"],
   ["Review", "/review"],
+  ["Settings", "/settings"],
 ] as const;
 
 export function MobileNav() {
@@ -18,12 +19,12 @@ export function MobileNav() {
   const { openReviewCount } = useMoneyFlow();
 
   return (
-    <nav className="fixed inset-x-4 bottom-4 z-20 flex justify-around rounded-full border-2 border-line bg-surface px-2 py-3 font-display text-base text-muted shadow-card md:hidden">
+    <nav className="fixed inset-x-4 bottom-4 z-20 flex justify-around gap-1 overflow-x-auto rounded-full border-2 border-line bg-surface px-2 py-3 font-display text-[13px] text-muted shadow-card md:hidden">
       {links.map(([label, href]) => (
         <Link
           key={href}
           href={href}
-          className={`inline-flex items-center gap-1 ${pathname === href ? "text-positive" : ""}`}
+          className={`inline-flex shrink-0 items-center gap-1 ${pathname === href ? "text-positive" : ""}`}
         >
           {label}
           {href === "/review" && openReviewCount > 0 ? (

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
-import { PeriodChip } from "@/components/period-chip";
+import { PeriodPicker } from "@/components/period-picker";
 import { SummaryCard } from "@/components/summary-card";
 import { useTheme } from "@/components/theme-store";
 import { formatAud, formatSignedAud } from "@/lib/format";
+import type { PeriodFilter } from "@/lib/money-flow/period";
 import { TokenSwatch } from "./token-swatch";
 import {
   colourTokens,
@@ -29,7 +30,7 @@ const navActive = "rounded-full bg-primary px-3.5 py-1.5 font-display text-base 
 
 export function DesignSystemGallery() {
   const { theme } = useTheme();
-  const [period, setPeriod] = useState<"month" | "year" | "custom" | "all">("month");
+  const [period, setPeriod] = useState<PeriodFilter>({ kind: "month", month: "2026-09" });
   const [nav, setNav] = useState("Dashboard");
 
   return (
@@ -46,7 +47,7 @@ export function DesignSystemGallery() {
         </div>
         <div className="grid justify-items-end gap-1.5 text-right text-xs text-muted">
           <span className="rounded-full bg-accent-surface px-3 py-1.5 font-display text-base text-primary-strong">
-            {theme === "dark" ? "8a dark" : "7b light"} · Silkscreen + Public Sans
+            {theme === "dark" ? "8a dark" : "7b light"} · Public Sans
           </span>
           <span>Toggle Dark in the header to rematch every swatch.</span>
         </div>
@@ -88,7 +89,7 @@ export function DesignSystemGallery() {
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
-        <Section index="02" eyebrow="Typography" title="Silkscreen for chrome and money tiles, Public Sans for data">
+        <Section index="02" eyebrow="Typography" title="Public Sans for every line, Geist Pixel as the other face">
           <div className="grid gap-2 pb-2">
             {typeFaces.map((face) => (
               <p key={face.cssVar} className="text-[12.5px] leading-6 text-muted">
@@ -135,7 +136,7 @@ export function DesignSystemGallery() {
             </TypeRow>
           </div>
           <p className="text-[12.5px] leading-6 text-muted">
-            Pixel type is Silkscreen at 8px multiples (16 / 24 / 32 / 48), regular weight, no smoothing — boxier than Pixelify, kept for 16-bit chrome. Money tiles use that face. Ledger rows and chart figures stay on Public Sans with{" "}
+            Public Sans is the default for every line, including headings and money tiles. Geist Pixel is the other face, chosen in Settings and saved on this device. Ledger rows and chart figures use{" "}
             <code className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-[11.5px]">
               tabular-nums
             </code>{" "}
@@ -305,7 +306,7 @@ export function DesignSystemGallery() {
             <p className="text-[12.5px] text-muted">
               Primary is <code className="font-mono text-[11px]">bg-primary-strong</code> (Add). Brand is{" "}
               <code className="font-mono text-[11px]">bg-primary</code>. Secondary is a lined surface square. Labels use
-              Silkscreen. Hover is the shared 160ms opacity. Disabled keeps the label and mutes the fill.
+              Public Sans. Hover is the shared 160ms opacity. Disabled keeps the label and mutes the fill. Geist Pixel is available from Settings.
             </p>
           </div>
 
@@ -326,24 +327,14 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-base uppercase text-muted">Period filter chips</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="mr-1 font-display text-base uppercase text-muted">Period</p>
-              <PeriodChip active={period === "month"} onClick={() => setPeriod("month")}>
-                September 2026
-              </PeriodChip>
-              <PeriodChip active={period === "year"} onClick={() => setPeriod("year")}>
-                Last 12 months
-              </PeriodChip>
-              <PeriodChip active={period === "custom"} onClick={() => setPeriod("custom")}>
-                Custom dates
-              </PeriodChip>
-              <PeriodChip active={period === "all"} onClick={() => setPeriod("all")}>
-                All activity
-              </PeriodChip>
-              <PeriodChip active={false} disabled onClick={() => undefined} ariaLabel="Previous month with activity">
-                ‹
-              </PeriodChip>
+            <p className="font-display text-base uppercase text-muted">Period</p>
+            <div className="flex justify-end">
+              <PeriodPicker
+                months={["2026-10", "2026-09", "2026-08", "2026-07", "2026-06", "2026-05"]}
+                period={period}
+                onPeriod={setPeriod}
+                anchor={period.kind === "month" ? period.month : "2026-10"}
+              />
             </div>
           </div>
 

@@ -13,7 +13,13 @@ import { supabase } from "@/lib/supabase/client";
  * changed and the two copies have not met yet — that meeting is where the merge happens.
  */
 
-export type Session = { email: string; userId: string } | null;
+export type Session = { email: string; userId: string; name: string } | null;
+
+function displayNameOf(user: { user_metadata?: Record<string, unknown> }): string {
+  const meta = user.user_metadata ?? {};
+  const name = meta.display_name ?? meta.full_name ?? meta.name;
+  return typeof name === "string" ? name.trim() : "";
+}
 
 const listeners = new Set<() => void>();
 let session: Session = null;
@@ -43,7 +49,9 @@ function watch() {
   watching = true;
 
   client.auth.onAuthStateChange((_event, next) => {
-    const who = next?.user ? { email: next.user.email ?? "", userId: next.user.id } : null;
+    const who = next?.user
+      ? { email: next.user.email ?? "", userId: next.user.id, name: displayNameOf(next.user) }
+      : null;
     const changed = who?.userId !== session?.userId;
     session = who;
     listeners.forEach((listener) => listener());
@@ -90,6 +98,20 @@ export async function signUp(email: string, password: string): Promise<AuthResul
  * stepping away from a shared machine wants Clear on the upload screen, which removes both
  * copies; signing out is not that, and quietly wiping their statements would be a surprise.
  */
+/** Optional name, kept on the signed-in user. An empty name clears it. */
+export async function saveDisplayName(name: string): Promise<AuthResult> {
+  const client = supabase();
+  if (!client) return { ok: false, message: "Signing in is not set up on this copy." };
+  const trimmed = name.trim();
+  const { data, error } = await client.auth.updateUser({ data: { display_name: trimmed } });
+  if (error) return { ok: false, message: signInMessage(error.message) };
+  if (session && (!data.user || session.userId === data.user.id)) {
+    session = { ...session, email: data.user?.email ?? session.email, name: trimmed };
+    listeners.forEach((listener) => listener());
+  }
+  return { ok: true };
+}
+
 export async function signOut(): Promise<void> {
   const client = supabase();
   if (!client) return;
