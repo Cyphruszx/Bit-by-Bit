@@ -2,7 +2,6 @@
 
 import { useMemo, useRef, useState } from "react";
 import { BudgetRing } from "@/components/budget-ring";
-import { PeriodChip } from "@/components/period-chip";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud } from "@/lib/format";
 import {
@@ -16,7 +15,7 @@ import {
   unsortedSpent,
   type BudgetGroupLine,
 } from "@/lib/money-flow/budget-plan";
-import { APP_TIME_ZONE, filterByPeriod, formatMonthLabel, shiftMonth } from "@/lib/money-flow/period";
+import { APP_TIME_ZONE, filterByPeriod, formatMonthLabel } from "@/lib/money-flow/period";
 
 export function BudgetingView() {
   const {
@@ -24,7 +23,6 @@ export function BudgetingView() {
     budgets,
     categoryBook,
     period,
-    setPeriod,
     setCategoryBudget,
     setExpectedIncome,
     setGroupBudget,
@@ -44,26 +42,7 @@ export function BudgetingView() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-[32px]">Budget</h1>
-        <div className="flex items-center gap-2">
-          <PeriodChip
-            active={false}
-            ariaLabel="Previous month"
-            onClick={() => setPeriod({ kind: "month", month: shiftMonth(month, -1) })}
-          >
-            ‹
-          </PeriodChip>
-          <p className="min-w-[9rem] text-center text-sm font-semibold">{monthName}</p>
-          <PeriodChip
-            active={false}
-            ariaLabel="Next month"
-            onClick={() => setPeriod({ kind: "month", month: shiftMonth(month, 1) })}
-          >
-            ›
-          </PeriodChip>
-        </div>
-      </div>
+      <h1 className="text-[32px]">Budget</h1>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         <article className="card p-5">

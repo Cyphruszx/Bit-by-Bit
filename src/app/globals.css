@@ -134,7 +134,6 @@
   --header-bg: #ffffff;
   --header-line: #e3e6ea;
   --header-shadow: 2px 2px 0 #123a8f;
-  --period-bg: #f5f6f8;
   --sweep-grid-size: 8px;
 
   --canvas-gradient: linear-gradient(170deg, #eff3fa 0%, #e2e8f3 60%, #d5dcea 100%);
@@ -161,7 +160,6 @@ html.dark,
   --header-bg: #171b22;
   --header-line: #262c36;
   --header-shadow: 2px 2px 0 #e9edf3;
-  --period-bg: #0e1116;
 
   --canvas-gradient: linear-gradient(170deg, #111621 0%, #0d1119 60%, #080b11 100%);
   --sweep-grid: rgba(111, 155, 255, 0.13);
@@ -254,11 +252,6 @@ a:hover {
   background: var(--color-surface);
   border-bottom: 2px solid var(--color-line);
   box-shadow: var(--header-shadow);
-}
-
-.app-period {
-  background: var(--period-bg);
-  border-bottom: 2px solid var(--color-line);
 }
 
 .card {

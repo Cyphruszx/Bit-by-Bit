@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
-import { PeriodChip } from "@/components/period-chip";
+import { PeriodPicker } from "@/components/period-picker";
 import { SummaryCard } from "@/components/summary-card";
 import { useTheme } from "@/components/theme-store";
 import { formatAud, formatSignedAud } from "@/lib/format";
+import type { PeriodFilter } from "@/lib/money-flow/period";
 import { TokenSwatch } from "./token-swatch";
 import {
   colourTokens,
@@ -29,7 +30,7 @@ const navActive = "rounded-full bg-primary px-3.5 py-1.5 font-display text-base 
 
 export function DesignSystemGallery() {
   const { theme } = useTheme();
-  const [period, setPeriod] = useState<"month" | "year" | "custom" | "all">("month");
+  const [period, setPeriod] = useState<PeriodFilter>({ kind: "month", month: "2026-09" });
   const [nav, setNav] = useState("Dashboard");
 
   return (
@@ -326,24 +327,14 @@ export function DesignSystemGallery() {
           </div>
 
           <div className="grid gap-3">
-            <p className="font-display text-base uppercase text-muted">Period filter chips</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="mr-1 font-display text-base uppercase text-muted">Period</p>
-              <PeriodChip active={period === "month"} onClick={() => setPeriod("month")}>
-                September 2026
-              </PeriodChip>
-              <PeriodChip active={period === "year"} onClick={() => setPeriod("year")}>
-                Last 12 months
-              </PeriodChip>
-              <PeriodChip active={period === "custom"} onClick={() => setPeriod("custom")}>
-                Custom dates
-              </PeriodChip>
-              <PeriodChip active={period === "all"} onClick={() => setPeriod("all")}>
-                All activity
-              </PeriodChip>
-              <PeriodChip active={false} disabled onClick={() => undefined} ariaLabel="Previous month with activity">
-                ‹
-              </PeriodChip>
+            <p className="font-display text-base uppercase text-muted">Period</p>
+            <div className="flex justify-end">
+              <PeriodPicker
+                months={["2026-10", "2026-09", "2026-08", "2026-07", "2026-06", "2026-05"]}
+                period={period}
+                onPeriod={setPeriod}
+                anchor={period.kind === "month" ? period.month : "2026-10"}
+              />
             </div>
           </div>
 
