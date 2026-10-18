@@ -4,15 +4,29 @@
  * A group counts once. The figure used for Left to plan and Left to spend is the
  * larger of the typed group amount and the sum of its category amounts. A blank
  * group counts that category total. Category amounts are never added on top.
+ *
+ * The Budget page leaves out Income, Unsorted (and the old Other group), and
+ * Transfers. Unsorted spending is shown on its own and stays out of Spent,
+ * Left to plan, and Left to spend. Investing and Debt Payments stay in Money
+ * moves and count in all three. Transfers never counts as Spent. Dashboard
+ * spent bars keep their own rule and are not changed here.
  */
 
 import { categoriesIn, type CategoryBook } from "@/lib/money-flow/category-book";
 import { roundMoney } from "@/lib/money-flow/parse-values";
-import { isFiledMoneyOut } from "@/lib/money-flow/summary";
 import { categoryOf } from "@/lib/money-flow/tags";
 import { tileAmount } from "@/lib/money-flow/tile";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import type { Ledger } from "@/lib/money-flow/ledger";
+
+/** Group cards the Budget page does not draw. Their stored amounts are ignored. */
+const OFF_BUDGET_GROUPS = new Set(["income", "unsorted", "misc", "transfers"]);
+
+/** Spending that is listed, not planned. The old Other group uses the same row. */
+const UNSORTED_GROUPS = new Set(["unsorted", "misc"]);
+
+/** Transfers never counts as Spent, on this page or inside Money moves. */
+const OFF_BUDGET_CATEGORIES = new Set(["transfers"]);
 
 export type BudgetMonth = {
   /** Expected income for this month. Absent means not set. */
@@ -147,8 +161,12 @@ export function budgetGroupLines(
   plan: BudgetMonth,
   spentByCategory: ReadonlyMap<string, number>,
 ): BudgetGroupLine[] {
-  return book.groups.map((group) => {
-    const categories = categoriesIn(book, group.id).map((category) => ({
+  return book.groups.flatMap((group) => {
+    if (OFF_BUDGET_GROUPS.has(group.id)) return [];
+    const held = categoriesIn(book, group.id);
+    const visible = held.filter((category) => !OFF_BUDGET_CATEGORIES.has(category.key));
+    if (held.length > 0 && visible.length === 0) return [];
+    const categories = visible.map((category) => ({
       key: category.key,
       label: category.label,
       spent: roundMoney(spentByCategory.get(category.key) ?? 0),
@@ -158,18 +176,28 @@ export function budgetGroupLines(
     const typed = plan.groups[group.id] ?? null;
     const counted = countedGroupAmount(typed, amounts);
     const spent = roundMoney(categories.reduce((sum, category) => sum + category.spent, 0));
-    return {
-      id: group.id,
-      label: group.label,
-      spent,
-      amount: typed,
-      categorySum: categoryTotal(amounts),
-      counted,
-      shortfall: groupShortfall(typed, amounts),
-      categories,
-      ring: ringRead(counted, spent),
-    };
+    return [
+      {
+        id: group.id,
+        label: group.label,
+        spent,
+        amount: typed,
+        categorySum: categoryTotal(amounts),
+        counted,
+        shortfall: groupShortfall(typed, amounts),
+        categories,
+        ring: ringRead(counted, spent),
+      },
+    ];
   });
+}
+
+/** Unsorted spending for the footer. It is not part of {@link planTotals}. */
+export function unsortedSpent(book: CategoryBook, spentByCategory: ReadonlyMap<string, number>): number {
+  const keys = book.groups
+    .filter((group) => UNSORTED_GROUPS.has(group.id))
+    .flatMap((group) => categoriesIn(book, group.id).map((category) => category.key));
+  return roundMoney(keys.reduce((sum, key) => sum + (spentByCategory.get(key) ?? 0), 0));
 }
 
 export function planTotals(lines: readonly BudgetGroupLine[]): { planned: number; spent: number } {
@@ -179,12 +207,18 @@ export function planTotals(lines: readonly BudgetGroupLine[]): { planned: number
   };
 }
 
-/** Filed money out for the month, keyed by category. */
+/**
+ * Debits for the Budget page, keyed by category.
+ * Transfers are left out. Investing and Debt Payments are kept.
+ * Income and Unsorted stay in the map so the page can read them, and the
+ * group list leaves both out of Spent.
+ */
 export function spentByCategoryKey(transactions: readonly InterpretedTransaction[]): Map<string, number> {
   const totals = new Map<string, number>();
   for (const txn of transactions) {
-    if (!isFiledMoneyOut(txn)) continue;
+    if (tileAmount(txn) >= 0) continue;
     const key = categoryOf(txn);
+    if (OFF_BUDGET_CATEGORIES.has(key)) continue;
     totals.set(key, roundMoney((totals.get(key) ?? 0) + Math.abs(tileAmount(txn))));
   }
   return totals;

@@ -13,6 +13,7 @@ import {
   parseMoneyInput,
   planTotals,
   spentByCategoryKey,
+  unsortedSpent,
   type BudgetGroupLine,
 } from "@/lib/money-flow/budget-plan";
 import { APP_TIME_ZONE, filterByPeriod, formatMonthLabel, shiftMonth } from "@/lib/money-flow/period";
@@ -35,6 +36,7 @@ export function BudgetingView() {
     [allTransactions, month],
   );
   const lines = budgetGroupLines(categoryBook, plan, spent);
+  const loose = unsortedSpent(categoryBook, spent);
   const totals = planTotals(lines);
   const toPlan = leftToPlan(plan.income ?? null, totals.planned);
   const toSpend = leftToSpend(totals.planned, totals.spent);
@@ -110,6 +112,11 @@ export function BudgetingView() {
             onCategory={(key, amount) => setCategoryBudget(month, key, amount)}
           />
         ))}
+      </div>
+
+      <div className="card mt-4 w-full p-5">
+        <p className="text-[15.5px] font-bold">Unsorted</p>
+        <p className="text-[12.5px] text-muted">{formatAud(loose)} spent</p>
       </div>
     </>
   );

@@ -1,18 +1,44 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 import { formatAud } from "@/lib/format";
 import { EMPTY_LEDGER, mergeLedgers, parseLedger } from "@/lib/money-flow/ledger";
+import { applyBook, defaultCategoryBook } from "@/lib/money-flow/category-book";
 import {
+  budgetGroupLines,
   countedGroupAmount,
+  emptyBudgetBook,
   groupShortfall,
   leftToPlan,
   leftToSpend,
+  monthPlan,
+  planTotals,
   ringRead,
   setCategoryAmount,
   setGroupAmount,
   setIncome,
-  emptyBudgetBook,
+  spentByCategoryKey,
+  unsortedSpent,
 } from "@/lib/money-flow/budget-plan";
+import type { InterpretedTransaction } from "@/lib/money-flow/types";
+
+afterEach(() => {
+  applyBook(null);
+});
+
+function txn(
+  over: Partial<InterpretedTransaction> & Pick<InterpretedTransaction, "id" | "amount">,
+): InterpretedTransaction {
+  return {
+    merchant: "Cafe",
+    categoryKey: "groceries",
+    date: "2026-10-06",
+    dateIso: "2026-10-06",
+    type: over.amount > 0 ? "earned" : "spent",
+    sourceFile: "demo.csv",
+    confidence: 1,
+    ...over,
+  };
+}
 
 describe("BV.A.2c group counting", () => {
   it("(a) income $3,000 with Eating Out $300 containing Coffee $60 leaves $2,700 to plan", () => {
@@ -85,5 +111,98 @@ describe("budget book storage", () => {
     const merged = mergeLedgers(ledger, other);
     assert.equal(merged.budgets?.months["2026-10"]?.groups["eating-out"], 300);
     assert.equal(merged.budgets?.months["2026-11"]?.income, 1000);
+  });
+});
+
+describe("budget page rows", () => {
+  it("leaves Income and Transfers off the page and out of Spent", () => {
+    applyBook(defaultCategoryBook());
+    const book = defaultCategoryBook();
+    const spent = spentByCategoryKey([
+      txn({ id: "pay", amount: -500, categoryKey: "salary" }),
+      txn({ id: "move", amount: -80, categoryKey: "transfers" }),
+    ]);
+    const lines = budgetGroupLines(book, monthPlan(emptyBudgetBook(), "2026-10"), spent);
+    const categories = lines.flatMap((line) => line.categories);
+    assert.equal(
+      lines.some((line) => line.id === "income" || line.label === "Income"),
+      false,
+    );
+    assert.equal(
+      lines.some((line) => line.id === "transfers" || line.label === "Transfers"),
+      false,
+    );
+    assert.equal(
+      categories.some((category) => category.key === "transfers" || category.label === "Transfers"),
+      false,
+    );
+    assert.equal(planTotals(lines).spent, 0);
+  });
+
+  it("counts an Investing debit in the Money moves ring and in Left to spend", () => {
+    applyBook(defaultCategoryBook());
+    const book = defaultCategoryBook();
+    const plan = monthPlan(emptyBudgetBook(), "2026-10");
+    const before = leftToSpend(0, planTotals(budgetGroupLines(book, plan, spentByCategoryKey([]))).spent);
+    const spent = spentByCategoryKey([txn({ id: "inv", amount: -100, categoryKey: "invest", type: "invested" })]);
+    const lines = budgetGroupLines(book, plan, spent);
+    const moves = lines.find((line) => line.id === "money-moves");
+    assert.ok(moves);
+    assert.equal(moves.categories.some((category) => category.key === "invest"), true);
+    assert.equal(moves.categories.some((category) => category.key === "debt-payments"), true);
+    assert.equal(moves.categories.some((category) => category.key === "transfers"), false);
+    assert.equal(moves.spent, 100);
+    assert.equal(moves.ring.fill, 1);
+    assert.equal(moves.ring.over, true);
+    const after = leftToSpend(planTotals(lines).planned, planTotals(lines).spent);
+    assert.equal(before.over, false);
+    assert.equal(before.amount, 0);
+    assert.equal(after.over, true);
+    assert.equal(after.amount, 100);
+    assert.equal(after.spent - before.spent, 100);
+
+    const debt = spentByCategoryKey([
+      txn({ id: "loan", amount: -40, categoryKey: "debt-payments", type: "repaid" }),
+    ]);
+    const debtLines = budgetGroupLines(book, plan, debt);
+    const debtMoves = debtLines.find((line) => line.id === "money-moves");
+    assert.equal(debtMoves?.spent, 40);
+    assert.equal(leftToSpend(planTotals(debtLines).planned, planTotals(debtLines).spent).amount, 40);
+  });
+
+  it("shows Unsorted $3,509.75 without counting it in Left to spend", () => {
+    applyBook(defaultCategoryBook());
+    const book = defaultCategoryBook();
+    const plan = monthPlan(setGroupAmount(emptyBudgetBook(), "2026-10", "unsorted", 500), "2026-10");
+    const spent = spentByCategoryKey([
+      txn({ id: "loose", amount: -3509.75, categoryKey: "uncategorised" }),
+    ]);
+    const lines = budgetGroupLines(book, plan, spent);
+    const loose = unsortedSpent(book, spent);
+    assert.equal(
+      lines.some((line) => line.id === "unsorted" || line.label === "Unsorted"),
+      false,
+    );
+    assert.equal(loose, 3509.75);
+    assert.equal(formatAud(loose), "$3,509.75");
+    const totals = planTotals(lines);
+    assert.equal(totals.planned, 0);
+    assert.equal(totals.spent, 0);
+    const left = leftToSpend(totals.planned, totals.spent);
+    assert.equal(left.amount, 0);
+    assert.equal(left.over, false);
+  });
+
+  it("counts $40 spent in an unplanned category against Left to spend", () => {
+    applyBook(defaultCategoryBook());
+    const book = defaultCategoryBook();
+    const plan = monthPlan(emptyBudgetBook(), "2026-10");
+    const spent = spentByCategoryKey([txn({ id: "shop", amount: -40, categoryKey: "groceries" })]);
+    const totals = planTotals(budgetGroupLines(book, plan, spent));
+    const left = leftToSpend(totals.planned, totals.spent);
+    assert.equal(totals.planned, 0);
+    assert.equal(left.over, true);
+    assert.equal(left.amount, 40);
+    assert.equal(left.spent, 40);
   });
 });
