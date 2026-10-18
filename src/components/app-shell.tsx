@@ -15,7 +15,7 @@ import { formatCount } from "@/lib/format";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const showPeriod = pathname !== "/settings" && pathname !== "/budgeting";
+  const showPeriod = pathname !== "/settings";
   const { dismissStarterReset, openReviewCount, ready, resetStarterData, starterResetNeeded } = useMoneyFlow();
 
   return (
@@ -50,31 +50,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </header>
-          {showPeriod ? <PeriodFilterBar /> : null}
           {ready && starterResetNeeded ? (
             <StarterResetPrompt onReset={resetStarterData} onDismiss={dismissStarterReset} />
           ) : null}
-          <div className="relative z-10 mx-auto w-full max-w-[1240px] px-5 py-7 pb-24 md:px-7 md:pb-10">
-            {openReviewCount > 0 ? (
-              <p className="mb-4">
-                <Link
-                  href="/review"
-                  className="rounded-[var(--radius-card)] bg-accent-surface px-3 py-1.5 text-sm font-semibold text-primary-strong"
-                >
-                  {formatCount(openReviewCount)} to review
+          <div className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pb-24 md:px-7 md:pb-10">
+            {showPeriod ? (
+              <div className="relative z-20 flex justify-end pt-7">
+                <PeriodFilterBar />
+              </div>
+            ) : null}
+            <div className="pt-7">
+              {openReviewCount > 0 ? (
+                <p className="mb-4">
+                  <Link
+                    href="/review"
+                    className="rounded-[var(--radius-card)] bg-accent-surface px-3 py-1.5 text-sm font-semibold text-primary-strong"
+                  >
+                    {formatCount(openReviewCount)} to review
+                  </Link>
+                </p>
+              ) : null}
+              {ready ? (
+                children
+              ) : (
+                <p className="text-muted">Reading the statements you have already added…</p>
+              )}
+              <p className="mt-16 text-center text-[12.5px] text-muted">
+                <Link href="/design-system" className="underline-offset-4 hover:underline">
+                  Design system
                 </Link>
               </p>
-            ) : null}
-            {ready ? (
-              children
-            ) : (
-              <p className="text-muted">Reading the statements you have already added…</p>
-            )}
-            <p className="mt-16 text-center text-[12.5px] text-muted">
-              <Link href="/design-system" className="underline-offset-4 hover:underline">
-                Design system
-              </Link>
-            </p>
+            </div>
           </div>
         </div>
       </div>
