@@ -8,8 +8,9 @@
  * The Budget page leaves out Income, Unsorted (and the old Other group), and
  * Transfers. Unsorted spending is shown on its own and stays out of Spent,
  * Left to plan, and Left to spend. Investing and Debt Payments stay in Money
- * moves and count in all three. Transfers never counts as Spent. Dashboard
- * spent bars keep their own rule and are not changed here.
+ * moves and count in all three. Transfers never counts as Spent. The dashboard
+ * Budget card reads the same groups. Unsorted, when it is shown there, is spent
+ * only and stays out of the planned total.
  */
 
 import { categoriesIn, type CategoryBook } from "@/lib/money-flow/category-book";
@@ -204,6 +205,69 @@ export function planTotals(lines: readonly BudgetGroupLine[]): { planned: number
   return {
     planned: roundMoney(lines.reduce((sum, line) => sum + line.counted, 0)),
     spent: roundMoney(lines.reduce((sum, line) => sum + line.spent, 0)),
+  };
+}
+
+export type DashboardBudgetTile = {
+  id: string;
+  label: string;
+  /** Unsorted is listed spent only: no plan, and no left or over. */
+  kind: "group" | "unsorted";
+  spent: number;
+  /**
+   * The group's planned amount: spent + left, or spent − over.
+   * Absent on Unsorted.
+   */
+  planned?: number;
+  /** Dollars still left, or dollars over. Absent on Unsorted. */
+  remainder?: number;
+  over?: boolean;
+};
+
+export type DashboardBudgetCard = {
+  tiles: DashboardBudgetTile[];
+  spent: number;
+  planned: number;
+  remainder: number;
+  over: boolean;
+};
+
+/**
+ * Read-only dashboard Budget card.
+ * Group plans are the counted amounts. Their sum is the header planned total.
+ * Unsorted is appended only when it has spending, and it is left out of both totals.
+ */
+export function dashboardBudgetCard(
+  book: CategoryBook,
+  plan: BudgetMonth,
+  spentByCategory: ReadonlyMap<string, number>,
+): DashboardBudgetCard {
+  const lines = budgetGroupLines(book, plan, spentByCategory);
+  const tiles: DashboardBudgetTile[] = lines.map((line) => {
+    const left = leftToSpend(line.counted, line.spent);
+    const planned = left.over ? roundMoney(line.spent - left.amount) : roundMoney(line.spent + left.amount);
+    return {
+      id: line.id,
+      label: line.label,
+      kind: "group",
+      spent: line.spent,
+      planned,
+      remainder: left.amount,
+      over: left.over,
+    };
+  });
+  const loose = unsortedSpent(book, spentByCategory);
+  if (loose > 0) {
+    tiles.push({ id: "unsorted", label: "Unsorted", kind: "unsorted", spent: loose });
+  }
+  const totals = planTotals(lines);
+  const header = leftToSpend(totals.planned, totals.spent);
+  return {
+    tiles,
+    spent: header.spent,
+    planned: header.planned,
+    remainder: header.amount,
+    over: header.over,
   };
 }
 
