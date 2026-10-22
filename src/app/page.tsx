@@ -124,7 +124,7 @@ export default function Home() {
               <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">Summary</p>
               <h3 className="mt-2 text-2xl">Money in and out</h3>
               <p className="mt-2 text-sm leading-6 text-muted">The two totals for a sample month.</p>
-              <p className="mt-4 text-xs font-semibold tracking-[0.14em] text-muted uppercase">Sample</p>
+              <p className="mt-4 text-xs font-semibold text-muted">Sample</p>
               <div className="mt-2 grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-muted">Money in</p>
@@ -144,7 +144,7 @@ export default function Home() {
               <p className="mt-2 text-sm leading-6 text-muted">
                 One group, with the left to spend figure centred above the ring.
               </p>
-              <p className="mt-4 text-xs font-semibold tracking-[0.14em] text-muted uppercase">Sample</p>
+              <p className="mt-4 text-xs font-semibold text-muted">Sample</p>
               <div className="mt-3 flex flex-col items-start gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">Housing</p>
@@ -158,7 +158,7 @@ export default function Home() {
               <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">Movements</p>
               <h3 className="mt-2 text-2xl">Ledger</h3>
               <p className="mt-2 text-sm leading-6 text-muted">Three rows from a sample statement.</p>
-              <p className="mt-4 text-xs font-semibold tracking-[0.14em] text-muted uppercase">Sample</p>
+              <p className="mt-4 text-xs font-semibold text-muted">Sample</p>
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full min-w-[32rem] border-collapse text-left text-[13px]">
                   <thead>
