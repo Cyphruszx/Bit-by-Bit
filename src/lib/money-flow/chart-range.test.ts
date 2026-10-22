@@ -254,6 +254,16 @@ describe("transactions chart range", () => {
     assert.match(html, /text-sm text-muted">No data for this month/);
     assert.match(html, /\$0\.00/);
     assert.doesNotMatch(html, /Cumulative/);
+
+    // The group chip row stays, greyed out and not tappable, so the card keeps its height.
+    const chips = [...html.matchAll(/<button\b[^>]*aria-disabled="true"[^>]*>([^<]*)</g)];
+    assert.ok(chips.length >= 2);
+    assert.equal(chips[0]?.[1], "All");
+    assert.ok(chips.some((chip) => chip[1] === "Food &amp; Drink"));
+    for (const chip of chips) {
+      assert.match(chip[0], /disabled=""/);
+      assert.match(chip[0], /opacity-40/);
+    }
   });
 
   it("renders Money in and 1M selected, with the curve starting on the $0 baseline", () => {

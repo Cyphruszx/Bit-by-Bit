@@ -3,7 +3,7 @@
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { LineChart, type LineChartSeries } from "@/components/line-chart";
 import { formatAud } from "@/lib/format";
-import { chartLabel } from "@/lib/money-flow/category-book";
+import { chartLabel, resolvedBook } from "@/lib/money-flow/category-book";
 import {
   CHART_SPANS,
   DEFAULT_CHART_RANGE,
@@ -112,7 +112,17 @@ export function TagChartCard({
       ) : (
         <FlowLineChart points={series.points} direction={direction} height={chartHeight} compact={compact} />
       )}
-      {primaries.length > 0 || subs.length > 0 ? (
+      {!series.hasData || series.points.length === 0 ? (
+        <div className={`${compact ? "mt-3 space-y-2" : "mt-5 space-y-3"}`} data-chips-placeholder>
+          <ChipRow label="Group" compact={compact}>
+            {["All", ...resolvedBook().groups.map((group) => group.id)].map((id) => (
+              <TagToggle key={id} active={false} disabled onClick={() => undefined} compact={compact}>
+                {id === "All" ? "All" : chartLabel(id)}
+              </TagToggle>
+            ))}
+          </ChipRow>
+        </div>
+      ) : primaries.length > 0 || subs.length > 0 ? (
         <div className={`${compact ? "mt-3 space-y-2" : "mt-5 space-y-3"}`}>
           <ChipRow label="Group" compact={compact}>
             <TagToggle active={selectedTag === "All"} onClick={() => onSelectTag("All")} compact={compact}>
@@ -198,18 +208,23 @@ function TagToggle({
   onClick,
   children,
   compact = false,
+  disabled = false,
 }: {
   active: boolean;
   onClick: () => void;
   children: string;
   compact?: boolean;
+  /** Placeholder chip in an empty range: keeps the card height, cannot be tapped. */
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
-      aria-pressed={active}
+      aria-pressed={disabled ? undefined : active}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
       onClick={onClick}
-      className={`rounded-full font-semibold ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
+      className={`rounded-full font-semibold ${disabled ? "pointer-events-none opacity-40" : ""} ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
         active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
       }`}
     >
