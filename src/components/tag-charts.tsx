@@ -116,7 +116,7 @@ export function TagChartCard({
         <div className={`${compact ? "mt-3 space-y-2" : "mt-5 space-y-3"}`} data-chips-placeholder>
           <ChipRow label="Group" compact={compact}>
             {["All", ...resolvedBook().groups.map((group) => group.id)].map((id) => (
-              <TagToggle key={id} active={false} disabled muted={isMutedGroup(id)} onClick={() => undefined} compact={compact}>
+              <TagToggle key={id} active={false} disabled onClick={() => undefined} compact={compact}>
                 {id === "All" ? "All" : chartLabel(id)}
               </TagToggle>
             ))}
@@ -132,7 +132,6 @@ export function TagChartCard({
               <TagToggle
                 key={name}
                 active={selectedTag === name}
-                muted={isMutedGroup(name)}
                 onClick={() => onSelectTag(nextTagSelection(selectedTag, name))}
                 compact={compact}
               >
@@ -204,17 +203,12 @@ function ChipRow({ label, children, compact = false }: { label: string; children
   );
 }
 
-function isMutedGroup(id: string): boolean {
-  return id === "transfers" || id === "unsorted" || id === "misc";
-}
-
 function TagToggle({
   active,
   onClick,
   children,
   compact = false,
   disabled = false,
-  muted = false,
 }: {
   active: boolean;
   onClick: () => void;
@@ -222,8 +216,6 @@ function TagToggle({
   compact?: boolean;
   /** Placeholder chip in an empty range: keeps the card height, cannot be tapped. */
   disabled?: boolean;
-  /** Transfers and Unsorted read quieter than spending groups. */
-  muted?: boolean;
 }) {
   return (
     <button
@@ -233,7 +225,7 @@ function TagToggle({
       disabled={disabled}
       onClick={onClick}
       className={`rounded-full font-semibold ${disabled ? "pointer-events-none opacity-40" : ""} ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
-        active ? "bg-primary text-on-primary" : `border border-line bg-surface ${muted ? "text-muted" : "text-ink-soft"}`
+        active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
       }`}
     >
       {children}
