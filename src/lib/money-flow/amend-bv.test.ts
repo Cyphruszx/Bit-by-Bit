@@ -129,7 +129,7 @@ describe("Amend BV cash tiles stay Money in minus Money out", () => {
 });
 
 describe("Amend BV money moves and interest", () => {
-  it("(d) files a detected transfer and a loan payment into Money moves", () => {
+  it("(d) files a detected transfer under Transfers; loan and invest count as money out", () => {
     applyBook(defaultCategoryBook());
     const transfer = classifyKnownInternalTransfer(
       txn({ id: "move", amount: -30, type: "TRANSFER", categoryKey: "uncategorised" }),
@@ -152,15 +152,15 @@ describe("Amend BV money moves and interest", () => {
 
     assert.equal(filed(categorize("PLENTI REPAYMENT", -220)), "debt-payments");
     assert.equal(filed(categorize("VANGUARD BUY", -50)), "invest");
-    assert.equal(isFiledMoneyOut(txn({ id: "loan", amount: -220, categoryKey: "debt-payments", type: "repaid" })), false);
-    assert.equal(isFiledMoneyOut(txn({ id: "inv", amount: -50, categoryKey: "invest", type: "invested" })), false);
+    assert.equal(isFiledMoneyOut(txn({ id: "loan", amount: -220, categoryKey: "debt-payments", type: "repaid" })), true);
+    assert.equal(isFiledMoneyOut(txn({ id: "inv", amount: -50, categoryKey: "invest", type: "invested" })), true);
 
     const loanCash = summarizeMoneyFlow([
       txn({ id: "loan", amount: -220, categoryKey: "debt-payments", type: "repaid" }),
       txn({ id: "shop", amount: -15, categoryKey: "groceries", type: "spent" }),
     ]);
     assert.equal(loanCash.cashOut, 235, "a loan payment still leaves the account");
-    assert.equal(loanCash.categories.reduce((sum, row) => sum + row.amount, 0), 15);
+    assert.equal(loanCash.categories.reduce((sum, row) => sum + row.amount, 0), 235, "Money moves now shows in the spent bars");
   });
 
   it("files interest charged to Bank Fees and interest earned to Other Income, not income", () => {
@@ -201,10 +201,10 @@ describe("Amend BV money moves and interest", () => {
 });
 
 describe("Amend BV starter list", () => {
-  it("ships 13 groups and every category named in the table", () => {
+  it("ships 14 groups and every category named in the table", () => {
     const book = defaultCategoryBook();
     assert.equal(book.starterListVersion, STARTER_LIST_VERSION);
-    assert.equal(book.groups.length, 13);
+    assert.equal(book.groups.length, 14);
     assert.equal(book.categories.length, 29);
     assert.equal(book.groups.find((group) => group.id === "money-moves")?.label, "Money moves");
     assert.equal(book.groups.find((group) => group.id === "food")?.label, "Food & Drink");

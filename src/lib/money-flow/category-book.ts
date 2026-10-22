@@ -62,7 +62,8 @@ const STARTER_GROUPS: GroupSpec[] = [
   { id: "family", label: "Family", keys: ["education-childcare", "pets"] },
   { id: "lifestyle", label: "Lifestyle", keys: ["entertainment", "travel", "donations"] },
   { id: "admin", label: "Admin & Fees", keys: ["insurance", "bank-fees", "government-tax"] },
-  { id: "money-moves", label: "Money moves", keys: ["invest", "debt-payments", "transfers"] },
+  { id: "money-moves", label: "Money moves", keys: ["invest", "debt-payments"] },
+  { id: "transfers", label: "Transfers", keys: ["transfers"] },
   { id: "unsorted", label: "Unsorted", keys: [OTHER, UNCATEGORISED] },
 ];
 
@@ -134,7 +135,8 @@ function isStoredBook(value: unknown): value is CategoryBook {
  * A stored book, with any missing built-in keys from *its* starter list put back.
  * An older list is not filled with the new categories — only Reset loads those.
  */
-export function resolveBook(stored: CategoryBook | null | undefined, version?: number): CategoryBook {
+export function resolveBook(input: CategoryBook | null | undefined, version?: number): CategoryBook {
+  const stored = input ? withTransfersGroup(input) : input;
   const explicit = version ?? stored?.starterListVersion;
   const useLegacy = explicit != null ? explicit < STARTER_LIST_VERSION : Boolean(stored);
   const base = useLegacy ? legacyCategoryBook() : defaultCategoryBook();
@@ -163,6 +165,31 @@ export function resolveBook(stored: CategoryBook | null | undefined, version?: n
       })),
       ...missing,
     ],
+  };
+}
+
+const TRANSFERS_GROUP: BookGroup = { id: "transfers", label: "Transfers" };
+
+/**
+ * Saved books from before the Transfers split kept `transfers` inside Money moves.
+ * Move only that key into its own Transfers group, placed just before Unsorted (or last).
+ * Category keys, labels, and filed rows are untouched. Running it twice changes nothing.
+ */
+export function withTransfersGroup(book: CategoryBook): CategoryBook {
+  const held = book.categories.find((category) => category.key === "transfers");
+  if (!held || held.groupId !== "money-moves") return book;
+  const hasGroup = book.groups.some((group) => group.id === TRANSFERS_GROUP.id);
+  let groups = book.groups.map((group) => ({ ...group }));
+  if (!hasGroup) {
+    const at = groups.findIndex((group) => group.id === "unsorted" || group.id === "misc");
+    groups = at < 0 ? [...groups, { ...TRANSFERS_GROUP }] : [...groups.slice(0, at), { ...TRANSFERS_GROUP }, ...groups.slice(at)];
+  }
+  return {
+    ...book,
+    groups,
+    categories: book.categories.map((category) =>
+      category.key === "transfers" ? { ...category, groupId: TRANSFERS_GROUP.id } : { ...category },
+    ),
   };
 }
 
@@ -407,7 +434,9 @@ function isCategory(value: unknown): value is BookCategory {
 
 function typesForGroup(groupId: string): { inType: TransactionType; outType: TransactionType } {
   if (groupId === "income") return { inType: "earned", outType: "adjusted" };
-  if (groupId === "money-moves" || groupId === "transfers") return { inType: "moved", outType: "moved" };
+  if (groupId === "transfers") return { inType: "moved", outType: "moved" };
+  // Investing and Debt Payments count in Money out, so a new category here is not a transfer.
+  if (groupId === "money-moves") return { inType: "earned", outType: "invested" };
   return { inType: "earned", outType: "spent" };
 }
 

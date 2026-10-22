@@ -185,11 +185,12 @@ export function isSpending(txn: InterpretedTransaction): boolean {
 }
 
 /** Groups that never count as spent (Amend BV.G.3). Transfers are named, not inferred from type. */
-const OFF_SPEND_BARS = new Set(["money-moves", "transfers"]);
+const OFF_SPEND_BARS = new Set(["transfers"]);
 
 /**
  * Money out filed under a category or group. Debits only. Refunds are credits, so they
- * are not subtracted. Money moves (including Transfers) are left out by group.
+ * are not subtracted. Only the Transfers group is left out; Money moves (Investing,
+ * Debt Payments) counts.
  */
 export function isFiledMoneyOut(txn: InterpretedTransaction): boolean {
   if (tileAmount(txn) >= 0) return false;
@@ -253,9 +254,13 @@ export function matches(txn: InterpretedTransaction, selected: string): boolean 
 }
 
 /** Every group present, for the chart chips. Keyed, so a rename cannot orphan a selection. */
+const TAIL_GROUPS = ["transfers", "unsorted", "misc"];
+
+/** Alphabetical, then Transfers, then Unsorted last. */
 export function selectableGroups(transactions: InterpretedTransaction[]): string[] {
+  const rank = (id: string) => TAIL_GROUPS.indexOf(id);
   return [...new Set(transactions.map((txn) => groupOf(categoryOf(txn))))].sort((a, b) =>
-    chartLabel(a).localeCompare(chartLabel(b)),
+    rank(a) - rank(b) || chartLabel(a).localeCompare(chartLabel(b)),
   );
 }
 
