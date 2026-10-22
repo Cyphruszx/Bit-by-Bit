@@ -61,7 +61,7 @@ import {
   undeferReviewItem,
   type ReviewItem,
 } from "@/lib/money-flow/review-queue";
-import { ALL_PERIOD, filterByPeriod, parsePeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
+import { currentMonthPeriod, filterByPeriod, summarizePeriod, type PeriodFilter } from "@/lib/money-flow/period";
 import { bumpPeriodRevision } from "@/lib/money-flow/period-revision";
 import {
   fileAsLoanDrawdown,
@@ -100,7 +100,8 @@ import {
   type AccountPoolMember,
 } from "@/lib/money-flow/pools";
 
-const PERIOD_KEY = "bitbybit.period-v1";
+/** Older builds kept the period here; it is cleared so the app always opens on this month. */
+const LEGACY_PERIOD_KEY = "bitbybit.period-v1";
 
 type Snapshot = {
   ledger: Ledger;
@@ -114,8 +115,8 @@ const periodListeners = new Set<() => void>();
 let snapshot: Snapshot = EMPTY_SNAPSHOT;
 let store: LedgerStore | null = null;
 let loading: Promise<void> | null = null;
-let cachedPeriodRaw: string | null = null;
-let cachedPeriod: PeriodFilter = ALL_PERIOD;
+/** Shared by Dashboard, Transactions and Budget for this visit only. A fresh load opens on the current month. */
+let currentPeriod: PeriodFilter | null = null;
 
 type MoneyFlowState = {
   files: FileInterpretation[];
@@ -226,7 +227,7 @@ const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
 
 export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
   const held = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_SNAPSHOT);
-  const period = useSyncExternalStore(subscribePeriod, getPeriod, () => ALL_PERIOD);
+  const period = useSyncExternalStore(subscribePeriod, getPeriod, getServerPeriod);
   const [starterDismissed, setStarterDismissed] = useState(false);
 
   useEffect(() => {
@@ -441,7 +442,7 @@ export function applyRemoteLedger(remote: Ledger): void {
   const before = snapshot.ledger.entries.length;
   const merged = persistTaxonomy(mergeLedgers(snapshot.ledger, remote));
   commit(merged);
-  if (merged.entries.length > before) writePeriod(ALL_PERIOD);
+  if (merged.entries.length > before) writePeriod(currentMonthPeriod());
 }
 
 function commit(next: Ledger) {
@@ -455,8 +456,8 @@ function commit(next: Ledger) {
 function importDocuments(result: InterpretationResult, hashes?: Record<string, string>): ImportReport {
   const { ledger: next, report } = appendToLedger(snapshot.ledger, result, { hashes });
   commit(next);
-  // A new statement usually lands outside whatever month was being viewed.
-  if (report.added > 0) writePeriod(ALL_PERIOD);
+  // After an import the page goes back to the current month, even when the statement is older.
+  if (report.added > 0) writePeriod(currentMonthPeriod());
   return report;
 }
 
@@ -560,23 +561,25 @@ function clearLedger() {
 }
 
 function getPeriod(): PeriodFilter {
-  try {
-    const raw = localStorage.getItem(PERIOD_KEY);
-    if (raw === cachedPeriodRaw) return cachedPeriod;
-    cachedPeriodRaw = raw;
-    cachedPeriod = raw ? parsePeriod(JSON.parse(raw)) : ALL_PERIOD;
-    return cachedPeriod;
-  } catch {
-    cachedPeriod = ALL_PERIOD;
-    return ALL_PERIOD;
+  if (!currentPeriod) {
+    currentPeriod = currentMonthPeriod();
+    try {
+      localStorage.removeItem(LEGACY_PERIOD_KEY);
+    } catch {
+      // Storage can be unavailable; the period lives in memory either way.
+    }
   }
+  return currentPeriod;
+}
+
+let serverPeriod: PeriodFilter | null = null;
+function getServerPeriod(): PeriodFilter {
+  serverPeriod ??= currentMonthPeriod();
+  return serverPeriod;
 }
 
 function writePeriod(period: PeriodFilter) {
-  const raw = JSON.stringify(period);
-  localStorage.setItem(PERIOD_KEY, raw);
-  cachedPeriodRaw = raw;
-  cachedPeriod = period;
+  currentPeriod = period;
   bumpPeriodRevision();
   periodListeners.forEach((listener) => listener());
 }

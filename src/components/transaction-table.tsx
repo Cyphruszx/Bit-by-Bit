@@ -38,7 +38,8 @@ export function TransactionTable({
   onTagChange?: (tag: string) => void;
 }) {
   const { accountNames, allTransactions, institutionOverrides, payers, mergedInto,
-    setTransactionCategory } = useMoneyFlow();
+    setTransactionCategory, period } = useMoneyFlow();
+  const emptyMessage = period.kind === "month" ? "No data for this month" : "No data for this period";
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
     [accountNames, institutionOverrides, payers, mergedInto],
@@ -163,9 +164,13 @@ export function TransactionTable({
         </div>
       </div>
       {rows.length === 0 ? (
-        <p className="mt-3 py-5 text-sm text-muted">
-          {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
-        </p>
+        transactions.length === 0 ? (
+          <div className="mt-3 flex min-h-40 items-center justify-center" data-ledger-empty>
+            <p className="text-center text-sm text-muted">{emptyMessage}</p>
+          </div>
+        ) : (
+          <p className="mt-3 py-5 text-sm text-muted">No transactions match that search.</p>
+        )
       ) : (
         <div className="mt-3 overflow-x-auto rounded-[var(--radius-inner)] border border-surface-subtle">
           <table className="w-full min-w-[40rem] table-fixed border-collapse text-left">

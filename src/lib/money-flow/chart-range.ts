@@ -26,13 +26,19 @@ export const CHART_SPANS: ChartSpan[] = ["1W", "1M", "3M", "6M", "All"];
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const SHORT_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
-/** Daily while a window still fits on the card; longer ranges (All) collapse to months. */
-const MAX_DAILY_SPAN = 184;
+export type ChartBucket = "day" | "week" | "month";
 
-export type CumulativePoint = {
+export type ChartPoint = {
   key: string;
   label: string;
   value: number;
+};
+
+/** One point per bucket, the range's own total, and whether any counted row fell in the range. */
+export type FlowSeries = {
+  points: ChartPoint[];
+  total: number;
+  hasData: boolean;
 };
 
 export function sydneyDay(now = new Date()): string {
@@ -86,53 +92,62 @@ export function spanWindow(span: ChartSpan, anchorDay: string): PeriodFilter {
 }
 
 /**
- * One rising total for the chosen direction. The first point is $0 at the start of the window,
- * then each bucket adds that direction only.
+ * Bucket size for the line: daily for 1W and 1M, Monday-start weeks for 3M, months for 6M and All.
+ * The page period on its own reads as daily for a month or a short custom range.
+ */
+export function chartBucket(mode: ChartRangeMode, window: PeriodFilter): ChartBucket {
+  if (mode.kind === "span") {
+    if (mode.span === "1W" || mode.span === "1M") return "day";
+    return mode.span === "3M" ? "week" : "month";
+  }
+  if (window.kind === "all") return "month";
+  if (window.kind === "month") return "day";
+  const from = window.from <= window.to ? window.from : window.to;
+  const to = window.from <= window.to ? window.to : window.from;
+  const days = spanInDays(from, to);
+  return days <= 45 ? "day" : days <= 120 ? "week" : "month";
+}
+
+/**
+ * Each point is that bucket's own money in or out, not a running total. Past buckets with
+ * nothing in them sit at $0, and the line stops at today: no points for future buckets.
  *
  * The rows are the same ones the Money in and Money out cards add: statement `amount` by
  * sign, internal transfers left out, for this window and bank selection. Income verdicts
  * and spend groups do not decide the line.
  */
-export function cumulativeLine(
+export function flowSeries(
   transactions: InterpretedTransaction[],
   direction: ChartDirection,
   window: PeriodFilter,
+  bucket: ChartBucket,
+  today: string,
   selected = "All",
-): CumulativePoint[] {
+): FlowSeries {
   const rows = filterByPeriod(excludingInternalTransfers(transactions), window).filter(
     (txn) => selected === "All" || matches(txn, selected),
   );
-  const bounds = windowBounds(window, rows);
-  if (!bounds) return [];
-
+  let total = 0;
   const totals = new Map<string, number>();
-  const byDay = spanInDays(bounds.from, bounds.to) <= MAX_DAILY_SPAN;
   for (const txn of rows) {
     const amount = directionAmount(txn, direction);
     if (amount === 0) continue;
-    const key = calendarDate(txn.dateIso).slice(0, byDay ? 10 : 7);
+    total += amount;
+    const key = bucketKey(calendarDate(txn.dateIso), bucket);
     totals.set(key, (totals.get(key) ?? 0) + amount);
   }
+  const hasData = rows.length > 0;
+  const bounds = windowBounds(window, rows, today);
+  if (!bounds) return { points: [], total: roundMoney(total), hasData };
 
-  const keys = byDay ? daySpan(bounds.from, bounds.to) : monthSpan(bounds.from.slice(0, 7), bounds.to.slice(0, 7));
-  const points: CumulativePoint[] = [
-    {
-      // Sorts ahead of the YYYY-MM-DD bucket keys so the $0 point stays at the left edge.
-      key: `#${bounds.from}`,
-      label: byDay ? formatChartDate(bounds.from) : monthLabelFromKey(bounds.from.slice(0, 7)),
-      value: 0,
-    },
-  ];
-  let running = 0;
-  for (const key of keys) {
-    running += totals.get(key) ?? 0;
-    points.push({
-      key,
-      label: byDay ? formatChartDate(key) : monthLabelFromKey(key),
-      value: roundMoney(running),
-    });
+  const last = bounds.to < today ? bounds.to : today;
+  const points: ChartPoint[] = [];
+  if (bounds.from <= last) {
+    for (const key of bucketKeys(bounds.from, last, bucket)) {
+      points.push({ key, label: bucketLabel(key, bucket), value: roundMoney(totals.get(key) ?? 0) });
+    }
   }
-  return points;
+  return { points, total: roundMoney(total), hasData };
 }
 
 /** Three labels: $0, the halfway mark, and a rounded ceiling the series fits under. */
@@ -171,6 +186,7 @@ function directionAmount(txn: InterpretedTransaction, direction: ChartDirection)
 function windowBounds(
   window: PeriodFilter,
   rows: InterpretedTransaction[],
+  today: string,
 ): { from: string; to: string } | null {
   if (window.kind === "month") return monthBounds(window.month);
   if (window.kind === "range") {
@@ -183,8 +199,10 @@ function windowBounds(
     .filter((day) => ISO_DAY.test(day))
     .sort();
   const from = days[0];
-  const to = days[days.length - 1];
-  return from && to ? { from, to } : null;
+  const newest = days[days.length - 1];
+  if (!from || !newest) return null;
+  // All runs up to today so quiet months since the last import read as $0.
+  return { from, to: newest > today ? newest : today };
 }
 
 function addDays(iso: string, delta: number): string {
@@ -199,6 +217,33 @@ function spanInDays(from: string, to: string): number {
   const end = Date.parse(`${to}T00:00:00Z`);
   if (Number.isNaN(start) || Number.isNaN(end)) return Number.POSITIVE_INFINITY;
   return Math.round((end - start) / 86_400_000);
+}
+
+function bucketKey(day: string, bucket: ChartBucket): string {
+  if (bucket === "day") return day;
+  if (bucket === "month") return day.slice(0, 7);
+  return mondayOf(day);
+}
+
+/** Monday on or before the day: weeks start on Monday. */
+function mondayOf(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, (month ?? 1) - 1, date ?? 1)).getUTCDay();
+  return addDays(day, -((weekday + 6) % 7));
+}
+
+function bucketKeys(from: string, to: string, bucket: ChartBucket): string[] {
+  if (bucket === "month") return monthSpan(from.slice(0, 7), to.slice(0, 7));
+  if (bucket === "day") return daySpan(from, to);
+  const keys: string[] = [];
+  for (let week = mondayOf(from); week <= to && keys.length < 600; week = addDays(week, 7)) keys.push(week);
+  return keys;
+}
+
+function bucketLabel(key: string, bucket: ChartBucket): string {
+  if (bucket === "month") return monthLabelFromKey(key);
+  if (bucket === "week") return `Week of ${formatChartDate(key)}`;
+  return formatChartDate(key);
 }
 
 function daySpan(from: string, to: string): string[] {

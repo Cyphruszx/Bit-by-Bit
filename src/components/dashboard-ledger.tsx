@@ -26,7 +26,9 @@ export function DashboardLedger({
         </Link>
       </div>
       {rows.length === 0 ? (
-        <p className="px-[22px] pb-5 text-sm text-muted">No movements in this period.</p>
+        <div className="flex min-h-40 items-center justify-center px-[22px] pb-5" data-ledger-empty>
+          <p className="text-center text-sm text-muted">No data for this month</p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[13px]">

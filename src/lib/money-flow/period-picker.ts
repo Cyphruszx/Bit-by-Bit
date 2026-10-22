@@ -6,6 +6,7 @@ import {
   monthBounds,
   monthKey,
   monthsFromDates,
+  shiftMonth,
   type PeriodFilter,
 } from "@/lib/money-flow/period";
 
@@ -31,22 +32,31 @@ export function sydneyMonthKey(now = new Date()): string {
   return now.toLocaleDateString("en-CA", { timeZone: APP_TIME_ZONE }).slice(0, 7);
 }
 
+/** How far the month list reaches either side of today when there is no data out there. */
+export const PICKER_MONTHS_BACK = 24;
+export const PICKER_MONTHS_AHEAD = 12;
+
 /**
- * Months with activity, newest first. The month already on screen stays in the list
- * even when that month has no rows yet, so a stored month is never dropped.
+ * Every month the reader can open, newest first, with no gaps. Imports do not limit it:
+ * the list runs from two years back (or the oldest activity, if older) to a year ahead,
+ * and always includes the month on screen.
  */
-export function monthsForPicker(dateIsos: string[], period: PeriodFilter): string[] {
+export function monthsForPicker(dateIsos: string[], period: PeriodFilter, todayMonth = sydneyMonthKey()): string[] {
   const fromData = monthsFromDates(dateIsos);
-  if (period.kind === "month" && !fromData.includes(period.month)) {
-    return [period.month, ...fromData].sort((a, b) => b.localeCompare(a));
-  }
-  return fromData;
+  const ends = [shiftMonth(todayMonth, -PICKER_MONTHS_BACK), shiftMonth(todayMonth, PICKER_MONTHS_AHEAD), ...fromData];
+  if (period.kind === "month") ends.push(period.month);
+  ends.sort();
+  const oldest = ends[0]!;
+  const newest = ends[ends.length - 1]!;
+  const months: string[] = [];
+  for (let month = newest; month >= oldest && months.length < 600; month = shiftMonth(month, -1)) months.push(month);
+  return months;
 }
 
-/** The month Last 12 months is counted back from: the open month, else the newest activity month. */
-export function anchorMonth(period: PeriodFilter, months: string[], todayMonth: string): string {
+/** The month Last 12 months is counted back from: the open month, else the current month. */
+export function anchorMonth(period: PeriodFilter, _months: string[], todayMonth: string): string {
   if (period.kind === "month") return period.month;
-  return months[0] ?? todayMonth;
+  return todayMonth;
 }
 
 /** A range that is exactly twelve calendar months ending on its own last day. */

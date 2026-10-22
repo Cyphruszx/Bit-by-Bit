@@ -2,13 +2,15 @@
 
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { LineChart, type LineChartSeries } from "@/components/line-chart";
+import { formatAud } from "@/lib/format";
 import { chartLabel } from "@/lib/money-flow/category-book";
 import {
   CHART_SPANS,
   DEFAULT_CHART_RANGE,
   chartModeForRevision,
   chartWindow,
-  cumulativeLine,
+  chartBucket,
+  flowSeries,
   highlightedSpan,
   sydneyDay,
   type ChartDirection,
@@ -56,10 +58,13 @@ export function TagChartCard({
   const today = sydneyDay();
   const range = chartWindow(activeMode, pagePeriod, today);
   const span = highlightedSpan(activeMode, pagePeriod);
-  const points = useMemo(
-    () => cumulativeLine(transactions, direction, range, selectedTag),
-    [direction, range, selectedTag, transactions],
+  const bucket = chartBucket(activeMode, range);
+  const series = useMemo(
+    () => flowSeries(transactions, direction, range, bucket, today, selectedTag),
+    [bucket, direction, range, selectedTag, today, transactions],
   );
+  const emptyMessage = range.kind === "month" || pagePeriod.kind === "month" ? "No data for this month" : "No data for this period";
+  const chartHeight = compact ? 180 : 220;
   const windowed = useMemo(
     () => filterByPeriod(countedMovements(transactions), range),
     [range, transactions],
@@ -92,10 +97,20 @@ export function TagChartCard({
           />
         </div>
       </div>
-      {points.length === 0 ? (
-        <p className={`${compact ? "mt-3" : "mt-5"} text-sm text-muted`}>No money in this period.</p>
+      <p className={`${compact ? "mt-2" : "mt-3"} text-sm text-ink-soft`} data-chart-total>
+        {direction === "in" ? "Money in" : "Money out"} for this range:{" "}
+        <span className="font-semibold text-ink">{formatAud(series.total)}</span>
+      </p>
+      {!series.hasData || series.points.length === 0 ? (
+        <div
+          className={`${compact ? "mt-3" : "mt-5"} flex items-center justify-center`}
+          style={{ height: chartHeight }}
+          data-chart-empty
+        >
+          <p className="text-center text-sm text-muted">{emptyMessage}</p>
+        </div>
       ) : (
-        <FlowLineChart points={points} direction={direction} compact={compact} />
+        <FlowLineChart points={series.points} direction={direction} height={chartHeight} compact={compact} />
       )}
       {primaries.length > 0 || subs.length > 0 ? (
         <div className={`${compact ? "mt-3 space-y-2" : "mt-5 space-y-3"}`}>
@@ -206,10 +221,12 @@ function TagToggle({
 function FlowLineChart({
   points,
   direction,
+  height,
   compact = false,
 }: {
   points: Array<{ key: string; label: string; value: number }>;
   direction: ChartDirection;
+  height: number;
   compact?: boolean;
 }) {
   const series: LineChartSeries[] = [
@@ -225,8 +242,8 @@ function FlowLineChart({
     <div className={compact ? "mt-3" : "mt-5"}>
       <LineChart
         series={series}
-        height={compact ? 180 : 220}
-        ariaLabel={direction === "in" ? "Cumulative money in by group" : "Cumulative money out by group"}
+        height={height}
+        ariaLabel={direction === "in" ? "Money in per period by group" : "Money out per period by group"}
         showPoints={false}
         smooth
         frame="minimal"

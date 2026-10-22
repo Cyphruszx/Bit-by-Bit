@@ -9,10 +9,12 @@ import {
   chartModeForRevision,
   chartScale,
   chartWindow,
-  cumulativeLine,
+  chartBucket,
+  flowSeries,
   formatChartAxis,
   highlightedSpan,
   spanWindow,
+  sydneyDay,
 } from "./chart-range";
 import { filterByScope } from "./scope";
 import { filterByPeriod } from "./period";
@@ -135,77 +137,123 @@ describe("transactions chart range", () => {
     assert.equal(formatChartAxis(4000), "$4k");
   });
 
-  it("starts the cumulative line at $0 and swaps money in for money out", () => {
+  it("plots each day's own money, not a running total, and swaps money in for money out", () => {
     const rows = [
       txn("pay", "2026-10-02", 1200, "salary"),
       txn("shop", "2026-10-06", -80, "groceries"),
+      txn("shop2", "2026-10-06", -20, "groceries"),
       txn("fare", "2026-10-11", -22, "transport"),
       { ...txn("move", "2026-10-08", 400, "transfers"), transferPair: "pocket" },
     ];
     const window = { kind: "range" as const, from: "2026-10-01", to: "2026-10-31" };
-    const moneyIn = cumulativeLine(rows, "in", window);
-    const moneyOut = cumulativeLine(rows, "out", window);
-    assert.equal(moneyIn[0]?.value, 0);
-    assert.equal(moneyIn[0]?.key.startsWith("#"), true);
-    assert.equal(moneyOut[0]?.value, 0);
-    assert.equal(moneyIn.at(-1)?.value, 1200);
-    assert.equal(moneyOut.at(-1)?.value, 102);
-    assert.ok(moneyIn.slice(1, 2)[0]?.value === 0);
-    const paid = moneyIn.find((point) => point.key === "2026-10-02");
-    assert.equal(paid?.value, 1200);
-    assert.equal(moneyOut.find((point) => point.key === "2026-10-02")?.value, 0);
-    assert.equal(moneyOut.find((point) => point.key === "2026-10-06")?.value, 80);
+    const moneyIn = flowSeries(rows, "in", window, "day", "2026-10-31");
+    const moneyOut = flowSeries(rows, "out", window, "day", "2026-10-31");
+    assert.equal(moneyIn.points.length, 31);
+    assert.equal(moneyIn.points[0]?.value, 0);
+    assert.equal(moneyIn.points.find((p) => p.key === "2026-10-02")?.value, 1200);
+    assert.equal(moneyIn.points.find((p) => p.key === "2026-10-03")?.value, 0);
+    assert.equal(moneyIn.points.find((p) => p.key === "2026-10-08")?.value, 0, "transfers stay out");
+    assert.equal(moneyIn.total, 1200);
+    assert.equal(moneyOut.points.find((p) => p.key === "2026-10-06")?.value, 100);
+    assert.equal(moneyOut.points.find((p) => p.key === "2026-10-11")?.value, 22);
+    assert.equal(moneyOut.points.at(-1)?.value, 0);
+    assert.equal(moneyOut.total, 122);
   });
 
-  it("matches the Money in and Money out cards for the same period and bank", () => {
+  it("stops the line at today and fills past quiet days with $0", () => {
+    const rows = [txn("pay", "2026-10-02", 1200, "salary")];
+    const october = { kind: "month" as const, month: "2026-10" };
+    const series = flowSeries(rows, "in", october, "day", "2026-10-22");
+    assert.equal(series.points.length, 22);
+    assert.equal(series.points.at(-1)?.key, "2026-10-22");
+    assert.equal(series.points.at(-1)?.value, 0);
+
+    const november = flowSeries(rows, "in", { kind: "month", month: "2026-11" }, "day", "2026-10-22");
+    assert.deepEqual(november.points, []);
+    assert.equal(november.hasData, false);
+    assert.equal(november.total, 0);
+
+    const quiet = flowSeries([], "in", { kind: "month", month: "2026-09" }, "day", "2026-10-22");
+    assert.equal(quiet.hasData, false);
+  });
+
+  it("picks daily, Monday weeks, or months by span", () => {
+    const page = { kind: "month" as const, month: "2026-10" };
+    assert.equal(chartBucket({ kind: "span", span: "1W" }, page), "day");
+    assert.equal(chartBucket({ kind: "span", span: "1M" }, page), "day");
+    assert.equal(chartBucket({ kind: "span", span: "3M" }, page), "week");
+    assert.equal(chartBucket({ kind: "span", span: "6M" }, page), "month");
+    assert.equal(chartBucket({ kind: "span", span: "All" }, page), "month");
+    assert.equal(chartBucket({ kind: "page" }, page), "day");
+    assert.equal(chartBucket({ kind: "page" }, { kind: "all" }), "month");
+
+    const rows = [
+      txn("a", "2026-08-02", 10, "salary"), // Sunday: week of Mon 27 Jul
+      txn("b", "2026-08-03", 20, "salary"), // Monday: new week
+      txn("c", "2026-08-09", 5, "salary"), // Sunday: same week as b
+    ];
+    const window = { kind: "range" as const, from: "2026-08-01", to: "2026-10-31" };
+    const weekly = flowSeries(rows, "in", window, "week", "2026-10-22");
+    assert.equal(weekly.points[0]?.key, "2026-07-27");
+    assert.equal(weekly.points[0]?.value, 10);
+    assert.equal(weekly.points.find((p) => p.key === "2026-08-03")?.value, 25);
+    assert.equal(weekly.points.at(-1)?.key, "2026-10-19");
+    assert.equal(weekly.total, 35);
+
+    const monthly = flowSeries(rows, "in", { kind: "all" }, "month", "2026-10-22");
+    assert.deepEqual(
+      monthly.points.map((p) => [p.key, p.value]),
+      [
+        ["2026-08", 35],
+        ["2026-09", 0],
+        ["2026-10", 0],
+      ],
+    );
+  });
+
+  it("totals match the Money in and Money out cards for the same period and bank", () => {
     const rows = mixedLedger();
     const nab = filterByScope(rows, { kind: "institution", institution: "NAB" });
+    const today = "2026-10-18";
     const august = { kind: "month" as const, month: "2026-08" };
     const augustFlow = summarizeMoneyFlow(filterByPeriod(nab, august));
-    const moneyIn = cumulativeLine(nab, "in", august);
-    const moneyOut = cumulativeLine(nab, "out", august);
-
     assert.equal(augustFlow.cashIn, 29282.95);
     assert.equal(augustFlow.cashOut, 2330.1);
-    assert.equal(moneyIn[0]?.value, 0);
-    assert.equal(moneyIn.at(-1)?.value, augustFlow.cashIn);
-    assert.equal(moneyOut.at(-1)?.value, augustFlow.cashOut);
+    assert.equal(flowSeries(nab, "in", august, "day", today).total, augustFlow.cashIn);
+    assert.equal(flowSeries(nab, "out", august, "day", today).total, augustFlow.cashOut);
     assert.equal(augustFlow.income, 0);
 
-    const sparse = cumulativeLine(
-      nab.filter((row) => row.id === "nab-interest"),
-      "in",
-      august,
-    );
-    assert.equal(sparse.find((point) => point.key === "2026-08-14")?.value, 0);
-    assert.equal(sparse.find((point) => point.key === "2026-08-15")?.value, 12.4);
-    assert.equal(sparse.at(-1)?.value, 12.4);
-
-    const june = { kind: "month" as const, month: "2026-06" };
-    const juneWindow = chartWindow({ kind: "span", span: "1M" }, june, "2026-10-18");
-    const juneFlow = summarizeMoneyFlow(filterByPeriod(nab, juneWindow));
-    assert.equal(cumulativeLine(nab, "in", juneWindow).at(-1)?.value, juneFlow.cashIn);
-    assert.equal(cumulativeLine(nab, "out", juneWindow).at(-1)?.value, juneFlow.cashOut);
-    assert.notEqual(juneFlow.cashIn, augustFlow.cashIn);
+    const sparse = flowSeries(nab.filter((r) => r.id === "nab-interest"), "in", august, "day", today);
+    assert.equal(sparse.points.find((p) => p.key === "2026-08-14")?.value, 0);
+    assert.equal(sparse.points.find((p) => p.key === "2026-08-15")?.value, 12.4);
+    assert.equal(sparse.points.find((p) => p.key === "2026-08-16")?.value, 0);
 
     const custom = { kind: "range" as const, from: "2026-07-10", to: "2026-08-05" };
     const customFlow = summarizeMoneyFlow(filterByPeriod(nab, custom));
-    assert.equal(cumulativeLine(nab, "in", custom).at(-1)?.value, customFlow.cashIn);
-    assert.equal(cumulativeLine(nab, "out", custom).at(-1)?.value, customFlow.cashOut);
-
-    const week = chartWindow({ kind: "span", span: "1W" }, august, "2026-10-18");
-    const weekFlow = summarizeMoneyFlow(filterByPeriod(nab, week));
-    assert.equal(cumulativeLine(nab, "in", week).at(-1)?.value, weekFlow.cashIn);
-    assert.equal(cumulativeLine(nab, "out", week).at(-1)?.value, weekFlow.cashOut);
-    assert.ok(weekFlow.cashIn < augustFlow.cashIn);
+    assert.equal(flowSeries(nab, "in", custom, "day", today).total, customFlow.cashIn);
+    assert.equal(flowSeries(nab, "out", custom, "day", today).total, customFlow.cashOut);
 
     const up = filterByScope(rows, { kind: "institution", institution: "Up" });
     const upFlow = summarizeMoneyFlow(filterByPeriod(up, august));
-    assert.equal(cumulativeLine(up, "in", august).at(-1)?.value, upFlow.cashIn);
-    assert.equal(cumulativeLine(up, "out", august).at(-1)?.value, upFlow.cashOut);
+    assert.equal(flowSeries(up, "in", august, "day", today).total, upFlow.cashIn);
     assert.notEqual(upFlow.cashIn, augustFlow.cashIn);
-    assert.equal(chartScale(augustFlow.cashIn).max, 40000);
-    assert.notEqual(moneyIn.at(-1)?.value, chartScale(augustFlow.cashIn).max);
+  });
+
+  it("shows No data for this month in the chart space for an empty month", () => {
+    const html = renderToStaticMarkup(
+      createElement(TagChartCard, {
+        transactions: [txn("pay", "2026-08-02", 1200, "salary")],
+        selectedTag: "All",
+        onSelectTag: () => undefined,
+        pagePeriod: { kind: "month", month: "2026-05" },
+        compact: true,
+      }),
+    );
+    assert.match(html, /No data for this month/);
+    assert.match(html, /data-chart-empty[^>]*height:180px|height:180px[^>]*data-chart-empty/);
+    assert.match(html, /text-sm text-muted">No data for this month/);
+    assert.match(html, /\$0\.00/);
+    assert.doesNotMatch(html, /Cumulative/);
   });
 
   it("renders Money in and 1M selected, with the curve starting on the $0 baseline", () => {
@@ -218,16 +266,17 @@ describe("transactions chart range", () => {
     const html = renderToStaticMarkup(
       createElement(TagChartCard, {
         transactions: [
-          txn("pay", "2026-10-02", 1200, "salary"),
-          txn("shop", "2026-10-06", -80, "groceries"),
+          txn("pay", sydneyDay(), 1200, "salary"),
+          txn("shop", sydneyDay(), -80, "groceries"),
         ],
         selectedTag: "All",
         onSelectTag: () => undefined,
-        pagePeriod: { kind: "month", month: "2026-09" },
+        pagePeriod: { kind: "month", month: sydneyDay().slice(0, 7) },
         compact: true,
       }),
     );
     assert.match(html, /Money by group/);
+    assert.match(html, /Money in per period by group/);
     assert.equal(html.includes("Money in and out"), false);
     assert.match(html, /aria-pressed="true"[^>]*>Money in</);
     assert.match(html, /aria-pressed="false"[^>]*>Money out</);

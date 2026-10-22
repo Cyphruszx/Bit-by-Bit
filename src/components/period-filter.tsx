@@ -10,6 +10,7 @@ export function PeriodFilterBar() {
   const months = monthsForPicker(
     allTransactions.map((txn) => txn.dateIso),
     period,
+    todayMonth,
   );
   const anchor = anchorMonth(period, months, todayMonth);
 
