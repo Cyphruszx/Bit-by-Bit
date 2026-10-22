@@ -5,7 +5,6 @@ import { TransactionTable } from "@/components/transaction-table";
 import { TagChartCard } from "@/components/tag-charts";
 import { SummaryCard } from "@/components/summary-card";
 import { EmptyLedger } from "@/components/empty-ledger";
-import { LearnedList } from "@/components/learned-list";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { ScopeBar } from "@/components/scope-bar";
 import { SettledMoney, UnsettledMoney } from "@/components/unsettled-money";
@@ -13,10 +12,8 @@ import { setScope, useScope } from "@/components/scope-store";
 import { formatAud } from "@/lib/format";
 import { accountsByInstitution } from "@/lib/money-flow/accounts";
 import { presentAccountBalance } from "@/lib/money-flow/dashboard";
-import { describeScope, filterByScope } from "@/lib/money-flow/scope";
+import { filterByScope } from "@/lib/money-flow/scope";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
-import { allTags, tagsOf } from "@/lib/money-flow/tags";
-import type { ChartKind } from "@/lib/money-flow/tag-charts";
 
 export function TransactionsView() {
   const {
@@ -28,11 +25,9 @@ export function TransactionsView() {
     payers,
     mergedInto,
     accountMeta,
-    removeTagEverywhere,
-    renameTagEverywhere,
+    period,
     transactions,
   } = useMoneyFlow();
-  const [chart, setChart] = useState<ChartKind>("line");
   const [selectedTag, setSelectedTag] = useState("All");
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
@@ -80,15 +75,17 @@ export function TransactionsView() {
 
   return (
     <>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{flow.periodLabel}</p>
-      <h1 className="mt-1 text-2xl">Transactions</h1>
-      <p className="mt-1 max-w-2xl text-sm text-muted">
-        Money in and out are the credits and debits in this period, excluding
-        internal transfers. Account balance is the statement figure, not Net.
-        Charts group by category.
-      </p>
+      <h1 className="text-2xl">Transactions</h1>
+      <div className="mt-4">
+        <TagChartCard
+          transactions={scopedHoldings}
+          pagePeriod={period}
+          selectedTag={selectedTag}
+          onSelectTag={setSelectedTag}
+          compact
+        />
+      </div>
       <ScopeBar groups={groups} scope={scope} onScope={setScope} />
-      <p className="mt-3 text-sm text-muted">{describeScope(scope)}</p>
       <section className="mt-4 grid gap-3 sm:grid-cols-3">
         <SummaryCard
           label="Money in"
@@ -122,131 +119,8 @@ export function TransactionsView() {
           <TransactionTable transactions={scoped} tag={selectedTag} onTagChange={setSelectedTag} />
         </div>
       </article>
-      <div className="mt-4">
-        <TagChartCard
-          transactions={scoped}
-          selectedTag={selectedTag}
-          onSelectTag={setSelectedTag}
-          chart={chart}
-          onChartChange={setChart}
-          compact
-        />
-      </div>
       <UnsettledMoney transactions={scoped} />
       <SettledMoney transactions={scoped} />
-      <LearnedList />
-      <TagManager
-        transactions={allTransactions}
-        onRename={renameTagEverywhere}
-        onRemove={removeTagEverywhere}
-      />
     </>
-  );
-}
-
-function TagManager({
-  transactions,
-  onRename,
-  onRemove,
-}: {
-  transactions: ReturnType<typeof useMoneyFlow>["transactions"];
-  onRename: (from: string, to: string) => void;
-  onRemove: (name: string) => void;
-}) {
-  const tags = allTags(transactions);
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-
-  const counts = new Map<string, number>();
-  for (const txn of transactions) {
-    for (const tag of tagsOf(txn)) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-  }
-
-  return (
-    <article className="mt-4 card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="text-base font-bold">Your tags</h2>
-          <p className="mt-0.5 text-xs text-muted">
-            Tags are yours to invent — anything you want to find a movement by. They never change a
-            total; that is what the category on each movement is for.
-          </p>
-        </div>
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls="tag-manager-list"
-          onClick={() => {
-            if (open) setEditing(null);
-            setOpen(!open);
-          }}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-surface px-2.5 py-1 text-xs font-semibold text-ink-soft"
-        >
-          {open ? "Hide" : `Show ${tags.length}`}
-          <span aria-hidden="true" className={`inline-block leading-none ${open ? "rotate-180" : ""}`}>
-            ▾
-          </span>
-        </button>
-      </div>
-      <div id="tag-manager-list" hidden={!open} className="mt-3 divide-y divide-surface-subtle">
-        {tags.length === 0 ? (
-          <p className="py-2 text-sm text-muted">
-            No tags yet. Add one to any movement and it will show up here.
-          </p>
-        ) : null}
-        {tags.map((tag) => (
-          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5" key={tag}>
-            {editing === tag ? (
-              <form
-                className="flex flex-wrap items-center gap-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  onRename(tag, draft);
-                  setEditing(null);
-                }}
-              >
-                <input
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  aria-label={`Rename ${tag}`}
-                  className="rounded-full border border-line px-3 py-1.5 text-sm outline-none focus:border-primary"
-                />
-                <button type="submit" className="text-sm font-semibold text-ink-soft">
-                  Save
-                </button>
-                <button type="button" onClick={() => setEditing(null)} className="text-sm text-muted">
-                  Cancel
-                </button>
-              </form>
-            ) : (
-              <div>
-                <p className="text-sm font-semibold">{tag}</p>
-                <p className="text-xs text-muted">
-                  On {counts.get(tag) ?? 0} transaction{counts.get(tag) === 1 ? "" : "s"}
-                </p>
-              </div>
-            )}
-            {editing === tag ? null : (
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  className="text-sm font-semibold text-ink-soft"
-                  onClick={() => {
-                    setEditing(tag);
-                    setDraft(tag);
-                  }}
-                >
-                  Rename
-                </button>
-                <button type="button" className="text-sm font-semibold text-negative" onClick={() => onRemove(tag)}>
-                  Remove
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </article>
   );
 }

@@ -7,6 +7,7 @@ import {
   PIE_PIXEL,
   pixelRingCells,
   snapChart,
+  smoothPath,
   steppedPath,
 } from "./chart-pixels";
 import { pieSlices } from "./tag-charts";
@@ -22,6 +23,20 @@ describe("chart pixels", () => {
     assert.equal(steppedPath([{ x: 12, y: 20 }, { x: 40, y: 36 }]), "M 12 20 H 40 V 36");
     assert.equal(steppedPath([undefined, { x: 4, y: 4 }]), "M 4 4");
     assert.equal(closeSteppedArea("M 8 20 H 40 V 36", 8, 80), "M 8 20 H 40 V 36 V 80 H 8 Z");
+  });
+
+  it("draws a monotone curve instead of stairs", () => {
+    assert.equal(
+      smoothPath([
+        { x: 0, y: 0 },
+        { x: 3, y: 3 },
+        { x: 6, y: 6 },
+      ]),
+      "M 0 0 C 1 1 2 2 3 3 C 4 4 5 5 6 6",
+    );
+    assert.equal(smoothPath([{ x: 1, y: 2 }, { x: 3, y: 4 }]), "M 1 2 L 3 4");
+    assert.equal(smoothPath([{ x: 0, y: 0 }, undefined, { x: 8, y: 4 }]), "M 0 0 M 8 4");
+    assert.doesNotMatch(smoothPath([{ x: 0, y: 10 }, { x: 10, y: 4 }, { x: 20, y: 12 }]), /[HV]/);
   });
 
   it("fills a ring with cells on the pie grid", () => {

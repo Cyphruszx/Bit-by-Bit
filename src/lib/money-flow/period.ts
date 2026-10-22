@@ -14,6 +14,11 @@ export const APP_TIME_ZONE = "Australia/Sydney";
 
 const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** The Sydney calendar month the app opens on, with or without data in it. */
+export function currentMonthPeriod(now = new Date()): PeriodFilter {
+  return { kind: "month", month: now.toLocaleDateString("en-CA", { timeZone: APP_TIME_ZONE }).slice(0, 7) };
+}
+
 /**
  * The Sydney calendar date for a row.
  *

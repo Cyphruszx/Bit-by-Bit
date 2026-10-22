@@ -1,146 +1,154 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
-import { formatAud, formatAudCompact, formatSignedAud } from "@/lib/format";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { LineChart, type LineChartSeries } from "@/components/line-chart";
-import { chartLabel } from "@/lib/money-flow/category-book";
+import { formatAud } from "@/lib/format";
+import { chartLabel, resolvedBook } from "@/lib/money-flow/category-book";
 import {
-  chartTagFlowSeries,
+  CHART_SPANS,
+  DEFAULT_CHART_RANGE,
+  chartModeForRevision,
+  chartWindow,
+  chartBucket,
+  flowSeries,
+  highlightedSpan,
+  sydneyDay,
+  type ChartDirection,
+  type ChartRangeMode,
+} from "@/lib/money-flow/chart-range";
+import { filterByPeriod } from "@/lib/money-flow/period";
+import { getPeriodRevision, subscribePeriodRevision } from "@/lib/money-flow/period-revision";
+import type { PeriodFilter } from "@/lib/money-flow/period";
+import {
+  countedMovements,
   selectableCategories,
   selectableGroups,
-  tagFlowOverTime,
-  type FlowOverTimePoint,
 } from "@/lib/money-flow/summary";
-import { assignPixelDonutCells } from "@/lib/money-flow/chart-pixels";
 import {
   nextTagSelection,
-  orderByFlow,
-  pieSlices,
-  topChartCategories,
-  type ChartKind,
 } from "@/lib/money-flow/tag-charts";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
+
+const ALL_PERIOD: PeriodFilter = { kind: "all" };
 
 export function TagChartCard({
   transactions = [],
   selectedTag,
   onSelectTag,
-  chart,
-  onChartChange,
+  pagePeriod = ALL_PERIOD,
   compact = false,
 }: {
   transactions?: InterpretedTransaction[];
   selectedTag: string;
   onSelectTag: (tag: string) => void;
-  chart: ChartKind;
-  onChartChange: (chart: ChartKind) => void;
+  /** The month picker. A change replaces the chart window; a custom range lights no segment. */
+  pagePeriod?: PeriodFilter;
   compact?: boolean;
 }) {
-  const series = useMemo(
-    () => chartTagFlowSeries(transactions, selectedTag),
-    [selectedTag, transactions],
-  );
-  const spend = useMemo(() => orderByFlow(topChartCategories(series.rows)), [series.rows]);
-  const slices = useMemo(() => pieSlices(spend), [spend]);
-  const timeline = useMemo(() => tagFlowOverTime(transactions, selectedTag), [selectedTag, transactions]);
-  const scoped = useMemo(
-    () => transactions.filter((txn) => txn.type !== "moved" && txn.amount !== 0),
-    [transactions],
-  );
-  const primaries = useMemo(() => selectableGroups(scoped), [scoped]);
-  const subs = useMemo(
-    () => (selectedTag === "All" ? [] : selectableCategories(scoped, selectedTag)),
-    [scoped, selectedTag],
-  );
-  const highlightAll = series.level === "sub" && series.parent === selectedTag;
-  const title =
-    series.level === "sub" && series.parent
-      ? `Inside ${chartLabel(series.parent)}`
-      : "Money in and out by group";
-  const emptyLabel = "No money in or out in this period.";
-
-  function selectChartTag(name: string) {
-    onSelectTag(nextTagSelection(selectedTag, name));
+  const [direction, setDirection] = useState<ChartDirection>("in");
+  const [mode, setMode] = useState<ChartRangeMode>(DEFAULT_CHART_RANGE);
+  const revision = useSyncExternalStore(subscribePeriodRevision, getPeriodRevision, () => 0);
+  const [seenRevision, setSeenRevision] = useState(revision);
+  const activeMode = chartModeForRevision(seenRevision, revision, mode);
+  if (seenRevision !== revision) {
+    setSeenRevision(revision);
+    setMode(activeMode);
   }
 
-  const toggleClass = compact
-    ? "rounded-full px-2.5 py-1 text-xs font-semibold"
-    : "rounded-full px-3 py-1.5 text-sm font-semibold";
+  const today = sydneyDay();
+  const range = chartWindow(activeMode, pagePeriod, today);
+  const span = highlightedSpan(activeMode, pagePeriod);
+  const bucket = chartBucket(activeMode, range);
+  const series = useMemo(
+    () => flowSeries(transactions, direction, range, bucket, today, selectedTag),
+    [bucket, direction, range, selectedTag, today, transactions],
+  );
+  const emptyMessage = range.kind === "month" || pagePeriod.kind === "month" ? "No data for this month" : "No data for this period";
+  const chartHeight = compact ? 180 : 220;
+  const windowed = useMemo(
+    () => filterByPeriod(countedMovements(transactions), range),
+    [range, transactions],
+  );
+  const primaries = useMemo(() => selectableGroups(windowed), [windowed]);
+  const subs = useMemo(
+    () => (selectedTag === "All" ? [] : selectableCategories(windowed, selectedTag)),
+    [selectedTag, windowed],
+  );
 
   return (
     <article className={`card ${compact ? "p-4" : "p-6"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className={compact ? "text-base font-bold" : "text-lg font-bold"}>{title}</h2>
-          <p className={`text-muted ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"}`}>
-            {chart === "line"
-              ? "A running total stepping at every movement: money in lifts the line, money out pulls it down, and it holds level on quiet days."
-              : "Slice size is the share of all movement, and money in is outlined."}{" "}
-            Groups first, then the categories inside a group. Tags stay metadata and never split a chart.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {(
-            [
-              ["line", "Line", "Line graph"],
-              ["pie", "Pie", "Pie chart"],
-            ] as const
-          ).map(([value, short, long]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={chart === value}
-              onClick={() => onChartChange(value)}
-              className={`${toggleClass} ${
-                chart === value ? "bg-primary text-on-primary" : "bg-accent-surface text-ink-soft"
-              }`}
-            >
-              {compact ? short : long}
-            </button>
-          ))}
+        <h2 className={compact ? "text-base font-bold" : "text-lg font-bold"}>Money by group</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <Segmented
+            label="Money direction"
+            value={direction}
+            options={[
+              ["in", "Money in"],
+              ["out", "Money out"],
+            ]}
+            onChange={setDirection}
+          />
+          <Segmented
+            label="Chart period"
+            value={span}
+            options={CHART_SPANS.map((item) => [item, item])}
+            onChange={(next) => setMode({ kind: "span", span: next })}
+          />
         </div>
       </div>
-      {spend.length === 0 ? (
-        <p className={`${compact ? "mt-3" : "mt-5"} text-sm text-muted`}>{emptyLabel}</p>
-      ) : chart === "pie" ? (
-        <PieChart
-          slices={slices}
-          net={series.net}
-          selectedTag={selectedTag}
-          highlightAll={highlightAll}
-          onSelectTag={selectChartTag}
-          compact={compact}
-        />
+      <p className={`${compact ? "mt-2" : "mt-3"} text-sm text-ink-soft`} data-chart-total>
+        {direction === "in" ? "Money in" : "Money out"} for this range:{" "}
+        <span className="font-semibold text-ink">{formatAud(series.total)}</span>
+      </p>
+      {!series.hasData || series.points.length === 0 ? (
+        <div
+          className={`${compact ? "mt-3" : "mt-5"} flex items-center justify-center`}
+          style={{ height: chartHeight }}
+          data-chart-empty
+        >
+          <p className="text-center text-sm text-muted">{emptyMessage}</p>
+        </div>
       ) : (
-        <FlowLineChart points={timeline} compact={compact} />
+        <FlowLineChart points={series.points} direction={direction} height={chartHeight} compact={compact} />
       )}
-      {primaries.length > 0 || subs.length > 0 ? (
+      {!series.hasData || series.points.length === 0 ? (
+        <div className={`${compact ? "mt-3 space-y-2" : "mt-5 space-y-3"}`} data-chips-placeholder>
+          <ChipRow label="Group" compact={compact}>
+            {["All", ...resolvedBook().groups.map((group) => group.id)].map((id) => (
+              <TagToggle key={id} active={false} disabled onClick={() => undefined} compact={compact}>
+                {id === "All" ? "All" : chartLabel(id)}
+              </TagToggle>
+            ))}
+          </ChipRow>
+        </div>
+      ) : primaries.length > 0 || subs.length > 0 ? (
         <div className={`${compact ? "mt-3 space-y-2" : "mt-5 space-y-3"}`}>
           <ChipRow label="Group" compact={compact}>
             <TagToggle active={selectedTag === "All"} onClick={() => onSelectTag("All")} compact={compact}>
               All
             </TagToggle>
-            {primaries.map((key) => (
+            {primaries.map((name) => (
               <TagToggle
-                key={key}
-                active={selectedTag === key || series.parent === key}
-                onClick={() => onSelectTag(nextTagSelection(selectedTag, key))}
+                key={name}
+                active={selectedTag === name}
+                onClick={() => onSelectTag(nextTagSelection(selectedTag, name))}
                 compact={compact}
               >
-                {chartLabel(key)}
+                {chartLabel(name)}
               </TagToggle>
             ))}
           </ChipRow>
           {subs.length > 0 ? (
             <ChipRow label="Category" compact={compact}>
-              {subs.map((key) => (
+              {subs.map((name) => (
                 <TagToggle
-                  key={key}
-                  active={selectedTag === key}
-                  onClick={() => onSelectTag(nextTagSelection(selectedTag, key))}
+                  key={name}
+                  active={selectedTag === name}
+                  onClick={() => onSelectTag(nextTagSelection(selectedTag, name))}
                   compact={compact}
                 >
-                  {chartLabel(key)}
+                  {chartLabel(name)}
                 </TagToggle>
               ))}
             </ChipRow>
@@ -148,6 +156,39 @@ export function TagChartCard({
         </div>
       ) : null}
     </article>
+  );
+}
+
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T | null;
+  options: Array<[T, string]>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex h-8 overflow-hidden rounded-[4px] border-2 border-line bg-surface">
+      {options.map(([option, text], index) => {
+        const selected = value === option;
+        return (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option)}
+            className={`flex h-full items-center px-3 font-sans text-xs font-semibold leading-none ${
+              index > 0 ? "border-l-2 border-line" : ""
+            } ${selected ? "bg-primary text-on-primary" : "bg-surface text-ink-soft"}`}
+          >
+            {text}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -167,18 +208,23 @@ function TagToggle({
   onClick,
   children,
   compact = false,
+  disabled = false,
 }: {
   active: boolean;
   onClick: () => void;
   children: string;
   compact?: boolean;
+  /** Placeholder chip in an empty range: keeps the card height, cannot be tapped. */
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
-      aria-pressed={active}
+      aria-pressed={disabled ? undefined : active}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
       onClick={onClick}
-      className={`rounded-full font-semibold ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
+      className={`rounded-full font-semibold ${disabled ? "pointer-events-none opacity-40" : ""} ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
         active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
       }`}
     >
@@ -187,13 +233,23 @@ function TagToggle({
   );
 }
 
-function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[]; compact?: boolean }) {
+function FlowLineChart({
+  points,
+  direction,
+  height,
+  compact = false,
+}: {
+  points: Array<{ key: string; label: string; value: number }>;
+  direction: ChartDirection;
+  height: number;
+  compact?: boolean;
+}) {
   const series: LineChartSeries[] = [
     {
-      id: "net",
-      label: "Running total (money in adds, money out subtracts)",
+      id: direction,
+      label: direction === "in" ? "Money in" : "Money out",
       color: "var(--color-primary)",
-      points: points.map((point) => ({ key: point.key, label: point.label, value: point.runningNet })),
+      points,
     },
   ];
 
@@ -201,137 +257,12 @@ function FlowLineChart({ points, compact = false }: { points: FlowOverTimePoint[
     <div className={compact ? "mt-3" : "mt-5"}>
       <LineChart
         series={series}
-        height={compact ? 180 : 240}
-        ariaLabel="Line graph of the running total of money in and out across the period"
+        height={height}
+        ariaLabel={direction === "in" ? "Money in per period by group" : "Money out per period by group"}
         showPoints={false}
+        smooth
+        frame="minimal"
       />
-    </div>
-  );
-}
-
-function signedCompact(amount: number): string {
-  if (amount === 0) return "$0";
-  return amount > 0 ? `+${formatAudCompact(amount)}` : formatAudCompact(amount);
-}
-
-function PieChart({
-  slices,
-  net,
-  selectedTag,
-  highlightAll = false,
-  onSelectTag,
-  compact = false,
-}: {
-  slices: ReturnType<typeof pieSlices>;
-  net: number;
-  selectedTag: string;
-  highlightAll?: boolean;
-  onSelectTag: (tag: string) => void;
-  compact?: boolean;
-}) {
-  const size = compact ? 224 : 280;
-  const cx = size / 2;
-  const cy = size / 2;
-  const outer = compact ? 88 : 112;
-  const inner = compact ? 48 : 64;
-  const painted = assignPixelDonutCells(slices, cx, cy, outer, inner);
-  const active = (name: string) => highlightAll || selectedTag === "All" || selectedTag === name;
-
-  return (
-    <div
-      className={`grid md:items-center ${
-        compact ? "mt-3 gap-4 md:grid-cols-[224px_1fr]" : "mt-5 gap-6 md:grid-cols-[280px_1fr]"
-      }`}
-    >
-      <svg
-        role="img"
-        aria-label="Pie chart of money in and out by tag"
-        viewBox={`0 0 ${size} ${size}`}
-        className={`mx-auto h-auto w-full ${compact ? "max-w-[224px]" : "max-w-[280px]"}`}
-      >
-        {painted.map((slice) => {
-          const selected = selectedTag === slice.name;
-          return (
-            <g
-              key={slice.name}
-              role="button"
-              tabIndex={0}
-              aria-label={`${chartLabel(slice.name)}: ${formatAud(Math.abs(slice.amount))} ${slice.direction}, ${slice.share}%`}
-              aria-pressed={selected}
-              className="cursor-pointer"
-              shapeRendering="crispEdges"
-              opacity={active(slice.name) ? 1 : 0.38}
-              onClick={() => onSelectTag(slice.name)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelectTag(slice.name);
-                }
-              }}
-            >
-              {slice.cells.map((cell) => (
-                <rect
-                  key={`${slice.name}-${cell.x}-${cell.y}`}
-                  x={cell.x}
-                  y={cell.y}
-                  width={cell.size}
-                  height={cell.size}
-                  fill={slice.color}
-                  stroke={slice.direction === "in" ? "var(--color-positive)" : "var(--color-surface)"}
-                  strokeWidth={slice.direction === "in" ? 2 : 1}
-                />
-              ))}
-            </g>
-          );
-        })}
-        <text
-          x={cx}
-          y={cy - 6}
-          textAnchor="middle"
-          fill={net >= 0 ? "var(--color-positive)" : "var(--color-primary)"}
-          fontSize="13"
-          fontWeight="700"
-        >
-          {signedCompact(net)}
-        </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--color-muted)" fontSize="11">
-          net
-        </text>
-      </svg>
-      <ul className={compact ? "space-y-0.5" : "space-y-2"}>
-        {slices.map((slice) => {
-          const selected = selectedTag === slice.name;
-          return (
-            <li key={slice.name}>
-              <button
-                type="button"
-                aria-pressed={selected}
-                onClick={() => onSelectTag(slice.name)}
-                className={`flex w-full items-center justify-between gap-3 rounded-[var(--radius-inner)] text-left ${
-                  compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"
-                } ${selected ? "bg-accent-surface" : ""}`}
-              >
-                <span className="inline-flex min-w-0 items-center gap-2">
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-none"
-                    style={{
-                      background: slice.color,
-                      boxShadow: slice.direction === "in" ? `0 0 0 2px var(--color-positive)` : undefined,
-                    }}
-                  />
-                  <span className="truncate font-medium">{chartLabel(slice.name)}</span>
-                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                    {slice.direction}
-                  </span>
-                </span>
-                <span className={`shrink-0 tabular-nums ${slice.amount >= 0 ? "text-positive" : "text-muted"}`}>
-                  {formatSignedAud(slice.amount)} · {slice.share}%
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
     </div>
   );
 }

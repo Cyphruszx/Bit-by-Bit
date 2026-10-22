@@ -3,7 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it } from "node:test";
 import { CustomDatesPanel, PeriodMenu, PeriodPicker } from "@/components/period-picker";
-import { lastTwelveMonthsRange } from "@/lib/money-flow/period";
+import { currentMonthPeriod, lastTwelveMonthsRange } from "@/lib/money-flow/period";
+import { readFileSync } from "node:fs";
 import {
   anchorMonth,
   chooseCustomRange,
@@ -155,12 +156,32 @@ describe("period dropdown", () => {
     assert.match(html, /bg-primary/);
   });
 
-  it("keeps a month that is on screen but not in the ledger, newest first", () => {
-    assert.deepEqual(monthsForPicker(["2026-08-02", "2026-10-01"], { kind: "month", month: "2026-09" }), [
-      "2026-10",
-      "2026-09",
-      "2026-08",
-    ]);
+  it("lists every month, past and future, not just imported ones", () => {
+    const list = monthsForPicker(["2026-08-02"], { kind: "all" }, "2026-10");
+    assert.equal(list[0], "2027-10");
+    assert.equal(list.at(-1), "2024-10");
+    assert.equal(list.length, 37);
+    assert.ok(list.includes("2026-11"), "future months can be picked");
+    assert.ok(list.includes("2026-09"), "months with no data can be picked");
+    assert.deepEqual([...list].sort((x, y) => y.localeCompare(x)), list);
+
+    const older = monthsForPicker(["2020-03-04"], { kind: "month", month: "2030-01" }, "2026-10");
+    assert.equal(older[0], "2030-01");
+    assert.equal(older.at(-1), "2020-03");
+  });
+
+  it("opens on the current Sydney month, including after an import", () => {
+    // 22 Oct 2026 14:00 UTC is 23 Oct in Sydney; 31 Oct 13:30 UTC is already November there.
+    assert.deepEqual(currentMonthPeriod(new Date("2026-10-22T14:00:00Z")), { kind: "month", month: "2026-10" });
+    assert.deepEqual(currentMonthPeriod(new Date("2026-10-31T13:30:00Z")), { kind: "month", month: "2026-11" });
+    const provider = readFileSync(new URL("../../components/money-flow-provider.tsx", import.meta.url), "utf8");
+    assert.doesNotMatch(provider, /ALL_PERIOD/);
+    assert.match(provider, /merged\.entries\.length > before\) writePeriod\(currentMonthPeriod\(\)\)/);
+    assert.match(provider, /report\.added > 0\) writePeriod\(currentMonthPeriod\(\)\)/);
+  });
+
+  it("labels a month by name only", () => {
+    assert.equal(periodPickerLabel({ kind: "month", month: "2026-10" }), "October 2026");
   });
 
   it("moves the menu highlight with the arrow keys", () => {

@@ -16,7 +16,7 @@ import {
   resolvedBook,
   taxonomyPath,
 } from "@/lib/money-flow/category-book";
-import { categoryLabel, tagsFor, typeLabel } from "@/lib/money-flow/taxonomy";
+import { categoryLabel, typeLabel } from "@/lib/money-flow/taxonomy";
 import { matches, tableFilterKeys, tableFilterValue } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -38,7 +38,8 @@ export function TransactionTable({
   onTagChange?: (tag: string) => void;
 }) {
   const { accountNames, allTransactions, institutionOverrides, payers, mergedInto,
-    setTransactionCategory, setTransactionTags } = useMoneyFlow();
+    setTransactionCategory, period } = useMoneyFlow();
+  const emptyMessage = period.kind === "month" ? "No data for this month" : "No data for this period";
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
     [accountNames, institutionOverrides, payers, mergedInto],
@@ -47,9 +48,7 @@ export function TransactionTable({
     () => new Map(transactions.map((txn) => [txn.id, accountCaption(txn, registry)])),
     [registry, transactions],
   );
-  // Saying which account every movement is in only helps once there is more than one.
-  const showAccount = new Set(accountOf.values()).size > 1;
-  const columns = showAccount ? 8 : 7;
+  const columns = 6;
   const [query, setQuery] = useState("");
   const [internalTag, setInternalTag] = useState("All");
   const [direction, setDirection] = useState<Direction>("all");
@@ -165,22 +164,32 @@ export function TransactionTable({
         </div>
       </div>
       {rows.length === 0 ? (
-        <p className="mt-3 py-5 text-sm text-muted">
-          {transactions.length === 0 ? "No movements in this period." : "No transactions match that search."}
-        </p>
+        transactions.length === 0 ? (
+          <div className="mt-3 flex min-h-40 items-center justify-center" data-ledger-empty>
+            <p className="text-center text-sm text-muted">{emptyMessage}</p>
+          </div>
+        ) : (
+          <p className="mt-3 py-5 text-sm text-muted">No transactions match that search.</p>
+        )
       ) : (
         <div className="mt-3 overflow-x-auto rounded-[var(--radius-inner)] border border-surface-subtle">
-          <table className="w-full min-w-[900px] border-collapse text-left">
+          <table className="w-full min-w-[40rem] table-fixed border-collapse text-left">
+            <colgroup>
+              <col className="w-[14%]" />
+              <col className="w-[24%]" />
+              <col className="w-[14%]" />
+              <col className="w-[18%]" />
+              <col className="w-[15%]" />
+              <col className="w-[15%]" />
+            </colgroup>
             <thead className="sticky top-0 z-10 bg-accent-surface-subtle">
               <tr>
                 <HeaderCell>Date</HeaderCell>
                 <HeaderCell>Merchant</HeaderCell>
                 <HeaderCell>Amount</HeaderCell>
-                {showAccount ? <HeaderCell>Account</HeaderCell> : null}
-                <HeaderCell>Type</HeaderCell>
+                <HeaderCell>Account</HeaderCell>
                 <HeaderCell>Group</HeaderCell>
-                <HeaderCell>Category</HeaderCell>
-                <HeaderCell last>Tag</HeaderCell>
+                <HeaderCell last>Category</HeaderCell>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-subtle bg-surface">
@@ -196,18 +205,15 @@ export function TransactionTable({
                   <Fragment key={txn.id}>
                     <tr>
                       <td className={`${CELL} ${RULE} whitespace-nowrap text-xs text-ink`}>{txn.date}</td>
-                      <td className={`${CELL} ${RULE} text-xs font-medium text-ink`}>{name}</td>
+                      <td className={`${CELL} ${RULE} truncate text-xs font-medium text-ink`}>{name}</td>
                       <td
-                        className={`${CELL} ${RULE} text-xs font-semibold tabular-nums ${
+                        className={`${CELL} ${RULE} whitespace-nowrap text-xs font-semibold tabular-nums ${
                           txn.amount > 0 ? "text-positive" : "text-ink"
                         }`}
                       >
                         {formatSignedAud(txn.amount)}
                       </td>
-                      {showAccount ? (
-                        <td className={`${CELL} ${RULE} text-xs text-muted`}>{accountOf.get(txn.id)}</td>
-                      ) : null}
-                      <td className={`${CELL} ${RULE} text-[11px] font-semibold text-muted`}>{txn.type}</td>
+                      <td className={`${CELL} ${RULE} truncate text-xs text-muted`}>{accountOf.get(txn.id)}</td>
                       <td className={`${CELL} ${RULE}`}>
                         <select
                           value={groupId}
@@ -222,7 +228,7 @@ export function TransactionTable({
                           ))}
                         </select>
                       </td>
-                      <td className={`${CELL} ${RULE}`}>
+                      <td className={CELL}>
                         <select
                           value={txn.categoryKey}
                           aria-label={`Category for ${name}`}
@@ -235,14 +241,6 @@ export function TransactionTable({
                             </option>
                           ))}
                         </select>
-                      </td>
-                      <td className={CELL}>
-                        <TagCell
-                          tags={tagsOf(txn)}
-                          options={[...new Set([...tagsFor(txn.categoryKey), ...allTags(transactions)])]}
-                          listId={`tag-suggestions-${txn.id}`}
-                          onChange={(next) => setTransactionTags(txn.id, next)}
-                        />
                       </td>
                     </tr>
                     {showStatement ? (
@@ -260,8 +258,7 @@ export function TransactionTable({
                             ? `${spread.merchant} will be filed here from now on.`
                             : spread.others === 1
                               ? `Also applied to one other ${spread.merchant} movement, and to any that arrive later.`
-                              : `Also applied to ${formatCount(spread.others)} other ${spread.merchant} movements, and to any that arrive later.`}{" "}
-                          <span className="text-muted">You can undo this under What BitbyBit has learned.</span>
+                              : `Also applied to ${formatCount(spread.others)} other ${spread.merchant} movements, and to any that arrive later.`}
                         </td>
                       </tr>
                     ) : null}
@@ -330,78 +327,6 @@ function HeaderCell({ children, last = false }: { children: string; last?: boole
     >
       {children}
     </th>
-  );
-}
-
-function TagCell({
-  tags,
-  options,
-  listId,
-  onChange,
-}: {
-  tags: string[];
-  options: string[];
-  listId: string;
-  onChange: (tags: string[]) => void;
-}) {
-  const [draft, setDraft] = useState("");
-  const unused = options.filter((name) => !tags.some((tag) => tag.toLowerCase() === name.toLowerCase()));
-
-  function submit(name: string) {
-    const next = name.trim();
-    if (!next) return;
-    if (tags.some((tag) => tag.toLowerCase() === next.toLowerCase())) {
-      setDraft("");
-      return;
-    }
-    onChange([...tags, next]);
-    setDraft("");
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-1">
-      {tags.map((name) => (
-        <span
-          key={name}
-          className="inline-flex items-center gap-1 rounded-full bg-accent-surface px-2 py-0.5 text-[10px] font-semibold text-ink-soft"
-        >
-          {name}
-          <button
-            type="button"
-            aria-label={`Remove ${name}`}
-            onClick={() => onChange(tags.filter((tag) => tag !== name))}
-            className="text-muted hover:text-primary"
-          >
-            ×
-          </button>
-        </span>
-      ))}
-      <form
-        className="flex items-center"
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit(draft);
-        }}
-      >
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          list={listId}
-          placeholder={tags.length === 0 ? "Add tag..." : "Add..."}
-          aria-label="Add a tag"
-          className={`border-b border-dashed border-line-dashed bg-transparent px-1 py-0.5 text-[11px] text-ink outline-none placeholder-muted ${
-            tags.length === 0 ? "w-20" : "w-16"
-          }`}
-        />
-        {unused.length > 0 ? (
-          <datalist id={listId}>
-            {unused.map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
-        ) : null}
-      </form>
-    </div>
   );
 }
 
