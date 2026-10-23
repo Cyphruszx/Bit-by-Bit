@@ -30,7 +30,7 @@ export function FeatureEnableOffer() {
 
   return (
     <section className="mt-8 rounded-[var(--radius-card)] border border-attention-line bg-attention-surface p-6">
-      <h2 className="text-lg font-bold">Turn on extra Core features?</h2>
+      <h2 className="text-lg font-bold">Turn on extra features?</h2>
       <p className="mt-2 text-sm text-attention-ink">
         Your first cleared movements are in. Enable Goals, Linked balances, and Pools when you want
         them — or leave them off and turn them on later.

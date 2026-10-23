@@ -14,8 +14,7 @@ export default function SignInPage() {
         </Link>
         <h1 className="mt-6 text-2xl">Keep your ledger</h1>
         <p className="mt-2 text-sm text-muted">
-          BitbyBit works without an account, and everything stays in this browser. Signing in adds
-          a backup: your statements survive a cleared browser, and follow you to another device.
+          BitbyBit works without an account. Sign in to keep your ledger.
         </p>
 
         {canSignIn() ? (

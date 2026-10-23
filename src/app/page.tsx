@@ -36,21 +36,19 @@ const SAMPLE_CHART = [28, 46, 38, 62, 54, 74, 66, 84];
 export default function Home() {
   return (
     <AppFrame>
-      <header className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-3 px-5 py-5 md:px-7">
+      <header className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-3 px-5 py-5 md:px-7">
         <BrandMark />
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div className="[&>button]:inline-flex [&>button]:min-h-11 [&>button]:items-center [&>button]:focus-visible:outline [&>button]:focus-visible:outline-2 [&>button]:focus-visible:outline-offset-2 [&>button]:focus-visible:outline-solid [&>button]:focus-visible:outline-primary-strong">
-            <ThemeToggle />
-          </div>
-          <nav aria-label="Account" className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <Link href="/sign-in" className={secondaryButton}>
-              Sign in
-            </Link>
-            <Link href="/dashboard" className={primaryButton}>
-              Demo mode
-            </Link>
-          </nav>
+        <div className="ml-auto [&>button]:inline-flex [&>button]:min-h-11 [&>button]:items-center [&>button]:focus-visible:outline [&>button]:focus-visible:outline-2 [&>button]:focus-visible:outline-offset-2 [&>button]:focus-visible:outline-solid [&>button]:focus-visible:outline-primary-strong">
+          <ThemeToggle />
         </div>
+        <nav aria-label="Account" className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
+          <Link href="/sign-in" className={`${secondaryButton} min-w-0 flex-1 whitespace-nowrap sm:flex-none`}>
+            Sign in
+          </Link>
+          <Link href="/dashboard" className={`${primaryButton} min-w-0 flex-1 whitespace-nowrap sm:flex-none`}>
+            Try Demo mode
+          </Link>
+        </nav>
       </header>
 
       <main>
@@ -107,7 +105,7 @@ export default function Home() {
           </div>
 
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <article className="card flex min-w-0 flex-col justify-between gap-6 p-6 sm:col-span-2 lg:col-span-2">
+            <article className="card flex min-w-0 flex-col justify-start gap-6 p-6 sm:col-span-2 lg:col-span-2 lg:self-start">
               <div>
                 <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">CSV</p>
                 <h3 className="mt-2 text-2xl">Upload a CSV</h3>
@@ -159,20 +157,41 @@ export default function Home() {
               <h3 className="mt-2 text-2xl">Ledger</h3>
               <p className="mt-2 text-sm leading-6 text-muted">Three rows from a sample statement.</p>
               <p className="mt-4 text-xs font-semibold text-muted">Sample</p>
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full min-w-[32rem] border-collapse text-left text-[13px]">
+              <ul className="mt-3 divide-y divide-line-dashed sm:hidden">
+                {LEDGER_ROWS.map((row) => (
+                  <li key={row.date} className="flex items-start justify-between gap-3 py-3 text-[13px]">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{row.merchant}</p>
+                      <p className="mt-0.5 text-[12.5px] leading-5 text-muted">
+                        <span className="tabular-nums">{formatDisplayDate(row.date)} 2026</span>
+                        <span aria-hidden="true"> · </span>
+                        {row.category}
+                      </p>
+                    </div>
+                    <p
+                      className={`shrink-0 font-semibold tabular-nums whitespace-nowrap ${
+                        row.amount > 0 ? "text-positive" : ""
+                      }`}
+                    >
+                      {formatSignedAud(row.amount)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 hidden sm:block">
+                <table className="w-full table-fixed border-collapse text-left text-[13px]">
                   <thead>
                     <tr className="bg-surface-subtle text-muted">
-                      <th className="border-y border-line px-3 py-2 text-[10.5px] font-semibold tracking-[0.1em] uppercase">
+                      <th className="w-[24%] border-y border-line px-3 py-2 text-[10.5px] font-semibold tracking-[0.1em] uppercase">
                         Date
                       </th>
-                      <th className="border-y border-line px-3 py-2 text-[10.5px] font-semibold tracking-[0.1em] uppercase">
+                      <th className="w-[26%] border-y border-line px-3 py-2 text-[10.5px] font-semibold tracking-[0.1em] uppercase">
                         Merchant
                       </th>
                       <th className="border-y border-line px-3 py-2 text-[10.5px] font-semibold tracking-[0.1em] uppercase">
                         Category
                       </th>
-                      <th className="border-y border-line px-3 py-2 text-right text-[10.5px] font-semibold tracking-[0.1em] uppercase">
+                      <th className="w-[22%] border-y border-line px-3 py-2 text-right text-[10.5px] font-semibold tracking-[0.1em] uppercase">
                         Amount
                       </th>
                     </tr>
@@ -180,13 +199,13 @@ export default function Home() {
                   <tbody>
                     {LEDGER_ROWS.map((row) => (
                       <tr key={row.date}>
-                        <td className="border-b border-line-dashed px-3 py-3 text-muted tabular-nums">
+                        <td className="border-b border-line-dashed px-3 py-3 text-muted tabular-nums whitespace-nowrap">
                           {formatDisplayDate(row.date)} 2026
                         </td>
                         <td className="border-b border-line-dashed px-3 py-3 font-semibold">{row.merchant}</td>
                         <td className="border-b border-line-dashed px-3 py-3">{row.category}</td>
                         <td
-                          className={`border-b border-line-dashed px-3 py-3 text-right font-semibold tabular-nums ${
+                          className={`border-b border-line-dashed px-3 py-3 text-right font-semibold tabular-nums whitespace-nowrap ${
                             row.amount > 0 ? "text-positive" : ""
                           }`}
                         >
@@ -218,7 +237,7 @@ export default function Home() {
                 Sign in
               </Link>
               <Link href="/dashboard" className={bandGhost}>
-                Demo mode
+                Try Demo mode
               </Link>
             </div>
           </div>
