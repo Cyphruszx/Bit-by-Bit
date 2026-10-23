@@ -64,7 +64,7 @@ describe("the editable category book", () => {
     assert.equal(taxonomyPath("groceries"), "Food & Drink · Groceries");
     assert.equal(taxonomyPath("salary"), "Income · Salary");
     assert.equal(taxonomyPath("other"), "Unsorted · Other");
-    assert.equal(taxonomyPath("transfers"), "Money moves · Transfers");
+    assert.equal(taxonomyPath("transfers"), "Transfers");
     assert.equal(taxonomyPath("uncategorised"), "Unsorted · Not sorted yet");
   });
 
