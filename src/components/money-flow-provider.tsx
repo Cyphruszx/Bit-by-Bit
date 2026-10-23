@@ -409,7 +409,7 @@ function hydrate(): Promise<void> {
       // is the backup arriving. mergeLedgers is idempotent on fingerprints, so doing this
       // when the two are the same ledger costs nothing and changes nothing.
       const merged = mergeLedgers(snapshot.ledger, stored);
-      const persisted = persistTaxonomy(merged);
+      const persisted = persistLoadedLedger(merged);
       update({
         ledger: persisted,
         ready: true,
@@ -447,9 +447,15 @@ export function rehydrateLedger(): Promise<void> {
  */
 export function applyRemoteLedger(remote: Ledger): void {
   const before = snapshot.ledger.entries.length;
-  const merged = persistTaxonomy(mergeLedgers(snapshot.ledger, remote));
+  const merged = persistLoadedLedger(mergeLedgers(snapshot.ledger, remote));
   commit(merged);
   if (merged.entries.length > before) writePeriod(currentMonthPeriod());
+}
+
+/** Custom keys have to be known before stored rows are rewritten, or a reload files them as Unsorted. */
+function persistLoadedLedger(ledger: Ledger): Ledger {
+  applyBook(bookForLedger(ledger));
+  return persistTaxonomy(ledger);
 }
 
 function commit(next: Ledger) {

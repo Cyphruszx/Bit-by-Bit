@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import {
   ARCHIVE_LEAVE_LABEL,
@@ -253,6 +254,7 @@ export function CategoriesBoard() {
               setActionError(result.reason);
               return;
             }
+            setGroupId(moveDest);
             setMoveOpen(false);
           }}
         />
@@ -345,7 +347,7 @@ function Toolbar({ filter, setFilter, summary }: { filter: Filter; setFilter: (f
 
 function DesktopPanes(props: BoardShared) {
   return (
-    <div className="mt-4 flex items-stretch gap-4 overflow-x-auto pb-2">
+    <div className="mt-4 flex items-start gap-4 overflow-x-auto pb-2">
       <GroupsPane {...props} className="w-[208px] shrink-0" />
       <ListPane {...props} className="min-w-[448px] flex-1" />
       <DetailPane {...props} hint className="w-[304px] shrink-0" />
@@ -1084,7 +1086,7 @@ function DialogShell({
   onClose: () => void;
   children: ReactNode;
 }) {
-  return (
+  return createPortal(
     <>
       <div className="fixed inset-0 z-40 bg-ink/45" onClick={onClose} />
       <div
@@ -1100,7 +1102,8 @@ function DialogShell({
         {desktop ? null : <div className="mx-auto h-1 w-10 rounded-[4px] bg-line" aria-hidden />}
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 

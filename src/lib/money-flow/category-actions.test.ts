@@ -28,8 +28,9 @@ import {
 import { budgetGroupLines, emptyBudgetBook, ledgerWithBudgets, planMonthOf, setCategoryAmount, setGroupAmount } from "./budget-plan";
 import { classify } from "./classify";
 import { interpretMovement } from "./interpret-row";
-import { appendToLedger, EMPTY_LEDGER, ledgerTransactions, parseLedger, recordTaxonomy, type Ledger } from "./ledger";
+import { appendToLedger, EMPTY_LEDGER, ledgerTransactions, parseLedger, persistTaxonomy, recordTaxonomy, type Ledger } from "./ledger";
 import { learn } from "./rules";
+import { isCategoryKey } from "./taxonomy";
 import type { FileInterpretation, InterpretedTransaction } from "./types";
 
 afterEach(() => {
@@ -274,6 +275,20 @@ describe("archiving a category", () => {
     const { ledger: custom, key } = prepared();
     assert.equal(ledgerAfterArchive(custom, key, { mode: "refile", targetKey: "salary" }, now).ok, false);
     assert.equal(bookForLedger(custom).categories.find((category) => category.key === key)?.archivedAt, undefined);
+  });
+});
+
+describe("loading a custom category", () => {
+  it("keeps its key when the book is applied before stored rows are rewritten", () => {
+    applyBook(defaultCategoryBook());
+    const { key } = coffeeBook();
+    const ledger = withRows([txn({ id: "c0", categoryKey: key, merchant: "Local Cafe", amount: -4 })]);
+    applyBook(defaultCategoryBook());
+    assert.equal(isCategoryKey(key), false);
+    applyBook(bookForLedger(ledger));
+    const next = persistTaxonomy(ledger);
+    assert.equal(next, ledger);
+    assert.equal(ledger.entries.find((entry) => entry.id === "c0")?.categoryKey, key);
   });
 });
 
