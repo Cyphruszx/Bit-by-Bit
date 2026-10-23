@@ -34,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <AccountLink />
               <AddLink />
             </div>
-            <div className="border-t border-line pt-3">
+            <div className="border-t-2 border-line pt-3">
               <SettingsNavItem />
             </div>
           </div>

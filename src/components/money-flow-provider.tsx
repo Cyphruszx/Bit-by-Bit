@@ -35,6 +35,7 @@ import {
   type MergeAccountsResult,
 } from "@/lib/money-flow/ledger";
 import { applyBook, bookForLedger, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
+import { ledgerAfterArchive, ledgerAfterCategoryMove, type ArchiveChoice } from "@/lib/money-flow/category-actions";
 import { needsStarterReset } from "@/lib/money-flow/starter-list";
 import {
   emptyBudgetBook,
@@ -192,6 +193,10 @@ type MoneyFlowState = {
   categoryBook: CategoryBook;
   /** Records an edit, or null to restore the usual fourteen. */
   setCategoryBook: (book: CategoryBook | null) => void;
+  /** Moves a category into another editable group, carrying its plan. */
+  moveCategoryToGroup: (categoryKey: string, groupId: string) => { ok: true } | { ok: false; reason: string };
+  /** Archives a category. Rows are re-filed, or left in place with its rules switched off. */
+  archiveCategory: (categoryKey: string, choice: ArchiveChoice) => { ok: true } | { ok: false; reason: string };
   /** Spec 6 currency/kind/cleared_balance. */
   accountMeta: Record<string, AccountMeta>;
   /** Spec 11 Pools. */
@@ -324,6 +329,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       removeTagEverywhere,
       categoryBook,
       setCategoryBook,
+      moveCategoryToGroup,
+      archiveCategory,
       accountMeta: held.ledger.accountMeta ?? {},
       accountPools: held.ledger.accountPools ?? [],
       accountPoolMembers: held.ledger.accountPoolMembers ?? [],
@@ -482,6 +489,22 @@ function mergeAccount(sourceId: string, survivorId: string): MergeAccountsResult
 function setCategoryBook(book: CategoryBook | null) {
   applyBook(book ? resolveBook(book) : null);
   commit(recordTaxonomy(snapshot.ledger, book));
+}
+
+function moveCategoryToGroup(categoryKey: string, groupId: string) {
+  const result = ledgerAfterCategoryMove(snapshot.ledger, categoryKey, groupId);
+  if (!result.ok) return result;
+  applyBook(bookForLedger(result.ledger));
+  commit(result.ledger);
+  return { ok: true as const };
+}
+
+function archiveCategory(categoryKey: string, choice: ArchiveChoice) {
+  const result = ledgerAfterArchive(snapshot.ledger, categoryKey, choice);
+  if (!result.ok) return result;
+  applyBook(bookForLedger(result.ledger));
+  commit(result.ledger);
+  return { ok: true as const };
 }
 
 function budgetBook(): BudgetBook {

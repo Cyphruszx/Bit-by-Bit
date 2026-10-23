@@ -38,6 +38,11 @@ export type BookCategory = {
   /** Bank labels that hint at this category, and tags a picker offers. */
   bankCategories: string[];
   builtin: boolean;
+  /**
+   * Set when the category was archived. The key stays so past rows keep their name.
+   * Absent means the category is live.
+   */
+  archivedAt?: string;
 };
 
 export type CategoryBook = {
@@ -67,6 +72,16 @@ const STARTER_GROUPS: GroupSpec[] = [
   { id: "unsorted", label: "Unsorted", keys: [OTHER, UNCATEGORISED] },
 ];
 
+/** Income, Money moves, Transfers, Unsorted, and the old Other group. Nothing moves in or out. */
+const FIXED_GROUP_IDS = new Set(["income", "money-moves", "transfers", "unsorted", "misc"]);
+
+/** Fixed groups in the order the Categories page draws them. */
+export const FIXED_GROUP_ORDER = ["income", "money-moves", "transfers", "unsorted", "misc"] as const;
+
+export function isFixedGroup(groupId: string): boolean {
+  return FIXED_GROUP_IDS.has(groupId);
+}
+
 /** Previous starter list. Kept so "Not now" can leave it in place. */
 const LEGACY_GROUPS: GroupSpec[] = [
   { id: "income", label: "Income", keys: ["salary", "other-income"] },
@@ -80,6 +95,13 @@ const LEGACY_GROUPS: GroupSpec[] = [
   { id: "transfers", label: "Transfers", keys: ["transfers"] },
   { id: "misc", label: "Other", keys: [OTHER, UNCATEGORISED] },
 ];
+
+const KNOWN_GROUP_IDS = new Set([...STARTER_GROUPS, ...LEGACY_GROUPS].map((group) => group.id));
+
+/** A group from a starter list, rather than one a person added. */
+export function isKnownGroup(groupId: string): boolean {
+  return KNOWN_GROUP_IDS.has(groupId);
+}
 
 let applied: CategoryBook | null = null;
 
@@ -159,10 +181,7 @@ export function resolveBook(input: CategoryBook | null | undefined, version?: nu
     starterListVersion: explicit ?? base.starterListVersion,
     groups,
     categories: [
-      ...kept.map((category) => ({
-        ...category,
-        builtin: isBuiltinCategoryKey(category.key),
-      })),
+      ...kept.map((category) => normaliseStoredCategory(category)),
       ...missing,
     ],
   };
@@ -215,7 +234,7 @@ export function applyBook(book: CategoryBook | null): void {
             label: category.label,
             inType: category.inType,
             outType: category.outType,
-            bankCategories: category.bankCategories,
+            bankCategories: category.archivedAt ? [] : category.bankCategories,
           })),
         }
       : null,
@@ -225,6 +244,17 @@ export function applyBook(book: CategoryBook | null): void {
 /** The book currently applied, or the PDF default when none is stored. */
 export function resolvedBook(): CategoryBook {
   return applied ?? defaultCategoryBook();
+}
+
+/**
+ * Whether a new row may land on this category.
+ * An archived category keeps the rows it already has and does not take new ones.
+ * A key the book has never heard of is left for the caller to reject.
+ */
+export function acceptsNewMatches(categoryKey: string): boolean {
+  const held = resolvedBook().categories.find((category) => category.key === categoryKey);
+  if (!held) return true;
+  return !held.archivedAt;
 }
 
 export function groupOf(categoryKey: string | undefined): string {
@@ -262,7 +292,7 @@ export function groupLabelOf(categoryKey: string | undefined): string {
  * the folder — Other, not "Not sorted yet", because moving a row into Other is a decision.
  */
 export function defaultCategoryForGroup(groupId: string, current?: string): string {
-  const held = categoriesIn(resolvedBook(), groupId);
+  const held = categoriesIn(resolvedBook(), groupId).filter((category) => !category.archivedAt);
   if (current && held.some((category) => category.key === current)) return current;
   return (held.find((category) => category.key !== UNCATEGORISED) ?? held[0])?.key ?? OTHER;
 }
@@ -290,6 +320,7 @@ export function pickerGroups(options?: { includeUncategorised?: boolean }): {
       id: group.id,
       label: group.label,
       categories: categoriesIn(book, group.id)
+        .filter((category) => !category.archivedAt)
         .filter((category) => options?.includeUncategorised || category.key !== UNCATEGORISED)
         .map((category) => ({ key: category.key, label: category.label })),
     }))
@@ -312,16 +343,18 @@ export function addGroup(book: CategoryBook, label: string): CategoryBook {
     book.groups.map((group) => group.id),
     "group",
   );
-  return { ...book, groups: [...book.groups, { id, label: name }] };
+  return { ...book, groups: insertYourGroup(book.groups, { id, label: name }) };
 }
 
 export function renameGroup(book: CategoryBook, id: string, label: string): CategoryBook {
+  if (isFixedGroup(id)) return book;
   const name = tidyName(label);
   if (!name) return book;
   return { ...book, groups: book.groups.map((group) => (group.id === id ? { ...group, label: name } : group)) };
 }
 
 export function removeGroup(book: CategoryBook, id: string): CategoryBook {
+  if (isFixedGroup(id)) return book;
   const leftover = book.categories.filter((category) => category.groupId === id);
   if (leftover.some((category) => category.builtin)) return book;
   const fallback = book.groups.find((group) => group.id !== id)?.id;
@@ -333,6 +366,7 @@ export function removeGroup(book: CategoryBook, id: string): CategoryBook {
 }
 
 export function addCategory(book: CategoryBook, groupId: string, label: string): CategoryBook {
+  if (isFixedGroup(groupId)) return book;
   if (!book.groups.some((group) => group.id === groupId)) return book;
   const name = tidyName(label);
   if (!name) return book;
@@ -349,6 +383,8 @@ export function addCategory(book: CategoryBook, groupId: string, label: string):
 }
 
 export function renameCategory(book: CategoryBook, key: string, label: string): CategoryBook {
+  const held = book.categories.find((category) => category.key === key);
+  if (!held || isFixedGroup(held.groupId)) return book;
   const name = tidyName(label);
   if (!name) return book;
   return {
@@ -365,6 +401,9 @@ export function removeCategory(book: CategoryBook, key: string): CategoryBook {
 
 export function moveCategory(book: CategoryBook, key: string, groupId: string): CategoryBook {
   if (!book.groups.some((group) => group.id === groupId)) return book;
+  const held = book.categories.find((category) => category.key === key);
+  if (!held || held.groupId === groupId || held.archivedAt) return book;
+  if (isFixedGroup(held.groupId) || isFixedGroup(groupId)) return book;
   return {
     ...book,
     categories: book.categories.map((category) => (category.key === key ? { ...category, groupId } : category)),
@@ -407,6 +446,20 @@ export function removeBankCategory(book: CategoryBook, key: string, name: string
 
 export function categoriesIn(book: CategoryBook, groupId: string): BookCategory[] {
   return book.categories.filter((category) => category.groupId === groupId);
+}
+
+function normaliseStoredCategory(category: BookCategory): BookCategory {
+  const next: BookCategory = { ...category, builtin: isBuiltinCategoryKey(category.key) };
+  if (typeof category.archivedAt !== "string" || category.archivedAt.trim() === "") delete next.archivedAt;
+  else next.archivedAt = category.archivedAt.trim();
+  return next;
+}
+
+/** A new group sits with the ones a person can edit, ahead of the trailing fixed groups. */
+function insertYourGroup(groups: BookGroup[], created: BookGroup): BookGroup[] {
+  let at = groups.length;
+  while (at > 0 && isFixedGroup(groups[at - 1]?.id ?? "")) at -= 1;
+  return [...groups.slice(0, at), created, ...groups.slice(at)];
 }
 
 function isGroup(value: unknown): value is BookGroup {

@@ -46,7 +46,7 @@ export function DashboardView() {
   const budgetMonth = period.kind === "month" ? period.month : sydneyMonth();
   const budgetCard = useMemo(() => {
     const spent = spentByCategoryKey(filterByPeriod(allTransactions, { kind: "month", month: budgetMonth }));
-    return dashboardBudgetCard(categoryBook, monthPlan(budgets, budgetMonth), spent);
+    return dashboardBudgetCard(categoryBook, monthPlan(budgets, budgetMonth), spent, budgetMonth);
   }, [allTransactions, budgetMonth, budgets, categoryBook]);
   const totalBalance = useMemo(() => presentAccountTiles(tiles), [tiles]);
   const asOf = useMemo(

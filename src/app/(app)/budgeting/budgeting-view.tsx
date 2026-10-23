@@ -33,7 +33,7 @@ export function BudgetingView() {
     () => spentByCategoryKey(filterByPeriod(allTransactions, { kind: "month", month })),
     [allTransactions, month],
   );
-  const lines = budgetGroupLines(categoryBook, plan, spent);
+  const lines = budgetGroupLines(categoryBook, plan, spent, month);
   const loose = unsortedSpent(categoryBook, spent);
   const totals = planTotals(lines);
   const toPlan = leftToPlan(plan.income ?? null, totals.planned);
