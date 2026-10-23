@@ -8,8 +8,10 @@ describe("landing page", () => {
   it("uses the split-hero copy and the demo route", () => {
     assert.match(source, /Know what&apos;s left to spend\./);
     assert.match(source, /Or try it with a bank CSV/);
-    assert.match(source, /Try Demo mode/);
+    assert.equal(source.match(/Try Demo mode/g)?.length, 4);
     assert.match(source, />\s*Demo mode\s*</);
+    assert.doesNotMatch(source, /min-w-\[32rem\]/);
+    assert.doesNotMatch(source, /overflow-x-auto/);
     assert.equal(source.match(/href="\/sign-in"/g)?.length, 4);
     assert.equal(source.match(/href="\/dashboard"/g)?.length, 5);
     assert.doesNotMatch(source, /Guest mode/);

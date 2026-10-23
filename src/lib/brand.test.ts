@@ -3,14 +3,14 @@ import { describe, it } from "node:test";
 import { siteDescription, siteName, siteTagline } from "./brand";
 
 describe("brand copy", () => {
-  it("keeps BitbyBit and describes the shipped guest path", () => {
+  it("keeps BitbyBit and describes Demo mode", () => {
     assert.equal(siteName, "BitbyBit");
     assert.match(siteTagline, /money flow/i);
     assert.match(siteDescription, /csv/i);
     assert.doesNotMatch(siteDescription, /pdf/i);
     assert.doesNotMatch(siteDescription, /photo/i);
-    assert.match(siteDescription, /guest/i);
-    assert.match(siteDescription, /this browser/i);
+    assert.match(siteDescription, /Demo mode/);
+    assert.doesNotMatch(siteDescription, /guest|browser/i);
   });
 
   it("does not claim unshipped ingest formats", () => {

@@ -288,7 +288,7 @@ export function DesignSystemGallery() {
                 Add
               </button>
               <button type="button" className={brandButton}>
-                Guest mode
+                Try Demo mode
               </button>
               <button type="button" className={secondaryButton}>
                 Export
@@ -297,7 +297,7 @@ export function DesignSystemGallery() {
                 Add
               </button>
               <button type="button" className={brandButton} disabled>
-                Guest mode
+                Try Demo mode
               </button>
               <button type="button" className={secondaryButton} disabled>
                 Export

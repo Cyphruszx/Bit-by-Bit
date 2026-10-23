@@ -29,7 +29,7 @@ export function SavingsView() {
       <h1 className="mt-2 text-[32px]">Savings</h1>
       <p className="mt-2 max-w-2xl text-muted">
         Track pots toward the things you are saving for. Add one below to start. Hide a pot to keep it
-        off the combined total and charts so you can watch one goal at a time. Edits stay in this browser.
+        off the combined total and charts so you can watch one goal at a time.
       </p>
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <SummaryCard
@@ -149,7 +149,7 @@ function AddPotForm({ onAdd }: { onAdd: (pot: Omit<SavingsPot, "id">) => void })
           if (!name.trim() || !Number.isFinite(targetValue) || targetValue <= 0) return;
           onAdd({
             name: name.trim(),
-            detail: "Saved in this browser",
+            detail: "",
             saved: Number(saved) || 0,
             target: targetValue,
             monthlyContribution: Number(monthly) || 0,
@@ -233,7 +233,7 @@ function PotCard({
               <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-xs font-medium text-muted">Hidden</span>
             )}
           </div>
-          <p className="mt-1 text-sm text-muted">{pot.detail}</p>
+          {pot.detail ? <p className="mt-1 text-sm text-muted">{pot.detail}</p> : null}
           <p className="mt-5 text-2xl font-bold">{formatAud(pot.saved)}</p>
           <p className="mt-1 text-sm text-muted">of {formatAud(pot.target)}</p>
           <ProgressBar value={percent} />

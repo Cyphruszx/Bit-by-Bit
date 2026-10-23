@@ -27,7 +27,7 @@ export default function DesignSystemPage() {
         <DesignSystemGallery />
       </main>
       <footer className="border-t border-line px-5 py-8 text-center text-sm text-muted md:px-7">
-        {siteName} · Preview utility · not a Core flow
+        {siteName} · Preview utility
       </footer>
     </AppFrame>
   );

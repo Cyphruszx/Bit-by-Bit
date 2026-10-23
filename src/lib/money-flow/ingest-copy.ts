@@ -34,21 +34,21 @@ export function uploadPageIntro(): string {
     ? "Preview the mapped rows, then Confirm. Testing — weekly quotas are off."
     : "Preview the mapped rows, then Confirm — a CSV slot is used only then.";
   if (!ingestPdfEnabled()) {
-    return `Core ingest is CSV. Download a CSV file from your bank's app or internet banking and upload that. ${confirm} ${CSV_SIZE_GUIDANCE}`;
+    return `Ingest is CSV. Download a CSV file from your bank's app or internet banking and upload that. ${confirm} ${CSV_SIZE_GUIDANCE}`;
   }
-  return `Core ingest is CSV, digital PDF, and OCR photos. Drop one bank CSV, a PDF, or photograph a page. Digital PDFs are text-extracted when the text is usable; scanned pages use OCR. ${confirm} Excel, OFX, and QIF are unavailable. ${SIZE_GUIDANCE}`;
+  return `Ingest is CSV, digital PDF, and OCR photos. Drop one bank CSV, a PDF, or photograph a page. Digital PDFs are text-extracted when the text is usable; scanned pages use OCR. ${confirm} Excel, OFX, and QIF are unavailable. ${SIZE_GUIDANCE}`;
 }
 
 export function uploadStudioBody(): string {
   if (!ingestPdfEnabled()) {
     return ingestQuotasDisabled()
-      ? `Core ingest is CSV — one file at a time. Download a CSV file from your bank's app or internet banking and upload that. ${CSV_SIZE_GUIDANCE}`
-      : `Core ingest is CSV — one file at a time. Download a CSV file from your bank's app or internet banking and upload that. ${CSV_WEEKLY_LIMIT} CSV imports each Australian week. ${CSV_SIZE_GUIDANCE}`;
+      ? `Ingest is CSV — one file at a time. Download a CSV file from your bank's app or internet banking and upload that. ${CSV_SIZE_GUIDANCE}`
+      : `Ingest is CSV — one file at a time. Download a CSV file from your bank's app or internet banking and upload that. ${CSV_WEEKLY_LIMIT} CSV imports each Australian week. ${CSV_SIZE_GUIDANCE}`;
   }
   if (ingestQuotasDisabled()) {
-    return `Core ingest is CSV, digital PDF, and OCR photos — one file at a time. Excel, OFX, and QIF are unavailable. ${SIZE_GUIDANCE} PDFs are text-extracted when the text is usable; scanned pages use OCR.`;
+    return `Ingest is CSV, digital PDF, and OCR photos — one file at a time. Excel, OFX, and QIF are unavailable. ${SIZE_GUIDANCE} PDFs are text-extracted when the text is usable; scanned pages use OCR.`;
   }
-  return `Core ingest is CSV, digital PDF, and OCR photos — one file at a time. Excel, OFX, and QIF are unavailable. PDFs under about 10MB (about ${OCR_PAGE_WEEKLY_LIMIT} pages) are text-extracted when the text is usable; scanned pages use OCR and count toward this week's ${OCR_PAGE_WEEKLY_LIMIT} OCR pages.`;
+  return `Ingest is CSV, digital PDF, and OCR photos — one file at a time. Excel, OFX, and QIF are unavailable. PDFs under about 10MB (about ${OCR_PAGE_WEEKLY_LIMIT} pages) are text-extracted when the text is usable; scanned pages use OCR and count toward this week's ${OCR_PAGE_WEEKLY_LIMIT} OCR pages.`;
 }
 
 /** Snapshot of current-env intro copy. Prefer `uploadPageIntro()` when env can change. */

@@ -43,8 +43,7 @@ export function SignInForm() {
           </button>
         </div>
         <p className="mt-3 text-xs text-muted">
-          Signing out leaves this browser&apos;s copy alone. To remove your statements everywhere,
-          use Clear on the upload screen.
+          To remove your statements, use Clear on the upload screen.
         </p>
       </div>
     );
@@ -128,10 +127,6 @@ export function SignInForm() {
         {making ? "I already have an account" : "I need an account"}
       </button>
 
-      <p className="mt-4 text-xs text-muted">
-        Statements already in this browser are kept and added to the account, not replaced —
-        unless they belong to someone else who signed in here, which stay theirs.
-      </p>
     </form>
   );
 }

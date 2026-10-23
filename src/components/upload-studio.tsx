@@ -191,8 +191,7 @@ export function UploadStudio({ aiReady = false, pdfEnabled = false }: { aiReady?
           dragging ? "border-primary bg-accent-surface" : "border-line bg-surface"
         }`}
       >
-        <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Core feature</p>
-        <h2 className="mt-2 text-2xl font-bold">{uploadStudioHeading()}</h2>
+        <h2 className="text-2xl font-bold">{uploadStudioHeading()}</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted">
           {uploadStudioBody()}
           {pdfEnabled
