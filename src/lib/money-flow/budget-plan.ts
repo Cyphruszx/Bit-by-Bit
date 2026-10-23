@@ -13,7 +13,8 @@
  * only and stays out of the planned total.
  */
 
-import { categoriesIn, type CategoryBook } from "@/lib/money-flow/category-book";
+import { categoriesIn, type BookCategory, type CategoryBook } from "@/lib/money-flow/category-book";
+import { APP_TIME_ZONE } from "@/lib/money-flow/period";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { categoryOf } from "@/lib/money-flow/tags";
 import { tileAmount } from "@/lib/money-flow/tile";
@@ -157,14 +158,34 @@ export type BudgetGroupLine = {
   ring: RingRead;
 };
 
+/** Sydney calendar month for an archive timestamp, so "next month" follows the app clock. */
+export function planMonthOf(when: string | Date): string {
+  const date = when instanceof Date ? when : new Date(when);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-CA", { timeZone: APP_TIME_ZONE }).slice(0, 7);
+}
+
+/**
+ * An archived category stays in the plan for the month it was archived and earlier.
+ * Later months drop it. Callers that do not name a month keep every category, so
+ * existing plan maths is unchanged until a page passes the month it is showing.
+ */
+function shownInPlan(category: BookCategory, month: string | undefined): boolean {
+  if (!category.archivedAt || !month) return true;
+  const archivedMonth = planMonthOf(category.archivedAt);
+  if (!archivedMonth) return true;
+  return archivedMonth >= month;
+}
+
 export function budgetGroupLines(
   book: CategoryBook,
   plan: BudgetMonth,
   spentByCategory: ReadonlyMap<string, number>,
+  month?: string,
 ): BudgetGroupLine[] {
   return book.groups.flatMap((group) => {
     if (OFF_BUDGET_GROUPS.has(group.id)) return [];
-    const held = categoriesIn(book, group.id);
+    const held = categoriesIn(book, group.id).filter((category) => shownInPlan(category, month));
     const visible = held.filter((category) => !OFF_BUDGET_CATEGORIES.has(category.key));
     if (held.length > 0 && visible.length === 0) return [];
     const categories = visible.map((category) => ({
@@ -241,8 +262,9 @@ export function dashboardBudgetCard(
   book: CategoryBook,
   plan: BudgetMonth,
   spentByCategory: ReadonlyMap<string, number>,
+  month?: string,
 ): DashboardBudgetCard {
-  const lines = budgetGroupLines(book, plan, spentByCategory);
+  const lines = budgetGroupLines(book, plan, spentByCategory, month);
   const tiles: DashboardBudgetTile[] = lines.map((line) => {
     const left = leftToSpend(line.counted, line.spent);
     const planned = left.over ? roundMoney(line.spent - left.amount) : roundMoney(line.spent + left.amount);

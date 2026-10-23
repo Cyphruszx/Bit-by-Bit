@@ -1,4 +1,5 @@
 import { categorize, inferType } from "@/lib/money-flow/categorize";
+import { acceptsNewMatches } from "@/lib/money-flow/category-book";
 import { looksLikeCreditCardRepayment } from "@/lib/money-flow/statement-category";
 import { displayName } from "@/lib/money-flow/display-name";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
@@ -79,13 +80,16 @@ export function readMovement(
   const fromBank = fromRules ? null : categoryFromBankLabel(bankCategory, amount);
   // A rule says `food.groceries` because that is the legible way to write a rule. It means
   // a category and a tag, and this is where the two come apart.
-  const { categoryKey, tag } = splitSuggestion(fromRules ?? fromBank ?? UNCATEGORISED);
+  const split = splitSuggestion(fromRules ?? fromBank ?? UNCATEGORISED);
+  // Archived categories keep the rows they already have. A new read goes to Unsorted.
+  const archived = split.categoryKey !== UNCATEGORISED && !acceptsNewMatches(split.categoryKey);
+  const categoryKey = archived ? UNCATEGORISED : split.categoryKey;
   return {
     amount,
     categoryKey,
-    ...(tag ? { tag } : {}),
+    ...(!archived && split.tag ? { tag: split.tag } : {}),
     type: inferType(categoryKey, amount),
-    decidedBy: fromRules ? "rules" : fromBank ? "bank" : "unreviewed",
+    decidedBy: archived ? "unreviewed" : fromRules ? "rules" : fromBank ? "bank" : "unreviewed",
   };
 }
 

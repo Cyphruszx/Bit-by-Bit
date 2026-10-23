@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const links = [
   ["Dashboard", "/dashboard"],
   ["Transactions", "/transactions"],
+  ["Categories", "/categories"],
   ["Budget", "/budgeting"],
 ] as const;
 
@@ -41,7 +42,7 @@ function NavItem({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`flex h-10 items-center gap-2.5 rounded-[var(--radius-card)] px-3 text-[13.5px] font-semibold ${
+      className={`flex h-11 items-center gap-2.5 rounded-[4px] px-3 text-[13.5px] font-semibold ${
         active ? "bg-accent-surface text-primary" : "text-muted"
       }`}
     >
@@ -69,6 +70,14 @@ function NavIcon({ name }: { name: string }) {
       <svg {...common}>
         <path d="M8 6h13M8 12h13M8 18h13" />
         <path d="M3 6h.01M3 12h.01M3 18h.01" />
+      </svg>
+    );
+  }
+  if (name === "Categories") {
+    return (
+      <svg {...common}>
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+        <path d="M7 7h.01" />
       </svg>
     );
   }
