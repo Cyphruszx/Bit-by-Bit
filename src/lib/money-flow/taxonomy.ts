@@ -119,7 +119,10 @@ type Category = {
   inType: TransactionType;
   /** The type a debit takes. */
   outType: TransactionType;
-  /** Offered as tags when this category is chosen. Never required, never exhaustive. */
+  /**
+   * Bank labels and older suggestion names for this category. They seed the category
+   * book and the dotted vocabulary a rule can answer with. They are not stored on a movement.
+   */
   tags: Suggestion[];
 };
 
@@ -683,9 +686,17 @@ export function categoryLabel(key: string | undefined): string {
   return overlay.labels.get(key) ?? LOOSE[key]?.label ?? BY_KEY.get(key)?.label ?? overlay.extras.get(key)?.label ?? titleCase(key);
 }
 
-/** The tags this category offers. Suggestions only — a person can type anything. */
-export function tagsFor(categoryKey: string | undefined): string[] {
-  return tagPairsFor(categoryKey ?? "").map(([, tag]) => tag);
+/**
+ * A bank-label or older suggestion name, such as "Food & Drink", onto its filing key.
+ * The name is not stored on the movement.
+ */
+export function categoryKeyForSuggestionName(name: string): string | null {
+  const needle = name.trim().toLowerCase();
+  if (!needle) return null;
+  for (const key of CATEGORY_KEYS) {
+    if (tagPairsFor(key).some(([, label]) => label.toLowerCase() === needle)) return key;
+  }
+  return null;
 }
 
 function tagPairsFor(key: string): Suggestion[] {

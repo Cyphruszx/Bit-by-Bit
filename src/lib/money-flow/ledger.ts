@@ -264,7 +264,7 @@ export function appendToLedger(
 
       const existing = lookupHeld(held, row, occurrence, mergedInto);
       if (existing) {
-        // Keep the held movement, tags and all, and only note that this import covered it too.
+        // Keep the held movement, and only note that this import covered it too.
         // Spec 3: user_overridden wins on the same fingerprint.
         applyReimportOverride(existing, row);
         if (!existing.importIds.includes(record.id)) existing.importIds.push(record.id);

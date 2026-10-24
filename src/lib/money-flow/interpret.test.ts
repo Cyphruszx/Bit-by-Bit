@@ -628,7 +628,6 @@ describe("money flow summary", () => {
         id: "1",
         merchant: "Cafe Sydney",
         categoryKey: "eating-out",
-        tags: ["Dining", "Coffee"],
         date: "20 Aug",
         dateIso: "2026-08-20",
         amount: -28.4,
@@ -640,7 +639,6 @@ describe("money flow summary", () => {
         id: "2",
         merchant: "Woolworths Bondi",
         categoryKey: "groceries",
-        tags: ["Groceries"],
         date: "25 Aug",
         dateIso: "2026-08-25",
         amount: -86.4,
@@ -661,7 +659,6 @@ describe("money flow summary", () => {
         id: "1",
         merchant: "Cafe Sydney",
         categoryKey: "eating-out",
-        tags: ["Dining", "Coffee"],
         date: "20 Aug",
         dateIso: "2026-08-20",
         amount: -28.4,
@@ -673,7 +670,6 @@ describe("money flow summary", () => {
         id: "2",
         merchant: "Woolworths Bondi",
         categoryKey: "groceries",
-        tags: ["Groceries"],
         date: "21 Aug",
         dateIso: "2026-08-21",
         amount: -60,
@@ -685,7 +681,6 @@ describe("money flow summary", () => {
         id: "3",
         merchant: "Salary Acme",
         categoryKey: "salary",
-        tags: ["Salary"],
         date: "18 Aug",
         dateIso: "2026-08-18",
         amount: 2620,
@@ -713,7 +708,6 @@ describe("money flow summary", () => {
         id: "1",
         merchant: "Cafe Sydney",
         categoryKey: "eating-out",
-        tags: ["Dining"],
         date: "20 Aug",
         dateIso: "2026-08-20",
         amount: -28.4,
@@ -725,7 +719,6 @@ describe("money flow summary", () => {
         id: "2",
         merchant: "Salary Acme",
         categoryKey: "salary",
-        tags: ["Income"],
         date: "18 Aug",
         dateIso: "2026-08-18",
         amount: 2620,
@@ -738,7 +731,6 @@ describe("money flow summary", () => {
         id: "3",
         merchant: "Refunded jacket",
         categoryKey: "shopping",
-        tags: ["Shopping"],
         date: "19 Aug",
         dateIso: "2026-08-19",
         amount: 40,
@@ -750,7 +742,6 @@ describe("money flow summary", () => {
         id: "4",
         merchant: "Jacket",
         categoryKey: "shopping",
-        tags: ["Shopping"],
         date: "17 Aug",
         dateIso: "2026-08-17",
         amount: -100,
@@ -913,27 +904,12 @@ describe("money flow summary", () => {
     );
   });
 
-  it("leaves the category alone when a tag is renamed, because tags never move a total", () => {
-    const before = summarizeMoneyFlow([
+  it("files rent under housing from the category alone", () => {
+    const summary = summarizeMoneyFlow([
       {
         id: "1",
         merchant: "Rent Payment Smith",
         categoryKey: "rent-mortgage",
-        tags: ["Housing"],
-        date: "1 Aug",
-        dateIso: "2026-08-01",
-        amount: -980,
-        type: "spent",
-        sourceFile: "demo",
-        confidence: 1,
-      },
-    ]);
-    const after = summarizeMoneyFlow([
-      {
-        id: "1",
-        merchant: "Rent Payment Smith",
-        categoryKey: "rent-mortgage",
-        tags: ["Rent"],
         date: "1 Aug",
         dateIso: "2026-08-01",
         amount: -980,
@@ -943,13 +919,7 @@ describe("money flow summary", () => {
       },
     ]);
     assert.deepEqual(
-      before.categories.map((category) => category.name),
-      ["housing"],
-    );
-    // The tag changed and the figure did not move. Under the old model the first tag was
-    // the category, so renaming one silently re-filed a year of spending.
-    assert.deepEqual(
-      after.categories.map((category) => [category.name, category.amount]),
+      summary.categories.map((category) => [category.name, category.amount]),
       [["housing", 980]],
     );
   });

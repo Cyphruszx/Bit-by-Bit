@@ -13,7 +13,7 @@ import {
   type ReviewItem,
   type ReviewReason,
 } from "@/lib/money-flow/review-queue";
-import { tagsOf, withCategory, withTags } from "@/lib/money-flow/tags";
+import { withCategory } from "@/lib/money-flow/category-of";
 import type { MatchOptions } from "@/lib/money-flow/transfers";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import type { VerdictReason } from "@/lib/money-flow/verdicts";
@@ -209,9 +209,9 @@ export function reviewItemIsCredit(
   return Boolean(item.creditId) && !item.debitId;
 }
 
-/** Spec 3 DEBT_PRINCIPAL drawdown: existing debt-payments category + Drawdown tag. */
+/** Spec 3 DEBT_PRINCIPAL drawdown: the debt-payments category, and nothing else. */
 export function fileAsLoanDrawdown(txn: InterpretedTransaction): InterpretedTransaction {
-  return withTags(withCategory(txn, "debt-payments"), [...tagsOf(txn), "Drawdown"]);
+  return withCategory(txn, "debt-payments");
 }
 
 /** OPEN no-partner UNPAIRED_TRANSFER items that share the current card's payee key. */

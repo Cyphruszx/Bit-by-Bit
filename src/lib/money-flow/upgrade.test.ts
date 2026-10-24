@@ -127,6 +127,27 @@ describe("whether a stored row still needs writing", () => {
   });
 });
 
+describe("saved tags on an old book", () => {
+  it("uses them once to choose an old category key and leaves the field as it was saved", () => {
+    const row = stored({ categoryKey: "food", tags: ["Groceries", "Weekly"] });
+    const upgraded = upgradeTransaction(row);
+    assert.equal(upgraded.categoryKey, "groceries");
+    assert.deepEqual(row.tags, ["Groceries", "Weekly"]);
+    assert.deepEqual((upgraded as { tags?: string[] }).tags, ["Groceries", "Weekly"]);
+  });
+
+  it("does not rewrite a current row just because it still carries tags", () => {
+    const row = stored({
+      merchant: "KFC",
+      decidedBy: "rules",
+      tags: ["Restaurants"],
+      description: "KFC Wagga Wagga, NSW Purchase",
+      source: sourceFromPairs([["Lines", "8:37pm KFC\nWagga Wagga, NSW Purchase"]]),
+    });
+    assert.equal(storedInCurrentModel(row), true);
+  });
+});
+
 describe("Spec 10 ledger defaults on read", () => {
   it("fills base_amount and CLEARED for rows stored before those fields", () => {
     const upgraded = upgradeTransaction(stored({ amount: -14.95 }));

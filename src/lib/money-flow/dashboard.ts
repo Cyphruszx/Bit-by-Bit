@@ -18,8 +18,8 @@ import {
   NO_BANK_BALANCE_LABEL,
   type AccountBalanceView,
 } from "@/lib/money-flow/statement-balance";
-import { topChartCategories } from "@/lib/money-flow/tag-charts";
-import { categoryOf } from "@/lib/money-flow/tags";
+import { topChartCategories } from "@/lib/money-flow/category-charts";
+import { categoryOf } from "@/lib/money-flow/category-of";
 import type { CategorySpend, InterpretedTransaction } from "@/lib/money-flow/types";
 import { accountsByInstitution, type AccountTotals, type InstitutionAccounts } from "@/lib/money-flow/accounts";
 

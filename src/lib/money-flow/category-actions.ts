@@ -33,7 +33,7 @@ import { formatCount, formatAud } from "@/lib/format";
 import { ledgerTransactions, recordTaxonomy, replaceTransactions, type Ledger } from "@/lib/money-flow/ledger";
 import { roundMoney } from "@/lib/money-flow/parse-values";
 import { type Rules } from "@/lib/money-flow/rules";
-import { withCategory } from "@/lib/money-flow/tags";
+import { withCategory } from "@/lib/money-flow/category-of";
 
 export type ArchiveChoice = { mode: "refile"; targetKey: string } | { mode: "leave" };
 

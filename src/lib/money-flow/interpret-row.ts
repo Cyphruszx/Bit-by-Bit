@@ -49,8 +49,6 @@ export type Reading = {
   /** Signed, so a negative amount is money leaving. */
   amount: number;
   categoryKey: string;
-  /** The detail the rule knew, when it knew one. Groceries rather than just Food & Drink. */
-  tag?: string;
   type: TransactionType;
   decidedBy: DecidedBy;
 };
@@ -78,8 +76,8 @@ export function readMovement(
   const bankMapped = Boolean(categoryFromBankLabel(bankCategory, amount));
   const fromRules = categorize(text, amount, { mcc, bankMapped });
   const fromBank = fromRules ? null : categoryFromBankLabel(bankCategory, amount);
-  // A rule says `food.groceries` because that is the legible way to write a rule. It means
-  // a category and a tag, and this is where the two come apart.
+  // A rule says `food.groceries` because that is the legible way to write a rule. The
+  // filing key is the category; the dotted detail is not stored on the movement.
   const split = splitSuggestion(fromRules ?? fromBank ?? UNCATEGORISED);
   // Archived categories keep the rows they already have. A new read goes to Unsorted.
   const archived = split.categoryKey !== UNCATEGORISED && !acceptsNewMatches(split.categoryKey);
@@ -87,7 +85,6 @@ export function readMovement(
   return {
     amount,
     categoryKey,
-    ...(!archived && split.tag ? { tag: split.tag } : {}),
     type: inferType(categoryKey, amount),
     decidedBy: archived ? "unreviewed" : fromRules ? "rules" : fromBank ? "bank" : "unreviewed",
   };
@@ -124,7 +121,6 @@ export function interpretMovement(raw: RawMovement): InterpretedTransaction {
       bank,
     }),
     categoryKey: read.categoryKey,
-    ...(read.tag ? { tags: [read.tag] } : {}),
     decidedBy: read.decidedBy,
     extractedBy: "parser",
     date: formatDisplayDate(raw.dateIso),

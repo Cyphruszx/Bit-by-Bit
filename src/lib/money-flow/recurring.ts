@@ -1,6 +1,5 @@
 import { formatDisplayDate, roundMoney } from "@/lib/money-flow/parse-values";
 import { inPeriod, monthBounds, type PeriodFilter } from "@/lib/money-flow/period";
-import { tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 /**
@@ -45,7 +44,7 @@ export function detectRecurringOutflows(transactions: InterpretedTransaction[]):
 
   const results: DetectedRecurring[] = [];
   for (const rows of groups.values()) {
-    const looksLikeBill = rows.some((txn) => BILL_HINT.test(`${txn.merchant} ${tagsOf(txn).join(" ")}`));
+    const looksLikeBill = rows.some((txn) => BILL_HINT.test(txn.merchant));
     if (rows.length < 2 && !looksLikeBill) continue;
     const amounts = rows.map((txn) => Math.abs(txn.amount)).sort((a, b) => a - b);
     const typicalAmount = roundMoney(amounts[Math.floor(amounts.length / 2)]);

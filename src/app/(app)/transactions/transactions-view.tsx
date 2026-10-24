@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { TransactionTable } from "@/components/transaction-table";
-import { TagChartCard } from "@/components/tag-charts";
+import { CategoryChartCard } from "@/components/category-charts";
 import { SummaryCard } from "@/components/summary-card";
 import { EmptyLedger } from "@/components/empty-ledger";
 import { useMoneyFlow } from "@/components/money-flow-provider";
@@ -67,7 +67,7 @@ export function TransactionsView() {
         <h1 className="text-2xl">Transactions</h1>
         <EmptyLedger>
           Every movement BitbyBit reads will be listed here, searchable and sortable, each with one
-          category for what the money was for and any tags you want to find it by.
+          category for what the money was for.
         </EmptyLedger>
       </>
     );
@@ -77,7 +77,7 @@ export function TransactionsView() {
     <>
       <h1 className="text-2xl">Transactions</h1>
       <div className="mt-4">
-        <TagChartCard
+        <CategoryChartCard
           transactions={scopedHoldings}
           pagePeriod={period}
           selectedTag={selectedTag}

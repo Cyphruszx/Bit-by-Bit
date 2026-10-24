@@ -26,12 +26,12 @@ import {
 } from "@/lib/money-flow/summary";
 import {
   nextTagSelection,
-} from "@/lib/money-flow/tag-charts";
+} from "@/lib/money-flow/category-charts";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const ALL_PERIOD: PeriodFilter = { kind: "all" };
 
-export function TagChartCard({
+export function CategoryChartCard({
   transactions = [],
   selectedTag,
   onSelectTag,

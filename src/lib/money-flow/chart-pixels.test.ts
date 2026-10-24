@@ -10,7 +10,7 @@ import {
   smoothPath,
   steppedPath,
 } from "./chart-pixels";
-import { pieSlices } from "./tag-charts";
+import { pieSlices } from "./category-charts";
 
 describe("chart pixels", () => {
   it("snaps coordinates onto the chart grid", () => {
