@@ -18,8 +18,11 @@ import {
   archiveRulesNote,
   categoriesSummary,
   fixedGroupsLine,
+  deleteConfirmCopy,
   ledgerAfterArchive,
   ledgerAfterCategoryMove,
+  ledgerAfterDeleteCategory,
+  ledgerAfterRestore,
   moveConfirmCopy,
   orderedFixedGroups,
   previewCategoryMove,
@@ -161,6 +164,9 @@ describe("moving a category", () => {
     assert.equal(moveCategory(book, key, "transfers"), book);
     assert.equal(moveCategory(book, key, "unsorted"), book);
     assert.equal(moveCategory(book, "salary", "lifestyle"), book);
+    const shifted = moveCategory(book, "groceries", "lifestyle");
+    assert.equal(shifted.categories.find((category) => category.key === "groceries")?.groupId, "lifestyle");
+    assert.equal(shifted.categories.find((category) => category.key === "groceries")?.builtin, true);
     assert.equal(addCategory(book, "income", "Bonus"), book);
     assert.equal(renameGroup(book, "unsorted", "Loose"), book);
     assert.equal(renameCategory(book, "salary", "Wages"), book);
@@ -224,13 +230,14 @@ describe("archiving a category", () => {
     assert.equal(archiveRefileLabel(2), "Move its 2 transactions to another category, then archive");
   });
 
-  it("leaves transactions, switches rules off, and sends new matches to Unsorted", () => {
+  it("leaves transactions, pauses rules, and sends new matches to Unsorted", () => {
     const { ledger, key } = prepared();
     const kept = ledgerTransactions(ledger).map((row) => row.categoryKey);
     const result = ledgerAfterArchive(ledger, key, { mode: "leave" }, now);
     assert.equal(result.ok, true);
     if (!result.ok) return;
-    assert.equal(result.ledger.rules, undefined);
+    const paused = Object.values(result.ledger.rules ?? {})[0];
+    assert.equal(paused?.categoryKey, key);
     assert.deepEqual(ledgerTransactions(result.ledger).map((row) => row.categoryKey), kept);
     applyBook(bookForLedger(result.ledger));
     const fresh = txn({ id: "new", categoryKey: "uncategorised", decidedBy: "unreviewed" });
@@ -247,9 +254,14 @@ describe("archiving a category", () => {
     assert.equal(classify([remembered, fresh])[1]?.categoryKey, "uncategorised");
 
     const groceries = ledgerAfterArchive(recordTaxonomy(EMPTY_LEDGER, defaultCategoryBook()), "groceries", { mode: "leave" }, now);
-    assert.equal(groceries.ok, true);
-    if (!groceries.ok) return;
-    applyBook(bookForLedger(groceries.ledger));
+    assert.equal(groceries.ok, false);
+    const alreadyArchived = {
+      ...defaultCategoryBook(),
+      categories: defaultCategoryBook().categories.map((category) =>
+        category.key === "groceries" ? { ...category, archivedAt: now.toISOString() } : category,
+      ),
+    };
+    applyBook(alreadyArchived);
     const woolworths = interpretMovement({
       dateIso: "2026-10-06",
       amount: -20,
@@ -275,6 +287,91 @@ describe("archiving a category", () => {
     const { ledger: custom, key } = prepared();
     assert.equal(ledgerAfterArchive(custom, key, { mode: "refile", targetKey: "salary" }, now).ok, false);
     assert.equal(bookForLedger(custom).categories.find((category) => category.key === key)?.archivedAt, undefined);
+  });
+});
+
+describe("deleting a category", () => {
+  it("refuses when any month still has a transaction, and when the category is a starter", () => {
+    const { key } = coffeeBook();
+    const ledger = withRows([
+      txn({ id: "jan", categoryKey: key, dateIso: "2026-01-15", date: "15 Jan", amount: -8 }),
+    ]);
+    const blocked = ledgerAfterDeleteCategory(ledger, key);
+    assert.equal(blocked.ok, false);
+    assert.ok(bookForLedger(ledger).categories.some((category) => category.key === key));
+    const starter = recordTaxonomy(EMPTY_LEDGER, defaultCategoryBook());
+    assert.equal(ledgerAfterDeleteCategory(starter, "groceries").ok, false);
+    assert.equal(ledgerAfterDeleteCategory(starter, "salary").ok, false);
+    assert.equal(ledgerAfterArchive(starter, "groceries", { mode: "leave" }).ok, false);
+    assert.equal(ledgerAfterArchive(starter, "salary", { mode: "leave" }).ok, false);
+  });
+
+  it("removes the category, its rules, and its plan in every month", () => {
+    const { key } = coffeeBook();
+    let ledger = withRows([]);
+    ledger = {
+      ...ledger,
+      rules: learn({}, txn({ categoryKey: "eating-out" }), key, "2026-10-01T00:00:00.000Z"),
+    };
+    let budgets = setCategoryAmount(emptyBudgetBook(), "2026-01", key, 50);
+    budgets = setCategoryAmount(budgets, "2026-11", key, 20);
+    ledger = ledgerWithBudgets(ledger, budgets);
+    assert.equal(deleteConfirmCopy("Gym", 1, 50), "Delete Gym? Its 1 rule and $50 plan go too.");
+    assert.equal(deleteConfirmCopy("Gym", 2, null), "Delete Gym? Its 2 rules go too.");
+    assert.equal(deleteConfirmCopy("Gym", 0, 50), "Delete Gym? Its $50 plan goes too.");
+    assert.equal(deleteConfirmCopy("Gym", 0, null), "Delete Gym?");
+    const result = ledgerAfterDeleteCategory(ledger, key);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(bookForLedger(result.ledger).categories.some((category) => category.key === key), false);
+    assert.equal(result.ledger.rules, undefined);
+    assert.equal(result.ledger.budgets?.months["2026-01"]?.categories[key], undefined);
+    assert.equal(result.ledger.budgets?.months["2026-11"]?.categories[key], undefined);
+  });
+});
+
+describe("restoring a category", () => {
+  const now = new Date("2026-10-23T01:00:00.000Z");
+
+  it("clears the archive, turns paused rules back on, and leaves past rows", () => {
+    const { key } = coffeeBook();
+    const rows = [txn({ id: "a", categoryKey: key, amount: -12 })];
+    let ledger = withRows(rows);
+    ledger = {
+      ...ledger,
+      rules: learn({}, txn({ id: "a", categoryKey: "eating-out" }), key, "2026-10-01T00:00:00.000Z"),
+    };
+    const archived = ledgerAfterArchive(ledger, key, { mode: "leave" }, now);
+    assert.equal(archived.ok, true);
+    if (!archived.ok) return;
+    const before = ledgerTransactions(archived.ledger).map((row) => row.categoryKey);
+    applyBook(bookForLedger(archived.ledger));
+    const fresh = txn({ id: "new", merchant: "Local Cafe", categoryKey: "uncategorised", decidedBy: "unreviewed" });
+    assert.equal(classify([fresh], { rules: archived.ledger.rules ?? {} })[0]?.categoryKey, "uncategorised");
+
+    const restored = ledgerAfterRestore(archived.ledger, key);
+    assert.equal(restored.ok, true);
+    if (!restored.ok) return;
+    const back = bookForLedger(restored.ledger).categories.find((category) => category.key === key);
+    assert.equal(back?.archivedAt, undefined);
+    assert.equal(back?.groupId, "food");
+    assert.deepEqual(
+      ledgerTransactions(restored.ledger).map((row) => row.categoryKey),
+      before,
+    );
+    applyBook(bookForLedger(restored.ledger));
+    assert.equal(classify([fresh], { rules: restored.ledger.rules ?? {} })[0]?.categoryKey, key);
+
+    const parked = recordTaxonomy(archived.ledger, {
+      ...bookForLedger(archived.ledger),
+      categories: bookForLedger(archived.ledger).categories.map((category) =>
+        category.key === key ? { ...category, groupId: "retired-group" } : category,
+      ),
+    });
+    const moved = ledgerAfterRestore(parked, key);
+    assert.equal(moved.ok, true);
+    if (!moved.ok) return;
+    assert.equal(bookForLedger(moved.ledger).categories.find((category) => category.key === key)?.groupId, "housing");
   });
 });
 

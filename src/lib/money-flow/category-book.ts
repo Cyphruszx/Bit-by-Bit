@@ -353,15 +353,36 @@ export function renameGroup(book: CategoryBook, id: string, label: string): Cate
   return { ...book, groups: book.groups.map((group) => (group.id === id ? { ...group, label: name } : group)) };
 }
 
+/**
+ * Removes an empty group a person added.
+ * A fixed group, a starter group, or any group that still has a category
+ * (live or archived) is left as it is. Categories are not moved elsewhere.
+ */
 export function removeGroup(book: CategoryBook, id: string): CategoryBook {
-  if (isFixedGroup(id)) return book;
-  const leftover = book.categories.filter((category) => category.groupId === id);
-  if (leftover.some((category) => category.builtin)) return book;
-  const fallback = book.groups.find((group) => group.id !== id)?.id;
-  if (!fallback && leftover.length > 0) return book;
+  if (isFixedGroup(id) || isKnownGroup(id)) return book;
+  if (book.categories.some((category) => category.groupId === id)) return book;
+  return { ...book, groups: book.groups.filter((group) => group.id !== id) };
+}
+
+/**
+ * Brings an archived category back. The key, the rows, and the rules stay.
+ * If its group has been removed, it lands in the first group a person can edit.
+ */
+export function restoreCategory(book: CategoryBook, key: string): CategoryBook {
+  const held = book.categories.find((category) => category.key === key);
+  if (!held?.archivedAt) return book;
+  const groupExists = book.groups.some((group) => group.id === held.groupId);
+  const fallback = book.groups.find((group) => !isFixedGroup(group.id));
+  const groupId = groupExists ? held.groupId : fallback?.id;
+  if (!groupId) return book;
   return {
-    groups: book.groups.filter((group) => group.id !== id),
-    categories: book.categories.map((category) => (category.groupId === id && fallback ? { ...category, groupId: fallback } : category)),
+    ...book,
+    categories: book.categories.map((category) => {
+      if (category.key !== key) return category;
+      const next: BookCategory = { ...category, groupId };
+      delete next.archivedAt;
+      return next;
+    }),
   };
 }
 

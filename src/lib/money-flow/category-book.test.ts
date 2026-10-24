@@ -103,12 +103,29 @@ describe("the editable category book", () => {
     assert.equal(matches(rows[0], "housing"), false);
   });
 
-  it("adds and removes groups that do not still hold a built-in category", () => {
+  it("adds and removes an empty group a person added, and refuses any other", () => {
     const named = addGroup(defaultCategoryBook(), "Side hustle");
+    const id = named.groups.find((group) => group.label === "Side hustle")?.id ?? "";
     assert.ok(named.groups.some((group) => group.label === "Side hustle"));
-    const emptied = removeGroup(named, named.groups.find((group) => group.label === "Side hustle")?.id ?? "");
+    const withOne = addCategory(named, id, "Etsy");
+    const blocked = removeGroup(withOne, id);
+    assert.equal(blocked, withOne);
+    assert.equal(blocked.categories.find((category) => category.label === "Etsy")?.groupId, id);
+    const archived = {
+      ...withOne,
+      categories: withOne.categories.map((category) =>
+        category.label === "Etsy" ? { ...category, archivedAt: "2026-10-01T00:00:00.000Z" } : category,
+      ),
+    };
+    assert.equal(removeGroup(archived, id), archived);
+    const emptied = removeGroup(named, id);
     assert.ok(!emptied.groups.some((group) => group.label === "Side hustle"));
-    assert.deepEqual(removeGroup(defaultCategoryBook(), "food"), defaultCategoryBook());
+    const starter = defaultCategoryBook();
+    assert.equal(removeGroup(starter, "food"), starter);
+    assert.equal(removeGroup(starter, "income"), starter);
+    assert.equal(removeGroup(starter, "money-moves"), starter);
+    assert.equal(removeGroup(starter, "transfers"), starter);
+    assert.equal(removeGroup(starter, "unsorted"), starter);
   });
 
   it("lets a person add a category and refuses to delete a built-in one", () => {

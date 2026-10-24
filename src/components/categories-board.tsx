@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMoneyFlow } from "@/components/money-flow-provider";
+import { formatCount } from "@/lib/format";
 import {
   ARCHIVE_LEAVE_LABEL,
   ARCHIVE_LEAVE_NOTE,
@@ -13,11 +14,11 @@ import {
   archiveTargetCategories,
   categoriesSummary,
   defaultArchiveTarget,
-  fixedGroupsLine,
+  deleteConfirmCopy,
   moveConfirmCopy,
-  moveGroupChoices,
   orderedFixedGroups,
   orderedYourGroups,
+  plannedTotal,
   previewCategoryMove,
   transactionCountLabel,
   type ArchiveTarget,
@@ -28,6 +29,7 @@ import {
   categoriesIn,
   isFixedGroup,
   isKnownGroup,
+  removeGroup,
   renameCategory,
   renameGroup,
   type BookCategory,
@@ -40,11 +42,11 @@ const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-primary-strong";
 const primaryButton = `inline-flex h-11 items-center justify-center gap-2 rounded-[4px] border-2 border-primary-strong bg-primary px-4 text-[13.5px] font-semibold text-on-primary shadow-card disabled:opacity-40 ${focusRing}`;
 const secondaryButton = `inline-flex h-11 items-center justify-center gap-2 rounded-[4px] border-2 border-line bg-surface px-4 text-[13.5px] font-semibold text-primary ${focusRing}`;
-const pane = "flex min-w-0 flex-col rounded-[4px] border-2 border-line bg-surface shadow-card";
-const MOVE_HINT = "Moving re-files past transactions and carries its plan with it.";
+const pane = "flex min-w-0 flex-col overflow-visible rounded-[4px] border-2 border-line bg-surface shadow-card";
+const iconButton = `inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] border-2 border-line bg-surface text-ink ${focusRing}`;
 
 type Filter = "all" | "custom";
-type MobileScreen = "groups" | "group" | "category";
+type MobileScreen = "groups" | "group";
 
 export function CategoriesBoard() {
   const {
@@ -52,9 +54,11 @@ export function CategoriesBoard() {
     archiveCategory,
     budgets,
     categoryBook,
+    deleteCategory,
     learned,
     moveCategoryToGroup,
     period,
+    restoreCategory,
     setCategoryBook,
   } = useMoneyFlow();
   const desktop = useDesktop();
@@ -67,9 +71,11 @@ export function CategoriesBoard() {
   const [renamingGroup, setRenamingGroup] = useState(false);
   const [renamingCategory, setRenamingCategory] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [movePopover, setMovePopover] = useState(false);
   const [moveDest, setMoveDest] = useState<string | null>(null);
-  const [moveStep, setMoveStep] = useState<"pick" | "confirm">("pick");
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [groupDeleteOpen, setGroupDeleteOpen] = useState(false);
   const [archiveMode, setArchiveMode] = useState<"refile" | "leave">("refile");
   const [archiveTarget, setArchiveTarget] = useState("");
   const [actionError, setActionError] = useState("");
@@ -92,6 +98,9 @@ export function CategoriesBoard() {
   const archivedCount = categoryBook.categories.length - liveCount;
   const summary = categoriesSummary(categoryBook.groups.length, liveCount, archivedCount);
   const ruleCount = learned.filter((item) => item.categoryKey === activeCategory?.key).length;
+  const planned = activeCategory ? plannedTotal(budgets, activeCategory.key) : null;
+  const deleteCopy = activeCategory ? deleteConfirmCopy(activeCategory.label, ruleCount, planned) : "";
+  const archived = activeGroup ? categoriesIn(categoryBook, activeGroup.id).filter((category) => category.archivedAt) : [];
 
   function openGroup(id: string) {
     setGroupId(id);
@@ -107,19 +116,9 @@ export function CategoriesBoard() {
     setCategoryKey(key);
     setRenamingCategory(false);
     setMoveOpen(false);
+    setMovePopover(false);
     setArchiveOpen(false);
-    setMobileScreen("category");
-  }
-
-  function startAddCategory() {
-    const target = activeGroup && !isFixedGroup(activeGroup.id) ? activeGroup : yourGroups[0];
-    if (!target) {
-      setAddingGroup(true);
-      return;
-    }
-    setGroupId(target.id);
-    setAddingCategory(true);
-    setMobileScreen("group");
+    setDeleteOpen(false);
   }
 
   function submitGroup(name: string) {
@@ -143,7 +142,7 @@ export function CategoriesBoard() {
     setCategoryBook(next);
     setCategoryKey(created.key);
     setAddingCategory(false);
-    setMobileScreen("category");
+    setMobileScreen("group");
   }
 
   function saveGroupName(name: string) {
@@ -161,9 +160,55 @@ export function CategoriesBoard() {
   function openMove() {
     setActionError("");
     setMoveDest(null);
-    setMoveStep("pick");
-    setMoveOpen(true);
+    setMovePopover(true);
+    setMoveOpen(false);
     setArchiveOpen(false);
+    setDeleteOpen(false);
+  }
+
+  function closeMove() {
+    setMovePopover(false);
+  }
+
+  function pickMoveGroup(groupId: string) {
+    setMovePopover(false);
+    setMoveDest(groupId);
+    setActionError("");
+    setMoveOpen(true);
+  }
+
+  function openDelete() {
+    setActionError("");
+    setDeleteOpen(true);
+    setMovePopover(false);
+    setArchiveOpen(false);
+  }
+
+  function openGroupDelete() {
+    if (!activeGroup || categoriesIn(categoryBook, activeGroup.id).length > 0) return;
+    setActionError("");
+    setGroupDeleteOpen(true);
+  }
+
+  function confirmDeleteGroup() {
+    if (!activeGroup) return;
+    const next = removeGroup(categoryBook, activeGroup.id);
+    if (next === categoryBook) return;
+    setCategoryBook(next);
+    const fallback = next.groups.find((group) => !isFixedGroup(group.id)) ?? next.groups[0];
+    setGroupId(fallback?.id ?? null);
+    setCategoryKey(null);
+    setGroupDeleteOpen(false);
+  }
+
+  function restore(key: string) {
+    const result = restoreCategory(key);
+    if (!result.ok) {
+      setActionError(result.reason);
+      return;
+    }
+    setActionError("");
+    setCategoryKey(key);
   }
 
   function openArchive() {
@@ -201,11 +246,19 @@ export function CategoriesBoard() {
     renamingCategory,
     setRenamingCategory,
     saveCategoryName,
-    startAddCategory,
     openMove,
+    closeMove,
+    pickMove: pickMoveGroup,
     openArchive,
+    openDelete,
     archiveOpen,
+    movePopover,
+    deleteOpen,
     categoryBook,
+    archived,
+    restore,
+    openGroupDelete,
+    actionError,
   };
 
   return (
@@ -216,14 +269,6 @@ export function CategoriesBoard() {
             <div className="min-w-0">
               <h1 className="text-[32px] !font-bold !tracking-[-0.5px]">Categories</h1>
               <p className="mt-1 text-[15px] text-muted">Name, group and tidy the labels every transaction carries.</p>
-            </div>
-            <div className="flex flex-wrap gap-4">
-              <button type="button" className={secondaryButton} onClick={startAddCategory}>
-                <Icon name="plus" size={16} /> Add category
-              </button>
-              <button type="button" className={primaryButton} onClick={() => setAddingGroup(true)}>
-                <Icon name="plus" size={16} /> Add group
-              </button>
             </div>
           </header>
           <Toolbar filter={filter} setFilter={setFilter} summary={summary} />
@@ -242,10 +287,7 @@ export function CategoriesBoard() {
           month={month}
           ruleCount={ruleCount}
           dest={moveDest}
-          step={moveStep}
           error={actionError}
-          onDest={setMoveDest}
-          onStep={setMoveStep}
           onClose={() => setMoveOpen(false)}
           onConfirm={() => {
             if (!moveDest) return;
@@ -282,8 +324,37 @@ export function CategoriesBoard() {
               return;
             }
             setArchiveOpen(false);
-            setMobileScreen("group");
           }}
+        />
+      ) : null}
+      {deleteOpen && activeCategory ? (
+        <DeleteDialog
+          desktop={desktop}
+          title={deleteCopy}
+          confirmLabel="Delete"
+          cancelLabel="Keep category"
+          error={actionError}
+          onClose={() => setDeleteOpen(false)}
+          onConfirm={() => {
+            const result = deleteCategory(activeCategory.key);
+            if (!result.ok) {
+              setActionError(result.reason);
+              return;
+            }
+            setDeleteOpen(false);
+            setCategoryKey(null);
+          }}
+        />
+      ) : null}
+      {groupDeleteOpen && activeGroup ? (
+        <DeleteDialog
+          desktop={desktop}
+          title={`Delete ${activeGroup.label}?`}
+          confirmLabel="Delete"
+          cancelLabel="Keep group"
+          error={actionError}
+          onClose={() => setGroupDeleteOpen(false)}
+          onConfirm={confirmDeleteGroup}
         />
       ) : null}
     </div>
@@ -315,11 +386,19 @@ type BoardShared = {
   renamingCategory: boolean;
   setRenamingCategory: (open: boolean) => void;
   saveCategoryName: (name: string) => void;
-  startAddCategory: () => void;
   openMove: () => void;
+  closeMove: () => void;
+  pickMove: (groupId: string) => void;
   openArchive: () => void;
+  openDelete: () => void;
   archiveOpen: boolean;
+  movePopover: boolean;
+  deleteOpen: boolean;
   categoryBook: CategoryBook;
+  archived: BookCategory[];
+  restore: (key: string) => void;
+  openGroupDelete: () => void;
+  actionError: string;
 };
 
 function Toolbar({ filter, setFilter, summary }: { filter: Filter; setFilter: (filter: Filter) => void; summary: string }) {
@@ -349,38 +428,23 @@ function DesktopPanes(props: BoardShared) {
   return (
     <div className="mt-4 flex items-start gap-4 overflow-x-auto pb-2">
       <GroupsPane {...props} className="w-[208px] shrink-0" />
-      <ListPane {...props} className="min-w-[448px] flex-1" />
-      <DetailPane {...props} hint className="w-[304px] shrink-0" />
+      <ListPane {...props} className="min-w-0 flex-1" />
     </div>
   );
 }
 
 function MobileScreens(props: BoardShared & { screen: MobileScreen; setScreen: (screen: MobileScreen) => void }) {
-  if (props.screen === "category" && props.activeCategory && props.activeGroup) {
-    return (
-      <div className="flex flex-col gap-4">
-        <BackButton label={props.activeGroup.label} onClick={() => props.setScreen("group")} />
-        <DetailPane {...props} hint={false} framed={false} />
-      </div>
-    );
-  }
   if (props.screen === "group" && props.activeGroup) {
     return (
       <div className="flex flex-col gap-4">
-        <BackButton label="Categories" onClick={() => props.setScreen("groups")} />
+        <BackButton label="Groups" onClick={() => props.setScreen("groups")} />
         <ListPane {...props} compact />
-        <p className="text-[13px] text-muted">Tap a category to open it.</p>
       </div>
     );
   }
   return (
     <div>
-      <div className="flex items-start justify-between gap-3">
-        <h1 className="text-[28px] !font-bold !tracking-[-0.5px]">Categories</h1>
-        <button type="button" className={secondaryButton} onClick={() => props.setAddingGroup(true)}>
-          <Icon name="plus" size={16} /> Group
-        </button>
-      </div>
+      <h1 className="text-[28px] !font-bold !tracking-[-0.5px]">Categories</h1>
       <Toolbar filter={props.filter} setFilter={props.setFilter} summary={props.summary} />
       <div className="mt-4">
         <GroupsPane {...props} stacked />
@@ -402,7 +466,6 @@ function GroupsPane({
   yourGroups,
   fixedGroups,
   activeGroup,
-  counts,
   categoryBook,
   filter,
   openGroup,
@@ -414,6 +477,25 @@ function GroupsPane({
 }: BoardShared & { className?: string; stacked?: boolean }) {
   return (
     <section className={stacked ? "flex flex-col gap-4" : `${pane} ${className}`} aria-label="Groups">
+      <div className={stacked ? "" : "border-b-2 border-line p-3"}>
+        {addingGroup ? (
+          <NameField
+            label="Group name"
+            placeholder="Group name"
+            submitLabel="Add"
+            onSubmit={submitGroup}
+            onCancel={() => setAddingGroup(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAddingGroup(true)}
+            className={`flex h-11 w-full items-center rounded-[4px] px-2 text-left text-[15px] font-semibold text-primary ${focusRing}`}
+          >
+            + Add group
+          </button>
+        )}
+      </div>
       <GroupBlock
         title={stacked ? `Your groups · ${yourGroups.length}` : "Your groups"}
         groups={yourGroups}
@@ -421,11 +503,6 @@ function GroupsPane({
         categoryBook={categoryBook}
         filter={filter}
         onOpen={openGroup}
-        adding={addingGroup}
-        onStartAdd={() => setAddingGroup(true)}
-        onSubmit={submitGroup}
-        onCancel={() => setAddingGroup(false)}
-        showPlus={!stacked}
         stacked={stacked}
       />
       {fixedGroups.length > 0 ? (
@@ -454,11 +531,6 @@ function GroupBlock({
   onOpen,
   locked = false,
   divided = false,
-  showPlus = false,
-  adding = false,
-  onStartAdd,
-  onSubmit,
-  onCancel,
   stacked = false,
 }: {
   title: string;
@@ -469,48 +541,20 @@ function GroupBlock({
   onOpen: (id: string) => void;
   locked?: boolean;
   divided?: boolean;
-  showPlus?: boolean;
-  adding?: boolean;
-  onStartAdd?: () => void;
-  onSubmit?: (name: string) => void;
-  onCancel?: () => void;
   stacked?: boolean;
 }) {
   const heading = (
-    <div className={`flex items-center justify-between ${stacked ? "px-0.5" : "px-3"} ${locked && !stacked ? "h-8" : "min-h-11"}`}>
+    <div className={`flex items-center justify-between ${stacked ? "px-0.5" : "px-3"} min-h-11`}>
       <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.275px] text-muted">
-        {locked ? (
-          <span className="text-primary-strong">
-            <Icon name="lock" size={13} />
-          </span>
-        ) : null}
         {title}
       </p>
-      {showPlus ? (
-        <button
-          type="button"
-          aria-label="Add group"
-          title="Add group"
-          onClick={onStartAdd}
-          className={`inline-flex h-11 w-11 items-center justify-center text-primary ${focusRing}`}
-        >
-          <Icon name="plus" />
-        </button>
-      ) : null}
     </div>
   );
-  const form =
-    adding && onSubmit && onCancel ? (
-      <div className={stacked ? "pb-1" : "px-3 pb-3"}>
-        <NameField label="Group name" placeholder="Group name" submitLabel="Add" onSubmit={onSubmit} onCancel={onCancel} />
-      </div>
-    ) : null;
   const rows = (
     <ul className={stacked ? pane : undefined}>
       {groups.map((group) => {
         const count = categoriesFor(categoryBook, group.id, filter).length;
         const selected = group.id === activeId;
-        const label = stacked ? `${count} ${count === 1 ? "category" : "categories"}` : String(count);
         return (
           <li key={group.id} className={stacked ? "border-t-2 border-line first:border-t-0" : undefined}>
             <button
@@ -524,13 +568,12 @@ function GroupBlock({
               <span className={`min-w-0 flex-1 truncate font-semibold text-ink ${stacked ? "text-[15px]" : "text-[14px]"}`} title={group.label}>
                 {group.label}
               </span>
-              {locked && !stacked ? (
-                <span className="text-primary-strong">
+              {locked ? (
+                <span className="text-primary-strong" aria-label="Fixed group">
                   <Icon name="lock" size={13} />
                 </span>
               ) : null}
-              <span className={`shrink-0 text-muted ${stacked ? "text-[13px]" : "text-[12.5px]"}`}>{label}</span>
-              {stacked ? <Icon name="chevron-right" /> : null}
+              <span className={`shrink-0 text-muted ${stacked ? "text-[13px]" : "text-[12.5px]"}`}>{count}</span>
             </button>
           </li>
         );
@@ -542,7 +585,6 @@ function GroupBlock({
     return (
       <div className="flex flex-col gap-2">
         {heading}
-        {form}
         {empty}
         {groups.length > 0 ? rows : null}
       </div>
@@ -551,7 +593,6 @@ function GroupBlock({
   const body = (
     <>
       {heading}
-      {form}
       {empty}
       {rows}
     </>
@@ -561,7 +602,7 @@ function GroupBlock({
 }
 
 function ListPane(props: BoardShared & { className?: string; compact?: boolean }) {
-  const { activeGroup, shown, activeCategory, counts, fixed, className = "", compact = false } = props;
+  const { activeGroup, shown, counts, fixed, className = "", compact = false } = props;
   if (!activeGroup) {
     return (
       <section className={`${pane} ${className} p-4`}>
@@ -590,48 +631,48 @@ function ListPane(props: BoardShared & { className?: string; compact?: boolean }
           {shown.length} {noun}
         </p>
       </div>
-      {fixed ? null : (
-        <button
-          type="button"
-          aria-label="Rename group"
-          title="Rename group"
-          onClick={() => props.setRenamingGroup(true)}
-          className={`inline-flex h-11 w-11 items-center justify-center rounded-[4px] border-2 border-line text-primary ${focusRing}`}
-        >
-          <Icon name="pencil" />
-        </button>
-      )}
+      <GroupActions
+        fixed={fixed}
+        userMade={!isKnownGroup(activeGroup.id)}
+        empty={categoriesIn(props.categoryBook, activeGroup.id).length === 0}
+        onRename={() => props.setRenamingGroup(true)}
+        onDelete={props.openGroupDelete}
+      />
     </header>
   );
   const list = (
     <>
       {shown.length === 0 ? <p className="border-t-2 border-line px-4 py-4 text-[14px] text-muted">No categories in this group yet.</p> : null}
       <ul>
-        {shown.map((category) => {
-          const count = counts.get(category.key) ?? 0;
-          const selected = category.key === activeCategory?.key;
-          return (
-            <li key={category.key} className={compact ? "border-t-2 border-line first:border-t-0" : undefined}>
-              <button
-                type="button"
-                onClick={() => props.openCategory(category.key)}
-                className={`flex h-14 w-full items-center gap-3 px-4 text-left ${compact ? "" : "border-t-2 border-line"} ${
-                  !compact && selected ? "bg-accent-surface" : "bg-surface"
-                } ${focusRing}`}
-              >
-                <span className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className="truncate text-[15px] font-semibold text-ink" title={category.label}>
-                    {category.label}
-                  </span>
-                  {category.builtin ? null : <YoursTag />}
-                </span>
-                <span className="shrink-0 text-[12.5px] text-muted">{transactionCountLabel(count, compact)}</span>
-                {compact ? <Icon name="chevron-right" /> : null}
-              </button>
-            </li>
-          );
-        })}
+        {shown.map((category) => (
+          <CategoryRow key={category.key} category={category} count={counts.get(category.key) ?? 0} compact={compact} {...props} />
+        ))}
       </ul>
+      {props.archived.length > 0 ? (
+        <div data-archived className="border-t-2 border-line">
+          <h3 className="px-4 pt-3 text-[13px] font-semibold text-ink">Archived ({formatCount(props.archived.length)})</h3>
+          <ul>
+            {props.archived.map((category) => (
+              <li key={category.key} className="flex h-14 items-center gap-2 pl-4 pr-2">
+                <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink" title={category.label}>
+                  {category.label}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Restore ${category.label}`}
+                  onClick={() => props.restore(category.key)}
+                  className={`inline-flex h-11 items-center px-3 text-[15px] font-semibold text-primary ${focusRing}`}
+                >
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {props.actionError && !props.archiveOpen && !props.deleteOpen ? (
+        <p className="border-t-2 border-line px-4 py-3 text-[13px] text-ink">{props.actionError}</p>
+      ) : null}
       {fixed ? null : props.addingCategory ? (
         <div className="border-t-2 border-line p-3">
           <NameField
@@ -671,112 +712,141 @@ function ListPane(props: BoardShared & { className?: string; compact?: boolean }
   );
 }
 
-function DetailPane({
-  activeCategory,
-  activeGroup,
-  counts,
+function GroupActions({
   fixed,
-  hint,
+  userMade,
+  empty,
+  onRename,
+  onDelete,
+}: {
+  fixed: boolean;
+  userMade: boolean;
+  empty: boolean;
+  onRename: () => void;
+  onDelete: () => void;
+}) {
+  if (fixed) {
+    return (
+      <span className="inline-flex h-11 w-11 items-center justify-center text-primary-strong" aria-label="Fixed group" title="Fixed group">
+        <Icon name="lock" />
+      </span>
+    );
+  }
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      <button type="button" aria-label="Rename group" title="Rename group" onClick={onRename} className={iconButton}>
+        <Icon name="pencil" />
+      </button>
+      {userMade ? (
+        <button
+          type="button"
+          aria-label="Delete group"
+          aria-disabled={!empty}
+          title={empty ? "Delete group" : "Move or archive its categories first"}
+          onClick={() => {
+            if (empty) onDelete();
+          }}
+          className={`${iconButton} ${empty ? "" : "text-muted opacity-40"}`}
+        >
+          <Icon name="bin" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function CategoryRow({
+  category,
+  count,
+  compact,
+  activeCategory,
+  fixed,
   renamingCategory,
   setRenamingCategory,
   saveCategoryName,
+  openCategory,
   openMove,
   openArchive,
+  openDelete,
   archiveOpen,
-  className = "",
-  framed = true,
-}: BoardShared & { hint: boolean; className?: string; framed?: boolean }) {
-  if (!activeCategory || !activeGroup) {
-    return (
-      <section className={`${pane} ${className} p-4`} aria-label="Category">
-        <p className="text-[14px] text-muted">Choose a category.</p>
-      </section>
-    );
-  }
-  const count = counts.get(activeCategory.key) ?? 0;
-  const heading = (
-    <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          {renamingCategory ? (
-            <InlineName
-              value={activeCategory.label}
-              label={`Category name, ${activeCategory.label}`}
-              className="h-11 min-w-0 flex-1 rounded-[4px] border-2 border-primary px-2 text-[20px] font-bold text-ink outline-none"
-              onSave={saveCategoryName}
-              onCancel={() => setRenamingCategory(false)}
-            />
-          ) : (
-            <h2 className={`truncate font-bold text-ink ${framed ? "text-[20px]" : "text-[28px] tracking-[-0.5px]"}`} title={activeCategory.label}>
-              {activeCategory.label}
-            </h2>
-          )}
-          {activeCategory.builtin ? null : <YoursTag />}
-        </div>
-        {fixed ? null : (
-          <div className="flex shrink-0 gap-2">
-            <button
-              type="button"
-              aria-label="Rename category"
-              title="Rename category"
-              onClick={() => setRenamingCategory(true)}
-              className={`inline-flex h-11 w-11 items-center justify-center rounded-[4px] border-2 border-line bg-surface text-ink ${focusRing}`}
-            >
+  deleteOpen,
+  movePopover,
+  categoryBook,
+  pickMove,
+  closeMove,
+}: BoardShared & { category: BookCategory; count: number; compact: boolean }) {
+  const selected = category.key === activeCategory?.key;
+  const userMade = !category.builtin;
+  return (
+    <li className={`relative ${selected ? "border-2 border-primary bg-accent-surface pr-2" : "border-t-2 border-line"}`}>
+      <div className={`flex min-h-14 flex-nowrap items-center gap-2 pl-4 ${selected ? "" : "pr-4"}`}>
+        {selected && renamingCategory ? (
+          <InlineName
+            value={category.label}
+            label={`Category name, ${category.label}`}
+            className="h-11 min-w-0 flex-1 rounded-[4px] border-2 border-primary bg-surface px-2 text-[15px] font-semibold text-ink outline-none"
+            onSave={saveCategoryName}
+            onCancel={() => setRenamingCategory(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => openCategory(category.key)}
+            className={`flex min-w-0 flex-1 items-center gap-2 text-left ${focusRing}`}
+          >
+            <span className="truncate text-[15px] font-semibold text-ink" title={category.label}>
+              {category.label}
+            </span>
+            {userMade ? <YoursTag /> : null}
+          </button>
+        )}
+        <span className="shrink-0 text-[12.5px] text-muted">{transactionCountLabel(count, compact)}</span>
+        {fixed ? (
+          <span className="inline-flex h-11 w-11 items-center justify-center text-primary-strong" aria-label="Locked category">
+            <Icon name="lock" />
+          </span>
+        ) : selected ? (
+          <span className="flex shrink-0 items-center gap-2">
+            <button type="button" aria-label="Rename category" title="Rename category" onClick={() => setRenamingCategory(true)} className={iconButton}>
               <Icon name="pencil" />
             </button>
             <button
               type="button"
-              aria-label="Archive category"
-              title="Archive category"
-              aria-haspopup="dialog"
-              aria-expanded={archiveOpen}
-              onClick={openArchive}
-              className={`inline-flex h-11 w-11 items-center justify-center rounded-[4px] border-2 text-ink ${
-                archiveOpen ? "border-primary bg-accent-surface" : "border-line bg-surface"
-              } ${focusRing}`}
+              aria-label="Move to group"
+              title="Move to group"
+              aria-haspopup="listbox"
+              aria-expanded={movePopover}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={movePopover ? closeMove : openMove}
+              className={iconButton}
             >
-              <Icon name="archive" />
+              <Icon name="folder" />
             </button>
-          </div>
-        )}
-      </div>
-  );
-  const group = (
-    <div className="flex flex-col gap-2">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.275px] text-muted">Group</h3>
-        <div className="flex min-h-11 items-center justify-between gap-2 rounded-[4px] border-2 border-line px-3">
-          <span className="min-w-0 truncate text-[14px] font-semibold text-ink" title={activeGroup.label}>
-            {activeGroup.label}
+            {userMade && count === 0 ? (
+              <button type="button" aria-label="Delete category" title="Delete category" aria-haspopup="dialog" aria-expanded={deleteOpen} onClick={openDelete} className={iconButton}>
+                <Icon name="bin" />
+              </button>
+            ) : null}
+            {userMade && count > 0 ? (
+              <button
+                type="button"
+                aria-label="Archive category"
+                title="Archive category"
+                aria-haspopup="dialog"
+                aria-expanded={archiveOpen}
+                onClick={openArchive}
+                className={`${iconButton} ${archiveOpen ? "border-primary bg-accent-surface" : ""}`}
+              >
+                <Icon name="archive" />
+              </button>
+            ) : null}
           </span>
-          {fixed ? (
-            <span className="text-primary-strong">
-              <Icon name="lock" size={13} />
-            </span>
-          ) : (
-            <button type="button" onClick={openMove} className={`inline-flex h-11 shrink-0 items-center text-[13.5px] font-semibold text-primary ${focusRing}`}>
-              Move to group…
-            </button>
-          )}
-        </div>
-        {fixed ? null : hint ? <p className="text-[13px] leading-5 text-muted">{MOVE_HINT}</p> : null}
+        ) : null}
       </div>
-  );
-  if (!framed) {
-    return (
-      <div className="flex flex-col gap-3">
-        {heading}
-        <p className="text-[15px] text-muted">{transactionCountLabel(count)}</p>
-        <section className={`${pane} gap-4 p-4`} aria-label={activeCategory.label}>
-          {group}
-        </section>
-      </div>
-    );
-  }
-  return (
-    <section className={`${pane} ${className} gap-4 p-4`} aria-label={activeCategory.label}>
-      {heading}
-      <p className="text-[15px] text-muted">{transactionCountLabel(count)}</p>
-      {group}
-    </section>
+      {selected && movePopover ? (
+        <MovePopover book={categoryBook} category={category} onPick={pickMove} onClose={closeMove} />
+      ) : null}
+    </li>
   );
 }
 
@@ -785,6 +855,66 @@ function YoursTag() {
     <span className="inline-flex h-5 shrink-0 items-center rounded-[4px] border-2 border-line px-[5px] text-[11px] font-semibold text-muted">
       Yours
     </span>
+  );
+}
+
+function MovePopover({
+  book,
+  category,
+  onPick,
+  onClose,
+}: {
+  book: CategoryBook;
+  category: BookCategory;
+  onPick: (groupId: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    function onPointer(event: MouseEvent) {
+      if (!ref.current?.contains(event.target as Node)) onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointer);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointer);
+    };
+  }, [onClose]);
+  return (
+    <div
+      ref={ref}
+      role="listbox"
+      aria-label="Move to group"
+      className="absolute bottom-full right-2 z-30 mb-1 flex max-h-64 w-[220px] flex-col overflow-y-auto rounded-[4px] border-2 border-line bg-surface p-2 shadow-card"
+    >
+      <p className="px-2 py-1 text-[11px] font-bold uppercase tracking-[0.275px] text-muted">Move to group</p>
+      <ul>
+        {orderedYourGroups(book).map((group) => {
+          const current = group.id === category.groupId;
+          return (
+            <li key={group.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={current}
+                disabled={current}
+                onClick={() => onPick(group.id)}
+                className={`flex h-11 w-full items-center gap-2 rounded-[4px] px-2 text-left text-[15px] font-semibold ${
+                  current ? "text-primary" : "text-ink"
+                } ${focusRing}`}
+              >
+                <span className="min-w-0 flex-1 truncate">{group.label}</span>
+                {current ? <Icon name="check" /> : null}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -797,10 +927,7 @@ function MoveDialog({
   month,
   ruleCount,
   dest,
-  step,
   error,
-  onDest,
-  onStep,
   onClose,
   onConfirm,
 }: {
@@ -812,16 +939,12 @@ function MoveDialog({
   month: string;
   ruleCount: number;
   dest: string | null;
-  step: "pick" | "confirm";
   error: string;
-  onDest: (id: string) => void;
-  onStep: (step: "pick" | "confirm") => void;
   onClose: () => void;
   onConfirm: () => void;
 }) {
   const titleId = useId();
   useDialog(onClose);
-  const choices = moveGroupChoices(book, category.key);
   const preview =
     dest == null
       ? null
@@ -835,81 +958,61 @@ function MoveDialog({
           ruleCount,
         });
   const copy = preview && preview.ok ? moveConfirmCopy(preview.preview, desktop ? "desktop" : "mobile") : null;
-  const fixedLabels = orderedFixedGroups(book).map((group) => group.label);
-
+  const reason = error || (preview && !preview.ok ? preview.reason : "");
   return (
     <DialogShell desktop={desktop} titleId={titleId} onClose={onClose}>
-      {step === "pick" || !copy ? (
-        <>
-          <DialogTitle id={titleId} title={`Move \u2018${category.label}\u2019 to…`} onClose={onClose} />
-          <ul className="flex flex-col">
-            {choices
-              .filter((choice) => desktop || choice.state !== "fixed")
-              .map((choice) => {
-                const selected = choice.id === dest;
-                if (choice.state === "fixed") {
-                  return (
-                    <li key={choice.id} className="flex min-h-11 items-center gap-2 px-3 text-muted">
-                      <span className="min-w-0 flex-1 truncate text-[15px]">{choice.label}</span>
-                      <Icon name="lock" size={13} />
-                    </li>
-                  );
-                }
-                return (
-                  <li key={choice.id}>
-                    <button
-                      type="button"
-                      disabled={choice.state === "current"}
-                      onClick={() => onDest(choice.id)}
-                      className={`flex min-h-11 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[15px] font-semibold ${
-                        choice.state === "current"
-                          ? "text-muted"
-                          : selected
-                            ? "border-2 border-primary bg-accent-surface text-primary"
-                            : "text-ink"
-                      } ${focusRing}`}
-                    >
-                      <span className="min-w-0 flex-1 truncate">
-                        {choice.label}
-                        {choice.state === "current" ? " (current)" : ""}
-                      </span>
-                      {selected ? <Icon name="check" /> : null}
-                    </button>
-                  </li>
-                );
-              })}
-          </ul>
-          {desktop ? null : (
-            <p className="flex items-center gap-2 border-t-2 border-line pt-3 text-[13px] text-muted">
-              <Icon name="lock" size={13} />
-              {fixedGroupsLine(fixedLabels)}
-            </p>
-          )}
-          {error ? <p className="text-[13px] text-ink">{error}</p> : null}
-          <div className={desktop ? "mt-4 flex justify-end gap-4" : "mt-2 flex flex-col gap-3"}>
-            <button type="button" className={desktop ? primaryButton : `${primaryButton} h-12 w-full`} disabled={!dest} onClick={() => onStep("confirm")}>
-              Next
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <DialogTitle id={titleId} title={copy.title} onClose={onClose} />
-          <p className="text-[15px] text-muted">{copy.body}</p>
-          <div className="flex flex-col gap-3">
-            <InfoLine text={copy.spending} />
-            <InfoLine text={copy.planned} />
-          </div>
-          {error ? <p className="text-[13px] text-ink">{error}</p> : null}
-          <DialogActions
-            desktop={desktop}
-            confirmLabel={copy.confirm}
-            confirmIcon="corner"
-            onConfirm={onConfirm}
-            onClose={onClose}
-          />
-        </>
-      )}
+      <DialogTitle id={titleId} title={copy?.title ?? `Move '${category.label}'`} onClose={onClose} />
+      {copy ? <p className="text-[15px] text-muted">{copy.body}</p> : null}
+      {copy ? (
+        <div className="flex flex-col gap-3">
+          <InfoLine text={copy.spending} />
+          <InfoLine text={copy.planned} />
+        </div>
+      ) : null}
+      {reason ? <p className="text-[13px] text-ink">{reason}</p> : null}
+      <DialogActions
+        desktop={desktop}
+        confirmLabel={copy?.confirm ?? "Move"}
+        confirmIcon="corner"
+        disabled={!copy}
+        onConfirm={onConfirm}
+        onClose={onClose}
+      />
+    </DialogShell>
+  );
+}
+
+function DeleteDialog({
+  desktop,
+  title,
+  confirmLabel,
+  cancelLabel,
+  error,
+  onClose,
+  onConfirm,
+}: {
+  desktop: boolean;
+  title: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  error: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const titleId = useId();
+  useDialog(onClose);
+  return (
+    <DialogShell desktop={desktop} titleId={titleId} onClose={onClose}>
+      <DialogTitle id={titleId} title={title} onClose={onClose} />
+      {error ? <p className="text-[13px] text-ink">{error}</p> : null}
+      <DialogActions
+        desktop={desktop}
+        confirmLabel={confirmLabel}
+        cancelLabel={cancelLabel}
+        confirmIcon="bin"
+        onConfirm={onConfirm}
+        onClose={onClose}
+      />
     </DialogShell>
   );
 }
@@ -1051,13 +1154,15 @@ function DialogActions({
   desktop,
   confirmLabel,
   confirmIcon,
+  cancelLabel,
   disabled = false,
   onConfirm,
   onClose,
 }: {
   desktop: boolean;
   confirmLabel: string;
-  confirmIcon: "corner" | "archive";
+  confirmIcon: "corner" | "archive" | "bin";
+  cancelLabel?: string;
   disabled?: boolean;
   onConfirm: () => void;
   onClose: () => void;
@@ -1069,7 +1174,7 @@ function DialogActions({
   );
   const cancel = (
     <button type="button" className={desktop ? secondaryButton : `${secondaryButton} h-12 w-full`} onClick={onClose}>
-      {confirmLabel.startsWith("Move to") ? "Cancel" : "Keep category"}
+      {cancelLabel ?? (confirmLabel.startsWith("Move to") ? "Cancel" : "Keep category")}
     </button>
   );
   return <div className={desktop ? "mt-2 flex justify-end gap-4" : "flex flex-col gap-3"}>{desktop ? <>{cancel}{confirm}</> : <>{confirm}{cancel}</>}</div>;
@@ -1219,7 +1324,7 @@ function useDialog(onClose: () => void) {
 function groupsFor(book: CategoryBook, filter: Filter): BookGroup[] {
   return orderedYourGroups(book).filter((group) => {
     if (filter === "all") return true;
-    const custom = categoriesIn(book, group.id).filter((category) => !category.archivedAt && !category.builtin);
+    const custom = categoriesIn(book, group.id).filter((category) => !category.builtin);
     return custom.length > 0 || !isKnownGroup(group.id);
   });
 }
@@ -1249,7 +1354,7 @@ function desktopNow() {
   return window.matchMedia("(min-width: 768px)").matches;
 }
 
-function Icon({ name, size = 18 }: { name: "plus" | "pencil" | "archive" | "lock" | "chevron-right" | "chevron-left" | "x" | "check" | "corner"; size?: number }) {
+function Icon({ name, size = 18 }: { name: "plus" | "pencil" | "archive" | "lock" | "chevron-right" | "chevron-left" | "x" | "check" | "corner" | "folder" | "bin"; size?: number }) {
   const common = {
     width: size,
     height: size,
@@ -1282,6 +1387,22 @@ function Icon({ name, size = 18 }: { name: "plus" | "pencil" | "archive" | "lock
         <path d="M21 8v13H3V8" />
         <path d="M1 3h22v5H1z" />
         <path d="M10 12h4" />
+      </svg>
+    );
+  }
+  if (name === "folder") {
+    return (
+      <svg {...common}>
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+      </svg>
+    );
+  }
+  if (name === "bin") {
+    return (
+      <svg {...common}>
+        <path d="M4 7h16" />
+        <path d="M9 7V5h6v2" />
+        <path d="M7 7l1 12h8l1-12" />
       </svg>
     );
   }
