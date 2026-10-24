@@ -128,7 +128,7 @@ export async function interpretDocuments(
   if (pending) flow.insights.unshift(pending);
   if (taggedCount > 0) {
     flow.insights.unshift(
-      `AI suggested tags for ${taggedCount} unlabelled movement${taggedCount === 1 ? "" : "s"}. You can change them on Transactions.`,
+      `AI suggested a category for ${taggedCount} unlabelled movement${taggedCount === 1 ? "" : "s"}. You can change it on Transactions.`,
     );
   }
 

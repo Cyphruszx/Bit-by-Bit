@@ -50,7 +50,6 @@ describe("the movements the taxonomy has to get right", () => {
     const rows = await ledger();
     const drawdown = on(rows, "2026-06-30", 25000, /SocietyOne/i);
     assert.equal(drawdown.categoryKey, "debt-payments");
-    assert.equal(drawdown.tags?.[0], "Drawdown", "the detail the rule knew, kept as a tag");
     assert.equal(drawdown.type, "DEBT_PRINCIPAL");
     assert.equal(drawdown.bank?.category, "Transfers in");
 
@@ -78,7 +77,6 @@ describe("the movements the taxonomy has to get right", () => {
     // the mismatch the type layer exists to make impossible.
     const medicare = on(rows, "2026-06-29", 662.4, /MCARE BENEFITS/i);
     assert.equal(medicare.categoryKey, "other-income");
-    assert.deepEqual(medicare.tags, ["Rebate"]);
     assert.equal(medicare.type, "UNREVIEWED");
 
     const dva = on(rows, "2026-06-29", 41.45, /VTA BENEFITS/i);
@@ -140,20 +138,19 @@ describe("the movements the taxonomy has to get right", () => {
     );
   });
 
-  it("carries the detail through every reader, as a tag rather than a deeper category", async () => {
+  it("files the same shop the same way whichever statement reader built the row", async () => {
     const rows = await ledger();
-    const tagged = rows.filter((txn) => (txn.tags ?? []).length > 0);
+    const woolworths = rows.filter((txn) => /woolworths/i.test(txn.merchant));
+    const groceries = rows.filter((txn) => txn.categoryKey === "groceries");
+    const eatingOut = rows.filter((txn) => txn.categoryKey === "eating-out");
 
-    // The three statement readers each build their own rows, and a tag wired into one of
-    // them reached only that bank's movements — 97 Woolworths shops arrived untagged that
-    // way. Two Bakers Delight purchases (NSI bakery → groceries) bring the sample to 99.
-    assert.ok(tagged.length > 600, `only ${tagged.length} movements carry a tag`);
-
-    const counted = new Map<string, number>();
-    for (const txn of tagged) for (const tag of txn.tags ?? []) counted.set(tag, (counted.get(tag) ?? 0) + 1);
-    assert.equal(counted.get("Groceries"), 99);
-    assert.equal(counted.get("Restaurants"), 224);
-    assert.equal(counted.get("Rebate"), 177);
+    // The three statement readers each build their own rows. A rule that only one of
+    // them applied left Woolworths unsorted on that bank. Bakers Delight (NSI bakery)
+    // sits in groceries with the Woolworths shops.
+    assert.equal(woolworths.length, 86);
+    assert.ok(woolworths.every((txn) => txn.categoryKey === "groceries"));
+    assert.ok(groceries.length > woolworths.length);
+    assert.ok(eatingOut.length >= 224, `${eatingOut.length} eating-out rows`);
   });
 
   it("keeps the household's cash tied to the statements while its income is not", async () => {

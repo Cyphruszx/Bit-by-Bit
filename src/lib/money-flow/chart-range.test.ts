@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it } from "node:test";
-import { TagChartCard } from "@/components/tag-charts";
+import { CategoryChartCard } from "@/components/category-charts";
 import {
   DEFAULT_CHART_RANGE,
   chartModeForRevision,
@@ -241,7 +241,7 @@ describe("transactions chart range", () => {
 
   it("shows No data for this month in the chart space for an empty month", () => {
     const html = renderToStaticMarkup(
-      createElement(TagChartCard, {
+      createElement(CategoryChartCard, {
         transactions: [txn("pay", "2026-08-02", 1200, "salary")],
         selectedTag: "All",
         onSelectTag: () => undefined,
@@ -267,14 +267,14 @@ describe("transactions chart range", () => {
   });
 
   it("renders Money in and 1M selected, with the curve starting on the $0 baseline", () => {
-    const card = readFileSync(new URL("../../components/tag-charts.tsx", import.meta.url), "utf8");
+    const card = readFileSync(new URL("../../components/category-charts.tsx", import.meta.url), "utf8");
     assert.match(card, /chartModeForRevision/);
     assert.match(card, /getPeriodRevision/);
     assert.match(card, /DEFAULT_CHART_RANGE/);
     assert.doesNotMatch(card, /Pie chart/);
 
     const html = renderToStaticMarkup(
-      createElement(TagChartCard, {
+      createElement(CategoryChartCard, {
         transactions: [
           txn("pay", sydneyDay(), 1200, "salary"),
           txn("shop", sydneyDay(), -80, "groceries"),

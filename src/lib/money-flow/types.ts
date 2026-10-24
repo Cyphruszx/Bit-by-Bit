@@ -187,12 +187,6 @@ export type InterpretedTransaction = {
    * row is not a silent import.
    */
   ingestReview?: "unsigned" | "sign_disagrees";
-  /**
-   * Anything else the person wants to find this by. Freeform, as many as they like, and
-   * never part of a total — a tag that moved a figure would be a second category wearing
-   * a different name, which is the mistake this layer exists to undo.
-   */
-  tags?: string[];
   extractedBy?: ExtractionSource;
 };
 

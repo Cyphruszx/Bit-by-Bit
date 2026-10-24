@@ -80,10 +80,9 @@ describe("AI JSON helpers", () => {
   });
 
   it("snaps a loose label onto a real category, and refuses to invent one", () => {
-    // The detail a model gives comes back as a tag, not as a deeper category.
     assert.deepEqual(snapCategory("groceries"), { categoryKey: "groceries" });
-    assert.deepEqual(snapCategory("food.groceries"), { categoryKey: "groceries", tag: "Groceries" });
-    assert.deepEqual(snapCategory("Food & Drink"), { categoryKey: "eating-out", tag: "Food & Drink" });
+    assert.deepEqual(snapCategory("food.groceries"), { categoryKey: "groceries" });
+    assert.deepEqual(snapCategory("Food & Drink"), { categoryKey: "eating-out" });
     // Nothing recognisable is null, not a bucket: the movement stays in the review queue
     // rather than picking up a category a model invented.
     assert.equal(snapCategory("???"), null);
@@ -93,7 +92,7 @@ describe("AI JSON helpers", () => {
 describe("initial AI tagging", () => {
   it("only retags movements nothing else could settle", () => {
     const { transactions, taggedCount } = applyTagSuggestions(
-      [txn(), txn({ id: "2", merchant: "Woolworths", categoryKey: "groceries", tags: ["Groceries"] })],
+      [txn(), txn({ id: "2", merchant: "Woolworths", categoryKey: "groceries" })],
       [
         { id: "1", category: "shopping", confidence: 0.8 },
         { id: "2", category: "food.restaurants", confidence: 0.9 },
@@ -257,10 +256,10 @@ describe("image interpretation with AI", archivedPdfTestOptions(), () => {
     assert.equal(kiosk?.categoryKey, "shopping");
     assert.equal(kiosk?.decidedBy, "ai");
     assert.equal(result.flow.income, 1500);
-    assert.ok(result.flow.insights.some((line) => /AI suggested tags/i.test(line)));
+    assert.ok(result.flow.insights.some((line) => /AI suggested a category/i.test(line)));
   });
 
-  it("does not ask AI to tag when every movement already has a tag", async () => {
+  it("does not ask AI when the category is already settled", async () => {
     let suggested = false;
     const ai: MoneyFlowAi = {
       extractFromImage: async () => ({ transactions: [], notes: [] }),
@@ -278,7 +277,7 @@ describe("image interpretation with AI", archivedPdfTestOptions(), () => {
     assert.equal(result.transactions[0].categoryKey, "groceries");
   });
 
-  it("asks AI to tag unknown merchants from a bank file", async () => {
+  it("asks AI to categorise unknown merchants from a bank file", async () => {
     let asked = 0;
     const ai: MoneyFlowAi = {
       extractFromImage: async () => ({ transactions: [], notes: [] }),

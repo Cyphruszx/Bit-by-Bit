@@ -10,7 +10,7 @@ import {
   pieSlices,
   topChartCategories,
   withTagColors,
-} from "./tag-charts";
+} from "./category-charts";
 
 describe("tag charts", () => {
   it("toggles a tag off when it is already selected", () => {
@@ -112,8 +112,8 @@ describe("tag charts", () => {
   });
 
   it("keeps pie geometry in the library and off the transactions card", () => {
-    const card = readFileSync(new URL("../../components/tag-charts.tsx", import.meta.url), "utf8");
-    const kinds = readFileSync(new URL("./tag-charts.ts", import.meta.url), "utf8");
+    const card = readFileSync(new URL("../../components/category-charts.tsx", import.meta.url), "utf8");
+    const kinds = readFileSync(new URL("./category-charts.ts", import.meta.url), "utf8");
     assert.match(kinds, /export type ChartKind = "line" \| "pie"/);
     assert.match(kinds, /pieSlices/);
     assert.doesNotMatch(card, /Bar graph/);

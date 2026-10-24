@@ -16,7 +16,7 @@
 import { categoriesIn, type BookCategory, type CategoryBook } from "@/lib/money-flow/category-book";
 import { APP_TIME_ZONE } from "@/lib/money-flow/period";
 import { roundMoney } from "@/lib/money-flow/parse-values";
-import { categoryOf } from "@/lib/money-flow/tags";
+import { categoryOf } from "@/lib/money-flow/category-of";
 import { tileAmount } from "@/lib/money-flow/tile";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 import type { Ledger } from "@/lib/money-flow/ledger";

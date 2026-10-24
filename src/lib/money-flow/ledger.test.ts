@@ -235,12 +235,15 @@ describe("accumulating a ledger", () => {
     assert.equal(second.report.duplicates, 1);
   });
 
-  it("keeps tags the user already set when a later statement repeats a movement", () => {
+  it("keeps a held movement, including a saved tags field, when a later statement repeats it", () => {
     const row = txn({ accountKey: "100200300" });
     const first = appendToLedger(EMPTY_LEDGER, upload([row]), { importedAt: "2026-09-01T00:00:00.000Z" });
+    first.ledger.entries[0].categoryKey = "groceries";
     first.ledger.entries[0].tags = ["Groceries"];
     const second = appendToLedger(first.ledger, upload([row]), { importedAt: "2026-09-02T00:00:00.000Z" });
+    assert.equal(second.ledger.entries[0]?.categoryKey, "groceries");
     assert.deepEqual(second.ledger.entries[0]?.tags, ["Groceries"]);
+    assert.equal(second.report.added, 0);
   });
 
   it("backfills source on a sourceless held row and leaves the working columns alone", () => {
@@ -278,7 +281,7 @@ describe("accumulating a ledger", () => {
     assert.deepEqual(second.ledger.entries[0]?.source, original);
   });
 
-  it("writes the current category and tag model onto stored rows", () => {
+  it("writes the current category onto stored rows and leaves a saved tags field alone", () => {
     const source = {
       headers: ["Date", "Amount", "Category"],
       values: ["01 Jun 26", "-12.80", "Groceries"],
@@ -287,20 +290,47 @@ describe("accumulating a ledger", () => {
       importedAt: "2026-09-01T00:00:00.000Z",
     });
     const held = ledger.entries[0];
-    held.categoryKey = "food.groceries";
+    held.categoryKey = "food";
+    held.tags = ["Groceries", "Weekly"];
     (held as { category?: string }).category = "Food & Drink";
     (held as { tagSource?: string }).tagSource = "rules";
-    delete held.tags;
 
     const next = persistTaxonomy(ledger);
     assert.equal(next.entries[0]?.categoryKey, "groceries");
-    assert.deepEqual(next.entries[0]?.tags, ["Groceries"]);
+    assert.deepEqual(next.entries[0]?.tags, ["Groceries", "Weekly"]);
     assert.equal(next.entries[0]?.type, "SPENDING");
     assert.equal(next.entries[0]?.fingerprint, held.fingerprint);
     assert.deepEqual(next.entries[0]?.source, source);
     assert.equal("category" in (next.entries[0] ?? {}), false);
     assert.equal("tagSource" in (next.entries[0] ?? {}), false);
     assert.equal(persistTaxonomy(next), next);
+  });
+
+  it("restores a backup that still carries tags on a row", () => {
+    const restored = parseLedger({
+      version: 1,
+      entries: [
+        {
+          id: "1",
+          fingerprint: "abc",
+          importIds: ["import-1"],
+          merchant: "Woolworths",
+          categoryKey: "groceries",
+          amount: -12.8,
+          date: "1 Jun",
+          dateIso: "2026-06-01",
+          type: "SPENDING",
+          sourceFile: "nab.csv",
+          confidence: 1,
+          tags: ["Weekly"],
+        },
+      ],
+      imports: [],
+    });
+    assert.ok(restored);
+    assert.equal(restored.entries.length, 1);
+    assert.deepEqual(restored.entries[0]?.tags, ["Weekly"]);
+    assert.equal(restored.entries[0]?.categoryKey, "groceries");
   });
 
   it("leaves a current-model ledger untouched", () => {

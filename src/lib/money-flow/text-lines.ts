@@ -107,7 +107,6 @@ export function transactionsFromText(text: string, sourceFile: string): Interpre
         ["Balance", row.amounts.length >= 2 ? printed(last(row)) : ""],
       ]),
       categoryKey: read.categoryKey,
-      ...(read.tag ? { tags: [read.tag] } : {}),
       decidedBy: read.decidedBy,
       date: formatDisplayDate(row.dateIso),
       dateIso: row.dateIso,

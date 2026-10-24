@@ -1,13 +1,12 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { ClassificationChips } from "@/components/tag-editor";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount, formatSignedAud } from "@/lib/format";
 import { paginate } from "@/lib/paging";
 import { accountCaption } from "@/lib/money-flow/accounts";
+import { merchantRows } from "@/lib/money-flow/category-of";
 import { hasSource, sourcePairs } from "@/lib/money-flow/source";
-import { allTags, merchantRows, tagsOf } from "@/lib/money-flow/tags";
 import {
   categoriesIn,
   chartLabel,
@@ -60,10 +59,7 @@ export function TransactionTable({
   const [spread, setSpread] = useState<{ id: string; merchant: string; categoryKey: string; others: number } | null>(
     null,
   );
-  const tagOptions = useMemo(
-    () => ["All", ...tableFilterKeys(transactions), ...allTags(transactions)],
-    [transactions],
-  );
+  const tagOptions = useMemo(() => ["All", ...tableFilterKeys(transactions)], [transactions]);
   const selectedTag = tag ?? internalTag;
   const activeTag = tableFilterValue(selectedTag, tagOptions);
 
@@ -75,16 +71,13 @@ export function TransactionTable({
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return transactions.filter((txn) => {
-      const tags = tagsOf(txn);
-      const matchesTag =
-        activeTag === "All" || matches(txn, activeTag) || tags.some((name) => name === activeTag);
+      const matchesTag = activeTag === "All" || matches(txn, activeTag);
       const matchesDirection =
         direction === "all" || (direction === "in" ? txn.amount > 0 : txn.amount < 0);
       const matchesQuery =
         needle.length === 0 ||
         txn.merchant.toLowerCase().includes(needle) ||
         taxonomyPath(txn.categoryKey).toLowerCase().includes(needle) ||
-        tags.some((name) => name.toLowerCase().includes(needle)) ||
         txn.sourceFile.toLowerCase().includes(needle) ||
         (accountOf.get(txn.id) ?? "").toLowerCase().includes(needle) ||
         statementText(txn).includes(needle);
@@ -122,7 +115,7 @@ export function TransactionTable({
         <select
           value={activeTag}
           onChange={(event) => selectTag(event.target.value)}
-          aria-label="Filter by category or tag"
+          aria-label="Filter by category"
           className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
         >
           {tagOptions.map((name) => (
@@ -346,9 +339,6 @@ function ReadingBesideStatement({ txn }: { txn: InterpretedTransaction }) {
       <div>
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">BitbyBit</p>
         <p className="mt-1 text-[11px] text-muted">{typeLabel(txn.type)}</p>
-        <div className="mt-1">
-          <ClassificationChips txn={txn} />
-        </div>
       </div>
       <div>
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">Statement</p>

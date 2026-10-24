@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it } from "node:test";
-import { TagChartCard } from "@/components/tag-charts";
+import { CategoryChartCard } from "@/components/category-charts";
 import type { InterpretedTransaction } from "./types";
 
 function txn(id: string, dateIso: string, amount: number, categoryKey: string): InterpretedTransaction {
@@ -26,7 +26,7 @@ describe("transactions page layout", () => {
     const view = readFileSync(new URL("../../app/(app)/transactions/transactions-view.tsx", import.meta.url), "utf8");
     const firstHeading = view.indexOf("<h1 className=\"text-2xl\">Transactions</h1>");
     const heading = view.indexOf("<h1 className=\"text-2xl\">Transactions</h1>", firstHeading + 1);
-    const chart = view.indexOf("<TagChartCard");
+    const chart = view.indexOf("<CategoryChartCard");
     const banks = view.indexOf("<ScopeBar");
     const moneyIn = view.indexOf('label="Money in"');
     const moneyOut = view.indexOf('label="Money out"');
@@ -62,7 +62,7 @@ describe("transactions page layout", () => {
 
   it("draws the group chart as a smooth line and does not mount the pixel pie", () => {
     const html = renderToStaticMarkup(
-      createElement(TagChartCard, {
+      createElement(CategoryChartCard, {
         transactions: [
           txn("pay", "2026-10-02", 1200, "salary"),
           txn("shop", "2026-10-06", -80, "groceries"),

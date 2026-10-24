@@ -113,7 +113,6 @@ export function transactionsFromAiExtract(raw: unknown, sourceFile: string): AiI
         id: `${sourceFile}-ai-${index}`,
         merchant,
         categoryKey,
-        ...(answered?.tag ? { tags: [answered.tag] } : {}),
         // The type is worked out from the category and the direction rather than taken
         // from the model, so a model that answers "income" for a payment cannot put a
         // negative number in the earnings figure.
@@ -169,8 +168,6 @@ export function applyTagSuggestions(
     return {
       ...txn,
       categoryKey: answered.categoryKey,
-      // The model's detail is kept as a tag, beside whatever the person already had.
-      ...(answered.tag ? { tags: [...new Set([...(txn.tags ?? []), answered.tag])] } : {}),
       // Slice 2: AI may suggest a filing category. It must not confirm a transfer or
       // refund pair — `moved` / `returned` are money-trust, reserved for Spec 7.
       type:
