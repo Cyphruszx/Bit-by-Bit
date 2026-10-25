@@ -70,7 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </Link>
                 </p>
               ) : null}
-              {ready ? (
+              {ready || pathname === "/review" ? (
                 children
               ) : (
                 <p className="text-muted">Reading the statements you have already added…</p>

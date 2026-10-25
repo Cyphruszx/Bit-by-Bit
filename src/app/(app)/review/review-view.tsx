@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useMoneyFlow } from "@/components/money-flow-provider";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { rehydrateLedger, useMoneyFlow } from "@/components/money-flow-provider";
+import { ReviewAnswerList, ReviewSplit, type ReviewSplitRow } from "@/app/(app)/review/review-split";
 import { formatAud, formatSignedAud } from "@/lib/format";
 import { accountCaption } from "@/lib/money-flow/account-identity";
 import { accountsFrom } from "@/lib/money-flow/accounts";
@@ -9,25 +11,35 @@ import { pickerGroups } from "@/lib/money-flow/category-book";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
 import { APP_TIME_ZONE } from "@/lib/money-flow/period";
 import {
+  applyReviewAnswer,
+  formatReviewWeekday,
+  pageIndexForId,
+  reviewInspectorEyebrow,
+  reviewInspectorQuestion,
+  reviewLedgerGroup,
+  reviewRowCaption,
+  reviewRowTitle,
+  REVIEW_SURFACE_REASONS,
+  selectReviewRow,
+  selectionAfterAnswer,
+  stepReviewSelection,
+} from "@/lib/money-flow/review-inspector";
+import {
   filterReviewItems,
   hasOpenTransferItems,
   keepAsMoneyLabel,
   last30DaysSince,
   pageReviewItems,
   REVIEW_PAGE_SIZE,
-  REVIEW_REASON_FILTERS,
-  REVIEW_REASON_LABEL,
   reviewItemIsCredit,
-  reviewOpenedOn,
-  reviewOpenActions,
   reviewMovementFacts,
+  reviewOpenActions,
   similarMovementPreviews,
   similarOpenUnpaired,
   skippedOpenCount,
   type ReviewOpenActionId,
   type ReviewReasonFilter,
   type ReviewSurface,
-  type SimilarMovementPreview,
 } from "@/lib/money-flow/review-page";
 import {
   isReviewDeferred,
@@ -39,6 +51,7 @@ import {
   type TransferPartner,
 } from "@/lib/money-flow/review-queue";
 import { UNCATEGORISED } from "@/lib/money-flow/taxonomy";
+import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const CONFIDENCE_LABEL: Record<TransferConfidence, string> = {
   high: "High",
@@ -47,6 +60,7 @@ const CONFIDENCE_LABEL: Record<TransferConfidence, string> = {
 };
 
 export function ReviewView() {
+  const flow = useMoneyFlow();
   const {
     accountNames,
     allTransactions,
@@ -68,14 +82,18 @@ export function ReviewView() {
     undeferReviewItem,
     lastReviewUndo,
     undoReviewAction,
-  } = useMoneyFlow();
+    ready,
+    loadError,
+  } = flow;
   const [surface, setSurface] = useState<ReviewSurface>("open");
   const [reason, setReason] = useState<ReviewReasonFilter>("all");
   const [accountId, setAccountId] = useState<string | undefined>();
   const [last30, setLast30] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
   const [hideSameInstNote, setHideSameInstNote] = useState(false);
+  const [hiddenUndoAt, setHiddenUndoAt] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const registry = useMemo(
     () => ({ names: accountNames, institutions: institutionOverrides, payers, mergedInto }),
@@ -91,137 +109,227 @@ export function ReviewView() {
     () => filterReviewItems(review, { surface, reason, accountId, sinceIso }, allTransactions, registry),
     [accountId, allTransactions, reason, registry, review, sinceIso, surface],
   );
+  const openCount = useMemo(
+    () =>
+      filterReviewItems(review, { surface: "open", reason: "all", accountId, sinceIso }, allTransactions, registry)
+        .length,
+    [accountId, allTransactions, registry, review, sinceIso],
+  );
+  const skippedBadge = useMemo(
+    () =>
+      filterReviewItems(review, { surface: "open", reason: "skipped", accountId, sinceIso }, allTransactions, registry)
+        .length,
+    [accountId, allTransactions, registry, review, sinceIso],
+  );
   const paged = useMemo(() => pageReviewItems(items, page), [items, page]);
   const accounts = useMemo(() => accountsFrom(allTransactions, registry), [allTransactions, registry]);
   const byId = useMemo(() => new Map(allTransactions.map((txn) => [txn.id, txn])), [allTransactions]);
-  const skippedCount = skippedOpenCount(review);
+  const skippedWaiting = skippedOpenCount(review);
   const showSameInstNote =
     !hideSameInstNote &&
     hasOpenTransferItems(review.filter((item) => !isReviewDeferred(item))) &&
     surface === "open" &&
     reason !== "skipped";
+  const ids = useMemo(() => items.map((item) => item.id), [items]);
+
+  const visibleSelection = selectedId && ids.includes(selectedId) ? selectedId : null;
+
+  function choose(id: string) {
+    const next = selectReviewRow(id);
+    setSelectedId(next.selectedId);
+    setActionError(null);
+    setPage(pageIndexForId(ids, next.selectedId, REVIEW_PAGE_SIZE));
+  }
+
+  function moveAfter(removedIds: string[]) {
+    const next =
+      removedIds.length === 1
+        ? applyReviewAnswer(ids, removedIds[0]!)
+        : (() => {
+            const selected = selectionAfterAnswer(ids, removedIds);
+            return selected ? selectReviewRow(selected) : { selectedId: null, open: false };
+          })();
+    setSelectedId(next.selectedId);
+    const remaining = ids.filter((id) => !removedIds.includes(id));
+    setPage(pageIndexForId(remaining, next.selectedId, REVIEW_PAGE_SIZE));
+  }
+
+  const accountLabel = (id: string) => {
+    const txn = byId.get(id);
+    return txn ? accountCaption(txn, registry) : id;
+  };
+
+  const rows: ReviewSplitRow[] = paged.items.map((item) => {
+    const partners = transferPartnersFor(item, allTransactions, matching);
+    const payments = refundPaymentsFor(item, allTransactions);
+    const facts = reviewMovementFacts(item, byId, accountLabel);
+    const primary = facts[0];
+    return {
+      id: item.id,
+      group: reviewLedgerGroup(item.reason),
+      dateLabel: primary ? formatDisplayDate(primary.dateIso) : "",
+      title: reviewRowTitle(item, primary?.merchant),
+      caption: reviewRowCaption(item.reason, {
+        partnerCount: partners.length,
+        paymentCount: payments.length,
+        credit: reviewItemIsCredit(item, byId),
+      }),
+      amountLabel: primary ? formatSignedAud(primary.amount) : "",
+    };
+  });
+
+  const selected = items.find((item) => item.id === visibleSelection) ?? null;
+  const filtered =
+    Boolean(accountId) || last30 || (reason !== "all" && reason !== "skipped");
+  const empty = emptyCopy({
+    surface,
+    reason,
+    filtered,
+    skippedWaiting,
+    onSkipped: () => {
+      setReason("skipped");
+      setPage(0);
+    },
+    onHistory: () => {
+      setSurface("history");
+      if (reason === "skipped") setReason("all");
+      setPage(0);
+    },
+  });
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === "j" || key === "k") {
+        event.preventDefault();
+        const nextId = stepReviewSelection(ids, visibleSelection, key === "j" ? 1 : -1);
+        if (!nextId) return;
+        const next = selectReviewRow(nextId);
+        setSelectedId(next.selectedId);
+        setActionError(null);
+        setPage(pageIndexForId(ids, next.selectedId, REVIEW_PAGE_SIZE));
+        return;
+      }
+      if (key === "u" && lastReviewUndo) {
+        event.preventDefault();
+        undoReviewAction();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ids, lastReviewUndo, undoReviewAction, visibleSelection]);
+
+  const panelError = loadError ?? actionError;
 
   return (
-    <>
-      <h1 className="text-[32px]">Review</h1>
+    <div className="font-sans text-ink">
+      <h1 className="text-[32px] !font-bold !tracking-[-0.5px] text-ink">Review</h1>
+      <p className="mt-1.5 text-sm text-muted">Pick a row to see its question. Answers only save from the panel.</p>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        <SurfaceTab
-          active={surface === "open"}
-          onClick={() => {
-            setSurface("open");
-            setPage(0);
-          }}
-        >
-          Open
-        </SurfaceTab>
-        <SurfaceTab
-          active={surface === "history"}
-          onClick={() => {
-            setSurface("history");
-            if (reason === "skipped") setReason("all");
-            setPage(0);
-          }}
-        >
-          History
-        </SurfaceTab>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {REVIEW_REASON_FILTERS.filter((chip) => surface === "open" || chip.id !== "skipped").map((chip) => (
-          <Chip
-            key={chip.id}
-            active={reason === chip.id}
-            onClick={() => {
-              setReason(chip.id);
-              setPage(0);
-            }}
+      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            role="group"
+            aria-label="Review list"
+            className="inline-flex flex-wrap gap-0.5 rounded-[4px] border-2 border-line bg-surface p-0.5"
           >
-            {chip.label}
-          </Chip>
-        ))}
-        <Chip
-          active={Boolean(accountId) || accountOpen}
-          onClick={() => {
-            setAccountOpen(!accountOpen);
-            if (accountId && accountOpen) {
-              setAccountId(undefined);
-              setPage(0);
-            }
-          }}
-        >
-          {accountId ? accounts.find((account) => account.id === accountId)?.label ?? "Account" : "Account"}
-        </Chip>
-        <Chip
-          active={last30}
-          onClick={() => {
-            setLast30(!last30);
-            setPage(0);
-          }}
-        >
-          {last30 ? "Date · Last 30 days" : "Date"}
-        </Chip>
-      </div>
-
-      {accountOpen ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Chip
-            active={!accountId}
-            subdued
-            onClick={() => {
-              setAccountId(undefined);
-              setAccountOpen(false);
-              setPage(0);
-            }}
-          >
-            All
-          </Chip>
-          {accounts.map((account) => (
-            <Chip
-              key={account.id}
-              active={accountId === account.id}
-              subdued
+            <Segment
+              active={surface === "open" && reason !== "skipped"}
               onClick={() => {
-                setAccountId(account.id);
-                setAccountOpen(false);
+                setSurface("open");
+                if (reason === "skipped") setReason("all");
                 setPage(0);
               }}
             >
-              {account.label}
-            </Chip>
-          ))}
+              {`Open ${openCount}`}
+            </Segment>
+            <Segment
+              active={surface === "open" && reason === "skipped"}
+              onClick={() => {
+                setSurface("open");
+                setReason("skipped");
+                setPage(0);
+              }}
+            >
+              {`Skipped ${skippedBadge}`}
+            </Segment>
+            <Segment
+              active={surface === "history"}
+              onClick={() => {
+                setSurface("history");
+                if (reason === "skipped") setReason("all");
+                setPage(0);
+              }}
+            >
+              History
+            </Segment>
+          </div>
+          {reason !== "skipped" ? (
+            <div
+              role="group"
+              aria-label="Reason"
+              className="inline-flex flex-wrap gap-0.5 rounded-[4px] border-2 border-line bg-surface p-0.5"
+            >
+              {REVIEW_SURFACE_REASONS.map((chip) => (
+                <Segment
+                  key={chip.id}
+                  active={reason === chip.id}
+                  onClick={() => {
+                    setReason(chip.id);
+                    setPage(0);
+                  }}
+                >
+                  {chip.label}
+                </Segment>
+              ))}
+            </div>
+          ) : null}
         </div>
-      ) : null}
-
-      <p className="mt-4 max-w-3xl text-sm text-muted">
-        Money-trust items stay Open until you confirm or specify Not that — Dismiss is only for parse
-        noise.
-      </p>
-
-      {lastReviewUndo ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-inner)] border border-line bg-surface px-4 py-3">
-          <p className="text-sm text-ink-soft">
-            {lastReviewUndo.label}
-            {lastReviewUndo.itemIds.length > 1 ? ` · ${lastReviewUndo.itemIds.length} items` : ""}. Undo
-            puts them back in Open.
-          </p>
-          <button
-            type="button"
-            onClick={undoReviewAction}
-            className="rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            aria-label="Account"
+            value={accountId ?? ""}
+            onChange={(event) => {
+              setAccountId(event.target.value || undefined);
+              setPage(0);
+            }}
+            className="h-11 min-h-11 rounded-[4px] border-2 border-line bg-surface px-3 text-sm font-semibold text-ink outline-none focus:border-primary"
           >
-            Undo
-          </button>
+            <option value="">All accounts</option>
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.label}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Date"
+            value={last30 ? "30" : "any"}
+            onChange={(event) => {
+              setLast30(event.target.value === "30");
+              setPage(0);
+            }}
+            className="h-11 min-h-11 rounded-[4px] border-2 border-line bg-surface px-3 text-sm font-semibold text-ink outline-none focus:border-primary"
+          >
+            <option value="any">Any date</option>
+            <option value="30">Last 30 days</option>
+          </select>
         </div>
-      ) : null}
+      </div>
 
       {showSameInstNote ? (
-        <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft">
+        <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-[4px] border-2 border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft">
           <span>Same-institution unique pairs are matched automatically and not listed.</span>
           <button
             type="button"
             onClick={() => setHideSameInstNote(true)}
-            className="rounded-full px-1.5 text-muted hover:text-ink"
+            className="inline-flex size-11 items-center justify-center rounded-[4px] text-muted hover:text-ink"
             aria-label="Dismiss same-institution note"
           >
             ×
@@ -229,90 +337,50 @@ export function ReviewView() {
         </div>
       ) : null}
 
-      {items.length === 0 && surface === "open" && reason === "skipped" ? (
-        <article className="card mt-6 p-[22px] text-center">
-          <h2 className="text-lg font-bold">Nothing skipped</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            Skip for now holds items here so you can come back. They stay Open until you act.
-          </p>
-        </article>
-      ) : null}
-
-      {items.length === 0 && surface === "open" && reason !== "skipped" ? (
-        <article className="card mt-6 p-[22px] text-center">
-          {skippedCount > 0 ? (
-            <>
-              <h2 className="text-lg font-bold">Nothing left in Open</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-                {skippedCount} skipped {skippedCount === 1 ? "item is" : "items are"} waiting in
-                Skipped. Open that filter to act or send them back.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setReason("skipped");
-                  setPage(0);
-                }}
-                className="mt-4 rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
-              >
-                View skipped
-              </button>
-            </>
-          ) : (
-            <>
-              <h2 className="text-lg font-bold">Nothing left to review</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-                Open is clear. New unpaired transfers, refunds, and uncategorised spend will show up
-                here when they need a decision.
-              </p>
-              <p className="mx-auto mt-3 max-w-md text-sm text-muted">
-                Money-trust items never auto-dismiss — check History for what you already confirmed.
-              </p>
-            </>
-          )}
-        </article>
-      ) : null}
-
-      {items.length === 0 && surface === "history" ? (
-        <article className="card mt-6 p-[22px] text-center">
-          <h2 className="text-lg font-bold">No closed items yet</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            Confirmed pairs and dismissed parse issues will appear here.
-          </p>
-        </article>
-      ) : null}
-
-      <div className="mt-6 space-y-4">
-        {paged.items.map((item) => (
-          <ReviewCard
-            key={item.id}
-            item={item}
-            byId={byId}
-            history={surface === "history"}
-            openedOn={reviewOpenedOn(item, allTransactions)}
-            partners={transferPartnersFor(item, allTransactions, matching)}
-            payments={refundPaymentsFor(item, allTransactions)}
-            canUndo={Boolean(lastReviewUndo?.itemIds.includes(item.id))}
-            onUndo={undoReviewAction}
-            onAssignCategory={(merchant, categoryKey) => assignReviewCategory(item, merchant, categoryKey)}
-            similar={similarOpenUnpaired(item, review, allTransactions, matching, registry)}
-            onConfirmAsTransfer={(similar) => confirmReviewAsTransfer(item, similar)}
-            onConfirmAsLoan={(similar) => confirmReviewAsLoan(item, similar)}
-            onConfirmRefund={(debitId) => confirmReviewRefund(item, debitId)}
-            onConfirmTransfer={(creditId) => confirmReviewTransfer(item, creditId)}
-            onDecline={(partnerId) => declineReviewItem(item, partnerId)}
-            onDismiss={() => dismissReviewItem(item)}
-            onKeepAsMoney={(similar) => keepReviewAsMoney(item, similar)}
-            onKeepFiling={() => keepReviewFiling(item)}
-            onMarkIncome={() => markReviewIncome(item)}
-            onSkip={() => skipReviewItem(item)}
-            onUndefer={() => undeferReviewItem(item)}
-            accountLabel={(id) => {
-              const txn = byId.get(id);
-              return txn ? accountCaption(txn, registry) : id;
-            }}
-          />
-        ))}
+      <div className="mt-4">
+        <ReviewSplit
+          status={ready ? "ready" : "loading"}
+          rows={rows}
+          selectedId={selected?.id ?? null}
+          onSelect={choose}
+          onClose={() => setSelectedId(null)}
+          error={panelError}
+          onRetry={() => {
+            setActionError(null);
+            void rehydrateLedger();
+          }}
+          empty={ready && !panelError && items.length === 0 ? empty : null}
+          inspector={
+            selected ? (
+              <InspectorSession
+                key={selected.id}
+                item={selected}
+                history={surface === "history"}
+                byId={byId}
+                partners={transferPartnersFor(selected, allTransactions, matching)}
+                payments={refundPaymentsFor(selected, allTransactions)}
+                similar={similarOpenUnpaired(selected, review, allTransactions, matching, registry)}
+                accountLabel={accountLabel}
+                canUndo={Boolean(lastReviewUndo?.itemIds.includes(selected.id))}
+                onUndo={undoReviewAction}
+                onAnswered={moveAfter}
+                onFail={(message) => setActionError(message)}
+                onAssignCategory={(merchant, categoryKey) => assignReviewCategory(selected, merchant, categoryKey)}
+                onConfirmAsTransfer={(similar) => confirmReviewAsTransfer(selected, similar)}
+                onConfirmAsLoan={(similar) => confirmReviewAsLoan(selected, similar)}
+                onConfirmRefund={(debitId) => confirmReviewRefund(selected, debitId)}
+                onConfirmTransfer={(creditId) => confirmReviewTransfer(selected, creditId)}
+                onDecline={(partnerId) => declineReviewItem(selected, partnerId)}
+                onDismiss={() => dismissReviewItem(selected)}
+                onKeepAsMoney={(similar) => keepReviewAsMoney(selected, similar)}
+                onKeepFiling={() => keepReviewFiling(selected)}
+                onMarkIncome={() => markReviewIncome(selected)}
+                onSkip={() => skipReviewItem(selected)}
+                onUndefer={() => undeferReviewItem(selected)}
+              />
+            ) : null
+          }
+        />
       </div>
 
       {paged.total > REVIEW_PAGE_SIZE ? (
@@ -325,7 +393,7 @@ export function ReviewView() {
               type="button"
               disabled={paged.page === 0}
               onClick={() => setPage(paged.page - 1)}
-              className="rounded-full border border-line bg-surface px-4 py-2 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-11 items-center rounded-[4px] border-2 border-line bg-surface px-4 text-xs font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
             >
               Previous
             </button>
@@ -333,7 +401,7 @@ export function ReviewView() {
               <button
                 type="button"
                 onClick={() => setPage(paged.page + 1)}
-                className="rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary"
+                className="inline-flex min-h-11 items-center rounded-[4px] border-2 border-primary-strong bg-primary px-4 text-xs font-bold text-on-primary shadow-card"
               >
                 Load more
               </button>
@@ -341,18 +409,49 @@ export function ReviewView() {
           </div>
         </div>
       ) : null}
-    </>
+
+      {lastReviewUndo && hiddenUndoAt !== lastReviewUndo.at ? (
+        <div className="mt-4 flex items-center gap-3 rounded-[4px] border-2 border-ink bg-surface py-1.5 pr-1.5 pl-4 text-ink shadow-card">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-ink">
+              {lastReviewUndo.label}
+              {lastReviewUndo.itemIds.length > 1 ? ` · ${lastReviewUndo.itemIds.length} items` : ""}
+            </p>
+            <p className="text-[12.5px] text-muted">Undo puts them back in Open.</p>
+          </div>
+          <button
+            type="button"
+            onClick={undoReviewAction}
+            className="inline-flex min-h-11 items-center rounded-[4px] border-2 border-line bg-surface px-3.5 text-sm font-semibold text-primary"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            aria-label="Dismiss undo"
+            onClick={() => setHiddenUndoAt(lastReviewUndo.at)}
+            className="inline-flex size-11 items-center justify-center rounded-[4px] text-muted"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
-function ReviewCard({
+function InspectorSession({
   item,
-  byId,
   history,
-  openedOn,
+  byId,
   partners,
   payments,
   similar,
+  accountLabel,
+  canUndo,
+  onUndo,
+  onAnswered,
+  onFail,
   onAssignCategory,
   onConfirmAsTransfer,
   onConfirmAsLoan,
@@ -365,19 +464,18 @@ function ReviewCard({
   onMarkIncome,
   onSkip,
   onUndefer,
-  canUndo,
-  onUndo,
-  accountLabel,
 }: {
   item: ReviewItem;
-  byId: Map<string, ReturnType<typeof useMoneyFlow>["allTransactions"][number]>;
   history: boolean;
-  openedOn?: string;
+  byId: Map<string, InterpretedTransaction>;
   partners: TransferPartner[];
   payments: RefundPayment[];
   similar: ReviewItem[];
+  accountLabel: (id: string) => string;
   canUndo: boolean;
   onUndo: () => void;
+  onAnswered: (removedIds: string[]) => void;
+  onFail: (message: string) => void;
   onAssignCategory: (merchant: string, categoryKey: string) => void;
   onConfirmAsTransfer: (similar?: ReviewItem[]) => void;
   onConfirmAsLoan: (similar?: ReviewItem[]) => void;
@@ -390,7 +488,6 @@ function ReviewCard({
   onMarkIncome: () => void;
   onSkip: () => void;
   onUndefer: () => void;
-  accountLabel: (id: string) => string;
 }) {
   const suggestions = pickerGroups()
     .flatMap((group) => group.categories)
@@ -401,9 +498,7 @@ function ReviewCard({
   );
   const [pickedCategory, setPickedCategory] = useState<string | undefined>(suggestions[0]?.key);
   const [applySimilar, setApplySimilar] = useState(similar.length > 1);
-  const selectedPartner = partners.some((partner) => partner.id === pickedPartner)
-    ? pickedPartner
-    : partners[0]?.id;
+  const selectedPartner = partners.some((partner) => partner.id === pickedPartner) ? pickedPartner : partners[0]?.id;
   const selectedPayment = payments.some((payment) => payment.id === pickedPayment)
     ? pickedPayment
     : payments.length === 1
@@ -411,73 +506,97 @@ function ReviewCard({
       : undefined;
   const merchant = item.label.replace(/ needs a category$/i, "");
   const facts = reviewMovementFacts(item, byId, accountLabel);
+  const primary = facts[0];
   const similarPreviews = similarMovementPreviews(similar, [...byId.values()]);
   const deferred = isReviewDeferred(item);
+  const actions = reviewOpenActions(item, {
+    partnerCount: partners.length,
+    paymentCount: payments.length,
+    selectedPartnerId: selectedPartner,
+    selectedPaymentId: selectedPayment,
+    selectedCategoryKey: pickedCategory,
+    keepAsLabel: keepAsMoneyLabel(item, byId),
+    deferred,
+    isCredit: reviewItemIsCredit(item, byId),
+  });
+  const showSimilar = partners.length === 0 && similarPreviews.length > 1 && !history;
+  const question = reviewInspectorQuestion(item, { partnerCount: partners.length, history });
+  const meta = primary
+    ? `${primary.account} · ${formatReviewWeekday(primary.dateIso)} · ${formatSignedAud(primary.amount)}`
+    : item.label;
+
+  function run(action: ReviewOpenActionId) {
+    const batched =
+      applySimilar &&
+      similar.length > 1 &&
+      (action === "confirm-as-transfer" || action === "confirm-as-loan" || action === "keep-as-money");
+    const batch = batched ? similar : undefined;
+    try {
+      if (action === "confirm" && selectedPartner) onConfirmTransfer(selectedPartner);
+      if (action === "confirm-as-transfer") onConfirmAsTransfer(batch);
+      if (action === "confirm-as-loan") onConfirmAsLoan(batch);
+      if (action === "confirm-refund") onConfirmRefund(selectedPayment);
+      if (action === "mark-income") onMarkIncome();
+      if (action === "keep-as-money") onKeepAsMoney(batch);
+      if (action === "assign-category" && pickedCategory) onAssignCategory(merchant, pickedCategory);
+      if (action === "skip") onSkip();
+      if (action === "undefer") onUndefer();
+      if (action === "dismiss") onDismiss();
+      if (action === "not-that") onDecline(selectedPartner ?? selectedPayment);
+      if (action === "keep-filing") onKeepFiling();
+      if (action !== "not-that") onAnswered(batch ? batch.map((row) => row.id) : [item.id]);
+    } catch (error) {
+      onFail(error instanceof Error ? error.message : "We couldn’t load your review items");
+    }
+  }
 
   return (
-    <article className={`card p-[22px] ${history ? "bg-surface-subtle text-muted shadow-none" : ""}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className={`text-base font-bold ${history ? "text-ink-soft" : ""}`}>
-            {history && item.reason === "UNPAIRED_TRANSFER" && item.state === "RESOLVED"
-              ? "Paired transfer"
-              : history && item.reason.includes("REFUND") && item.state === "RESOLVED"
-                ? "Refund confirmed"
-                : REVIEW_REASON_LABEL[item.reason]}
-          </h2>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            <Badge muted={history}>{item.reason}</Badge>
-            <Badge muted={history} strong={!history && item.state === "OPEN"}>
-              {item.state}
-            </Badge>
-            {deferred ? <Badge muted={history}>Skipped</Badge> : null}
-          </div>
-          <p className="mt-2 text-xs text-muted">
-            {item.state === "OPEN" ? "Opened" : item.state === "DISMISSED" ? "Dismissed" : "Confirmed"}
-            {openedOn ? ` ${formatDisplayDate(openedOn)}` : ""}
-            {item.label ? ` · ${item.label}` : ""}
-          </p>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <span className="inline-flex h-[22px] items-center rounded-[4px] bg-accent-surface px-1.5 text-[11px] font-bold tracking-wide text-primary-strong">
+            {reviewInspectorEyebrow(item, { partnerCount: partners.length, history, deferred })}
+          </span>
+          <h2 className="mt-1.5 text-xl font-bold text-ink">{reviewRowTitle(item, primary?.merchant)}</h2>
+          <p className="mt-1 text-[13px] text-muted">{meta}</p>
+          {primary && primary.line !== primary.merchant ? (
+            <p className="mt-1 text-xs text-ink-soft">{primary.line}</p>
+          ) : null}
         </div>
-        {history && canUndo ? (
+        {!history && !deferred && actions.some((action) => action.id === "skip") ? (
           <button
             type="button"
-            onClick={onUndo}
-            className="rounded-full border border-line bg-surface px-4 py-2 text-xs font-semibold text-ink-soft"
+            aria-label="Skip for now"
+            onClick={() => run("skip")}
+            className="inline-flex size-11 shrink-0 items-center justify-center rounded-[4px] border-2 border-line bg-surface text-primary"
           >
-            Undo
+            <SkipIcon />
           </button>
         ) : null}
       </div>
 
-      {facts.length > 0 ? (
-        <div className={`mt-4 grid gap-2 ${facts.length > 1 ? "sm:grid-cols-2" : ""}`}>
+      {facts.length > 1 ? (
+        <ul className="flex flex-col gap-2">
           {facts.map((fact) => (
-            <div key={fact.id} className="rounded-[var(--radius-inner)] bg-surface-subtle px-4 py-3">
-              {facts.length > 1 ? (
-                <p className="text-[10.5px] font-bold tracking-wide text-muted uppercase">
-                  {fact.role === "out" ? "Out" : fact.role === "in" ? "In" : "Movement"}
-                </p>
-              ) : null}
-              <p
-                className={`text-xl font-bold tabular-nums ${fact.amount > 0 ? "text-positive" : ""} ${facts.length > 1 ? "mt-0.5" : ""}`}
-              >
-                {formatSignedAud(fact.amount)}
+            <li key={fact.id} className="rounded-[4px] border-2 border-line bg-surface-subtle px-3 py-2">
+              <p className="text-[10.5px] font-bold tracking-wide text-muted uppercase">
+                {fact.role === "out" ? "Out" : fact.role === "in" ? "In" : "Movement"}
               </p>
-              <p className="mt-1 text-sm font-semibold">{fact.account}</p>
-              <p className="text-xs text-muted">
-                {formatDisplayDate(fact.dateIso)} · {fact.merchant}
+              <p className="text-sm font-semibold text-ink tabular-nums">{formatSignedAud(fact.amount)}</p>
+              <p className="text-xs text-ink-soft">
+                {fact.account} · {formatDisplayDate(fact.dateIso)} · {fact.merchant}
               </p>
-              {fact.line !== fact.merchant ? (
-                <p className="mt-0.5 text-xs text-ink-soft">{fact.line}</p>
-              ) : null}
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : null}
 
+      {question ? <p className="text-base font-bold text-ink">{question}</p> : null}
+      {item.reason === "INGEST_PARSE" && !history ? <p className="text-sm text-ink">{item.label}</p> : null}
+
       {item.reason === "UNPAIRED_TRANSFER" && !history && partners.length > 0 ? (
-        <div className="mt-4">
-          <p className="text-sm font-bold">Suggested partners</p>
+        <div>
+          <p className="text-sm font-bold text-ink">Suggested partners</p>
           <ul className="mt-2 space-y-2">
             {partners.map((partner) => {
               const active = selectedPartner === partner.id;
@@ -486,23 +605,17 @@ function ReviewCard({
                   <button
                     type="button"
                     onClick={() => setPickedPartner(partner.id)}
-                    className={`flex w-full items-center justify-between gap-3 rounded-[var(--radius-inner)] border px-4 py-3 text-left ${
-                      active ? "border-primary bg-surface" : "border-line bg-surface"
+                    className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-[4px] border-2 px-3 py-2 text-left ${
+                      active ? "border-primary bg-accent-surface" : "border-line bg-surface"
                     }`}
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{partner.account}</p>
-                      <p className="text-xs text-muted">
-                        Deposit {formatAud(partner.amount)} · {formatDisplayDate(partner.dateIso)} ·{" "}
-                        {partner.merchant}
-                      </p>
-                      {active ? (
-                        <p className="mt-1 text-xs font-semibold text-ink-soft">
-                          Expected credit {formatSignedAud(partner.amount)} · not a booked movement yet
-                        </p>
-                      ) : null}
-                    </div>
-                    <span className="shrink-0 rounded-full bg-accent-surface px-2.5 py-1 text-[11px] font-bold text-primary-strong">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-ink">{partner.account}</span>
+                      <span className="block text-xs text-muted">
+                        Deposit {formatAud(partner.amount)} · {formatDisplayDate(partner.dateIso)} · {partner.merchant}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-[4px] bg-accent-surface px-2 py-1 text-[11px] font-bold text-primary-strong">
                       {CONFIDENCE_LABEL[partner.confidence]}
                     </span>
                   </button>
@@ -513,17 +626,9 @@ function ReviewCard({
         </div>
       ) : null}
 
-      {(item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") && !history ? (
-        <p className="mt-3 text-xs text-muted">
-          Looks like a refund. Confirm to keep it as Refund, or mark as income if it is not.
-        </p>
-      ) : null}
-
-      {(item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") &&
-      !history &&
-      payments.length > 1 ? (
-        <div className="mt-4">
-          <p className="text-sm font-bold">Matching payments</p>
+      {(item.reason === "PARTIAL_REFUND" || item.reason === "FULL_REFUND_AMBIGUOUS") && !history && payments.length > 1 ? (
+        <div>
+          <p className="text-sm font-bold text-ink">Matching payments</p>
           <ul className="mt-2 space-y-2">
             {payments.map((payment) => {
               const active = selectedPayment === payment.id;
@@ -532,16 +637,16 @@ function ReviewCard({
                   <button
                     type="button"
                     onClick={() => setPickedPayment(payment.id)}
-                    className={`flex w-full items-center justify-between gap-3 rounded-[var(--radius-inner)] border px-4 py-3 text-left ${
-                      active ? "border-primary bg-surface" : "border-line bg-surface"
+                    className={`flex min-h-11 w-full items-center rounded-[4px] border-2 px-3 py-2 text-left ${
+                      active ? "border-primary bg-accent-surface" : "border-line bg-surface"
                     }`}
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{payment.merchant}</p>
-                      <p className="text-xs text-muted">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-ink">{payment.merchant}</span>
+                      <span className="block text-xs text-muted">
                         {formatSignedAud(payment.amount)} · {formatDisplayDate(payment.dateIso)}
-                      </p>
-                    </div>
+                      </span>
+                    </span>
                   </button>
                 </li>
               );
@@ -551,8 +656,8 @@ function ReviewCard({
       ) : null}
 
       {item.reason === "UNREVIEWED_KIND" && !history ? (
-        <div className="mt-4">
-          <p className="text-sm font-bold">{merchant}</p>
+        <div>
+          <p className="text-sm font-bold text-ink">{merchant}</p>
           {item.movementIds.length > facts.length ? (
             <p className="text-xs text-muted">
               {item.movementIds.length} movements · showing {facts.length}
@@ -564,7 +669,7 @@ function ReviewCard({
                 key={category.key}
                 type="button"
                 onClick={() => setPickedCategory(category.key)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                className={`inline-flex min-h-11 items-center rounded-[4px] border-2 px-3 text-xs font-semibold ${
                   pickedCategory === category.key
                     ? "border-primary bg-accent-surface text-primary-strong"
                     : "border-line bg-surface text-ink-soft"
@@ -573,14 +678,18 @@ function ReviewCard({
                 {category.label}
               </button>
             ))}
-            <label className="flex items-center">
+            <label className="inline-flex min-h-11 items-center">
               <span className="sr-only">Category for {merchant}</span>
               <select
-                value={suggestions.some((category) => category.key === pickedCategory) ? UNCATEGORISED : (pickedCategory ?? UNCATEGORISED)}
+                value={
+                  suggestions.some((category) => category.key === pickedCategory)
+                    ? UNCATEGORISED
+                    : (pickedCategory ?? UNCATEGORISED)
+                }
                 onChange={(event) => {
                   if (event.target.value !== UNCATEGORISED) setPickedCategory(event.target.value);
                 }}
-                className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold outline-none focus:border-primary"
+                className="h-11 min-h-11 rounded-[4px] border-2 border-line bg-surface px-3 text-xs font-semibold text-ink outline-none focus:border-primary"
               >
                 <option value={UNCATEGORISED}>Other</option>
                 {pickerGroups().map((group) => (
@@ -598,148 +707,121 @@ function ReviewCard({
         </div>
       ) : null}
 
-      {item.reason === "INGEST_PARSE" ? (
-        <p className="mt-3 text-sm">{item.label}</p>
-      ) : null}
-
-      {history ? null : (
-        <ReviewActions
-          item={item}
-          partnerCount={partners.length}
-          paymentCount={payments.length}
-          selectedPartnerId={selectedPartner}
-          selectedPaymentId={selectedPayment}
-          selectedCategoryKey={pickedCategory}
-          keepAsLabel={keepAsMoneyLabel(item, byId)}
-          isCredit={reviewItemIsCredit(item, byId)}
-          similarPreviews={partners.length === 0 ? similarPreviews : []}
-          applySimilar={applySimilar}
-          deferred={deferred}
-          onApplySimilar={setApplySimilar}
-          onAction={(action) => {
-            const batch = applySimilar && similar.length > 1 ? similar : undefined;
-            if (action === "confirm" && selectedPartner) onConfirmTransfer(selectedPartner);
-            if (action === "confirm-as-transfer") onConfirmAsTransfer(batch);
-            if (action === "confirm-as-loan") onConfirmAsLoan(batch);
-            if (action === "confirm-refund") onConfirmRefund(selectedPayment);
-            if (action === "mark-income") onMarkIncome();
-            if (action === "keep-as-money") onKeepAsMoney(batch);
-            if (action === "assign-category" && pickedCategory) onAssignCategory(merchant, pickedCategory);
-            if (action === "skip") onSkip();
-            if (action === "undefer") onUndefer();
-            if (action === "dismiss") onDismiss();
-            if (action === "not-that") onDecline(selectedPartner ?? selectedPayment);
-            if (action === "keep-filing") onKeepFiling();
-          }}
-        />
-      )}
-    </article>
-  );
-}
-
-function ReviewActions({
-  item,
-  partnerCount,
-  paymentCount,
-  selectedPartnerId,
-  selectedPaymentId,
-  selectedCategoryKey,
-  keepAsLabel,
-  isCredit,
-  similarPreviews,
-  applySimilar,
-  deferred,
-  onApplySimilar,
-  onAction,
-}: {
-  item: ReviewItem;
-  partnerCount: number;
-  paymentCount: number;
-  selectedPartnerId?: string;
-  selectedPaymentId?: string;
-  selectedCategoryKey?: string;
-  keepAsLabel: string;
-  isCredit: boolean;
-  similarPreviews: SimilarMovementPreview[];
-  applySimilar: boolean;
-  deferred: boolean;
-  onApplySimilar: (value: boolean) => void;
-  onAction: (action: ReviewOpenActionId) => void;
-}) {
-  const actions = reviewOpenActions(item, {
-    partnerCount,
-    paymentCount,
-    selectedPartnerId,
-    selectedPaymentId,
-    selectedCategoryKey,
-    keepAsLabel,
-    deferred,
-    isCredit,
-  });
-  const similarCount = similarPreviews.length;
-
-  return (
-    <div className="mt-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {actions.map((action) => (
+      {history ? (
+        canUndo ? (
           <button
-            key={action.id}
             type="button"
-            disabled={!action.enabled}
-            onClick={() => onAction(action.id)}
-            className={`rounded-full px-4 py-2 text-xs ${
-              action.role === "primary"
-                ? "bg-primary font-bold text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
-                : "border border-line bg-surface font-semibold text-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
-            }`}
+            onClick={onUndo}
+            className="inline-flex min-h-11 items-center justify-center rounded-[4px] border-2 border-line bg-surface px-4 text-sm font-semibold text-ink-soft"
           >
-            {action.label}
+            Undo
           </button>
-        ))}
-        {similarCount > 1 ? (
-          <label className="flex items-center gap-2 text-xs font-semibold text-ink-soft">
+        ) : null
+      ) : (
+        <ReviewAnswerList actions={actions.filter((action) => action.id !== "skip")} onAction={run} />
+      )}
+
+      {showSimilar ? (
+        <div className="flex flex-col gap-2">
+          <label className="flex min-h-11 items-center gap-2 text-xs font-semibold text-ink-soft">
             <input
               type="checkbox"
               checked={applySimilar}
-              onChange={(event) => onApplySimilar(event.target.checked)}
-              className="size-3.5 accent-[var(--color-primary)]"
+              onChange={(event) => setApplySimilar(event.target.checked)}
+              className="size-4 accent-primary"
             />
-            Apply to {similarCount} similar
+            Apply to {similarPreviews.length} similar
           </label>
-        ) : null}
-      </div>
-      {similarCount > 1 ? (
-        <ul className={`space-y-1.5 ${applySimilar ? "" : "opacity-60"}`}>
-          {similarPreviews.map((row) => (
-            <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-              <span className="min-w-0 truncate text-ink-soft">{row.line}</span>
-              <span className="shrink-0 tabular-nums text-muted">
-                {formatDisplayDate(row.dateIso)} · {formatSignedAud(row.amount)}
-              </span>
-            </li>
-          ))}
-        </ul>
+          <ul className={applySimilar ? "space-y-1.5" : "space-y-1.5 opacity-60"}>
+            {similarPreviews.map((row) => (
+              <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
+                <span className="min-w-0 truncate text-ink-soft">{row.line}</span>
+                <span className="shrink-0 text-muted tabular-nums">
+                  {formatDisplayDate(row.dateIso)} · {formatSignedAud(row.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
   );
 }
 
-function SurfaceTab({
-  active,
-  onClick,
-  children,
+function emptyCopy({
+  surface,
+  reason,
+  filtered,
+  skippedWaiting,
+  onSkipped,
+  onHistory,
 }: {
-  active: boolean;
-  onClick: () => void;
-  children: string;
+  surface: ReviewSurface;
+  reason: ReviewReasonFilter;
+  filtered: boolean;
+  skippedWaiting: number;
+  onSkipped: () => void;
+  onHistory: () => void;
 }) {
+  if (surface === "history") {
+    return {
+      title: "No closed items yet",
+      body: "Confirmed pairs and dismissed parse issues will appear here.",
+    };
+  }
+  if (reason === "skipped") {
+    return {
+      title: "Nothing skipped",
+      body: "Skip for now holds items here so you can come back. They stay Open until you act.",
+    };
+  }
+  if (filtered) {
+    return {
+      title: "Nothing in this view",
+      body: "Try another account, date, or reason. Open items are still in the list when the filter matches.",
+    };
+  }
+  if (skippedWaiting > 0) {
+    return {
+      title: "All caught up",
+      body: `${skippedWaiting} skipped ${skippedWaiting === 1 ? "item is" : "items are"} waiting in Skipped. Open that filter to act or send them back.`,
+      actions: (
+        <TextButton onClick={onSkipped}>View skipped</TextButton>
+      ),
+    };
+  }
+  return {
+    title: "All caught up",
+    body: "Open is clear. New unpaired transfers, refunds, and uncategorised spend will show up here when they need a decision.",
+    note: "Money-trust items never auto-dismiss — check History for what you already confirmed.",
+    actions: (
+      <>
+        <Link
+          href="/dashboard"
+          className="inline-flex min-h-11 items-center rounded-[4px] border-2 border-primary-strong bg-primary px-4 text-sm font-semibold text-on-primary shadow-card"
+        >
+          Back to Dashboard
+        </Link>
+        <button
+          type="button"
+          onClick={onHistory}
+          className="inline-flex min-h-11 items-center rounded-[4px] border-2 border-line bg-surface px-4 text-sm font-semibold text-ink"
+        >
+          See History
+        </button>
+      </>
+    ),
+  };
+}
+
+function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
-        active ? "bg-primary text-on-primary" : "bg-surface text-muted hover:bg-accent-surface"
+      className={`inline-flex min-h-11 items-center rounded-[2px] px-3 text-[13px] font-semibold ${
+        active ? "bg-primary text-on-primary" : "text-muted"
       }`}
     >
       {children}
@@ -747,48 +829,24 @@ function SurfaceTab({
   );
 }
 
-function Chip({
-  active,
-  onClick,
-  subdued = false,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  subdued?: boolean;
-  children: string;
-}) {
+function TextButton({ onClick, children }: { onClick: () => void; children: string }) {
   return (
     <button
       type="button"
-      aria-pressed={active}
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 font-semibold ${subdued ? "text-xs" : "text-sm"} ${
-        active ? "bg-primary text-on-primary" : "border border-line bg-surface text-ink-soft"
-      }`}
+      className="inline-flex min-h-11 items-center rounded-[4px] border-2 border-primary-strong bg-primary px-4 text-sm font-semibold text-on-primary shadow-card"
     >
       {children}
     </button>
   );
 }
 
-function Badge({
-  children,
-  muted,
-  strong,
-}: {
-  children: string;
-  muted?: boolean;
-  strong?: boolean;
-}) {
+function SkipIcon() {
   return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-bold tracking-wide uppercase ${
-        strong ? "bg-primary text-on-primary" : muted ? "bg-surface text-muted" : "bg-accent-surface text-primary-strong"
-      }`}
-    >
-      {children}
-    </span>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M5 5v14l11-7L5 5z" />
+      <path d="M19 5v14" />
+    </svg>
   );
 }
 
