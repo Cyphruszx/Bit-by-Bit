@@ -35,7 +35,13 @@ import {
   type MergeAccountsResult,
 } from "@/lib/money-flow/ledger";
 import { applyBook, bookForLedger, resolveBook, type CategoryBook } from "@/lib/money-flow/category-book";
-import { ledgerAfterArchive, ledgerAfterCategoryMove, type ArchiveChoice } from "@/lib/money-flow/category-actions";
+import {
+  ledgerAfterArchive,
+  ledgerAfterCategoryMove,
+  ledgerAfterDeleteCategory,
+  ledgerAfterRestore,
+  type ArchiveChoice,
+} from "@/lib/money-flow/category-actions";
 import { needsStarterReset } from "@/lib/money-flow/starter-list";
 import {
   emptyBudgetBook,
@@ -195,8 +201,12 @@ type MoneyFlowState = {
   setCategoryBook: (book: CategoryBook | null) => void;
   /** Moves a category into another editable group, carrying its plan. */
   moveCategoryToGroup: (categoryKey: string, groupId: string) => { ok: true } | { ok: false; reason: string };
-  /** Archives a category. Rows are re-filed, or left in place with its rules switched off. */
+  /** Archives a category. Rows are re-filed, or left in place with its rules paused. */
   archiveCategory: (categoryKey: string, choice: ArchiveChoice) => { ok: true } | { ok: false; reason: string };
+  /** Deletes a category a person added, when no transaction has ever used it. */
+  deleteCategory: (categoryKey: string) => { ok: true } | { ok: false; reason: string };
+  /** Brings an archived category back and turns its paused rules on again. */
+  restoreCategory: (categoryKey: string) => { ok: true } | { ok: false; reason: string };
   /** Spec 6 currency/kind/cleared_balance. */
   accountMeta: Record<string, AccountMeta>;
   /** Spec 11 Pools. */
@@ -331,6 +341,8 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       setCategoryBook,
       moveCategoryToGroup,
       archiveCategory,
+      deleteCategory,
+      restoreCategory,
       accountMeta: held.ledger.accountMeta ?? {},
       accountPools: held.ledger.accountPools ?? [],
       accountPoolMembers: held.ledger.accountPoolMembers ?? [],
@@ -507,6 +519,22 @@ function moveCategoryToGroup(categoryKey: string, groupId: string) {
 
 function archiveCategory(categoryKey: string, choice: ArchiveChoice) {
   const result = ledgerAfterArchive(snapshot.ledger, categoryKey, choice);
+  if (!result.ok) return result;
+  applyBook(bookForLedger(result.ledger));
+  commit(result.ledger);
+  return { ok: true as const };
+}
+
+function deleteCategory(categoryKey: string) {
+  const result = ledgerAfterDeleteCategory(snapshot.ledger, categoryKey);
+  if (!result.ok) return result;
+  applyBook(bookForLedger(result.ledger));
+  commit(result.ledger);
+  return { ok: true as const };
+}
+
+function restoreCategory(categoryKey: string) {
+  const result = ledgerAfterRestore(snapshot.ledger, categoryKey);
   if (!result.ok) return result;
   applyBook(bookForLedger(result.ledger));
   commit(result.ledger);

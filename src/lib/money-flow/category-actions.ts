@@ -5,7 +5,8 @@
  * The destination group's typed plan rises when it would sit below the sum of
  * its categories' plans. Archive never deletes the key. One path re-files the
  * rows and points rules at the new category. The other leaves the rows and
- * switches those rules off, so later matches go to Unsorted.
+ * pauses those rules, so later matches go to Unsorted until it is restored.
+ * Only a category a person added can be archived or deleted.
  */
 
 import {
@@ -15,6 +16,8 @@ import {
   FIXED_GROUP_ORDER,
   isFixedGroup,
   moveCategory,
+  removeCategory,
+  restoreCategory,
   type BookGroup,
   type CategoryBook,
 } from "@/lib/money-flow/category-book";
@@ -54,6 +57,7 @@ export type MovePreview = {
 };
 
 const FIXED_REASON = "Fixed groups stay where they are.";
+const STARTER_REASON = "Starter categories stay in the list.";
 
 export function categoriesSummary(groups: number, categories: number, archived: number): string {
   const groupWord = groups === 1 ? "group" : "groups";
@@ -224,6 +228,66 @@ export function ledgerAfterCategoryMove(
   return { ok: true, ledger: ledgerWithBudgets(recordTaxonomy(ledger, nextBook), budgets) };
 }
 
+/** The category's typed amounts across every month, or nothing when none are set. */
+export function plannedTotal(budgets: BudgetBook, categoryKey: string): number | null {
+  let total = 0;
+  let any = false;
+  for (const plan of Object.values(budgets.months)) {
+    const amount = plan.categories[categoryKey];
+    if (amount == null) continue;
+    any = true;
+    total += amount;
+  }
+  if (!any) return null;
+  const rounded = roundMoney(total);
+  return rounded > 0 ? rounded : null;
+}
+
+/** Names the rules and the plan that a delete takes with the category. */
+export function deleteConfirmCopy(label: string, ruleCount: number, planned: number | null): string {
+  const title = `Delete ${label}?`;
+  const parts: string[] = [];
+  if (ruleCount > 0) parts.push(`${formatCount(ruleCount)} ${ruleCount === 1 ? "rule" : "rules"}`);
+  if (planned != null && planned > 0) parts.push(`${formatPlanDollars(planned)} plan`);
+  if (parts.length === 0) return title;
+  const verb = parts.length > 1 || ruleCount > 1 ? "go" : "goes";
+  return `${title} Its ${parts.join(" and ")} ${verb} too.`;
+}
+
+export function ledgerAfterDeleteCategory(
+  ledger: Ledger,
+  categoryKey: string,
+): { ok: true; ledger: Ledger } | { ok: false; reason: string } {
+  const book = bookForLedger(ledger);
+  const held = book.categories.find((category) => category.key === categoryKey);
+  if (!held) return { ok: false, reason: "That category is not in the list." };
+  if (held.builtin) return { ok: false, reason: STARTER_REASON };
+  if (isFixedGroup(held.groupId)) return { ok: false, reason: FIXED_REASON };
+  if (ledgerTransactions(ledger).some((txn) => txn.categoryKey === held.key)) {
+    return { ok: false, reason: "That category still has transactions." };
+  }
+  const nextBook = removeCategory(book, held.key);
+  if (nextBook === book) return { ok: false, reason: STARTER_REASON };
+  applyBook(nextBook);
+  const budgets = clearCategoryPlans(ledger.budgets ?? emptyBudgetBook(), held.key);
+  const next = writeRules(
+    ledgerWithBudgets(recordTaxonomy(ledger, nextBook), budgets),
+    dropRules(ledger.rules ?? {}, held.key),
+  );
+  return { ok: true, ledger: next };
+}
+
+export function ledgerAfterRestore(
+  ledger: Ledger,
+  categoryKey: string,
+): { ok: true; ledger: Ledger } | { ok: false; reason: string } {
+  const book = bookForLedger(ledger);
+  const nextBook = restoreCategory(book, categoryKey);
+  if (nextBook === book) return { ok: false, reason: "That category is not archived." };
+  applyBook(nextBook);
+  return { ok: true, ledger: recordTaxonomy(ledger, nextBook) };
+}
+
 export function ledgerAfterArchive(
   ledger: Ledger,
   categoryKey: string,
@@ -233,6 +297,7 @@ export function ledgerAfterArchive(
   const book = bookForLedger(ledger);
   const held = book.categories.find((category) => category.key === categoryKey);
   if (!held || held.archivedAt) return { ok: false, reason: "That category is not in the list." };
+  if (held.builtin) return { ok: false, reason: STARTER_REASON };
   if (isFixedGroup(held.groupId)) return { ok: false, reason: FIXED_REASON };
   if (choice.mode === "refile") {
     const target = book.categories.find((category) => category.key === choice.targetKey);
@@ -253,12 +318,9 @@ export function ledgerAfterArchive(
     recordTaxonomy(ledger, nextBook),
     dropLaterCategoryPlans(ledger.budgets ?? emptyBudgetBook(), held.key, archiveMonth),
   );
-  next = writeRules(
-    next,
-    choice.mode === "refile" ? repointRules(ledger.rules ?? {}, held.key, choice.targetKey) : dropRules(ledger.rules ?? {}, held.key),
-  );
 
   if (choice.mode === "refile") {
+    next = writeRules(next, repointRules(ledger.rules ?? {}, held.key, choice.targetKey));
     const stored = ledgerTransactions(ledger);
     if (stored.length > 0) {
       next = replaceTransactions(
@@ -268,6 +330,15 @@ export function ledgerAfterArchive(
     }
   }
   return { ok: true, ledger: next };
+}
+
+function clearCategoryPlans(budgets: BudgetBook, categoryKey: string): BudgetBook {
+  let next = budgets;
+  for (const month of Object.keys(budgets.months)) {
+    if (budgets.months[month]?.categories[categoryKey] == null) continue;
+    next = setCategoryAmount(next, month, categoryKey, null);
+  }
+  return next;
 }
 
 /** The typed group amount required to cover its categories, or null when no rise is needed. */
