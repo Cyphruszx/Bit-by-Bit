@@ -2,21 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useMoneyFlow } from "@/components/money-flow-provider";
+import { formatCount } from "@/lib/format";
 
 const links = [
   ["Dashboard", "/dashboard"],
   ["Transactions", "/transactions"],
+  ["Review", "/review"],
   ["Categories", "/categories"],
   ["Budget", "/budgeting"],
 ] as const;
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { openReviewCount } = useMoneyFlow();
 
   return (
     <nav className="flex w-full flex-col gap-1" aria-label="Pages">
       {links.map(([label, href]) => (
-        <NavItem key={href} href={href} label={label} active={pathname === href} icon={label} />
+        <NavItem
+          key={href}
+          href={href}
+          label={label}
+          active={pathname === href}
+          icon={label}
+          badge={href === "/review" && openReviewCount > 0 ? formatCount(openReviewCount) : undefined}
+        />
       ))}
     </nav>
   );
@@ -32,11 +43,13 @@ function NavItem({
   label,
   active,
   icon,
+  badge,
 }: {
   href: string;
   label: string;
   active: boolean;
   icon: string;
+  badge?: string;
 }) {
   return (
     <Link
@@ -47,7 +60,12 @@ function NavItem({
       }`}
     >
       <NavIcon name={icon} />
-      {label}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {badge ? (
+        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] border border-line bg-surface px-1 text-[11px] font-bold text-ink tabular-nums">
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -86,6 +104,15 @@ function NavIcon({ name }: { name: string }) {
       <svg {...common}>
         <circle cx="12" cy="12" r="9" />
         <path d="M12 7v10M9.5 9.5c.6-1 3.4-1.4 4.4-.2 1 1.2-.2 2-2.2 2.4-2 .4-3.2 1.2-2.2 2.4 1 1.2 3.8.8 4.4-.2" />
+      </svg>
+    );
+  }
+  if (name === "Review") {
+    return (
+      <svg {...common}>
+        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+        <rect x="9" y="3" width="6" height="4" rx="1" />
+        <path d="M9 12l2 2 4-4" />
       </svg>
     );
   }

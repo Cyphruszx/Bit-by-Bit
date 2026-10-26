@@ -113,9 +113,10 @@ const LEGACY_PERIOD_KEY = "bitbybit.period-v1";
 type Snapshot = {
   ledger: Ledger;
   ready: boolean;
+  loadError: string | null;
 };
 
-const EMPTY_SNAPSHOT: Snapshot = { ledger: EMPTY_LEDGER, ready: false };
+const EMPTY_SNAPSHOT: Snapshot = { ledger: EMPTY_LEDGER, ready: false, loadError: null };
 
 const listeners = new Set<() => void>();
 const periodListeners = new Set<() => void>();
@@ -136,6 +137,8 @@ type MoneyFlowState = {
   hasUploads: boolean;
   /** False until the stored ledger has been read, so the UI can wait instead of flashing an empty one. */
   ready: boolean;
+  /** Set when the stored ledger could not be read. Review shows this in the inspector. */
+  loadError: string | null;
   importDocuments: (result: InterpretationResult, hashes?: Record<string, string>) => ImportReport;
   removeStatement: (key: string) => void;
   /** The institution a person named for a statement, keyed by that statement. */
@@ -312,6 +315,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       forgetLearned,
       hasUploads: held.ledger.imports.length > 0,
       ready: held.ready,
+      loadError: held.loadError,
       review,
       openReviewCount: openReviewCount(review),
       confirmReviewTransfer,
@@ -425,13 +429,16 @@ function hydrate(): Promise<void> {
       update({
         ledger: persisted,
         ready: true,
+        loadError: null,
       });
       // Older rows are rewritten in the current shape once, so a backup or a later
       // read sees categoryKey and tags rather than Food & Drink / food.groceries.
       if (persisted !== merged && store) void store.save(persisted);
     })
     .catch(() => {
-      if (mine === reading) update({ ready: true });
+      if (mine === reading) {
+        update({ ready: true, loadError: "We couldn’t load your review items" });
+      }
     });
   return loading;
 }
@@ -448,7 +455,7 @@ function hydrate(): Promise<void> {
 export function rehydrateLedger(): Promise<void> {
   loading = null;
   store = null;
-  update({ ledger: EMPTY_LEDGER, ready: false });
+  update({ ledger: EMPTY_LEDGER, ready: false, loadError: null });
   return hydrate();
 }
 
@@ -471,7 +478,7 @@ function persistLoadedLedger(ledger: Ledger): Ledger {
 }
 
 function commit(next: Ledger) {
-  update({ ledger: next });
+  update({ ledger: next, loadError: null });
   // Saved through whichever store hydrate settled on. Before that resolves there is
   // nothing on screen to save, because nothing has been read yet.
   if (store) void store.save(next);
@@ -610,7 +617,7 @@ function dismissEnableOffer() {
 }
 
 function clearLedger() {
-  update({ ledger: EMPTY_LEDGER });
+  update({ ledger: EMPTY_LEDGER, loadError: null });
   // Clearing removes the backup too, so "start again" means it on every device rather
   // than leaving a copy to sync straight back.
   if (store) void store.clear();
