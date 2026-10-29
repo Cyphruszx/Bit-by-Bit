@@ -14,11 +14,14 @@ import {
 import { logFiskilSupport } from "@/lib/fiskil/log";
 import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
 import { processTokenCache } from "@/lib/fiskil/token";
+import { requireOpenBankingActor } from "@/lib/open-banking/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const actor = await requireOpenBankingActor(request);
+  if (!actor.ok) return actor.response;
   let raw: unknown;
   try {
     raw = await request.json();
@@ -26,8 +29,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "Expected JSON." }, { status: 400 });
   }
 
+  const parsed = parseStartSessionBody(raw);
   const stores = openBankingRuntimeStores();
-  const result = await startOpenBankingLinkSession(withDefaultUris(parseStartSessionBody(raw), request), {
+  const result = await startOpenBankingLinkSession(withDefaultUris({
+    ...parsed,
+    userId: actor.actor.userId,
+    email: actor.actor.email,
+    featureToggles: actor.actor.featureToggles,
+  }, request), {
     endUsers: stores.endUsers,
     connections: stores.connections,
     sessions: stores.sessions,

@@ -3,8 +3,12 @@
  *
  * This module talks only to our API routes. It must not import @/lib/fiskil
  * or name server secrets — those stay off the client bundle.
+ *
+ * Requests carry the Supabase access token. The server derives the user from
+ * that session, so these calls do not send userId or featureToggles.
  */
 
+import { supabase } from "@/lib/supabase/client";
 import { connectionCapMessage, connectionCapReached, MAX_BANK_CONNECTIONS } from "./limits";
 
 export type OpenBankingToggles = { OPEN_BANKING?: boolean };
@@ -158,18 +162,12 @@ export function browserConnectDeps(launchLink: ConnectBankDeps["launchLink"]): C
   return {
     async ensureEndUser(input) {
       return postJson("/api/open-banking/end-user", {
-        userId: input.userId,
-        email: input.email,
         ...(input.name ? { name: input.name } : {}),
-        featureToggles: input.featureToggles,
       });
     },
     async startSession(input) {
       return postJson("/api/open-banking/auth-session", {
-        userId: input.userId,
-        email: input.email,
         ...(input.name ? { name: input.name } : {}),
-        featureToggles: input.featureToggles,
         redirectUri: input.redirectUri,
         cancelUri: input.cancelUri,
       });
@@ -178,22 +176,20 @@ export function browserConnectDeps(launchLink: ConnectBankDeps["launchLink"]): C
     async completeConnection(input) {
       return postJson("/api/open-banking/connections", {
         action: "complete",
-        userId: input.userId,
         sessionId: input.sessionId,
         consentId: input.consentId,
-        featureToggles: input.featureToggles,
       });
     },
   };
 }
 
-export async function fetchOpenBankingConnections(userId: string): Promise<{
+export async function fetchOpenBankingConnections(): Promise<{
   connections: { id: string; status: string; createdAt: string }[];
   connectionCount: number;
   remaining: number;
   max: number;
 }> {
-  const response = await fetch(`/api/open-banking/connections?userId=${encodeURIComponent(userId)}`);
+  const response = await fetch("/api/open-banking/connections", { headers: await sessionHeaders() });
   const body = (await readBody(response)) as {
     connections?: { id: string; status: string; createdAt: string }[];
     connectionCount?: number;
@@ -213,27 +209,19 @@ export async function fetchOpenBankingConnections(userId: string): Promise<{
 }
 
 export async function revokeOpenBankingConnection(input: {
-  userId: string;
   connectionId: string;
-  featureToggles: OpenBankingToggles;
 }): Promise<CompleteResult> {
   return postJson("/api/open-banking/connections", {
     action: "revoke",
-    userId: input.userId,
     connectionId: input.connectionId,
-    featureToggles: input.featureToggles,
   });
 }
 
 export async function requestOpenBankingSync(input: {
-  userId: string;
   connectionId: string;
-  featureToggles: OpenBankingToggles;
 }): Promise<CompleteResult> {
   return postJson("/api/open-banking/sync", {
-    userId: input.userId,
     connectionId: input.connectionId,
-    featureToggles: input.featureToggles,
   });
 }
 
@@ -241,13 +229,13 @@ export async function requestOpenBankingSync(input: {
  * Account-delete / leave-product hook. Sign-out does not call this.
  * Last bank disconnect also deletes the Fiskil end user from the revoke path.
  */
-export async function leaveOpenBankingProduct(userId: string): Promise<
+export async function leaveOpenBankingProduct(): Promise<
   { ok: true; deleted: boolean; skipped?: boolean } | { ok: false; error: string; status?: number }
 > {
   const response = await fetch("/api/open-banking/end-user", {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId }),
+    headers: await sessionHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({}),
   });
   const body = (await readBody(response)) as Record<string, unknown>;
   if (!response.ok) {
@@ -268,14 +256,25 @@ export async function reconnectOpenBankingSession(input: ConnectIdentity &
   ConnectUris & { featureToggles: OpenBankingToggles; connectionId: string }): Promise<StartSessionResult> {
   return postJson("/api/open-banking/connections", {
     action: "reconnect",
-    userId: input.userId,
-    email: input.email,
     ...(input.name ? { name: input.name } : {}),
-    featureToggles: input.featureToggles,
     redirectUri: input.redirectUri,
     cancelUri: input.cancelUri,
     connectionId: input.connectionId,
   });
+}
+
+async function sessionHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { ...extra };
+  const client = supabase();
+  if (!client) return headers;
+  try {
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } catch {
+    return headers;
+  }
+  return headers;
 }
 
 async function postJson(
@@ -295,7 +294,7 @@ async function postJson(
 > {
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await sessionHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
   const body = (await readBody(response)) as Record<string, unknown>;

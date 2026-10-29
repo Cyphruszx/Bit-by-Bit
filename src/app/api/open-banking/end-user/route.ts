@@ -11,18 +11,20 @@
 
 import {
   leaveOpenBankingProduct,
-  parseLeaveBody,
   parseProvisionBody,
   provisionOpenBankingEndUser,
 } from "@/lib/fiskil/end-users";
 import { logFiskilSupport } from "@/lib/fiskil/log";
 import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
 import { processTokenCache } from "@/lib/fiskil/token";
+import { requireOpenBankingActor } from "@/lib/open-banking/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const actor = await requireOpenBankingActor(request);
+  if (!actor.ok) return actor.response;
   let raw: unknown;
   try {
     raw = await request.json();
@@ -30,7 +32,13 @@ export async function POST(request: Request) {
     return Response.json({ error: "Expected JSON." }, { status: 400 });
   }
 
-  const result = await provisionOpenBankingEndUser(parseProvisionBody(raw), {
+  const parsed = parseProvisionBody(raw);
+  const result = await provisionOpenBankingEndUser({
+    ...parsed,
+    userId: actor.actor.userId,
+    email: actor.actor.email,
+    featureToggles: actor.actor.featureToggles,
+  }, {
     store: openBankingRuntimeStores().endUsers,
     cache: processTokenCache(),
   });
@@ -50,16 +58,12 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return Response.json({ error: "Expected JSON." }, { status: 400 });
-  }
+  const actor = await requireOpenBankingActor(request, { requireBundle: false });
+  if (!actor.ok) return actor.response;
 
   const stores = openBankingRuntimeStores();
   const result = await leaveOpenBankingProduct(
-    { userId: parseLeaveBody(raw).userId, reason: "account_delete" },
+    { userId: actor.actor.userId, reason: "account_delete" },
     {
       endUsers: stores.endUsers,
       connections: stores.connections,

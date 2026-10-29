@@ -6,10 +6,9 @@ import { supabaseConfig } from "@/lib/supabase/config";
 /**
  * The one Supabase client, made on first use and kept.
  *
- * Everything in BitbyBit renders in the browser and nothing is fetched on the server, so
- * the browser client is the whole story: it holds the session, refreshes it, and sends it
- * with each request. What protects the data is row-level security in the database, not
- * anything this file does — a stolen publishable key still reaches nobody's ledger.
+ * The browser holds the session. Open Banking calls send its access token, and the
+ * server checks that token with Supabase. Row-level security still guards ledger rows.
+ * A stolen publishable key still reaches nobody's ledger.
  */
 let held: SupabaseClient | null = null;
 
@@ -22,8 +21,6 @@ export function supabase(): SupabaseClient | null {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      // The session belongs in this browser and nowhere else; there is no server route
-      // that needs to read it.
       detectSessionInUrl: false,
     },
   });

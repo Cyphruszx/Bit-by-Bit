@@ -5,16 +5,16 @@
  * uses `0 14 * * *` (14:00 UTC). Spec still allows ≤4h polling on Pro.
  * Webhooks remain the primary sync path. Vercel sends
  * `Authorization: Bearer ${CRON_SECRET}` when that env var is set; GET runs
- * only then. POST is the signed-in manual sync (Connect bank → Sync now):
- * the browser sends that user's id, and the job runs only when the connection
- * belongs to them. A `poll` flag on POST does not run the global poll —
- * that job is the cron GET only. Responses never include Fiskil secrets.
+ * only then. POST is Sync now for the signed-in user: the Supabase session
+ * is the user, and the connection must belong to them. A userId or paid flag
+ * in the body is ignored. A `poll` flag on POST does not run the global poll.
+ * Responses never include Fiskil secrets.
  */
 
 import { timingSafeEqual } from "node:crypto";
 import { logFiskilSupport } from "@/lib/fiskil/log";
 import { ledgerFromSync, processSyncDeps, publicSyncResult, runOpenBankingSyncRequest } from "@/lib/fiskil/sync";
-import { parseFeatureToggles } from "@/lib/money-flow/features";
+import { requireOpenBankingActor } from "@/lib/open-banking/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,12 +53,13 @@ export async function GET(request: Request) {
 }
 
 /**
- * Manual sync for a signed-in user. Not gated by CRON_SECRET — the UI only
- * calls this with the session user id, and the sync refuses a connection
- * that belongs to someone else. `poll: true` is ignored so this route cannot
- * stand in for the cron.
+ * Manual sync for the signed-in user. Not gated by CRON_SECRET. The session
+ * user is the only id that counts; a connection owned by someone else is 404.
+ * `poll: true` is ignored so this route cannot stand in for the cron.
  */
 export async function POST(request: Request) {
+  const actor = await requireOpenBankingActor(request);
+  if (!actor.ok) return actor.response;
   let raw: unknown;
   try {
     raw = await request.json();
@@ -68,9 +69,9 @@ export async function POST(request: Request) {
   const body = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const result = await runOpenBankingSyncRequest(
     {
-      userId: typeof body.userId === "string" ? body.userId : "",
+      userId: actor.actor.userId,
       connectionId: typeof body.connectionId === "string" ? body.connectionId : "",
-      featureToggles: parseFeatureToggles(body.featureToggles),
+      featureToggles: actor.actor.featureToggles,
     },
     processSyncDeps(),
   );

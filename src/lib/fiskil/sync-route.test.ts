@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { GET, POST } from "@/app/api/open-banking/sync/route";
+import { installTestSession, setSessionVerifierForTests, testSessionHeaders } from "@/lib/auth/request-session";
 import { FISKIL_API_BASE, FISKIL_TOKEN_URL } from "./config";
 import { processConnectionStore, type BankConnection } from "./connections";
 import { SANDBOX_ACCOUNT, SANDBOX_TRANSACTION } from "./sandbox-shapes";
@@ -25,6 +26,7 @@ const DUE: BankConnection = {
 };
 
 afterEach(() => {
+  setSessionVerifierForTests(undefined);
   if (previousCron === undefined) delete process.env.CRON_SECRET;
   else process.env.CRON_SECRET = previousCron;
   if (previousId === undefined) delete process.env.FISKIL_CLIENT_ID;
@@ -144,21 +146,22 @@ describe("GET /api/open-banking/sync cron auth", { concurrency: 1 }, () => {
         body: JSON.stringify({ poll: true, featureToggles: { OPEN_BANKING: true } }),
       }),
     );
-    assert.equal(response.status, 400);
+    assert.equal(response.status, 401);
     assert.equal(armed.fetches(), 0);
   });
 
   it("still runs a signed-in manual sync without the cron header", async () => {
     process.env.CRON_SECRET = SECRET;
+    installTestSession({ userId: "user-cron", email: "cron@example.com" });
     const armed = await armPoll();
     const response = await POST(
       new Request("http://localhost/api/open-banking/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...testSessionHeaders("user-cron") },
         body: JSON.stringify({
-          userId: "user-cron",
+          userId: "someone-else",
           connectionId: "consent_cron",
-          featureToggles: { OPEN_BANKING: true },
+          featureToggles: { OPEN_BANKING: false },
         }),
       }),
     );

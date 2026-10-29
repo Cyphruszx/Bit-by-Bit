@@ -5,6 +5,7 @@ import {
   cancelledLinkMessage,
   connectBlockedByCap,
   connectCapCopy,
+  requestOpenBankingSync,
   runConnectBankFlow,
   type ConnectBankDeps,
 } from "./connect-flow";
@@ -108,5 +109,30 @@ describe("Connect flow: end-user → session → Link", () => {
     assert.equal(result.cancelled, true);
     assert.equal(cancelledLinkMessage({ code: "LINK_USER_CANCELLED" }), "Bank connection was cancelled.");
     assert.doesNotMatch(result.error, /secret|token|FISKIL/i);
+  });
+
+  it("sends Sync now with the session and without a userId or paid flag", async () => {
+    const original = globalThis.fetch;
+    let sent: { body: Record<string, unknown>; authorization: string | null } | undefined;
+    globalThis.fetch = (async (_input, init) => {
+      sent = {
+        body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+        authorization: new Headers(init?.headers).get("authorization"),
+      };
+      return new Response(JSON.stringify({ results: [{ ok: true }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof fetch;
+    try {
+      const result = await requestOpenBankingSync({ connectionId: "consent_1" });
+      assert.equal(result.ok, true);
+    } finally {
+      globalThis.fetch = original;
+    }
+    assert.equal(sent?.body.connectionId, "consent_1");
+    assert.equal("userId" in (sent?.body ?? {}), false);
+    assert.equal("featureToggles" in (sent?.body ?? {}), false);
+    assert.equal(sent?.authorization, null);
   });
 });

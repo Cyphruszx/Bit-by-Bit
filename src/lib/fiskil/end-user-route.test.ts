@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { DELETE, POST } from "@/app/api/open-banking/end-user/route";
+import { installTestSession, setSessionVerifierForTests, testSessionHeaders } from "@/lib/auth/request-session";
 import { processEndUserLinkStore } from "./end-users";
 import { FISKIL_API_BASE, FISKIL_TOKEN_URL } from "./config";
 
@@ -8,6 +9,7 @@ const previousId = process.env.FISKIL_CLIENT_ID;
 const previousSecret = process.env.FISKIL_CLIENT_SECRET;
 
 afterEach(() => {
+  setSessionVerifierForTests(undefined);
   if (previousId === undefined) delete process.env.FISKIL_CLIENT_ID;
   else process.env.FISKIL_CLIENT_ID = previousId;
   if (previousSecret === undefined) delete process.env.FISKIL_CLIENT_SECRET;
@@ -40,15 +42,16 @@ describe("POST /api/open-banking/end-user", () => {
       throw new Error(`unexpected ${method} ${url}`);
     }) as typeof fetch;
 
+    installTestSession({ userId: "user-route", email: "route@example.com" });
     try {
       const response = await POST(
         new Request("http://localhost/api/open-banking/end-user", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...testSessionHeaders("user-route") },
           body: JSON.stringify({
-            userId: "user-route",
-            email: "route@example.com",
-            featureToggles: { OPEN_BANKING: true },
+            userId: "someone-else",
+            email: "spoof@example.com",
+            featureToggles: { OPEN_BANKING: false },
           }),
         }),
       );
@@ -74,6 +77,12 @@ describe("POST /api/open-banking/end-user", () => {
       endUserId: "eu_leave_route",
       email: "leave@example.com",
     });
+    await processEndUserLinkStore().put({
+      userId: "user-victim",
+      endUserId: "eu_victim",
+      email: "victim@example.com",
+    });
+    installTestSession({ userId: "user-leave", email: "leave@example.com" });
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async (input, init) => {
       const url = String(input);
@@ -94,8 +103,8 @@ describe("POST /api/open-banking/end-user", () => {
       const response = await DELETE(
         new Request("http://localhost/api/open-banking/end-user", {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: "user-leave" }),
+          headers: { "Content-Type": "application/json", ...testSessionHeaders("user-leave") },
+          body: JSON.stringify({ userId: "user-victim" }),
         }),
       );
       assert.equal(response.status, 200);
@@ -105,6 +114,7 @@ describe("POST /api/open-banking/end-user", () => {
       assert.doesNotMatch(JSON.stringify(body), /tok_route/);
       assert.doesNotMatch(JSON.stringify(body), /leave@example.com/);
       assert.equal(await processEndUserLinkStore().getByUserId("user-leave"), undefined);
+      assert.equal((await processEndUserLinkStore().getByUserId("user-victim"))?.endUserId, "eu_victim");
     } finally {
       globalThis.fetch = originalFetch;
     }

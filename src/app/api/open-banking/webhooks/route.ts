@@ -2,7 +2,9 @@
  * Spec 12 Slice 3: Fiskil webhook receiver.
  *
  * Verifies X-Fiskil-Signature, processes each message_id once, and runs the
- * same sync upsert as first-connect / poll. Secrets stay on the server.
+ * same sync upsert as first-connect / poll. This is Fiskil's call, not a
+ * signed-in user, so it does not use the Supabase session. Secrets stay on
+ * the server.
  */
 
 import { logFiskilSupport } from "@/lib/fiskil/log";
