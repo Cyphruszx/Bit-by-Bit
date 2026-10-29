@@ -20,7 +20,6 @@ export type ReviewUndoMovement = {
   decidedBy?: DecidedBy;
   transferPair?: string;
   refundPair?: string;
-  tags?: string[];
 };
 
 export type ReviewUndoVerdict = {
@@ -135,7 +134,6 @@ function snapshotMovement(txn: InterpretedTransaction): ReviewUndoMovement {
     ...(txn.decidedBy ? { decidedBy: txn.decidedBy } : {}),
     ...(txn.transferPair ? { transferPair: txn.transferPair } : {}),
     ...(txn.refundPair ? { refundPair: txn.refundPair } : {}),
-    ...(txn.tags && txn.tags.length > 0 ? { tags: [...txn.tags] } : {}),
   };
 }
 
@@ -151,8 +149,6 @@ function restoreMovement(txn: InterpretedTransaction, snap: ReviewUndoMovement):
   else delete next.transferPair;
   if (snap.refundPair) next.refundPair = snap.refundPair;
   else delete next.refundPair;
-  if (snap.tags && snap.tags.length > 0) next.tags = snap.tags;
-  else delete next.tags;
   delete next.verdict;
   return next;
 }
@@ -228,9 +224,6 @@ function parseUndoMovements(value: unknown): ReviewUndoMovement[] {
       ...(typeof held.decidedBy === "string" ? { decidedBy: held.decidedBy as DecidedBy } : {}),
       ...(typeof held.transferPair === "string" ? { transferPair: held.transferPair } : {}),
       ...(typeof held.refundPair === "string" ? { refundPair: held.refundPair } : {}),
-      ...(Array.isArray(held.tags) && held.tags.every((tag) => typeof tag === "string")
-        ? { tags: held.tags }
-        : {}),
     });
   }
   return rows;

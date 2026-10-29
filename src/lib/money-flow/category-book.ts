@@ -35,7 +35,7 @@ export type BookCategory = {
   groupId: string;
   inType: TransactionType;
   outType: TransactionType;
-  /** Bank labels that hint at this category, and tags a picker offers. */
+  /** Bank labels that hint at this category. */
   bankCategories: string[];
   builtin: boolean;
   /**

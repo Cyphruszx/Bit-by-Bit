@@ -5,7 +5,7 @@ import { accountIdOf, namesItsOwnAccount, type AccountRegistry } from "@/lib/mon
 import { isRefundKind } from "@/lib/money-flow/movement-kind";
 import { looksInternal, looksReturned } from "@/lib/money-flow/statement-category";
 import { chartLabel, groupOf, isGroupId } from "@/lib/money-flow/category-book";
-import { categoryOf } from "@/lib/money-flow/tags";
+import { categoryOf } from "@/lib/money-flow/category-of";
 import { countsAsSpending } from "@/lib/money-flow/taxonomy";
 import { moneyTrustHoldIds } from "@/lib/money-flow/review-queue";
 import { isCleared, tileAmount } from "@/lib/money-flow/tile";

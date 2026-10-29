@@ -21,7 +21,7 @@ import { matches, tableFilterKeys, tableFilterValue } from "./summary";
 import { EMPTY_LEDGER, mergeLedgers, parseLedger, recordTaxonomy } from "./ledger";
 import { classify } from "./classify";
 import { categoryForBankLabel, categoryLabel, isCategoryKey } from "./taxonomy";
-import { withCategory } from "./tags";
+import { withCategory } from "./category-of";
 import type { InterpretedTransaction } from "./types";
 
 afterEach(() => {

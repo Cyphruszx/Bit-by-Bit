@@ -375,7 +375,6 @@ describe("OPEN action matrix", () => {
     );
     assert.equal(filed.type, "DEBT_PRINCIPAL");
     assert.equal(filed.categoryKey, "debt-payments");
-    assert.ok(filed.tags?.includes("Drawdown"));
     assert.equal(filed.decidedBy, "user_overridden");
   });
 

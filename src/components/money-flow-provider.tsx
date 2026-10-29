@@ -80,7 +80,7 @@ import {
 } from "@/lib/money-flow/review-page";
 import { captureReviewUndo, lastReviewUndo, type ReviewUndoAction } from "@/lib/money-flow/review-undo";
 import { ruleKeyFor } from "@/lib/money-flow/rules";
-import { categorizeMerchant, removeTag, renameTag, sameMerchant, tagMerchant, withCategory, withTags } from "@/lib/money-flow/tags";
+import { categorizeMerchant, sameMerchant, withCategory } from "@/lib/money-flow/category-of";
 import {
   applyVerdicts,
   likeKey,
@@ -193,11 +193,6 @@ type MoneyFlowState = {
   setTransactionCategory: (id: string, categoryKey: string) => void;
   /** The same category on every movement of one merchant, however far back it goes. */
   setMerchantCategory: (merchant: string, categoryKey: string) => void;
-  setTransactionTags: (id: string, tags: string[]) => void;
-  /** The same tags on every movement of one merchant, however far back it goes. */
-  setMerchantTags: (merchant: string, tags: string[]) => void;
-  renameTagEverywhere: (from: string, to: string) => void;
-  removeTagEverywhere: (name: string) => void;
   /** The category list as the person has arranged it, or the usual fourteen. */
   categoryBook: CategoryBook;
   /** Records an edit, or null to restore the usual fourteen. */
@@ -337,10 +332,6 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       clearInterpretation: clearLedger,
       setTransactionCategory,
       setMerchantCategory,
-      setTransactionTags,
-      setMerchantTags,
-      renameTagEverywhere,
-      removeTagEverywhere,
       categoryBook,
       setCategoryBook,
       moveCategoryToGroup,
@@ -432,7 +423,7 @@ function hydrate(): Promise<void> {
         loadError: null,
       });
       // Older rows are rewritten in the current shape once, so a backup or a later
-      // read sees categoryKey and tags rather than Food & Drink / food.groceries.
+      // read sees categoryKey rather than Food & Drink / food.groceries.
       if (persisted !== merged && store) void store.save(persisted);
     })
     .catch(() => {
@@ -674,10 +665,6 @@ function setMerchantCategory(merchant: string, categoryKey: string) {
 
 function forgetLearned(key: string) {
   commit(forgetCorrection(snapshot.ledger, key));
-}
-
-function setTransactionTags(id: string, tags: string[]) {
-  edit((rows) => rows.map((txn) => (txn.id === id ? withTags(txn, tags) : txn)));
 }
 
 function setVerdict(
@@ -981,23 +968,6 @@ function skipReviewItem(item: ReviewItem) {
 function restoreReviewItem(item: ReviewItem) {
   if (item.state !== "OPEN") return;
   commit(recordReview(snapshot.ledger, undeferReviewItem(item)));
-}
-
-function setMerchantTags(merchant: string, tags: string[]) {
-  edit((rows) => tagMerchant(rows, merchant, tags));
-}
-
-function renameTagEverywhere(from: string, to: string) {
-  edit((rows) => renameTag(rows, from, to));
-}
-
-function removeTagEverywhere(name: string) {
-  edit((rows) => removeTag(rows, name));
-}
-
-/** A tag edit only ever lands on a statement the person actually uploaded. */
-function edit(change: (rows: InterpretedTransaction[]) => InterpretedTransaction[]) {
-  editWith(null, change);
 }
 
 /**

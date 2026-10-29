@@ -3,9 +3,9 @@ import {
   categoryLabel,
   CATEGORY_KEYS,
   isCategoryKey,
+  categoryKeyForSuggestionName,
   splitSuggestion,
   SUGGESTIONS,
-  tagsFor,
   typeForCategory,
   UNCATEGORISED,
 } from "@/lib/money-flow/taxonomy";
@@ -100,17 +100,17 @@ export function categorize(
   return resolveMerchant(description, { mcc: options.mcc })?.suggestion ?? null;
 }
 
-/** Everything a model may answer with: a category, or a category and one of its tags. */
+/** Everything a model may answer with: a category key, including the older dotted form. */
 export const KNOWN_CATEGORIES = SUGGESTIONS;
 
 /**
- * A loose answer onto a real category and, where it was specific enough, a tag.
+ * A loose answer onto a real category.
  *
- * Accepts the key, the dotted form, a display name, or a bare tag slug, because a model
- * asked for "groceries" will sometimes say "Groceries" and sometimes "Food & Drink"
- * and both are usable.
+ * Accepts the key, the dotted form, a display name, or a bare suggestion slug, because a
+ * model asked for "groceries" will sometimes say "Groceries" and sometimes "Food & Drink"
+ * and both are usable. The answer is the filing key only.
  */
-export function snapCategory(raw: string): { categoryKey: string; tag?: string } | null {
+export function snapCategory(raw: string): { categoryKey: string } | null {
   const written = raw.trim();
   if (!written) return null;
   const tidy = written.toLowerCase().replace(/\s*[·>/]\s*/g, ".").replace(/\s+/g, "-");
@@ -118,21 +118,17 @@ export function snapCategory(raw: string): { categoryKey: string; tag?: string }
   if (isCategoryKey(tidy)) return { categoryKey: tidy };
   if (tidy.includes(".")) {
     const split = splitSuggestion(tidy);
-    if (split.categoryKey !== UNCATEGORISED) return split;
+    if (split.categoryKey !== UNCATEGORISED) return { categoryKey: split.categoryKey };
   }
 
   const byLabel = CATEGORY_KEYS.find((key) => categoryLabel(key).toLowerCase() === written.toLowerCase());
   if (byLabel) return { categoryKey: byLabel };
 
-  const needle = written.toLowerCase();
-  for (const key of CATEGORY_KEYS) {
-    const tag = tagsFor(key).find((name) => name.toLowerCase() === needle);
-    if (tag) return { categoryKey: key, tag };
-  }
+  const byName = categoryKeyForSuggestionName(written);
+  if (byName) return { categoryKey: byName };
 
-  // A bare tag slug, where a model answered "restaurants" rather than "eating-out.restaurants".
   const bare = SUGGESTIONS.find((key) => key.endsWith(`.${tidy}`));
-  return bare ? splitSuggestion(bare) : null;
+  return bare ? { categoryKey: splitSuggestion(bare).categoryKey } : null;
 }
 
 /**

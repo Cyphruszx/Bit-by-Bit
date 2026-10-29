@@ -464,7 +464,6 @@ describe("OPEN settle paths", () => {
     const judged = applyVerdicts([filed], { [oneKey(draw)]: verdictFor("borrowed", at) });
     assert.equal(judged[0]?.type, "DEBT_PRINCIPAL");
     assert.equal(judged[0]?.categoryKey, "debt-payments");
-    assert.ok(judged[0]?.tags?.includes("Drawdown"));
     assert.equal(judged[0]?.transferPair, undefined);
     assert.equal(judged[0]?.decidedBy, "user_overridden");
     assert.equal(countsAsIncome("DEBT_PRINCIPAL"), false);

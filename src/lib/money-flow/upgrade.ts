@@ -40,7 +40,20 @@ export type StoredTransaction = Omit<InterpretedTransaction, "categoryKey" | "ty
   category?: string;
   /** The old provenance field, replaced by `decidedBy`. */
   tagSource?: "rules" | "ai" | "user";
+  /**
+   * Freeform tags a book saved before tags were removed. The loader ignores them.
+   * A rewrite must not add, replace, or delete this field.
+   */
+  tags?: string[];
 };
+
+/** The only view of a saved row that is allowed to read `tags`. */
+type LegacyRowTags = { tags?: string[] };
+
+function legacyTags(row: LegacyRowTags): string[] | undefined {
+  if (!Array.isArray(row.tags)) return undefined;
+  return row.tags.filter((tag): tag is string => typeof tag === "string");
+}
 
 const FROM_TAG_SOURCE: Record<string, DecidedBy> = {
   user: "user_overridden",
@@ -53,42 +66,33 @@ export function upgradeTransaction(row: StoredTransaction): InterpretedTransacti
   const rest = { ...stored, merchant: printedName(stored) };
 
   if (typeof row.categoryKey === "string" && row.categoryKey.trim()) {
-    const migrated = migrateStoredCategory(row.categoryKey, row.tags);
-    const tags = [...new Set([...(migrated.tag ? [migrated.tag] : []), ...(row.tags ?? [])])];
+    const migrated = migrateStoredCategory(row.categoryKey, legacyTags(row));
     return withLedgerDefaults({
       ...rest,
       categoryKey: migrated.categoryKey,
       type: migrateStoredType(row.type) ?? typeForCategory(migrated.categoryKey, row.amount),
-      ...(tags.length > 0 ? { tags } : {}),
       ...(row.decidedBy
         ? { decidedBy: (migrateDecidedBy(row.decidedBy) as DecidedBy | undefined) ?? row.decidedBy }
         : {}),
     });
   }
 
-  // The old model kept the category in the first tag as well as its own field, so the
-  // tags that survive are the ones after it — which is what a tag was always meant to be.
-  const held = (row.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
+  // The old model kept the category in the first tag as well as its own field. That
+  // name is read once to choose the filing key. The saved tags array is left as it was.
+  const held = (legacyTags(row) ?? []).map((tag) => tag.trim()).filter(Boolean);
   const primary = (category ?? held[0] ?? "").trim();
-  const others = held.filter((tag) => tag.toLowerCase() !== primary.toLowerCase());
 
   const legacy = categoryForLegacyTag(primary);
   const fromLegacy = legacy ? splitSuggestion(legacy) : null;
   const mapped = fromLegacy && fromLegacy.categoryKey !== UNCATEGORISED ? fromLegacy.categoryKey : legacy;
   const settled = tagSource === "user";
   const categoryKey = resolve(primary, mapped, settled, row.amount);
-  // A tag the person invented is theirs and is kept — as a tag, which is where a name the
-  // taxonomy has never heard of belongs.
-  const carried = mapped || !primary || isReserved(primary) ? others : [primary, ...others];
-  // The detail the old tag carried — Groceries under Food & Drink — survives as a tag.
-  const tags = [...new Set([...(fromLegacy?.tag ? [fromLegacy.tag] : []), ...carried])];
 
   return withLedgerDefaults({
     ...rest,
     categoryKey,
     type: migrateStoredType(row.type) ?? typeForCategory(categoryKey, row.amount),
     decidedBy: (migrateDecidedBy(row.decidedBy) as DecidedBy | undefined) ?? decided(categoryKey, tagSource),
-    ...(tags.length > 0 ? { tags } : {}),
   });
 }
 
@@ -107,7 +111,7 @@ export function upgradeTransactions(rows: StoredTransaction[]): InterpretedTrans
 
 /**
  * Whether a stored row is already in the current model: a flat category key, no
- * leftover display-name category, no tagSource, tags already split off the old key.
+ * leftover display-name category, no tagSource. Saved tags are not a reason to rewrite.
  */
 export function storedInCurrentModel(row: StoredTransaction): boolean {
   if (row.category != null && String(row.category).trim() !== "") return false;
@@ -117,7 +121,6 @@ export function storedInCurrentModel(row: StoredTransaction): boolean {
   return (
     upgraded.merchant === row.merchant &&
     upgraded.categoryKey === row.categoryKey &&
-    sameStrings(upgraded.tags, row.tags) &&
     upgraded.decidedBy === row.decidedBy
   );
 }
@@ -126,12 +129,6 @@ export function storedInCurrentModel(row: StoredTransaction): boolean {
 export function persistStoredTransaction(row: StoredTransaction): StoredTransaction {
   if (storedInCurrentModel(row)) return row;
   return upgradeTransaction(row);
-}
-
-function sameStrings(a?: string[], b?: string[]): boolean {
-  const left = [...(a ?? [])].map((value) => value.trim()).filter(Boolean).sort();
-  const right = [...(b ?? [])].map((value) => value.trim()).filter(Boolean).sort();
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 /**
@@ -173,11 +170,6 @@ function fromPrintedCells(source: SourceRow | undefined): string {
 
 function collapse(value: string): string {
   return value.replace(/\s+/g, " ").trim();
-}
-
-/** The three old tags that meant something other than a category. */
-function isReserved(tag: string): boolean {
-  return ["income", "goals", "other"].includes(tag.toLowerCase());
 }
 
 function resolve(primary: string, mapped: string | null, settled: boolean, amount: number): string {

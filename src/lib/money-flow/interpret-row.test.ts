@@ -72,8 +72,6 @@ describe("movement interpretation", () => {
     assert.equal(txn.decidedBy, "bank");
     // The bank's own words are kept beside the movement, never written over.
     assert.deepEqual(txn.bank, { category: "Groceries", type: "EFTPOS DEBIT" });
-    // The detail the bank's label carried survives as a tag beside the category.
-    assert.deepEqual(txn.tags, ["Groceries"]);
   });
 
   it("prefers a known merchant rule over a generic bank category", () => {
