@@ -518,10 +518,6 @@ export function parseReconnectBody(raw: unknown): ReconnectConnectionInput {
   };
 }
 
-export function parseListQuery(url: URL): ListConnectionsInput {
-  return { userId: url.searchParams.get("userId") ?? "" };
-}
-
 export function publicStartSession(result: StartLinkSessionSuccess): Record<string, unknown> {
   return {
     sessionId: result.sessionId,

@@ -12,7 +12,6 @@ import {
   completeOpenBankingConnection,
   listOpenBankingConnections,
   parseCompleteBody,
-  parseListQuery,
   parseReconnectBody,
   parseRevokeBody,
   publicConnectFailure,
@@ -24,6 +23,7 @@ import { logFiskilSupport } from "@/lib/fiskil/log";
 import { openBankingRuntimeStores } from "@/lib/fiskil/runtime-stores";
 import { ledgerFromSync, publicSyncResult, scheduleFirstOpenBankingSync } from "@/lib/fiskil/sync";
 import { processTokenCache } from "@/lib/fiskil/token";
+import { requireOpenBankingActor } from "@/lib/open-banking/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +39,9 @@ function deps() {
 }
 
 export async function GET(request: Request) {
-  const result = await listOpenBankingConnections(parseListQuery(new URL(request.url)), deps());
+  const actor = await requireOpenBankingActor(request);
+  if (!actor.ok) return actor.response;
+  const result = await listOpenBankingConnections({ userId: actor.actor.userId }, deps());
   if (!result.ok) {
     return Response.json(publicConnectFailure(result), { status: result.status });
   }
@@ -47,6 +49,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const actor = await requireOpenBankingActor(request);
+  if (!actor.ok) return actor.response;
   let raw: unknown;
   try {
     raw = await request.json();
@@ -57,7 +61,12 @@ export async function POST(request: Request) {
   const action = typeof raw === "object" && raw && "action" in raw ? String((raw as { action: unknown }).action) : "complete";
 
   if (action === "revoke") {
-    const result = await revokeOpenBankingConnection(parseRevokeBody(raw), deps());
+    const parsed = parseRevokeBody(raw);
+    const result = await revokeOpenBankingConnection({
+      ...parsed,
+      userId: actor.actor.userId,
+      featureToggles: actor.actor.featureToggles,
+    }, deps());
     if (!result.ok) return Response.json(publicConnectFailure(result), { status: result.status });
     logFiskilSupport("open_banking.route.connections", { consent_id: result.connection.id }, {
       action: result.endUserDeleted ? "last_bank_disconnect" : "revoke",
@@ -71,12 +80,23 @@ export async function POST(request: Request) {
   }
 
   if (action === "reconnect") {
-    const result = await reconnectOpenBankingConnection(withDefaultUris(parseReconnectBody(raw), request), deps());
+    const parsed = parseReconnectBody(raw);
+    const result = await reconnectOpenBankingConnection(withDefaultUris({
+      ...parsed,
+      userId: actor.actor.userId,
+      email: actor.actor.email,
+      featureToggles: actor.actor.featureToggles,
+    }, request), deps());
     if (!result.ok) return Response.json(publicConnectFailure(result), { status: result.status });
     return Response.json(publicStartSession(result));
   }
 
-  const result = await completeOpenBankingConnection(parseCompleteBody(raw), deps());
+  const parsed = parseCompleteBody(raw);
+  const result = await completeOpenBankingConnection({
+    ...parsed,
+    userId: actor.actor.userId,
+    featureToggles: actor.actor.featureToggles,
+  }, deps());
   if (!result.ok) return Response.json(publicConnectFailure(result), { status: result.status });
   logFiskilSupport("open_banking.route.connections", { consent_id: result.connection.id }, { action: "complete" });
   const sync = await scheduleFirstOpenBankingSync(result.connection.id);

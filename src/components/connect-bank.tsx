@@ -68,8 +68,8 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
     return snapshot;
   };
 
-  const loadConnections = async (userId: string) => {
-    const next = await fetchOpenBankingConnections(userId);
+  const loadConnections = async () => {
+    const next = await fetchOpenBankingConnections();
     return applyList(next);
   };
 
@@ -78,7 +78,7 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
     setBusy(true);
     setMessage(null);
     try {
-      const current = await loadConnections(session.userId);
+      const current = await loadConnections();
       if (current.blocked) {
         setMessage(connectCapCopy(current.connectionCount));
         return;
@@ -109,7 +109,7 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
           ? result.sync.error ?? "Bank connected, but the first sync did not finish. Use Sync now."
           : "Bank connected. First 90 days of transactions are on Accounts and Transactions.",
       );
-      await loadConnections(session.userId);
+      await loadConnections();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not start the bank connection.");
     } finally {
@@ -142,7 +142,7 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
       }
       await applySyncedLedger(result.ledger);
       setMessage("Bank reconnected.");
-      await loadConnections(session.userId);
+      await loadConnections();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not reconnect the bank.");
     } finally {
@@ -155,18 +155,14 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
     setBusy(true);
     setMessage(null);
     try {
-      const result = await requestOpenBankingSync({
-        userId: session.userId,
-        connectionId,
-        featureToggles: toggles,
-      });
+      const result = await requestOpenBankingSync({ connectionId });
       if (!result.ok) {
         setMessage(result.error);
         return;
       }
       await applySyncedLedger(result.ledger);
       setMessage("Bank synced. Accounts and Transactions are up to date.");
-      await loadConnections(session.userId);
+      await loadConnections();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not sync the bank.");
     } finally {
@@ -179,17 +175,13 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
     setBusy(true);
     setMessage(null);
     try {
-      const result = await revokeOpenBankingConnection({
-        userId: session.userId,
-        connectionId,
-        featureToggles: toggles,
-      });
+      const result = await revokeOpenBankingConnection({ connectionId });
       if (!result.ok) {
         setMessage(result.error);
         return;
       }
       setMessage("Bank disconnected.");
-      await loadConnections(session.userId);
+      await loadConnections();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not disconnect the bank.");
     } finally {
@@ -216,7 +208,7 @@ export function ConnectBank({ onTurnOff }: { onTurnOff?: () => void }) {
                 if (!session?.userId) return;
                 setBusy(true);
                 setMessage(null);
-                void loadConnections(session.userId)
+                void loadConnections()
                   .catch((err: unknown) => {
                     setMessage(err instanceof Error ? err.message : "Could not load bank connections.");
                   })

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { POST } from "@/app/api/open-banking/auth-session/route";
+import { installTestSession, setSessionVerifierForTests, testSessionHeaders } from "@/lib/auth/request-session";
 import { FISKIL_API_BASE, FISKIL_TOKEN_URL } from "./config";
 import { FISKIL_AUTH_SESSION_URL } from "./auth-session";
 import { processConnectionStore, type BankConnection } from "./connections";
@@ -9,6 +10,7 @@ const previousId = process.env.FISKIL_CLIENT_ID;
 const previousSecret = process.env.FISKIL_CLIENT_SECRET;
 
 afterEach(() => {
+  setSessionVerifierForTests(undefined);
   if (previousId === undefined) delete process.env.FISKIL_CLIENT_ID;
   else process.env.FISKIL_CLIENT_ID = previousId;
   if (previousSecret === undefined) delete process.env.FISKIL_CLIENT_SECRET;
@@ -51,15 +53,16 @@ describe("POST /api/open-banking/auth-session", () => {
       throw new Error(`unexpected ${method} ${url}`);
     }) as typeof fetch;
 
+    installTestSession({ userId: "user-session-route", email: "route@example.com" });
     try {
       const response = await POST(
         new Request("http://localhost/api/open-banking/auth-session", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...testSessionHeaders("user-session-route") },
           body: JSON.stringify({
-            userId: "user-session-route",
-            email: "route@example.com",
-            featureToggles: { OPEN_BANKING: true },
+            userId: "someone-else",
+            email: "spoof@example.com",
+            featureToggles: { OPEN_BANKING: false },
             redirectUri: "https://app.example/accounts?open-banking=linked",
             cancelUri: "https://app.example/accounts?open-banking=cancelled",
           }),
@@ -97,13 +100,14 @@ describe("POST /api/open-banking/auth-session", () => {
       await store.put(row);
     }
 
+    installTestSession({ userId: "user-session-cap", email: "cap@example.com" });
     const response = await POST(
       new Request("http://localhost/api/open-banking/auth-session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...testSessionHeaders("user-session-cap") },
         body: JSON.stringify({
-          userId: "user-session-cap",
-          email: "cap@example.com",
+          userId: "someone-else",
+          email: "spoof@example.com",
           featureToggles: { OPEN_BANKING: true },
           redirectUri: "https://app.example/accounts?open-banking=linked",
           cancelUri: "https://app.example/accounts?open-banking=cancelled",
