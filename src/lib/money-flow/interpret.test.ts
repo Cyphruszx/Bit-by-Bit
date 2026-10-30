@@ -1090,7 +1090,7 @@ describe("splitting the samples into accounts", () => {
 
     // Money in/out omit classified saver transfers, so cashNet is not opening
     // 398.25 → closing 177.64. The printed closing stays on the KFC source row.
-    assert.equal(spending?.flow.cashNet, -1066.81);
+    assert.equal(spending?.flow.cashNet, -1515.7);
   });
 
   it("names both NAB accounts without reciting their numbers", async () => {
@@ -1109,7 +1109,7 @@ describe("splitting the samples into accounts", () => {
 
     assert.equal(accounts.length, 11);
     assert.equal(roundMoney(accounts.reduce((sum, account) => sum + account.flow.cashNet, 0)), whole.cashNet);
-    assert.equal(whole.cashNet, -507.51);
+    assert.equal(whole.cashNet, -956.4);
   });
 });
 
@@ -1195,8 +1195,8 @@ describe("matching the samples' transfers", () => {
 
     assert.equal(income, 171051.61);
     assert.equal(spending, 171559.12);
-    assert.equal(roundMoney(income - spending), summarizeMoneyFlow(result.transactions).cashNet);
-    assert.equal(roundMoney(income - spending), -507.51);
+    assert.equal(roundMoney(income - spending), -507.51, "unmatched statement legs, before Review holds");
+    assert.equal(summarizeMoneyFlow(result.transactions).cashNet, -956.4, "open review holds stay out of Money in/out");
   });
 
   it("re-decides every pair when another statement arrives, without losing the totals", async () => {
@@ -1293,7 +1293,7 @@ describe("what each scope reports", () => {
     assert.ok(rows.every((txn) => !txn.refundPair));
     assert.equal(flow.income, 0);
     assert.equal(flow.refunds, 0);
-    assert.equal(flow.cashNet, -507.51);
+    assert.equal(flow.cashNet, -956.4);
     assert.equal(flow.transfers, 56289.42);
   });
 
@@ -1309,7 +1309,7 @@ describe("what each scope reports", () => {
     assert.equal(nab.cashNet, 549.44);
     assert.equal(up.income, 0);
     assert.equal(up.refunds, 0);
-    assert.equal(up.cashNet, -1056.95);
+    assert.equal(up.cashNet, -1505.84);
   });
 
   it("reports one account on the numbers its own statement prints", async () => {

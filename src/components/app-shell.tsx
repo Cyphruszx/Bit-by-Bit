@@ -12,11 +12,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { StarterResetPrompt } from "@/components/starter-reset-prompt";
 import { formatCount } from "@/lib/format";
+import { showDesignSystem } from "@/lib/ui/show-design-system";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const showPeriod = pathname !== "/settings";
-  const { dismissStarterReset, openReviewCount, ready, resetStarterData, starterResetNeeded } = useMoneyFlow();
+  const { dismissStarterReset, openReviewCount, ready, resetStarterData, showingSample, starterResetNeeded } = useMoneyFlow();
 
   return (
     <AppFrame>
@@ -44,6 +45,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center justify-between gap-3 px-5 py-4">
               <BrandMark href="/dashboard" size="sm" />
               <div className="flex items-center gap-2">
+                <Link
+                  href="/settings"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center text-sm font-semibold text-ink-soft"
+                >
+                  Settings
+                </Link>
                 <ThemeToggle />
                 <AccountLink />
                 <AddLink />
@@ -60,6 +67,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             ) : null}
             <div className="pt-7">
+              {showingSample ? (
+                <p className="mb-4 rounded-[var(--radius-card)] bg-accent-surface px-3 py-2 text-sm font-semibold text-primary-strong">
+                  Demo mode · Sample
+                </p>
+              ) : null}
               {openReviewCount > 0 ? (
                 <p className="mb-4">
                   <Link
@@ -75,11 +87,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               ) : (
                 <p className="text-muted">Reading the statements you have already added…</p>
               )}
-              <p className="mt-16 text-center text-[12.5px] text-muted">
-                <Link href="/design-system" className="underline-offset-4 hover:underline">
-                  Design system
-                </Link>
-              </p>
+              {showDesignSystem() ? (
+                <p className="mt-16 text-center text-[12.5px] text-muted">
+                  <Link href="/design-system" className="underline-offset-4 hover:underline">
+                    Design system
+                  </Link>
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

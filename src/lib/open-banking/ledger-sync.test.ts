@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { forgetAutoPairs } from "@/lib/money-flow/auto-pairs";
-import { EMPTY_LEDGER, fingerprintOf, ledgerTransactions, type Ledger, type LedgerEntry } from "@/lib/money-flow/ledger";
+import { appendToLedger, EMPTY_LEDGER, fingerprintOf, ledgerTransactions, type Ledger, type LedgerEntry } from "@/lib/money-flow/ledger";
 import { institutionOf, UNKNOWN_INSTITUTION } from "@/lib/money-flow/institution";
 import { summarizeMoneyFlow } from "@/lib/money-flow/summary";
 import { isCleared } from "@/lib/money-flow/tile";
@@ -90,7 +90,7 @@ describe("Open Banking ledger upsert", () => {
     const flow = summarizeMoneyFlow(ledgerTransactions(ledger));
     assert.equal(ledger.entries.filter((row) => row.status === "PENDING").length, 1);
     assert.equal(flow.categories.reduce((sum, row) => sum + row.amount, 0), 10);
-    assert.equal(flow.cashOut, 50, "raw Money out still sees the pending debit");
+    assert.equal(flow.cashOut, 10, "pending is out of Money out");
   });
 
   it("fingerprint-matches CSV+OB into one CLEARED survivor", () => {
@@ -132,10 +132,95 @@ describe("Open Banking ledger upsert", () => {
     assert.equal(ledger.entries[0]?.status, "CLEARED");
     assert.equal(ledger.entries[0]?.decidedBy, "user_overridden");
     assert.equal(ledger.entries[0]?.externalId, "tx_ob");
+    assert.equal(ledger.entries[0]?.ingestSource, "OPEN_BANKING");
     assert.equal(
       (ledger.review ?? []).some((item) => item.reason === "DUPLICATE_HOLD" && item.state === "OPEN"),
       false,
     );
+  });
+
+  it("keeps the Open Banking row when a CSV describes the same movement", () => {
+    const csv: LedgerEntry = {
+      id: "csv-woolies",
+      merchant: "WOOLWORTHS 12731",
+      categoryKey: "groceries",
+      date: "1 Sep 2026",
+      dateIso: "2026-09-01",
+      amount: -12.5,
+      baseAmount: -12.5,
+      status: "CLEARED",
+      type: "SPENDING",
+      sourceFile: "nab.csv",
+      confidence: 1,
+      accountId: "NAB · 100200300",
+      institution: "NAB",
+      description: "Woolworths",
+      decidedBy: "user_overridden",
+      tags: ["Weekly shop"],
+      fingerprint: "",
+      importIds: ["csv-import"],
+      firstSeen: "2026-09-01T00:00:00.000Z",
+      ingestSource: "CSV",
+    };
+    csv.fingerprint = fingerprintOf({
+      accountId: csv.accountId,
+      sourceFile: csv.sourceFile,
+      dateIso: csv.dateIso,
+      amount: csv.amount,
+      description: csv.description,
+      merchant: csv.merchant,
+    });
+    const held: Ledger = { ...EMPTY_LEDGER, entries: [csv] };
+    const { ledger, report } = upsert(held, [account({ id: "acc_1" })], [
+      txn({ id: "tx_ob", accountId: "acc_1", amount: -12.5, dateIso: "2026-09-01", description: "Woolworths" }),
+    ]);
+
+    assert.equal(ledger.entries.length, 1);
+    assert.equal(report.duplicates, 1);
+    assert.equal(report.added, 0);
+    const survivor = ledger.entries[0]!;
+    assert.equal(survivor.ingestSource, "OPEN_BANKING");
+    assert.equal(survivor.externalId, "tx_ob");
+    assert.equal(survivor.categoryKey, "groceries", "a category the person chose stays");
+    assert.equal(survivor.decidedBy, "user_overridden");
+    assert.deepEqual(survivor.tags, ["Weekly shop"]);
+    assert.equal(summarizeMoneyFlow(ledgerTransactions(ledger)).cashOut, 12.5);
+
+    const again = appendToLedger(ledger, {
+      files: [
+        {
+          filename: "nab-again.csv",
+          fileType: "csv",
+          kind: "csv",
+          uploadStatus: "uploaded",
+          processingStatus: "completed",
+          transactionCount: 1,
+          notes: [],
+        },
+      ],
+      transactions: [
+        {
+          id: "csv-again",
+          merchant: "Woolworths",
+          categoryKey: "uncategorised",
+          date: "1 Sep 2026",
+          dateIso: "2026-09-01",
+          amount: -12.5,
+          type: "SPENDING",
+          sourceFile: "nab-again.csv",
+          confidence: 1,
+          accountId: "NAB · 100200300",
+          institution: "NAB",
+          description: "Woolworths",
+          ingestSource: "CSV",
+        },
+      ],
+    });
+    assert.equal(again.ledger.entries.length, 1);
+    assert.equal(again.report.duplicates, 1);
+    assert.equal(again.ledger.entries[0]?.ingestSource, "OPEN_BANKING");
+    assert.equal(again.ledger.entries[0]?.externalId, "tx_ob");
+    assert.equal(summarizeMoneyFlow(ledgerTransactions(again.ledger)).cashOut, 12.5);
   });
 
   it("does not overwrite user_overridden fields on an external_id update", () => {

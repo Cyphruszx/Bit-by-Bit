@@ -67,7 +67,7 @@ export function TransactionsView() {
         <h1 className="text-2xl">Transactions</h1>
         <EmptyLedger>
           Every movement BitbyBit reads will be listed here, searchable and sortable, each with one
-          category for what the money was for and any tags you want to find it by.
+          category for what the money was for.
         </EmptyLedger>
       </>
     );

@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { BudgetRing } from "@/components/budget-ring";
+import { EmptyLedger } from "@/components/empty-ledger";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud } from "@/lib/format";
 import {
@@ -17,11 +18,27 @@ import {
 } from "@/lib/money-flow/budget-plan";
 import { APP_TIME_ZONE, filterByPeriod, formatMonthLabel } from "@/lib/money-flow/period";
 
+export function BudgetRefundNote() {
+  return <p className="mt-4 text-sm text-muted">Refunds don&apos;t reduce spent.</p>;
+}
+
+export function BudgetEmptyState() {
+  return (
+    <>
+      <h1 className="text-[32px]">Budget</h1>
+      <EmptyLedger>
+        A budget starts once a statement is in. You’ll set an amount for each group, then see spent against it.
+      </EmptyLedger>
+    </>
+  );
+}
+
 export function BudgetingView() {
   const {
     allTransactions,
     budgets,
     categoryBook,
+    hasUploads,
     period,
     setCategoryBudget,
     setExpectedIncome,
@@ -39,6 +56,8 @@ export function BudgetingView() {
   const toPlan = leftToPlan(plan.income ?? null, totals.planned);
   const toSpend = leftToSpend(totals.planned, totals.spent);
   const monthName = formatMonthLabel(month);
+
+  if (!hasUploads) return <BudgetEmptyState />;
 
   return (
     <>
@@ -81,6 +100,7 @@ export function BudgetingView() {
           </p>
         </article>
       </div>
+      <BudgetRefundNote />
 
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
         {lines.map((line) => (

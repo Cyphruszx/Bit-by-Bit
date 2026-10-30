@@ -4,6 +4,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { BudgetRing } from "@/components/budget-ring";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { formatAud, formatSignedAud } from "@/lib/format";
+import { showDesignSystem } from "@/lib/ui/show-design-system";
 import { smoothPath } from "@/lib/money-flow/chart-pixels";
 import { formatDisplayDate } from "@/lib/money-flow/parse-values";
 
@@ -260,12 +261,16 @@ export default function Home() {
             <Link href="/dashboard" className={`inline-flex min-h-11 items-center px-1 ${focusRing}`}>
               Demo mode
             </Link>
-            <span aria-hidden="true" className="text-muted">
-              ·
-            </span>
-            <Link href="/design-system" className={`inline-flex min-h-11 items-center px-1 ${focusRing}`}>
-              Design system
-            </Link>
+            {showDesignSystem() ? (
+              <>
+                <span aria-hidden="true" className="text-muted">
+                  ·
+                </span>
+                <Link href="/design-system" className={`inline-flex min-h-11 items-center px-1 ${focusRing}`}>
+                  Design system
+                </Link>
+              </>
+            ) : null}
           </nav>
         </div>
       </footer>

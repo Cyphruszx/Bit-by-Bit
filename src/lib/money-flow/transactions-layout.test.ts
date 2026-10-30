@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it } from "node:test";
+import { ClassificationChips } from "@/components/tag-editor";
 import { TagChartCard } from "@/components/tag-charts";
 import type { InterpretedTransaction } from "./types";
 
@@ -42,6 +43,8 @@ describe("transactions page layout", () => {
     assert.match(view, /transactions=\{scopedHoldings\}/);
     assert.match(view, /pagePeriod=\{period\}/);
     assert.equal(view.includes("lineOnly"), false);
+    assert.equal(view.includes("tags you want"), false);
+    assert.match(view, /one\s+category for what the money was for/);
   });
 
   it("keeps Date, Merchant, Amount, Account, Group and Category, and drops Tag and Type", () => {
@@ -58,6 +61,25 @@ describe("transactions page layout", () => {
     assert.equal(table.includes("function TagCell"), false);
     assert.match(table, /table-fixed/);
     assert.match(table, /Show statement/);
+    assert.match(table, /aria-label="Filter by category"/);
+    assert.equal(table.includes("or tag"), false);
+    assert.equal(table.includes("allTags"), false);
+  });
+
+  it("does not show a stored tag on the row", () => {
+    const html = renderToStaticMarkup(
+      createElement(ClassificationChips, {
+        txn: txn("shop", "2026-10-06", -14, "groceries"),
+      }),
+    );
+    const withTag = renderToStaticMarkup(
+      createElement(ClassificationChips, {
+        txn: { ...txn("shop", "2026-10-06", -14, "groceries"), tags: ["Weekly shop"] },
+      }),
+    );
+    assert.equal(html.includes("Weekly shop"), false);
+    assert.equal(withTag.includes("Weekly shop"), false);
+    assert.match(withTag, /Groceries|Food|Shopping/);
   });
 
   it("draws the group chart as a smooth line and does not mount the pixel pie", () => {

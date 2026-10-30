@@ -135,7 +135,7 @@ describe("forgetAutoPairs", () => {
     const flow = summarizeMoneyFlow(forgotten);
     assert.equal(flow.transfers, 0, "auto-marks cannot keep cancelling as confirmed transfers");
     assert.equal(flow.income, 0, "OPEN unpaired legs are held out of tiles");
-    assert.equal(flow.cashOut, 400);
+    assert.equal(flow.cashOut, 0, "the open review hold is out of Money out");
   });
 
   it("keeps Spec 7 RESOLVE pairs that the person said", () => {

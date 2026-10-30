@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatCount } from "@/lib/format";
 
-const links = [
+export const primaryLinks = [
   ["Dashboard", "/dashboard"],
   ["Transactions", "/transactions"],
   ["Review", "/review"],
@@ -19,7 +19,7 @@ export function SidebarNav() {
 
   return (
     <nav className="flex w-full flex-col gap-1" aria-label="Pages">
-      {links.map(([label, href]) => (
+      {primaryLinks.map(([label, href]) => (
         <NavItem
           key={href}
           href={href}

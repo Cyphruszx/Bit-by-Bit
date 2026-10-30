@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { rehydrateLedger } from "@/components/money-flow-provider";
+import { canSignIn } from "@/lib/supabase/config";
 import { emailError, passwordError, signInMessage } from "@/lib/auth/credentials";
 import { supabase } from "@/lib/supabase/client";
 
@@ -24,6 +25,19 @@ function displayNameOf(user: { user_metadata?: Record<string, unknown> }): strin
 const listeners = new Set<() => void>();
 let session: Session = null;
 let watching = false;
+let authResolved = !canSignIn();
+
+export function currentSession(): Session {
+  return session;
+}
+
+export function authHasResolved(): boolean {
+  return authResolved;
+}
+
+export function useAuthResolved(): boolean {
+  return useSyncExternalStore(subscribe, () => authResolved, () => !canSignIn());
+}
 
 export function useSession(): Session {
   return useSyncExternalStore(subscribe, () => session, () => null);
@@ -45,10 +59,15 @@ function subscribe(listener: () => void): () => void {
 function watch() {
   if (watching) return;
   const client = supabase();
-  if (!client) return;
+  if (!client) {
+    watching = true;
+    authResolved = true;
+    return;
+  }
   watching = true;
 
   client.auth.onAuthStateChange((_event, next) => {
+    authResolved = true;
     const who = next?.user
       ? { email: next.user.email ?? "", userId: next.user.id, name: displayNameOf(next.user) }
       : null;

@@ -83,7 +83,8 @@ describe("2026-09 sample locks (2A.8 L1–L12)", () => {
     assert.equal(result.files.find((file) => file.filename === UP)?.processingError, undefined);
 
     const upFlow = summarizeMoneyFlow(up);
-    assert.equal(upFlow.cashIn, 15409.86, "L2 money in");
+    // PAYPAL *GOOGLE $3.39 on 2026-08-25 is an open ambiguous refund, so it is out of Money in.
+    assert.equal(upFlow.cashIn, 15406.47, "L2 money in");
     assert.equal(upFlow.cashOut, 12969.81, "L2 money out");
 
     const transfers = up.filter((txn) => bankType(txn) === "Transfer");

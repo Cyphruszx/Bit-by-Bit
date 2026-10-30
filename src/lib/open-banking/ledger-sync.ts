@@ -213,11 +213,16 @@ export function upsertOpenBankingLedger(
       heldByFingerprint.get(fingerprint) ??
       heldByFingerprint.get(legacyFingerprintOf(incoming, 0, mergedInto));
     if (existing) {
-      if (incoming.externalId && !existing.externalId) {
-        existing.externalId = incoming.externalId;
-        heldByExternal.set(incoming.externalId, existing);
+      if (existing.ingestSource !== OPEN_BANKING_INGEST) {
+        preferOpenBankingRow(existing, incoming);
+        if (existing.externalId) heldByExternal.set(existing.externalId, existing);
+      } else {
+        if (incoming.externalId && !existing.externalId) {
+          existing.externalId = incoming.externalId;
+          heldByExternal.set(incoming.externalId, existing);
+        }
+        applyIncomingWithoutOverride(existing, incoming);
       }
-      applyIncomingWithoutOverride(existing, incoming);
       if (!existing.importIds.includes(importId)) existing.importIds.push(importId);
       duplicates += 1;
       continue;
@@ -414,6 +419,32 @@ function refreshKnownInstitutions(ledger: Ledger, accounts: OpenBankingAccountUp
 function knownInstitution(value: string | undefined): boolean {
   const held = value?.trim();
   return Boolean(held) && held !== UNKNOWN_INSTITUTION;
+}
+
+/** Same movement from a file and the bank: keep one row, and keep the bank's. */
+function preferOpenBankingRow(held: LedgerEntry, incoming: InterpretedTransaction): void {
+  const keepUser = isUserOverridden(held);
+  const id = held.id;
+  const fingerprint = held.fingerprint;
+  const importIds = held.importIds;
+  const firstSeen = held.firstSeen;
+  const tags = held.tags;
+  const verdict = held.verdict;
+  const flagged = held.userFlaggedSavings === true;
+  Object.assign(held, incoming, {
+    id,
+    fingerprint,
+    importIds,
+    firstSeen,
+    categoryKey: keepUser ? held.categoryKey : incoming.categoryKey,
+    type: keepUser ? held.type : incoming.type,
+    decidedBy: keepUser ? held.decidedBy : incoming.decidedBy,
+    ingestSource: OPEN_BANKING_INGEST,
+  });
+  if (tags && tags.length > 0) held.tags = tags;
+  if (verdict) held.verdict = verdict;
+  if (flagged) held.userFlaggedSavings = true;
+  if (incoming.externalId) held.externalId = incoming.externalId;
 }
 
 function applyIncomingWithoutOverride(held: LedgerEntry, incoming: InterpretedTransaction): void {

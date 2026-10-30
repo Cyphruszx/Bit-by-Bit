@@ -160,9 +160,9 @@ describe("the movements the taxonomy has to get right", () => {
     const flow = summarizeMoneyFlow(await ledger());
     // Money in/out omit classified internals ($56,289.42 of paired legs).
     // Retired samples: nab-medicare.csv, nab-rent.csv, up-2025-07-to-2026-06.txt
-    assert.equal(flow.cashIn, 232946.06);
-    assert.equal(flow.cashOut, 233453.57);
-    assert.equal(flow.cashNet, -507.51, "household net unchanged: both legs leave together");
+    assert.equal(flow.cashIn, 170602.72);
+    assert.equal(flow.cashOut, 171559.12);
+    assert.equal(flow.cashNet, -956.4, "open review holds stay out of Money in/out");
     // Income is only an earned verdict. One-sided transfers are not Review holds, so
     // those debits sit in Spending. $25,000 borrowed stays out of Income. Cash is unchanged.
     assert.equal(flow.income, 0);

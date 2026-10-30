@@ -59,8 +59,16 @@ export function confidenceNeededFor(amount: number): number {
   return CONFIDENCE_NEEDED.find(([atLeast]) => size >= atLeast)?.[1] ?? 0.55;
 }
 
+/** Server switch. Unset means off. v1 does not call a model and does not open AI_LOW_CONFIDENCE. */
+export function aiCategorisationEnabled(env: AiEnv = process.env): boolean {
+  const raw = env.AI_CATEGORISATION_ENABLED;
+  if (raw == null || raw.trim() === "") return false;
+  const value = raw.trim().toLowerCase();
+  return value === "true" || value === "1" || value === "on" || value === "yes";
+}
+
 export function isAiConfigured(env: AiEnv = process.env): boolean {
-  return Boolean(env.OPENAI_API_KEY?.trim());
+  return aiCategorisationEnabled(env) && Boolean(env.OPENAI_API_KEY?.trim());
 }
 
 export function visionMime(filename: string, mime: string): string | null {
@@ -78,6 +86,7 @@ export function createOpenAiFromEnv(
   env: AiEnv = process.env,
   fetchImpl: typeof fetch = fetch,
 ): MoneyFlowAi | null {
+  if (!aiCategorisationEnabled(env)) return null;
   const apiKey = env.OPENAI_API_KEY?.trim();
   if (!apiKey) return null;
   const model = env.OPENAI_MODEL?.trim() || "gpt-4o-mini";

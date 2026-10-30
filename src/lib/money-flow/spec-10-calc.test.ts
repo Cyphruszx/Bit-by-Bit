@@ -247,7 +247,7 @@ describe("Spec 10 base_amount and CLEARED tiles", () => {
     const flow = summarizeMoneyFlow([salary, heldPay, shop, heldShop, refund]);
     assert.equal(flow.income, 3000);
     assert.equal(flow.refunds, 0);
-    assert.equal(flow.cashIn, 3520, "HOLD still sits on the statement cash figures");
+    assert.equal(flow.cashIn, 3000, "HOLD is out of Money in, same as Income");
   });
 
   it("commits base_amount = amount and CLEARED on interpret", () => {

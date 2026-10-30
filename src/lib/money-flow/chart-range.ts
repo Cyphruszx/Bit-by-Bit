@@ -9,8 +9,7 @@ import {
   shiftMonth,
   type PeriodFilter,
 } from "@/lib/money-flow/period";
-import { excludingInternalTransfers } from "@/lib/money-flow/internal-transfers";
-import { matches } from "@/lib/money-flow/summary";
+import { matches, moneyInOutRows } from "@/lib/money-flow/summary";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 export type ChartSpan = "1W" | "1M" | "3M" | "6M" | "All";
@@ -112,9 +111,10 @@ export function chartBucket(mode: ChartRangeMode, window: PeriodFilter): ChartBu
  * Each point is that bucket's own money in or out, not a running total. Past buckets with
  * nothing in them sit at $0, and the line stops at today: no points for future buckets.
  *
- * The rows are the same ones the Money in and Money out cards add: statement `amount` by
- * sign, internal transfers left out, for this window and bank selection. Income verdicts
- * and spend groups do not decide the line.
+ * The rows are the same ones the Money in and Money out cards add: cleared statement
+ * `amount` by sign, duplicate holds, pending, and open review holds left out, own-account
+ * transfers left out, for this window and bank selection. Income verdicts and spend
+ * groups do not decide the line.
  */
 export function flowSeries(
   transactions: InterpretedTransaction[],
@@ -124,7 +124,7 @@ export function flowSeries(
   today: string,
   selected = "All",
 ): FlowSeries {
-  const rows = filterByPeriod(excludingInternalTransfers(transactions), window).filter(
+  const rows = moneyInOutRows(filterByPeriod(transactions, window)).filter(
     (txn) => selected === "All" || matches(txn, selected),
   );
   let total = 0;
