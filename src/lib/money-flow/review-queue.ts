@@ -8,7 +8,7 @@
  */
 
 import { accountCaption, type AccountRegistry } from "@/lib/money-flow/account-identity";
-import { confidenceNeededFor } from "@/lib/money-flow/ai";
+import { aiCategorisationEnabled, confidenceNeededFor } from "@/lib/money-flow/ai";
 import { isSilentSameInstitutionUniquePair } from "@/lib/money-flow/auto-pairs";
 import { needsReview } from "@/lib/money-flow/classify";
 import { roundMoney } from "@/lib/money-flow/parse-values";
@@ -554,6 +554,7 @@ function aiLowConfidenceItems(
   transactions: InterpretedTransaction[],
   claimed: Set<string>,
 ): ReviewItem[] {
+  if (!aiCategorisationEnabled()) return [];
   return transactions
     .filter(
       (txn) =>

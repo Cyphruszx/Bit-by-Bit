@@ -1,4 +1,10 @@
-import { applyTagSuggestions, createOpenAiFromEnv, needsInitialTag, type MoneyFlowAi } from "@/lib/money-flow/ai";
+import {
+  aiCategorisationEnabled,
+  applyTagSuggestions,
+  createOpenAiFromEnv,
+  needsInitialTag,
+  type MoneyFlowAi,
+} from "@/lib/money-flow/ai";
 import { applySilentSameInstitutionUniquePairs, forgetAutoPairs, pendingPairInsight } from "@/lib/money-flow/auto-pairs";
 import { coreIngestUnavailable, ocrPagesFor } from "@/lib/money-flow/core-ingest";
 import { detectFileKind, toSchemaFileType } from "@/lib/money-flow/detect";
@@ -19,7 +25,7 @@ export async function interpretDocuments(
   files: Array<{ filename: string; mime: string; bytes: Uint8Array }>,
   options: InterpretOptions = {},
 ): Promise<InterpretationResult> {
-  const ai = "ai" in options ? options.ai : createOpenAiFromEnv();
+  const ai = aiCategorisationEnabled() ? ("ai" in options ? options.ai : createOpenAiFromEnv()) : null;
   const interpretations: FileInterpretation[] = [];
   const transactions: InterpretedTransaction[] = [];
 
@@ -128,7 +134,7 @@ export async function interpretDocuments(
   if (pending) flow.insights.unshift(pending);
   if (taggedCount > 0) {
     flow.insights.unshift(
-      `AI suggested tags for ${taggedCount} unlabelled movement${taggedCount === 1 ? "" : "s"}. You can change them on Transactions.`,
+      `AI suggested a category for ${taggedCount} unlabelled movement${taggedCount === 1 ? "" : "s"}. You can change them on Transactions.`,
     );
   }
 

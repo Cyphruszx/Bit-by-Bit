@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   applyTagSuggestions,
+  aiCategorisationEnabled,
   createOpenAiFromEnv,
   needsInitialTag,
   parseModelJson,
@@ -11,6 +12,7 @@ import {
 } from "./ai";
 import { archivedPdfTestOptions } from "./ingest-pdf-flag";
 import { interpretDocuments } from "./interpret";
+import { buildReviewQueue } from "./review-queue";
 import { readImageDocument } from "./parsers";
 import { snapCategory } from "./categorize";
 import type { InterpretedTransaction } from "./types";
@@ -158,7 +160,10 @@ describe("OpenAI client", () => {
         { status: 200 },
       );
     };
-    const ai = createOpenAiFromEnv({ OPENAI_API_KEY: "sk-test", OPENAI_MODEL: "gpt-4o-mini" }, fetchImpl);
+    const ai = createOpenAiFromEnv(
+      { OPENAI_API_KEY: "sk-test", OPENAI_MODEL: "gpt-4o-mini", AI_CATEGORISATION_ENABLED: "true" },
+      fetchImpl,
+    );
     assert.ok(ai);
     const result = await ai.extractFromImage({ filename: "coffee.jpg", mime: "image/jpeg", bytes: PNG });
     assert.equal(result.transactions[0].merchant, "Soul Origin");
@@ -168,7 +173,56 @@ describe("OpenAI client", () => {
   });
 
   it("is disabled when no API key is set", () => {
-    assert.equal(createOpenAiFromEnv({}), null);
+    assert.equal(createOpenAiFromEnv({ AI_CATEGORISATION_ENABLED: "true" }), null);
+  });
+
+  it("stays off unless AI_CATEGORISATION_ENABLED is set, and then makes no call", async () => {
+    assert.equal(aiCategorisationEnabled({}), false);
+    assert.equal(aiCategorisationEnabled({ AI_CATEGORISATION_ENABLED: "false" }), false);
+    let called = false;
+    assert.equal(
+      createOpenAiFromEnv({ OPENAI_API_KEY: "sk-test" }, async () => {
+        called = true;
+        return new Response("{}", { status: 200 });
+      }),
+      null,
+    );
+    assert.equal(called, false);
+
+    const previous = process.env.AI_CATEGORISATION_ENABLED;
+    delete process.env.AI_CATEGORISATION_ENABLED;
+    try {
+      const ai: MoneyFlowAi = {
+        extractFromImage: async () => {
+          called = true;
+          return { transactions: [], notes: [] };
+        },
+        suggestTags: async () => {
+          called = true;
+          return [{ id: "1", category: "utilities", confidence: 0.4 }];
+        },
+      };
+      const csv = "Date,Description,Amount\n25/08/2026,Acme Power Co,-120.00\n";
+      await interpretDocuments(
+        [{ filename: "export.csv", mime: "text/csv", bytes: new TextEncoder().encode(csv) }],
+        { ai },
+      );
+      assert.equal(called, false);
+      const low = txn({ decidedBy: "ai", confidence: 0.2, categoryKey: "groceries" });
+      assert.equal(
+        buildReviewQueue([low]).some((item) => item.reason === "AI_LOW_CONFIDENCE"),
+        false,
+      );
+
+      process.env.AI_CATEGORISATION_ENABLED = "true";
+      assert.equal(
+        buildReviewQueue([low]).some((item) => item.reason === "AI_LOW_CONFIDENCE"),
+        true,
+      );
+    } finally {
+      if (previous == null) delete process.env.AI_CATEGORISATION_ENABLED;
+      else process.env.AI_CATEGORISATION_ENABLED = previous;
+    }
   });
 });
 
@@ -251,13 +305,17 @@ describe("image interpretation with AI", archivedPdfTestOptions(), () => {
       suggestTags: async ({ transactions }) =>
         transactions.map((row) => ({ id: row.id, category: "shopping", confidence: 0.81 })),
     };
+    const previous = process.env.AI_CATEGORISATION_ENABLED;
+    process.env.AI_CATEGORISATION_ENABLED = "true";
     const result = await interpretDocuments([{ filename: "statement.png", mime: "image/png", bytes: PNG }], { ai });
+    if (previous == null) delete process.env.AI_CATEGORISATION_ENABLED;
+    else process.env.AI_CATEGORISATION_ENABLED = previous;
     assert.equal(result.files[0].processingStatus, "completed");
     const kiosk = result.transactions.find((row) => row.merchant === "Unknown Kiosk");
     assert.equal(kiosk?.categoryKey, "shopping");
     assert.equal(kiosk?.decidedBy, "ai");
     assert.equal(result.flow.income, 1500);
-    assert.ok(result.flow.insights.some((line) => /AI suggested tags/i.test(line)));
+    assert.ok(result.flow.insights.some((line) => /AI suggested a category/i.test(line)));
   });
 
   it("does not ask AI to tag when every movement already has a tag", async () => {
@@ -287,6 +345,8 @@ describe("image interpretation with AI", archivedPdfTestOptions(), () => {
         return transactions.map((row) => ({ id: row.id, category: "utilities", confidence: 0.7 }));
       },
     };
+    const previous = process.env.AI_CATEGORISATION_ENABLED;
+    process.env.AI_CATEGORISATION_ENABLED = "true";
     const csv = "Date,Description,Amount\n25/08/2026,Acme Power Co,-120.00\n";
     const result = await interpretDocuments(
       [{ filename: "export.csv", mime: "text/csv", bytes: new TextEncoder().encode(csv) }],
@@ -295,5 +355,7 @@ describe("image interpretation with AI", archivedPdfTestOptions(), () => {
     assert.equal(asked, 1);
     assert.equal(result.transactions[0].categoryKey, "utilities");
     assert.equal(result.transactions[0].decidedBy, "ai");
+    if (previous == null) delete process.env.AI_CATEGORISATION_ENABLED;
+    else process.env.AI_CATEGORISATION_ENABLED = previous;
   });
 });
