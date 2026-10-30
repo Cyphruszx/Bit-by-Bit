@@ -44,6 +44,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center justify-between gap-3 px-5 py-4">
               <BrandMark href="/dashboard" size="sm" />
               <div className="flex items-center gap-2">
+                <Link
+                  href="/settings"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center text-sm font-semibold text-ink-soft"
+                >
+                  Settings
+                </Link>
                 <ThemeToggle />
                 <AccountLink />
                 <AddLink />

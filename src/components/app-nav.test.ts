@@ -20,10 +20,14 @@ describe("desktop sidebar", () => {
 });
 
 describe("mobile nav", () => {
-  it("keeps the existing labels, including Categories", () => {
-    assert.match(
-      mobile,
-      /\["Home", "\/dashboard"\],\s*\["Ledger", "\/transactions"\],\s*\["Categories", "\/categories"\],\s*\["Budget", "\/budgeting"\],\s*\["Review", "\/review"\],\s*\["Settings", "\/settings"\]/,
-    );
+  it("uses the desktop names, fewer of them, with a 44px tap target", () => {
+    assert.match(mobile, /primaryLinks/);
+    assert.match(mobile, /min-h-11 min-w-11/);
+    assert.doesNotMatch(mobile, /"Home"|\"Ledger\"/);
+    assert.doesNotMatch(mobile, /\/settings/);
+    const shell = readFileSync(new URL("./app-shell.tsx", import.meta.url), "utf8");
+    assert.match(shell, /href="\/settings"/);
+    assert.match(shell, /min-h-11 min-w-11/);
+    assert.match(shell, />\s*Settings\s*</);
   });
 });
