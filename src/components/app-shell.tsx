@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { StarterResetPrompt } from "@/components/starter-reset-prompt";
 import { formatCount } from "@/lib/format";
+import { showDesignSystem } from "@/lib/ui/show-design-system";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -86,11 +87,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               ) : (
                 <p className="text-muted">Reading the statements you have already added…</p>
               )}
-              <p className="mt-16 text-center text-[12.5px] text-muted">
-                <Link href="/design-system" className="underline-offset-4 hover:underline">
-                  Design system
-                </Link>
-              </p>
+              {showDesignSystem() ? (
+                <p className="mt-16 text-center text-[12.5px] text-muted">
+                  <Link href="/design-system" className="underline-offset-4 hover:underline">
+                    Design system
+                  </Link>
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

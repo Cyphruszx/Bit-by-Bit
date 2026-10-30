@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { showDesignSystem } from "@/lib/ui/show-design-system";
 import { AppFrame } from "@/components/app-frame";
 import { BrandMark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -12,6 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default function DesignSystemPage() {
+  if (!showDesignSystem()) notFound();
   return (
     <AppFrame>
       <nav className="mx-auto flex max-w-[1240px] items-center justify-between px-5 py-6 md:px-7">

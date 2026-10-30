@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { BudgetRing } from "@/components/budget-ring";
+import { EmptyLedger } from "@/components/empty-ledger";
 import { useMoneyFlow } from "@/components/money-flow-provider";
 import { formatAud } from "@/lib/format";
 import {
@@ -17,11 +18,23 @@ import {
 } from "@/lib/money-flow/budget-plan";
 import { APP_TIME_ZONE, filterByPeriod, formatMonthLabel } from "@/lib/money-flow/period";
 
+export function BudgetEmptyState() {
+  return (
+    <>
+      <h1 className="text-[32px]">Budget</h1>
+      <EmptyLedger>
+        A budget starts once a statement is in. You’ll set an amount for each group, then see spent against it.
+      </EmptyLedger>
+    </>
+  );
+}
+
 export function BudgetingView() {
   const {
     allTransactions,
     budgets,
     categoryBook,
+    hasUploads,
     period,
     setCategoryBudget,
     setExpectedIncome,
@@ -39,6 +52,8 @@ export function BudgetingView() {
   const toPlan = leftToPlan(plan.income ?? null, totals.planned);
   const toSpend = leftToSpend(totals.planned, totals.spent);
   const monthName = formatMonthLabel(month);
+
+  if (!hasUploads) return <BudgetEmptyState />;
 
   return (
     <>
