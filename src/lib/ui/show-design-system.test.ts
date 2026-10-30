@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it } from "node:test";
-import { BudgetEmptyState } from "@/app/(app)/budgeting/budgeting-view";
+import { BudgetEmptyState, BudgetRefundNote } from "@/app/(app)/budgeting/budgeting-view";
 import { showDesignSystem } from "./show-design-system";
 
 describe("design system link", () => {
@@ -21,5 +21,10 @@ describe("Budget empty state", () => {
     assert.match(html, /A budget starts once a statement is in/);
     assert.match(html, /Upload a statement/);
     assert.doesNotMatch(html, /Left to spend/);
+  });
+
+  it("says refunds do not reduce spent", () => {
+    const html = renderToStaticMarkup(createElement(BudgetRefundNote));
+    assert.match(html, /Refunds don(?:'|&#x27;)t reduce spent\./);
   });
 });

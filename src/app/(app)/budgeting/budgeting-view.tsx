@@ -18,6 +18,10 @@ import {
 } from "@/lib/money-flow/budget-plan";
 import { APP_TIME_ZONE, filterByPeriod, formatMonthLabel } from "@/lib/money-flow/period";
 
+export function BudgetRefundNote() {
+  return <p className="mt-4 text-sm text-muted">Refunds don&apos;t reduce spent.</p>;
+}
+
 export function BudgetEmptyState() {
   return (
     <>
@@ -96,6 +100,7 @@ export function BudgetingView() {
           </p>
         </article>
       </div>
+      <BudgetRefundNote />
 
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
         {lines.map((line) => (
