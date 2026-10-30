@@ -2,7 +2,6 @@
 
 import { type ReactNode } from "react";
 import { groupLabelOf } from "@/lib/money-flow/category-book";
-import { tagsOf } from "@/lib/money-flow/tags";
 import { categoryLabel, UNCATEGORISED } from "@/lib/money-flow/taxonomy";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
@@ -14,7 +13,6 @@ import type { InterpretedTransaction } from "@/lib/money-flow/types";
  * category now and it is picked from a list, so there is nothing to explain.
  */
 export function ClassificationChips({ txn }: { txn: InterpretedTransaction }) {
-  const tags = tagsOf(txn);
   const unsorted = txn.categoryKey === UNCATEGORISED;
   const group = groupLabelOf(txn.categoryKey);
   const category = categoryLabel(txn.categoryKey);
@@ -34,14 +32,6 @@ export function ClassificationChips({ txn }: { txn: InterpretedTransaction }) {
           {category}
         </span>
       ) : null}
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className="inline-flex items-center rounded-full bg-accent-surface px-2 py-0.5 text-[11px] font-semibold text-ink-soft"
-        >
-          {tag}
-        </span>
-      ))}
       <Provenance txn={txn} />
     </div>
   );

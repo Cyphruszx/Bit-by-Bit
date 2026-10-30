@@ -36,7 +36,6 @@ import { formatAud, formatSignedAud } from "@/lib/format";
 import { describeSpan } from "@/lib/money-flow/parse-values";
 import type { HeldStatement, ImportReport } from "@/lib/money-flow/ledger";
 import { taxonomyPath } from "@/lib/money-flow/category-book";
-import { tagsOf } from "@/lib/money-flow/tags";
 import type { InterpretedTransaction } from "@/lib/money-flow/types";
 
 const SAMPLES: Array<{ path: string; label: string }> = [
@@ -196,10 +195,10 @@ export function UploadStudio({ aiReady = false, pdfEnabled = false }: { aiReady?
           {uploadStudioBody()}
           {pdfEnabled
             ? aiReady
-              ? " AI vision can read photos and suggest tags when a merchant is still unlabelled."
+              ? " AI vision can read photos and suggest a category when a merchant is still unlabelled."
               : " Add OPENAI_API_KEY to .env.local to let AI read receipt photos; until then, photos use on-device OCR."
             : aiReady
-              ? " AI can suggest tags when a merchant is still unlabelled."
+              ? " AI can suggest a category when a merchant is still unlabelled."
               : ""}
         </p>
         <input
@@ -332,7 +331,6 @@ export function UploadStudio({ aiReady = false, pdfEnabled = false }: { aiReady?
                       <p className="font-semibold">{txn.merchant}</p>
                       <p className="mt-1 text-sm text-muted">
                         {taxonomyPath(txn.categoryKey)}
-                        {tagsOf(txn).length > 0 ? ` / ${tagsOf(txn).join(" · ")}` : ""}
                         {txn.decidedBy === "ai" ? " · suggested by AI" : ""} · {txn.date} · {txn.sourceFile}
                       </p>
                     </div>
