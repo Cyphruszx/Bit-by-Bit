@@ -147,8 +147,25 @@ export function describeSpan(from: string, to: string): string {
   return `${formatDisplayDate(from)} ${fromYear} – ${formatDisplayDate(to)} ${toYear}`;
 }
 
+/**
+ * Cents, with a half-cent going away from zero.
+ * `1.005` is `1.01` and `-1.005` is `-1.01`. Binary floats sit a hair under the
+ * half, so the decimal text is what gets rounded.
+ */
 export function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
+  if (!Number.isFinite(value)) return value;
+  const negative = value < 0;
+  const [wholeText, fracText = ""] = Math.abs(value).toFixed(8).split(".");
+  const digits = (fracText + "00000000").slice(0, 8);
+  let whole = Number(wholeText);
+  let cents = Number(digits.slice(0, 2));
+  if (digits[2] >= "5") cents += 1;
+  if (cents === 100) {
+    cents = 0;
+    whole += 1;
+  }
+  const signedCents = (whole * 100 + cents) * (negative ? -1 : 1);
+  return signedCents / 100;
 }
 
 function fromDayMonthYear(day: string, month: string, year: string): string | null {
