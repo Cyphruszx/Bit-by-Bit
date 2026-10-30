@@ -156,6 +156,10 @@ export type Ledger = {
   dashboardLayout?: DashboardLayout;
   /** BV.A.2c monthly plan: expected income and typed group and category amounts. */
   budgets?: BudgetBook;
+  /**
+   * Demo mode stand-in. Never written to the store. A signed-in ledger does not carry it.
+   */
+  demoSample?: boolean;
 };
 
 export type ImportReport = {

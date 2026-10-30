@@ -16,7 +16,7 @@ import { formatCount } from "@/lib/format";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const showPeriod = pathname !== "/settings";
-  const { dismissStarterReset, openReviewCount, ready, resetStarterData, starterResetNeeded } = useMoneyFlow();
+  const { dismissStarterReset, openReviewCount, ready, resetStarterData, showingSample, starterResetNeeded } = useMoneyFlow();
 
   return (
     <AppFrame>
@@ -60,6 +60,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             ) : null}
             <div className="pt-7">
+              {showingSample ? (
+                <p className="mb-4 rounded-[var(--radius-card)] bg-accent-surface px-3 py-2 text-sm font-semibold text-primary-strong">
+                  Demo mode · Sample
+                </p>
+              ) : null}
               {openReviewCount > 0 ? (
                 <p className="mb-4">
                   <Link

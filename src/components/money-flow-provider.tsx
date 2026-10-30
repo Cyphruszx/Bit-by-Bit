@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { authHasResolved, currentSession, useAuthResolved, useSession } from "@/components/session-store";
+import { demoSampleApplies, demoSampleLedger } from "@/lib/money-flow/demo-sample";
 import {
   adoptStarterList,
   appendToLedger,
@@ -135,6 +137,8 @@ type MoneyFlowState = {
   period: PeriodFilter;
   setPeriod: (period: PeriodFilter) => void;
   hasUploads: boolean;
+  /** Demo mode is showing the labelled sample, not a ledger the person uploaded. */
+  showingSample: boolean;
   /** False until the stored ledger has been read, so the UI can wait instead of flashing an empty one. */
   ready: boolean;
   /** Set when the stored ledger could not be read. Review shows this in the inspector. */
@@ -244,6 +248,8 @@ type MoneyFlowState = {
 const MoneyFlowContext = createContext<MoneyFlowState | null>(null);
 
 export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
+  const session = useSession();
+  const authReady = useAuthResolved();
   const held = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_SNAPSHOT);
   const period = useSyncExternalStore(subscribePeriod, getPeriod, getServerPeriod);
   const [starterDismissed, setStarterDismissed] = useState(false);
@@ -261,6 +267,21 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
     const adopted = adoptStarterList(held.ledger);
     if (adopted !== held.ledger) commit(adopted);
   }, [held.ready, held.ledger]);
+
+  useEffect(() => {
+    if (!held.ready || !authReady || session) return;
+    if (
+      !demoSampleApplies({
+        signedIn: false,
+        imports: held.ledger.imports.length,
+        entries: held.ledger.entries.length,
+        demoSample: held.ledger.demoSample,
+      })
+    ) {
+      return;
+    }
+    update({ ledger: demoSampleLedger() });
+  }, [authReady, held.ledger, held.ready, session]);
 
   const value = useMemo<MoneyFlowState>(() => {
     // Read past the overlap two downloads of one account share, so a week covered by both
@@ -314,6 +335,7 @@ export function MoneyFlowProvider({ children }: { children: React.ReactNode }) {
       learned: whatWasLearned(held.ledger.rules ?? {}, allTransactions),
       forgetLearned,
       hasUploads: held.ledger.imports.length > 0,
+      showingSample: held.ledger.demoSample === true,
       ready: held.ready,
       loadError: held.loadError,
       review,
@@ -426,14 +448,23 @@ function hydrate(): Promise<void> {
       // when the two are the same ledger costs nothing and changes nothing.
       const merged = mergeLedgers(snapshot.ledger, stored);
       const persisted = persistLoadedLedger(merged);
+      const showSample =
+        authHasResolved() &&
+        !currentSession() &&
+        demoSampleApplies({
+          signedIn: false,
+          imports: persisted.imports.length,
+          entries: persisted.entries.length,
+        });
+      const next = showSample ? demoSampleLedger() : persisted;
       update({
-        ledger: persisted,
+        ledger: next,
         ready: true,
         loadError: null,
       });
       // Older rows are rewritten in the current shape once, so a backup or a later
       // read sees categoryKey and tags rather than Food & Drink / food.groceries.
-      if (persisted !== merged && store) void store.save(persisted);
+      if (persisted !== merged && store && !next.demoSample) void store.save(persisted);
     })
     .catch(() => {
       if (mine === reading) {
@@ -479,6 +510,9 @@ function persistLoadedLedger(ledger: Ledger): Ledger {
 
 function commit(next: Ledger) {
   update({ ledger: next, loadError: null });
+  // The Demo mode sample stays on screen only. Saving it would merge it into a
+  // signed-in ledger the next time somebody signs in on this browser.
+  if (next.demoSample) return;
   // Saved through whichever store hydrate settled on. Before that resolves there is
   // nothing on screen to save, because nothing has been read yet.
   if (store) void store.save(next);
@@ -486,7 +520,8 @@ function commit(next: Ledger) {
 }
 
 function importDocuments(result: InterpretationResult, hashes?: Record<string, string>): ImportReport {
-  const { ledger: next, report } = appendToLedger(snapshot.ledger, result, { hashes });
+  const base = snapshot.ledger.demoSample ? EMPTY_LEDGER : snapshot.ledger;
+  const { ledger: next, report } = appendToLedger(base, result, { hashes });
   commit(next);
   // After an import the page goes back to the current month, even when the statement is older.
   if (report.added > 0) writePeriod(currentMonthPeriod());
