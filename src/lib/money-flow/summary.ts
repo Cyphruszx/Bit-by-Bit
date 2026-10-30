@@ -62,18 +62,20 @@ export type FlowOverTimePoint = {
  *
  * Tiles are Σ `base_amount` of CLEARED counted rows. Missing `status`/`baseAmount`
  * on a stored row means CLEARED / `amount` (interim for ledgers written before
- * those fields). Cash in/out still sum statement `amount` by sign only —
- * Transactions Money in / Money out use these, not Income, and omit every
- * TRANSFER kind (and proved pairs). Bank Transfer type and Up OFX pocket names
- * are classify paths that stamp TRANSFER; they are not a tile denylist.
- * Dashboard Net is `cashNet`. Spent bars are filed money out, not a type total.
+ * those fields). Money in / Money out use that same cleared set — not held as
+ * a duplicate, not pending, and not an open review hold — and still sum
+ * statement `amount` by sign. They are not the Income or Spending totals:
+ * a loan can be money in without being income. Own-account transfers stay out.
+ * Bank Transfer type and Up OFX pocket names are classify paths that stamp
+ * TRANSFER; they are not a tile denylist. Dashboard Net is `cashNet`.
+ * Spent bars are filed money out, not a type total.
  */
 export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): MoneyFlowSummary {
   const counted = countedMovements(transactions);
   const income = roundMoney(
     counted.filter(isEarnings).reduce((sum, txn) => sum + tileAmount(txn), 0),
   );
-  const cashRows = excludingInternalTransfers(transactions);
+  const cashRows = moneyInOutRows(transactions);
   const cashIn = roundMoney(
     cashRows.filter((txn) => txn.amount > 0).reduce((sum, txn) => sum + txn.amount, 0),
   );
@@ -122,10 +124,25 @@ export function summarizeMoneyFlow(transactions: InterpretedTransaction[]): Mone
 }
 
 /**
+ * Rows behind Money in and Money out.
+ *
+ * Same gate as Income and Spending: cleared (a missing status counts), not
+ * held as a duplicate, not pending, and not an open review hold. Own-account
+ * transfers are still left out, including a one-legged TRANSFER. A loan or
+ * other cleared credit stays in Money in even when it is not Income.
+ */
+export function moneyInOutRows(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
+  const held = moneyTrustHoldIds(transactions);
+  return excludingInternalTransfers(transactions).filter(
+    (txn) => isCleared(txn) && !held.has(txn.id),
+  );
+}
+
+/**
  * The movements a total should count, which is everything except a transfer whose two
  * legs are both in front of us. A one-legged TRANSFER stays in this set. Income and
- * Spending then leave it out via the type flags (F7). Money in / Money out use a
- * separate exclude and already drop either leg.
+ * Spending then leave it out via the type flags (F7). Money in / Money out use
+ * {@link moneyInOutRows}, which drops either leg.
  */
 export function countedMovements(transactions: InterpretedTransaction[]): InterpretedTransaction[] {
   // Spec 10 tiles are CLEARED-only. Missing status is CLEARED (legacy rows).

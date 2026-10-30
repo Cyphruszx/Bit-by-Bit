@@ -82,10 +82,9 @@ describe("stated statement balances", () => {
     const flow = summarizeMoneyFlow(rows);
     assert.equal(derivedMovementBalance(rows), 310);
     assert.equal(flow.cashIn, 350);
-    assert.equal(flow.cashOut, 120);
-    assert.equal(flow.cashNet, 230);
+    assert.equal(flow.cashOut, 40, "pending is out of Money out");
+    assert.equal(flow.cashNet, 310);
     assert.equal(flow.cashNet, flow.cashIn - flow.cashOut);
-    assert.notEqual(derivedMovementBalance(rows), flow.cashNet);
   });
 });
 

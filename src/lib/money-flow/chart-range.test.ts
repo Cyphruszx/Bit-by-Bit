@@ -217,7 +217,7 @@ describe("transactions chart range", () => {
     const today = "2026-10-18";
     const august = { kind: "month" as const, month: "2026-08" };
     const augustFlow = summarizeMoneyFlow(filterByPeriod(nab, august));
-    assert.equal(augustFlow.cashIn, 29282.95);
+    assert.equal(augustFlow.cashIn, 29252.95);
     assert.equal(augustFlow.cashOut, 2330.1);
     assert.equal(flowSeries(nab, "in", august, "day", today).total, augustFlow.cashIn);
     assert.equal(flowSeries(nab, "out", august, "day", today).total, augustFlow.cashOut);

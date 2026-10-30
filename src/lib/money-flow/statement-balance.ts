@@ -91,8 +91,9 @@ export function pickMostRecentStatedBalance(
 
 /**
  * Signed movement net for one account's estimate: every cleared row, including
- * transfer legs. PENDING stays out. Household Money in / Money out still exclude
- * transfers; this figure does not. Without a printed opening it is not a balance.
+ * transfer legs. PENDING stays out. Household Money in / Money out also leave
+ * out pending, duplicate holds, review holds, and own-account transfers. This
+ * figure does not. Without a printed opening it is not a balance.
  */
 export function derivedMovementBalance(transactions: InterpretedTransaction[]): number | null {
   const countable = transactions.filter((txn) => (txn.status ?? "CLEARED") !== "PENDING");

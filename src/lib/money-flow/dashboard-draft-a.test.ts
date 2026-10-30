@@ -310,9 +310,10 @@ describe("Draft A sample statements", () => {
 
     // Retired up-2025-07-to-2026-06.txt — all activity.
     // Printed closings stay stored and are not shown. Income is 0 without an earned verdict.
-    assert.equal(upFlow.cashIn, 70574.39);
+    // Bunnings $418.94 and Domino's $29.95 sit in Review as ambiguous refunds, so they are out of Money in.
+    assert.equal(upFlow.cashIn, 70125.5);
     assert.equal(upFlow.cashOut, 71631.34);
-    assert.equal(upFlow.cashNet, -1056.95);
+    assert.equal(upFlow.cashNet, -1505.84);
     assert.equal(upSnapshot.amount, null);
     assert.equal(upSnapshot.label, NO_BANK_BALANCE_LABEL);
     assert.equal(snapshotAsOfDate(up.transactions, up.tiles, up.meta), null);

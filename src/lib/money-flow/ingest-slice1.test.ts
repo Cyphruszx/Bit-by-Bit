@@ -201,7 +201,7 @@ describe("F4 file index and Up closing", () => {
 
     const spending = up.transactions.filter((row) => row.accountId === "Up · Spending");
     const flow = summarizeMoneyFlow(spending);
-    assert.equal(flow.cashIn, 70564.53);
+    assert.equal(flow.cashIn, 70115.64, "ambiguous refund credits are out of Money in");
     assert.equal(flow.cashOut, 71631.34);
     assert.equal(flow.income, 0);
   });

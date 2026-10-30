@@ -235,7 +235,7 @@ describe("dashboard widgets", () => {
     assert.equal(totalAccountBalance(tiles), null);
     assert.equal(tiles[0]?.accounts[0]?.amount, null);
     assert.equal(tiles[0]?.accounts[0]?.balanceLabel, "No balance from your bank.");
-    assert.equal(summarizeMoneyFlow(rows).cashOut, 80, "raw Money out still sees the pending debit");
+    assert.equal(summarizeMoneyFlow(rows).cashOut, 0, "pending is out of Money out");
     assert.equal(
       summarizeMoneyFlow(rows).categories.reduce((sum, row) => sum + row.amount, 0),
       0,

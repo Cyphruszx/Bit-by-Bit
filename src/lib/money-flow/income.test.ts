@@ -130,6 +130,6 @@ describe("the samples, split up", () => {
     const rows = await sampleLedger();
     assert.equal(unsettledGroups(rows).length, 0);
     assert.equal(summarizeMoneyFlow(rows).income, 0);
-    assert.equal(summarizeMoneyFlow(rows).cashNet, -507.51);
+    assert.equal(summarizeMoneyFlow(rows).cashNet, -956.4);
   });
 });

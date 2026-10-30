@@ -85,7 +85,7 @@ describe("Spec 7 closed reason set", () => {
 });
 
 describe("OPEN exclusion", () => {
-  it("holds unpaired transfer legs out of Income, Spending and Net, not cash", () => {
+  it("holds unpaired transfer legs out of Income, Spending, Net, and Money in/out", () => {
     const rows = [out, intoSave];
     const queue = buildReviewQueue(rows);
     assert.ok(queue.some((item) => item.reason === "UNPAIRED_TRANSFER" && item.state === "OPEN"));
@@ -96,8 +96,8 @@ describe("OPEN exclusion", () => {
     assert.equal(flow.income, 0, "OPEN credit is not Income");
     assert.equal(flow.refunds, 0);
     assert.equal(flow.transfers, 0);
-    assert.equal(flow.cashIn, 400, "cash still ties to the statement");
-    assert.equal(flow.cashOut, 400);
+    assert.equal(flow.cashIn, 0, "an open review hold is out of Money in");
+    assert.equal(flow.cashOut, 0, "an open review hold is out of Money out");
   });
 
   it("holds a refund-shaped credit out of tiles without reducing the original spend", () => {
