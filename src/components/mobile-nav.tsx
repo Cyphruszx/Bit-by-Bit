@@ -12,10 +12,11 @@ export function MobileNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-line bg-surface md:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+      style={{ minHeight: "calc(56px + env(safe-area-inset-bottom))" }}
       aria-label="Pages"
     >
-      <div className="flex">
+      <div className="flex h-14">
         {primaryLinks.map(([label, href]) => {
           const active = pathname === href;
           return (
@@ -23,14 +24,14 @@ export function MobileNav() {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex min-h-11 min-w-11 flex-1 items-center justify-center px-1 text-center text-[11px] font-semibold leading-tight ${
+              className={`flex min-h-11 min-w-11 flex-1 items-center justify-center px-1 text-center text-[12px] font-semibold leading-tight ${
                 active ? "bg-accent-surface text-primary" : "text-muted"
               }`}
             >
               <span>
                 {label}
                 {href === "/review" && openReviewCount > 0 ? (
-                  <span className="ml-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-[4px] border border-line bg-surface px-1 font-sans text-[11px] font-bold text-ink tabular-nums">
+                  <span className="ml-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-[4px] border border-line bg-surface px-1 font-sans text-[12px] font-bold text-ink tabular-nums">
                     {formatCount(openReviewCount)}
                   </span>
                 ) : null}

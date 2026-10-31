@@ -8,9 +8,10 @@
  * The Budget page leaves out Income, Unsorted (and the old Other group), and
  * Transfers. Unsorted spending is shown on its own and stays out of Spent,
  * Left to plan, and Left to spend. Investing and Debt Payments stay in Money
- * moves and count in all three. Transfers never counts as Spent. The dashboard
- * Budget card reads the same groups. Unsorted, when it is shown there, is spent
- * only and stays out of the planned total.
+ * moves and count in all three. Transfers never counts as Spent. Unsorted stays
+ * out of the planned total. The dashboard ring card reads this same month:
+ * a category amount is a ring, and a group amount is one ring when that group
+ * has no category amounts.
  */
 
 import { categoriesIn, type BookCategory, type CategoryBook } from "@/lib/money-flow/category-book";

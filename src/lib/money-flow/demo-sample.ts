@@ -2,6 +2,7 @@
  * Demo mode stand-in. Shown only while nobody is signed in and the ledger is
  * still empty. It is labelled Sample and is never written to the store.
  */
+import { emptyBudgetBook, setCategoryAmount, type BudgetBook } from "@/lib/money-flow/budget-plan";
 import { APP_TIME_ZONE } from "@/lib/money-flow/period";
 import { STARTER_LIST_VERSION } from "@/lib/money-flow/starter-list";
 import { appendToLedger, EMPTY_LEDGER, type Ledger } from "@/lib/money-flow/ledger";
@@ -67,7 +68,30 @@ export function demoSampleLedger(now = new Date()): Ledger {
       [NAB]: { kind: "CHECKING", currency: "AUD", clearedBalance: 2140.55, balanceSource: "running", balanceAsOf: asOf },
       [UP]: { kind: "CHECKING", currency: "AUD", clearedBalance: 860.2, balanceSource: "running", balanceAsOf: asOf },
     },
+    budgets: sampleBudgets(month),
   };
+}
+
+/**
+ * Category plans for the sample month, using the sample's own spending.
+ * A few categories sit over their amount so both ring styles show.
+ */
+function sampleBudgets(month: string): BudgetBook {
+  const plans: Record<string, number> = {
+    "rent-mortgage": 2300,
+    groceries: 100,
+    utilities: 120,
+    car: 100,
+    "internet-phone": 80,
+    "getting-around": 30,
+    "eating-out": 50,
+    streaming: 15,
+    medical: 17,
+  };
+  return Object.entries(plans).reduce(
+    (book, [key, amount]) => setCategoryAmount(book, month, key, amount),
+    emptyBudgetBook(),
+  );
 }
 
 function row(

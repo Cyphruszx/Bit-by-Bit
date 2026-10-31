@@ -378,11 +378,10 @@ describe("Draft A removed chrome", () => {
     const moneyIn = view.indexOf('label="Money in"');
     const moneyOut = view.indexOf('label="Money out"');
     const net = view.indexOf('label="Net"');
-    const total = view.indexOf('label="Total balance"');
-    assert.ok(moneyIn >= 0 && moneyIn < moneyOut && moneyOut < net && net < total);
+    assert.ok(moneyIn >= 0 && moneyIn < moneyOut && moneyOut < net);
     assert.match(view, /flow\.cashIn/);
     assert.match(view, /flow\.cashOut/);
     assert.match(view, /flow\.cashNet/);
-    assert.match(view, /snapshotAsOfDate\(allTransactions/);
+    assert.equal(view.includes("Total balance"), false);
   });
 });
