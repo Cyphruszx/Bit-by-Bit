@@ -129,6 +129,20 @@
   --radius-mark: 2px;
   --radius-inner: 2px;
 
+  /*
+    Pending card surface. Steven is still choosing the border, shadow, radius,
+    padding, and header. Dashboard cards read only these tokens, through
+    .ui-card-surface and .ui-card. The hairline and soft shadow are a placeholder.
+  */
+  --page-background: var(--color-canvas);
+  --card-surface: var(--color-surface);
+  --card-border: var(--color-line);
+  --card-border-width: 1px;
+  --card-radius: 16px;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  --card-padding: 20px;
+  --card-header-gap: 12px;
+
   --card-bg: #ffffff;
   --card-border: #e3e6ea;
   --header-bg: #ffffff;
@@ -220,6 +234,39 @@ a:hover {
   min-height: 100vh;
   color: var(--color-ink);
   background: var(--canvas-gradient);
+}
+
+.app-frame-flat {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  color: var(--color-ink);
+  background: var(--page-background);
+}
+
+h1.page-title {
+  margin: 0;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.ui-card-surface {
+  background: var(--card-surface);
+  border: var(--card-border-width) solid var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.ui-card {
+  padding: var(--card-padding);
+}
+
+button.ring-hit:hover,
+a.ring-hit:hover {
+  opacity: 1;
 }
 
 .app-sweep {
